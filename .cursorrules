@@ -1,0 +1,63 @@
+# Fresh Greens — Cursor Rules
+
+You are helping build Fresh Greens, a thesis navigation/safety app. The user values **understanding** the code, not just shipping it. Default to explaining tradeoffs and naming what you're doing. Push back if a request would create tech debt or violate a design rule below.
+
+## Stack
+- Expo (managed workflow) + React Native + TypeScript
+- `expo-router` for navigation (file-based)
+- `react-native-maps` for the map (Apple Maps on iOS)
+- `expo-location` for permissions
+- StyleSheet API for styling — **do not** introduce Tailwind / NativeWind / styled-components without asking
+- `useState` + Context for state — **do not** introduce Redux / Zustand / Jotai without asking
+
+## Design source of truth
+Figma file `7DDh6c7tk7OKF4WiA7pEkp`, root canvas `825:3161` ("Flow tab"). Use the Figma MCP server (`get_design_context`) to pull live nodes. The Figma file leads; this codebase follows. If a rule below conflicts with what's in Figma today, ask before changing it.
+
+## Color tokens
+- Freshgreen `#41AD49` — primary CTA, in-flow links
+- Wiltedgreen `#326936` — secondary / atmospheric headers
+- Burntgreen `#003F04` — deep accents (e.g. turn-card "Then" footer)
+- Fadedgreen `#A0D6A4` — supporting fills
+- Yellow `#FFCC00` — reserved (caution signal)
+- Red `#FF3B30` — reserved (alert signal)
+- Orange `#FF9500` — reserved (hazard / speed limit / construction)
+- Pink `#FF2D55` — defined but role TBD; ask before using
+- Navy — reserved (Safety modal shield only, as UI signal)
+
+## Reserved-color rule
+Yellow, Red, Orange, Navy, and the daylight gradient are **UI signals**. In-flow CTAs and links use Freshgreen or Wiltedgreen — never the reserved palette. Documented exceptions:
+
+1. **Brand/onboarding splash** may use reserved colors as atmospheric backgrounds (Welcome screen orange = sunrise).
+2. **Illustrations** are exempt — illustrative navy ≠ UI navy.
+3. **Daylight gradient** on route map (red/orange polylines) encodes daylight availability with a legend in the bottom sheet — functional, not signaling. Implementation note: drive from sunrise/sunset data per route segment, not a baked image.
+
+## Search bar contextual treatment
+- White + Elevation 3 shadow when **floating over map/imagery**
+- Fills/Tertiary gray + no shadow when **embedded on a flat surface**
+The shadow is a physical-metaphor cue, not a fixed style.
+
+## Typography
+- SF Pro family, iOS type ramp
+- Guidance/instruction screens: Title1 **Emphasized** (bold)
+- **Emotional-restraint exception:** Title1 **Regular** is permitted on emotionally charged screens (Contact "You're not alone.", Trip Summary arrival) — bold would feel imperative; regular feels held.
+
+## Tap targets
+iOS HIG 44×44 pt minimum on both axes. Extending the hit area while keeping a smaller visual is acceptable (`hitSlop` on Pressable).
+
+## Code conventions
+- TypeScript strict mode. No `any` without a comment justifying it.
+- Components live in `app/` (route screens) or `components/` (reusable). One component per file unless tightly coupled.
+- Colocate screen-specific helpers next to the screen, not in a global `utils/`.
+- API adapters in `lib/api/` — each external service gets a typed adapter with a mock-response fallback so UI can render without network.
+- Secrets in `.env.local` (gitignored), read via `expo-constants`. Never inline an API key.
+- Small commits with conventional-commit messages (`feat:`, `fix:`, `chore:`, `docs:`).
+
+## Comprehension defaults
+- When generating non-trivial code, briefly explain what it does and the key tradeoff. Do not over-abstract — prefer one obvious function over three layered ones.
+- If asked to add a library, name a lighter alternative and confirm before installing.
+- Flag when you're guessing about a Figma detail vs. when you've verified it via MCP.
+
+## Out of scope (don't touch unless asked)
+- CI/CD, EAS Build configuration, app store metadata
+- Analytics, crash reporting, telemetry
+- Theming / dark mode (single light theme for thesis scope)
