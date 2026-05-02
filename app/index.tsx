@@ -7,9 +7,13 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from './theme/colors';
+import { colors } from '../theme/colors';
 
-export default function App() {
+/**
+ * Welcome screen — the `/` route (default landing).
+ * Figma node: 825:3162
+ */
+export default function Welcome() {
   return (
     <View style={styles.root}>
       {/*
