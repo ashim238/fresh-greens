@@ -57,6 +57,14 @@ iOS HIG 44×44 pt minimum on both axes. Extending the hit area while keeping a s
 - If asked to add a library, name a lighter alternative and confirm before installing.
 - Flag when you're guessing about a Figma detail vs. when you've verified it via MCP.
 
+## Anti-slop checks (apply BEFORE generating)
+1. **Search before creating.** Before creating a new component, util, or constant, search the project (`components/`, `theme/`, `lib/`) for an existing one. If something close exists, use or extend it instead of creating a parallel version.
+2. **No hardcoded design values.** Never write a hex color, font size, or spacing value inline in a screen. Pull from `theme/`. If a needed token doesn't exist, add it to `theme/` first, then use it.
+3. **Rule of three.** Don't extract a "reusable" abstraction until the same code has appeared inline three times. Premature abstraction is its own slop.
+4. **No new dependencies without flagging.** Before suggesting `npm install <anything>`, name what's being added, why a built-in or existing dep can't do the job, and the install size. Wait for confirmation.
+5. **Delete what you replace.** When refactoring, remove the old code in the same diff. Don't leave dead siblings "in case."
+6. **Match existing patterns.** If the project already does X one way, keep doing X that way. Don't introduce a second pattern for the same problem without flagging the inconsistency.
+
 ## Out of scope (don't touch unless asked)
 - CI/CD, EAS Build configuration, app store metadata
 - Analytics, crash reporting, telemetry
