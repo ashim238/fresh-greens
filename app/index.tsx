@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Pressable,
@@ -14,6 +15,8 @@ import { colors } from '../theme/colors';
  * Figma node: 825:3162
  */
 export default function Welcome() {
+  const router = useRouter();
+
   return (
     <View style={styles.root}>
       {/*
@@ -75,10 +78,12 @@ export default function Welcome() {
           <Pressable
             style={[styles.button, styles.buttonPrimary]}
             accessibilityRole="button"
+            onPress={() => router.push('/get-started')}
           >
             <Text style={styles.buttonText}>Get started</Text>
           </Pressable>
 
+          {/* TODO: route to /login once that screen exists */}
           <Pressable
             style={[styles.button, styles.buttonSecondary]}
             accessibilityRole="button"
