@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 /**
  * Get Started — auth/signup entry screen.
@@ -139,11 +140,8 @@ const styles = StyleSheet.create({
     height: 200,
   },
   title: {
+    ...typography.title1Emphasized,
     color: colors.white,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-    letterSpacing: 0.38,
     textAlign: 'center',
     marginBottom: 88, // matches Figma — gap between title and button stack
   },
@@ -163,11 +161,8 @@ const styles = StyleSheet.create({
     gap: 8, // space between (future) icon and label
   },
   outlinedButtonText: {
+    ...typography.subheadlineEmphasized,
     color: colors.white,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '600',
-    letterSpacing: -0.23,
   },
   divider: {
     flexDirection: 'row',
@@ -181,23 +176,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.wiltedgreen,
   },
   dividerLabel: {
+    ...typography.caption1Regular,
     color: colors.freshgreen,
-    fontSize: 12,
-    lineHeight: 16,
   },
   loginRow: {
     paddingVertical: 16,
     alignItems: 'center',
   },
   loginPrompt: {
+    ...typography.footnoteRegular,
     color: colors.white,
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.08,
     textAlign: 'center',
   },
   loginLink: {
+    // Inner Text inherits size/lineHeight/letterSpacing from loginPrompt;
+    // we only need the weight bump for "Log in" + the green color.
     color: colors.freshgreen,
-    fontWeight: '600',
+    fontWeight: typography.footnoteEmphasized.fontWeight,
   },
 });

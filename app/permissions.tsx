@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 /**
  * Permissions — onboarding step 4 of 4. Asks the user to grant location access.
@@ -157,17 +158,12 @@ const styles = StyleSheet.create({
     gap: 16, // gap between body and "Tap Settings below:"
   },
   body: {
+    ...typography.subheadlineEmphasized,
     color: colors.white,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '600',
-    letterSpacing: -0.23,
   },
   tapInstruction: {
+    ...typography.footnoteRegular,
     color: colors.white,
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.08,
   },
   subDirections: {
     gap: 16,
@@ -188,10 +184,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.3)',
   },
   subText: {
+    ...typography.footnoteRegular,
     color: colors.white,
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.08,
   },
   cta: {
     alignSelf: 'flex-start', // left-align inside content (which now stretches its other children)
@@ -203,9 +197,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaText: {
+    ...typography.subheadlineEmphasized,
     color: colors.white,
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: -0.23,
   },
 });

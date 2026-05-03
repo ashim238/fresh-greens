@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 /**
  * Onboarding panel 1 — "Drive like you know these roads."
@@ -106,18 +107,12 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   title: {
+    ...typography.largeTitleEmphasized,
     color: colors.white,
-    fontSize: 34,
-    lineHeight: 41,
-    fontWeight: '700',
-    letterSpacing: 0.4,
   },
   body: {
+    ...typography.bodyRegular,
     color: colors.white,
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '400',
-    letterSpacing: -0.43,
   },
   actions: {
     width: '100%',
@@ -133,11 +128,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   continueText: {
+    ...typography.subheadlineEmphasized,
     color: colors.white,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '600',
-    letterSpacing: -0.23,
   },
   skipBtn: {
     height: 48,
@@ -145,11 +137,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   skipText: {
+    ...typography.subheadlineEmphasized,
     color: colors.white,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '600',
-    letterSpacing: -0.23,
     textDecorationLine: 'underline',
   },
 });

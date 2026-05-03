@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
 
 /**
  * Welcome screen — the `/` route (default landing).
@@ -179,17 +180,12 @@ const styles = StyleSheet.create({
     marginBottom: 160, // matches Figma — pushes title up because actions are anchored at the bottom
   },
   title: {
+    ...typography.title1Emphasized,
     color: colors.white,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-    letterSpacing: 0.38,
   },
   subtitle: {
+    ...typography.subheadlineRegular,
     color: colors.white,
-    fontSize: 15,
-    lineHeight: 20,
-    letterSpacing: -0.23,
     marginTop: 16,
   },
   actions: {
@@ -214,10 +210,8 @@ const styles = StyleSheet.create({
     gap: 4, // matches Figma — small gap between the two stacked rows
   },
   termsText: {
+    ...typography.caption2Regular,
     color: colors.white,
-    fontSize: 11,
-    lineHeight: 13,
-    letterSpacing: 0.06,
   },
   link: {
     color: colors.freshgreen,
@@ -237,10 +231,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.wiltedgreen,
   },
   buttonText: {
+    ...typography.subheadlineEmphasized,
     color: colors.white,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '600',
-    letterSpacing: -0.23,
   },
 });

@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/typography-tokens (2026-05-03)
+
+- **Spread + override is the canonical token consumption pattern.** Spread the token to inherit the contract (size, weight, letter spacing), then add overrides (color, alignment, decorations) below. Reads top-down as "what kind of text + what's special about this instance."
+- **Pull a single property when nested Text inherits.** For inner `<Text>` inside an outer `<Text>`, RN inherits size/lineHeight/letterSpacing automatically — only override the property that differs (e.g. `fontWeight: typography.footnoteEmphasized.fontWeight`). Spreading the whole token would re-apply already-inherited values redundantly.
+- **A successful refactor has zero visual diff.** "Looks identical" is the success state. If something looks different post-refactor, the token or the consumer is wrong.
+
+---
+
 ## feat/onboarding-1 (2026-05-03)
 
 - **iOS system font is SF Pro by default** — leave `fontFamily` unset on `<Text>` and you get SF Pro automatically. Setting `fontFamily: 'SF Pro'` explicitly doesn't work; the system font is accessed by *not* naming it.
