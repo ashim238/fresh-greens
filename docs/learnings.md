@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/button-icons (2026-05-03)
+
+- **`@expo/vector-icons` ships with Expo** — no install needed. Re-exports Ionicons, MaterialIcons, Feather, FontAwesome, and others. Used like a component: `<Ionicons name="logo-apple" size={20} color={colors.white} />`.
+- **Icon names are type-checked.** Typos get red-underlined in Cursor before save. The type system teaching you the API.
+- **Icon fonts vs PNG icons:** font glyphs render at any size, recolor via `color` prop, stay sharp on every density. Use fonts for UI icons; reserve PNG/SVG for illustrations and brand assets that font sets can't match (e.g., the multi-color Google G).
+- **Browse icons at icons.expo.fyi.** Searchable across all bundled libraries; click → copy the name.
+- **Code can change the design too.** Bumped icon size from 24→20 in code, then updated Figma to match. The Figma file is source of truth, but the bidirectional loop is real — don't be afraid to push back when the implementation suggests a tweak.
+
+---
+
 ## feat/screen-illustrations (2026-05-02)
 
 - **`<Image>` needs explicit width AND height.** The `left: 0, right: 0` shorthand that implicitly widths a `<View>` doesn't reliably work on Image — RN can fall back to the asset's natural pixel size (huge, since 3x exports are 3× the design dimensions). Always set `width` explicitly.

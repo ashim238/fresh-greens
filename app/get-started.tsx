@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import {
   Image,
@@ -50,7 +51,7 @@ export default function GetStarted() {
             accessibilityRole="button"
             accessibilityLabel="Continue with Apple"
           >
-            {/* TODO: Apple logo icon */}
+            <Ionicons name="logo-apple" size={20} color={colors.white} />
             <Text style={styles.outlinedButtonText}>Continue with Apple</Text>
           </Pressable>
 
@@ -59,7 +60,12 @@ export default function GetStarted() {
             accessibilityRole="button"
             accessibilityLabel="Continue with Google"
           >
-            {/* TODO: Google logo icon */}
+            {/*
+              TODO: replace with brand-accurate multi-color Google G.
+              Ionicons only ships a single-color glyph; the official Google asset
+              has brand guidelines that warrant a separate import later.
+            */}
+            <Ionicons name="logo-google" size={20} color={colors.white} />
             <Text style={styles.outlinedButtonText}>Continue with Google</Text>
           </Pressable>
 
@@ -68,7 +74,7 @@ export default function GetStarted() {
             accessibilityRole="button"
             accessibilityLabel="Continue with Email"
           >
-            {/* TODO: Email envelope icon */}
+            <Ionicons name="mail-outline" size={20} color={colors.white} />
             <Text style={styles.outlinedButtonText}>Continue with Email</Text>
           </Pressable>
 
