@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -22,16 +23,8 @@ export default function Permissions() {
       <StatusBar style="light" />
 
       <SafeAreaView style={styles.safe}>
-        {/*
-          Page control: 4 dots, last one active. Marks this as the final
-          step in the onboarding sequence (Onboarding 1/2/3 + Permissions).
-        */}
-        <View style={styles.pageControl}>
-          <View style={[styles.dot, styles.dotInactive]} />
-          <View style={[styles.dot, styles.dotInactive]} />
-          <View style={[styles.dot, styles.dotInactive]} />
-          <View style={styles.dot} />
-        </View>
+        {/* Step 4 of 4 — final step in the onboarding sequence */}
+        <PageControl total={4} activeIndex={3} />
 
         {/*
           Content fills the remaining vertical space, centered. Children
@@ -118,22 +111,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32, // matches Figma — works directly on SafeAreaView now that we use react-native-safe-area-context
     paddingBottom: 34,
-  },
-  pageControl: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    alignSelf: 'center', // dots stay centered horizontally even though parent is left-aligned now
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.white,
-  },
-  dotInactive: {
-    opacity: 0.3,
   },
   content: {
     flex: 1,
