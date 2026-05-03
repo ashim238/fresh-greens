@@ -4,6 +4,19 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/screen-illustrations (2026-05-02)
+
+- **`<Image>` needs explicit width AND height.** The `left: 0, right: 0` shorthand that implicitly widths a `<View>` doesn't reliably work on Image — RN can fall back to the asset's natural pixel size (huge, since 3x exports are 3× the design dimensions). Always set `width` explicitly.
+- **`require('../path/to/file.png')` bundles a local asset at build time.** Different from `source={{ uri: 'https://...' }}` which fetches a remote URL at runtime. Metro reads `require()` calls statically and packs the file into the app bundle.
+- **`resizeMode="contain"` fits the image inside its bounds preserving aspect ratio.** Other options: `cover` (fills, may crop), `stretch` (fills, may distort), `center` (no scaling). `contain` is almost always right for illustrations.
+- **`transform: [{ translateX: N }, { translateY: M }]` shifts an element visually without affecting layout flow.** Negative Y = up (screen coords have y pointing down). Use for fine-tuning position without cascading into siblings.
+- **JSX source order = paint order for overlapping absolute siblings.** Earlier in JSX = behind, later = in front. No `z-index` needed for sibling overlaps. Useful for masking via overlap (sun behind hill = clean rising-sun silhouette without a pre-clipped asset).
+- **Centering an absolutely-positioned element:** `left: '50%', marginLeft: -<half-width>`. The `left: 50%` puts the *left edge* at center; the negative margin pulls the element back so its *center* sits on center. Same trick vertically with `top` + `marginTop`.
+- **`accessible={false}` on decorative images** tells VoiceOver to skip them. Sun, clouds, atmospheric art = decorative; UI icons that convey meaning = `accessible={true}` with a label.
+- **New asset directories sometimes need `npx expo start -c`** to be picked up by Metro's file watcher. Hot reload works for code changes but can miss brand-new directories.
+
+---
+
 ## feat/get-started (2026-05-02)
 
 - **`onPress={handler()}` runs at render time and is almost always wrong.** `onPress` wants a function, not the result of calling one. Three forms: `onPress={fn}` if no args, `onPress={() => fn(arg)}` if args, never `onPress={fn()}`.

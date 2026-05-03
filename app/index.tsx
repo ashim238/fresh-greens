@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -26,6 +27,18 @@ export default function Welcome() {
       <StatusBar style="light" />
 
       {/*
+        Sun — rendered BEFORE the hill so the hill paints over its bottom half,
+        creating the "rising sun" silhouette without needing a pre-clipped asset.
+        JSX source order = z-order: later siblings render on top.
+      */}
+      <Image
+        source={require('../assets/illustrations/welcome-sun.png')}
+        style={styles.sun}
+        resizeMode="contain"
+        accessible={false}
+      />
+
+      {/*
         The hill. Sits absolutely at the bottom, behind the content.
         Approximated with a tall View + a big top borderRadius — good enough
         for v1. The Figma version has a more organic curve we can swap in
@@ -34,17 +47,25 @@ export default function Welcome() {
       <View style={styles.hill} />
 
       {/*
-        TODO: drop in the Figma illustration (Vic + clouds + sun + wind glyphs)
-        as a single PNG export. Skipping for v1 to ship the layout first.
-      */}
-
-      {/*
         SafeAreaView pads its children away from the notch and home indicator
         so text/buttons don't sit underneath them.
       */}
       <SafeAreaView style={styles.content}>
-        {/* Top spacer pushes the title block toward the hill */}
-        <View style={styles.illustrationPlaceholder} />
+        {/*
+          The Vic character. resizeMode="contain" scales the image to fit
+          inside its container while preserving aspect ratio — no squish.
+          The wrapping View has flex: 1 so it claims the leftover vertical
+          space (same role the placeholder used to play).
+        */}
+        <View style={styles.illustrationContainer}>
+          <Image
+            source={require('../assets/illustrations/welcome-vic.png')}
+            style={styles.welcomeVic}
+            resizeMode="contain"
+            accessible
+            accessibilityLabel="Illustration of a person waving from inside a location pin"
+          />
+        </View>
 
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Fresh Greens</Text>
@@ -116,13 +137,37 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 600,
     borderTopRightRadius: 600,
   },
+  sun: {
+    // Centered horizontally on screen, sitting at the top of the hill so the
+    // bottom half is hidden by the hill's overlap (the hill renders later in
+    // JSX = paints on top).
+    position: 'absolute',
+    top: '41%', // tune to nudge sun up/down relative to the hill ridge
+    left: '50%',
+    marginLeft: -45, // half the width — classic absolute-centering trick
+    width: 90,
+    height: 90,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
-  illustrationPlaceholder: {
+  illustrationContainer: {
     flex: 1, // claims all leftover vertical space above the title
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  welcomeVic: {
+    width: 200,
+    height: 250,
+    // transform shifts the image without affecting layout flow.
+    // translateX negative = move left (so the marker pin's point lines up
+    //   with the canvas's horizontal center, compensating for the raised arm
+    //   extending the bounding box to the left).
+    // translateY negative = move up (creating room below for the sun export).
+    // Tune both numbers to taste.
+    transform: [{ translateX: -20 }, { translateY: -50 }],
   },
   titleBlock: {
     alignItems: 'center',
