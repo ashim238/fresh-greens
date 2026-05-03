@@ -2,11 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import {
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
 
@@ -112,13 +112,10 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.wiltedgreen,
-    // Horizontal padding lives here, NOT on SafeAreaView — the built-in
-    // SafeAreaView aggressively manages its own insets and can override
-    // horizontal padding set on it directly.
-    paddingHorizontal: 32,
   },
   safe: {
     flex: 1,
+    paddingHorizontal: 32, // matches Figma — works directly on SafeAreaView now that we use react-native-safe-area-context
     paddingBottom: 34,
   },
   pageControl: {
