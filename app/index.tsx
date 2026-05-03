@@ -105,13 +105,14 @@ export default function Welcome() {
           </Pressable>
 
           {/*
-            TEMP: this button is wired to /permissions for in-progress dev
-            testing. Real destination is /login once that screen exists.
+            TEMP: wired to /onboarding-1 for in-progress dev testing.
+            Real destination is /login once that screen exists. Chain to
+            walk through: Welcome → onboarding-1 → Skip → permissions.
           */}
           <Pressable
             style={[styles.button, styles.buttonSecondary]}
             accessibilityRole="button"
-            onPress={() => router.push('/permissions')}
+            onPress={() => router.push('/onboarding-1')}
           >
             <Text style={styles.buttonText}>Have an account? Log in</Text>
           </Pressable>

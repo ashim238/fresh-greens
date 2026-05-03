@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/onboarding-1 (2026-05-03)
+
+- **iOS system font is SF Pro by default** — leave `fontFamily` unset on `<Text>` and you get SF Pro automatically. Setting `fontFamily: 'SF Pro'` explicitly doesn't work; the system font is accessed by *not* naming it.
+- **RN's `fontWeight` only accepts standard 100-step values** (100, 200, ..., 900). Figma's "Semibold" is technically PostScript weight 590, but RN maps Semibold to 600. Visually identical to the eye; spec-different on paper. Don't try to set 590 in RN — it'll snap to 600 anyway.
+- **Rule-of-three trigger.** Same typography scale used inline across Welcome, Get Started, Permissions, Onboarding 1 — past the threshold. Same for the page-control 4-dot pattern. Both should be extracted in a follow-up `chore/` PR.
+
+---
+
 ## feat/permissions (2026-05-03)
 
 - **JSX nesting often needs to mirror Figma's group nesting.** A Figma group with `gap: 32` between visual-block and CTA isn't decorative — it's load-bearing structure. Flattening it into siblings of the SafeAreaView lost the relationship and put the CTA at the bottom instead of 32pt below the sub-instructions.
