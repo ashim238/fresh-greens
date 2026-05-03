@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import {
+  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -21,11 +22,21 @@ export default function GetStarted() {
 
       {/*
         Background split: top wiltedgreen sky, bottom burntgreen ground.
-        Flat divider (not a hill curve) — cars will eventually sit on the seam.
+        Flat divider — cars sit right on the seam.
       */}
       <View style={styles.ground} />
 
-      {/* TODO: row of cartoon cars + smoke trail across the divider */}
+      {/*
+        Cars + smoke trail. Anchored absolutely to the divider line (top: 20%
+        matches the ground's 80% bottom height). Spans the full width.
+      */}
+      <Image
+        source={require('../assets/illustrations/get-started-cars.png')}
+        style={styles.cars}
+        resizeMode="contain"
+        accessible
+        accessibilityLabel="Three cartoon cars driving across the horizon with smoke trail"
+      />
 
       <SafeAreaView style={styles.content}>
         <View style={styles.spacerTop} />
@@ -96,6 +107,20 @@ const styles = StyleSheet.create({
     right: 0,
     height: '80%',
     backgroundColor: colors.burntgreen,
+  },
+  cars: {
+    // Anchored to the seam between sky (top 20%) and ground (bottom 80%).
+    // Explicit width: '100%' is required — Image + absolute positioning with
+    // only left/right shorthand can fall back to the asset's natural pixel
+    // size (huge, since it's a 3x export).
+    position: 'absolute',
+    top: '16%',
+    left: 0,
+    width: '100%',
+    height: 110,
+    // translateX shifts the whole image right, pushing the smoke trail off
+    // the left edge while the cars sit in the right portion of the screen.
+    transform: [{ translateX: 110 }],
   },
   content: {
     flex: 1,
