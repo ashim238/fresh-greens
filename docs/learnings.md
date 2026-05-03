@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/permissions (2026-05-03)
+
+- **JSX nesting often needs to mirror Figma's group nesting.** A Figma group with `gap: 32` between visual-block and CTA isn't decorative — it's load-bearing structure. Flattening it into siblings of the SafeAreaView lost the relationship and put the CTA at the bottom instead of 32pt below the sub-instructions.
+- **`alignItems: 'flex-start'` cascades through wrapper Views.** Each level inherits "be as small as your kids," which collapses long Text down to its intrinsic line width and visually swallows parent padding. Default `alignItems: 'stretch'` lets wrappers fill the cross-axis so Text wraps within the proper width.
+- **The robust pattern: default `stretch` + `alignSelf` overrides on exceptions.** Don't flip the parent's `alignItems` and then compensate everywhere; let stretch be the default and add `alignSelf: 'flex-start'` (or `center`) only on the children that need different behavior.
+- **Built-in `SafeAreaView` clobbers horizontal padding** because its inset application runs after React applies your styles and touches the same padding properties. Workaround: put `paddingHorizontal` on a parent View, leave only vertical concerns on SafeAreaView. Real fix: migrate to `react-native-safe-area-context` (next PR).
+- **TEMP-wire pattern for testing in-progress routes.** When a screen exists but isn't reachable from the proper flow yet, temporarily wire an existing button to navigate there, with a clear `// TEMP:` comment so it's grep-able and obviously not permanent. Better than building a hidden dev menu just for one route.
+
+---
+
 ## feat/button-icons (2026-05-03)
 
 - **`@expo/vector-icons` ships with Expo** — no install needed. Re-exports Ionicons, MaterialIcons, Feather, FontAwesome, and others. Used like a component: `<Ionicons name="logo-apple" size={20} color={colors.white} />`.

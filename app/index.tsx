@@ -104,10 +104,14 @@ export default function Welcome() {
             <Text style={styles.buttonText}>Get started</Text>
           </Pressable>
 
-          {/* TODO: route to /login once that screen exists */}
+          {/*
+            TEMP: this button is wired to /permissions for in-progress dev
+            testing. Real destination is /login once that screen exists.
+          */}
           <Pressable
             style={[styles.button, styles.buttonSecondary]}
             accessibilityRole="button"
+            onPress={() => router.push('/permissions')}
           >
             <Text style={styles.buttonText}>Have an account? Log in</Text>
           </Pressable>
