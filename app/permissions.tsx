@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Pressable,
@@ -18,6 +19,8 @@ import { typography } from '../theme/typography';
  * Figma node: 825:3585
  */
 export default function Permissions() {
+  const router = useRouter();
+
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -86,13 +89,15 @@ export default function Permissions() {
           </View>
 
           {/*
-            TODO: wire to Linking.openSettings() so the button actually opens
-            iOS Settings. Visual-only for v1.
+            TEMP: wired to /home for in-progress dev testing of the map screen.
+            Real behavior (next PR): Linking.openSettings() to open iOS Settings,
+            then auto-nav to /home once permission is granted on return.
           */}
           <Pressable
             style={styles.cta}
             accessibilityRole="button"
             accessibilityLabel="Open Settings"
+            onPress={() => router.push('/home')}
           >
             <Text style={styles.ctaText}>Settings</Text>
           </Pressable>
