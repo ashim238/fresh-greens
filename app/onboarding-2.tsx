@@ -8,14 +8,14 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 /**
- * Onboarding panel 1 — "Drive like you know these roads."
- * First of three onboarding panels; Permissions is the 4th step in the
- * page-control sequence.
+ * Onboarding panel 2 — "For us, by us."
+ * Second of three onboarding panels (Permissions is the 4th step in the
+ * page-control sequence).
  *
- * Route: /onboarding-1
- * Figma node: 825:3382
+ * Route: /onboarding-2
+ * Figma node: 825:3444
  */
-export default function Onboarding1() {
+export default function Onboarding2() {
   const router = useRouter();
 
   return (
@@ -23,32 +23,31 @@ export default function Onboarding1() {
       <StatusBar style="light" />
 
       <SafeAreaView style={styles.safe}>
-        {/* Top content: page control + title + body */}
         <View style={styles.topContent}>
-          <PageControl total={4} activeIndex={0} />
+          <PageControl total={4} activeIndex={1} />
 
           <View style={styles.titleAndCopy}>
-            <Text style={styles.title}>Drive like you know these roads</Text>
+            <Text style={styles.title}>For us, by us</Text>
             <Text style={styles.body}>
-              No one should feel uncomfortable on the open road. Fresh Greens
-              places the agency back in your hands by suggesting routes that
-              maximize visibility and familiarity.
+              Fresh Greens relies on insights shared by travelers like you.
+              Community contributions are vital in the mapping process,
+              ensuring drivers have a full understanding of their surroundings,
+              from road hazards to the treatment{'\n'}of Black visitors.
             </Text>
           </View>
         </View>
 
         {/*
-          TODO: export the hands + steering wheel illustration from Figma
-          and render here as an absolute-positioned <Image>.
+          TODO: export the sitting figure + speech bubble illustration from
+          Figma and render here as an absolute-positioned <Image>.
         */}
 
-        {/* Bottom CTAs */}
         <View style={styles.actions}>
+          {/* TODO: wire to /onboarding-3 once that screen exists */}
           <Pressable
             style={styles.continueBtn}
             accessibilityRole="button"
             accessibilityLabel="Continue to next onboarding step"
-            onPress={() => router.push('/onboarding-2')}
           >
             <Text style={styles.continueText}>Continue</Text>
           </Pressable>
@@ -76,7 +75,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     paddingBottom: 34,
-    justifyContent: 'space-between', // top content vs bottom CTAs
+    justifyContent: 'space-between',
   },
   topContent: {
     width: '100%',
@@ -96,8 +95,6 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
-    // No gap between Continue and Skip — skipBtn's height: 48 already
-    // provides comfortable separation.
   },
   continueBtn: {
     backgroundColor: colors.freshgreen,

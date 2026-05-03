@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/onboarding-2 (2026-05-03)
+
+- **Extract on the third use, not before.** Two inline copies of the page-control pattern stayed inline. The third occasion is when you write `<PageControl />` for the first time — and at the same time, retrofit the two prior consumers to use it. Earlier extraction over-fits to the first variant; later extraction accumulates drift between copies.
+- **Replicate Figma's structure 1:1 when reasonable.** Figma's "Page Control" is an h-44 wrapper with the dots vertically centered. Translating that as `height: 44` + `alignItems: 'center'` (instead of guessing at paddingVertical math) keeps the design-to-code mapping legible. Whoever opens Figma and the file should see the same shape on both sides.
+- **`false` in a style array is a no-op.** `style={[styles.dot, isInactive && styles.dotInactive]}` evaluates to either `[styles.dot, styles.dotInactive]` or `[styles.dot, false]`. RN's array merger silently ignores the `false`. Cleanest conditional-style pattern.
+- **`Array.from({ length: n }).map((_, i) => ...)`** is the canonical "render n elements" pattern when you don't have a real array of data. The underscore signals "we don't care about the value, only the index."
+- **`justifyContent: 'space-between'` doesn't mean buttons are pinned independently.** When the top child grows, the distributed gap shrinks; the bottom child stays at the bottom but appears closer to the body. Not a bug — feature of how the flex distribution works. The fix when this matters is usually a missing illustration filling the middle, not a layout change.
+
+---
+
 ## chore/typography-tokens (2026-05-03)
 
 - **Spread + override is the canonical token consumption pattern.** Spread the token to inherit the contract (size, weight, letter spacing), then add overrides (color, alignment, decorations) below. Reads top-down as "what kind of text + what's special about this instance."
