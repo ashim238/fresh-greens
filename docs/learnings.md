@@ -4,6 +4,19 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/armed-or-not (2026-05-04)
+
+The pulled-over flow advances. What we did, in plain terms:
+
+- **`Animated.Value` + `Animated.loop` for the pulse dot.** Stored in `useRef` so it persists across renders; sequence of two timing tweens (1 → 0.3 → 1) wrapped in a loop. `useNativeDriver: true` runs the animation on the native UI thread so it stays smooth even when JS is busy. Cleanup on unmount via `loop.stop()` so it doesn't leak.
+- **Extracted `<TrustedContactStatus />` at the third use point.** The "Your trusted contact is being notified" footer was inline on safety modal, would be on armed-or-not, and will be on the upcoming what-to-do screens. Three uses = extract. Component owns the text, the dot, and the pulse animation. Future "real notification backend" wiring goes in one place.
+- **The diligence lesson on Figma fidelity.** First pass at armed-or-not used `gap: 40` between title and cards. That matched one Figma value but missed the structural intent — Figma has a `flex: 1, gap: 48, justifyContent: 'center'` wrapper around the cards that takes remaining space and centers them. Without that wrapper, cards just hang 40pt below the title; with it, they float in the middle of available space. **Match Figma's structure, not just its individual gap numbers.**
+- **`width: 238` on inner content for controlled text wrapping.** Card subtitles are designed to wrap to 2 lines. Without an explicit width, they'd stretch the full card and stay on one line — different visual rhythm. Constraining the inner content column matches the wrapping behavior the design depends on.
+- **Shadow clipping in narrow containers.** Card shadows extend ~3pt past their bounds. If a parent has clipping (ScrollView, rounded panel root) the shadow's L/R edges can get cut. Fix: small `paddingHorizontal` on the cards' container (4pt is plenty).
+- **Diligence over speed.** "Lands but feels off" feedback is signal that I missed something structural. Faster to redo it carefully than to ship a near-miss and accumulate visual debt.
+
+---
+
 ## feat/safety-modal (2026-05-04)
 
 The cultural center begins. What we did, in plain terms:
