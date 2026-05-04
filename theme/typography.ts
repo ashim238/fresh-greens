@@ -39,6 +39,12 @@ export const typography = {
     fontWeight: '400',
     letterSpacing: -0.43,
   },
+  bodyEmphasized: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '600',
+    letterSpacing: -0.43,
+  },
   subheadlineRegular: {
     fontSize: 15,
     lineHeight: 20,
