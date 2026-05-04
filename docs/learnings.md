@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/home-overlay (2026-05-03)
+
+- **`pointerEvents="box-none"`** — Views that wrap floating UI but cover empty space need this so taps pass through to whatever's underneath (e.g., the map) unless they hit a child. Three values worth knowing: `"auto"` (default), `"none"` (blocks all), `"box-none"` (passes through, children still capture).
+- **`SafeAreaView` `edges` prop** (from `react-native-safe-area-context`) lets you inset only specific sides: `edges={['top']}` for notch-only, `edges={['bottom']}` for home-indicator-only. Use it when one screen has multiple floating regions that each only care about one edge.
+- **RN shadows are physical cues.** `shadowOffset: { width: 0, height: -4 }` (negative y) makes a shadow point *up* — right for a sheet floating up from the bottom. Match the offset direction to where the surface "is coming from."
+- **RN can only render one shadow per element.** Figma often specifies layered shadows (M3 Elevation 1/2/3 each have two stacked drop shadows). Approximate with the larger of the two layers; the visual fidelity loss is negligible.
+- **Android's elevation is a separate prop.** `elevation: 6` produces the equivalent system shadow on Android. Always set both `shadow*` props (iOS) AND `elevation` (Android) — RN doesn't unify them.
+
+---
+
 ## feat/location-permission (2026-05-03)
 
 - **`useEffect(() => { ... }, [])`** runs after the component renders. Empty deps = "run once on mount." Use it for side effects: API calls, subscriptions, permission requests. Anything that talks to the outside world.
