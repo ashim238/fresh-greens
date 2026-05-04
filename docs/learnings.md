@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/routes-adapter-mock (2026-05-03)
+
+Second piece of the product. What we did, in plain terms:
+
+- **Built a second adapter (`lib/api/routes.ts`) following the same pattern as zones.** Typed inputs/outputs, async signature, simulated delay, mock data. Reusing the pattern you just learned reinforces it as muscle memory — every future API source (weather, lighting, incident reports) follows the same shape.
+- **Returned multiple candidates, not a single route.** The mock returns 2 candidate routes between the same two points. The next PR (scoring) picks one based on which zones each candidate passes through. Asking "what's the best route" is a *separate question* from "what are the possible routes" — splitting them keeps each adapter's job tight.
+- **`Promise.all([a, b])` runs async work in parallel.** Two adapters that don't depend on each other can be kicked off at the same moment and awaited together. Total wait = slower of the two, not the sum. The `[fetchedZones, fetchedRoutes] = ...` destructuring pulls the results in the same order you passed the promises.
+- **`<Polyline>` works exactly like `<Polygon>`** — child of MapView, takes a `coordinates` array. Difference: polygon auto-closes (last point connects back to first); polyline is an open path (A to B, no loop). Routes are open paths.
+- **The aha:** zones × routes = the product. Each route gets a score based on which zones it passes through (green good, red bad, yellow tradeoff). Highest-scoring route wins. The route picker explaining its choice ("your route adds 4 min but passes through 2 well-lit zones, avoids 1 incident area") is what makes Fresh Greens trustworthy — not opaque, but defending the choice in a sentence.
+
+---
+
 ## feat/zone-data-mock (2026-05-03)
 
 The first piece of the actual product (everything before this was scaffolding around an empty map). What we did, in plain terms:
