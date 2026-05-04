@@ -3,10 +3,15 @@ import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polygon } from 'react-native-maps';
+import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SearchBar } from '../components/SearchBar';
+import {
+  getRoutesBetween,
+  type Route,
+  routeColors,
+} from '../lib/api/routes';
 import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
 import { typography } from '../theme/typography';
 
@@ -21,10 +26,12 @@ import { typography } from '../theme/typography';
  */
 export default function Home() {
   const mapRef = useRef<MapView>(null);
-  // Zones live in component state so they re-render the map when fetched.
-  // Empty array initially → nothing renders → map shows clean until zones
-  // arrive a moment later. This is the "loading state" without explicit UI.
+  // Zones and routes both live in component state so they re-render the
+  // map when fetched. Empty arrays initially → nothing renders → map shows
+  // clean until data arrives a moment later. This is the "loading state"
+  // without explicit UI.
   const [zones, setZones] = useState<Zone[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,11 +53,25 @@ export default function Home() {
         1000,
       );
 
-      // Fetch zones for the user's area. Currently mock data; the
-      // adapter signature won't change when we swap to a real API.
-      const fetched = await getZonesForRegion(center);
+      // Fetch zones AND routes in parallel. Promise.all kicks both off
+      // at the same time and waits for both — faster than awaiting them
+      // sequentially. The cancellation flag check after handles the case
+      // where the user navigated away while either was in flight.
+      //
+      // Mock destination is a fixed offset (~1.1km NE) just so we have
+      // somewhere to route to. Real destination input lands when we wire
+      // the search bar.
+      const destination = {
+        latitude: center.latitude + 0.01,
+        longitude: center.longitude + 0.01,
+      };
+      const [fetchedZones, fetchedRoutes] = await Promise.all([
+        getZonesForRegion(center),
+        getRoutesBetween(center, destination),
+      ]);
       if (cancelled) return;
-      setZones(fetched);
+      setZones(fetchedZones);
+      setRoutes(fetchedRoutes);
     }
 
     fetchAndCenterOnUser();
@@ -76,9 +97,12 @@ export default function Home() {
         showsMyLocationButton={false}
       >
         {/*
-          Zone overlays. Polygon must be a CHILD of MapView (not a
-          sibling) — react-native-maps reads its overlay children and
-          renders them at the native layer alongside the map tiles.
+          Map overlays. Polygons (zones) and Polylines (routes) must be
+          CHILDREN of MapView — react-native-maps reads its overlay
+          children and renders them at the native layer alongside the
+          map tiles. JSX order = paint order; routes render on top of
+          zones so the polyline is always visible against the polygon
+          fills.
         */}
         {zones.map((zone) => (
           <Polygon
@@ -87,6 +111,14 @@ export default function Home() {
             fillColor={zoneColors[zone.type].fill}
             strokeColor={zoneColors[zone.type].stroke}
             strokeWidth={2}
+          />
+        ))}
+        {routes.map((route) => (
+          <Polyline
+            key={route.id}
+            coordinates={route.coordinates}
+            strokeColor={routeColors[route.type].stroke}
+            strokeWidth={routeColors[route.type].width}
           />
         ))}
       </MapView>
