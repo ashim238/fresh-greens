@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView from 'react-native-maps';
+import MapView, { Polygon } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SearchBar } from '../components/SearchBar';
+import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
 import { typography } from '../theme/typography';
 
 /**
@@ -20,6 +21,10 @@ import { typography } from '../theme/typography';
  */
 export default function Home() {
   const mapRef = useRef<MapView>(null);
+  // Zones live in component state so they re-render the map when fetched.
+  // Empty array initially → nothing renders → map shows clean until zones
+  // arrive a moment later. This is the "loading state" without explicit UI.
+  const [zones, setZones] = useState<Zone[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,15 +36,21 @@ export default function Home() {
       const location = await Location.getCurrentPositionAsync({});
       if (cancelled) return;
 
+      const center = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+
       mapRef.current?.animateToRegion(
-        {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
+        { ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 },
         1000,
       );
+
+      // Fetch zones for the user's area. Currently mock data; the
+      // adapter signature won't change when we swap to a real API.
+      const fetched = await getZonesForRegion(center);
+      if (cancelled) return;
+      setZones(fetched);
     }
 
     fetchAndCenterOnUser();
@@ -63,7 +74,22 @@ export default function Home() {
         }}
         showsUserLocation
         showsMyLocationButton={false}
-      />
+      >
+        {/*
+          Zone overlays. Polygon must be a CHILD of MapView (not a
+          sibling) — react-native-maps reads its overlay children and
+          renders them at the native layer alongside the map tiles.
+        */}
+        {zones.map((zone) => (
+          <Polygon
+            key={zone.id}
+            coordinates={zone.coordinates}
+            fillColor={zoneColors[zone.type].fill}
+            strokeColor={zoneColors[zone.type].stroke}
+            strokeWidth={2}
+          />
+        ))}
+      </MapView>
 
       {/*
         Top overlay: search bar + menu button. pointerEvents="box-none"
