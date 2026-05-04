@@ -20,7 +20,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        {/*
+          /safety is presented as a modal — slides up from the bottom over
+          the current screen, system swipe-down to dismiss. iOS-native
+          modal sheet behavior. Other routes use the default stack push.
+        */}
+        <Stack.Screen name="safety" options={{ presentation: 'modal' }} />
+      </Stack>
     </SafeAreaProvider>
   );
 }

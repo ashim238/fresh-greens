@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/safety-modal (2026-05-04)
+
+The cultural center begins. What we did, in plain terms:
+
+- **Modal presentation in expo-router.** `<Stack.Screen name="safety" options={{ presentation: 'modal' }} />` tells the router to present /safety as a sheet that slides up from the bottom over the current screen, with system swipe-down dismissal. Same routing API (`router.push('/safety')`) — different visual presentation. iOS-native sheet behavior for free.
+- **Per-screen overrides inside a global Stack.** Default `screenOptions` apply to every route; specific routes can override by listing them as explicit `<Stack.Screen>` children. Pattern reused for disabling swipe-back, custom animations, or any per-route navigator config.
+- **Data-driven JSX from a typed config array.** Four tabs defined as `TABS: SafetyTab[]` outside the component, mapped into JSX inside. Adding a fifth tab later is one entry in the array — no JSX edit. `iconName: keyof typeof Ionicons.glyphMap` typing means Cursor autocompletes icon names and red-underlines typos. Same pattern as PANELS in onboarding.
+- **The thesis claim's cultural side now has a foundation.** The technical claim (zone scoring picks safer routes) was demoable two PRs ago. The cultural claim (Fresh Greens addresses driving-while-Black with situation-specific guidance) needed UI to land in. This is that UI's entry point. Each tab is a chapter; future PRs flesh them out — pulled-over being the most thesis-relevant given the Onboarding 1 framing.
+
+---
+
 ## feat/zone-data-osm (2026-05-04)
 
 The thesis claim becomes defensible. Mock data is fully replaced with real public sources, and the daylight gradient is real solar geometry. What we did, in plain terms:

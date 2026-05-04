@@ -224,10 +224,18 @@ export default function Home() {
         <SearchBar onPress={() => router.push('/search')} />
 
         <View style={styles.menuRow} pointerEvents="box-none">
+          {/*
+            TEMP: menu button wired to /safety for in-progress dev testing
+            of the safety modal. Real entry point lands when we build the
+            side-button navigation column (Help / Shield / Report / Center)
+            in a future PR — at which point this button goes back to
+            opening a side menu, and the shield button opens /safety.
+          */}
           <Pressable
             style={styles.menuButton}
             accessibilityRole="button"
             accessibilityLabel="Menu"
+            onPress={() => router.push('/safety')}
           >
             <Ionicons name="menu" size={32} color="#3C3C43" />
           </Pressable>
