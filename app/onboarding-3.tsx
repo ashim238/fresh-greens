@@ -8,14 +8,14 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 /**
- * Onboarding panel 2 — "For us, by us."
- * Second of three onboarding panels (Permissions is the 4th step in the
+ * Onboarding panel 3 — "Your viewpoint is unique."
+ * Third of three onboarding panels (Permissions is the 4th step in the
  * page-control sequence).
  *
- * Route: /onboarding-2
- * Figma node: 825:3444
+ * Route: /onboarding-3
+ * Figma node: 825:3525
  */
-export default function Onboarding2() {
+export default function Onboarding3() {
   const router = useRouter();
 
   return (
@@ -24,30 +24,30 @@ export default function Onboarding2() {
 
       <SafeAreaView style={styles.safe}>
         <View style={styles.topContent}>
-          <PageControl total={4} activeIndex={1} />
+          <PageControl total={4} activeIndex={2} />
 
           <View style={styles.titleAndCopy}>
-            <Text style={styles.title}>For us, by us</Text>
+            <Text style={styles.title}>Your viewpoint is unique</Text>
             <Text style={styles.body}>
-              Fresh Greens relies on insights shared by travelers like you.
-              Community contributions are vital in the mapping process,
-              ensuring drivers have a full understanding of their surroundings,
-              from road hazards to the treatment{'\n'}of Black visitors.
+              That gut feeling that tells you to turn onto a road you've been
+              down before is valuable. Fresh Greens integrates your intuition
+              into the navigation, creating a driving experience specific to
+              you.
             </Text>
           </View>
         </View>
 
         {/*
-          TODO: export the sitting figure + speech bubble illustration from
-          Figma and render here as an absolute-positioned <Image>.
+          TODO: export the thinking-figure + thought-bubble illustration
+          from Figma and render here as an absolute-positioned <Image>.
         */}
 
         <View style={styles.actions}>
           <Pressable
             style={styles.continueBtn}
             accessibilityRole="button"
-            accessibilityLabel="Continue to next onboarding step"
-            onPress={() => router.push('/onboarding-3')}
+            accessibilityLabel="Continue to Permissions"
+            onPress={() => router.push('/permissions')}
           >
             <Text style={styles.continueText}>Continue</Text>
           </Pressable>
