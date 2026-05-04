@@ -7,12 +7,9 @@ import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SearchBar } from '../components/SearchBar';
-import {
-  getRoutesBetween,
-  type Route,
-  routeColors,
-} from '../lib/api/routes';
+import { getRoutesBetween, routeColors } from '../lib/api/routes';
 import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
+import { pickWinner, type RankedRoute } from '../lib/scoring';
 import { typography } from '../theme/typography';
 
 /**
@@ -31,7 +28,11 @@ export default function Home() {
   // clean until data arrives a moment later. This is the "loading state"
   // without explicit UI.
   const [zones, setZones] = useState<Zone[]>([]);
-  const [routes, setRoutes] = useState<Route[]>([]);
+  // routes holds RankedRoute[] (post-scoring) rather than raw Route[].
+  // Each ranked route carries `type` ('recommended' | 'alternate') and
+  // `score`, both decided by pickWinner based on which zones the route
+  // intersects.
+  const [routes, setRoutes] = useState<RankedRoute[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +71,15 @@ export default function Home() {
         getRoutesBetween(center, destination),
       ]);
       if (cancelled) return;
+
+      // Rank the candidate routes by how many safe vs caution vs avoid
+      // zone waypoints they contain. The winner gets type='recommended'
+      // and renders bold green; the rest get 'alternate' (muted gray).
+      // This is the actual "Fresh Greens picks the safer route" moment.
+      const ranked = pickWinner(fetchedRoutes, fetchedZones);
+
       setZones(fetchedZones);
-      setRoutes(fetchedRoutes);
+      setRoutes(ranked);
     }
 
     fetchAndCenterOnUser();

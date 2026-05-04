@@ -13,9 +13,14 @@ import type { Coordinate } from './zones';
 
 export type RouteType = 'recommended' | 'alternate';
 
+/**
+ * A candidate route from origin to destination. Note there is no `type`
+ * field here — the adapter doesn't pre-classify which route is best.
+ * That decision belongs to scoring (see lib/scoring.ts), not to the
+ * data source. Real routing engines return candidates the same way.
+ */
 export type Route = {
   id: string;
-  type: RouteType;
   label: string;
   /** Approximate duration in minutes (mock for now) */
   estimatedMinutes: number;
@@ -40,16 +45,14 @@ export async function getRoutesBetween(
 
   return [
     {
-      id: 'mock-route-recommended',
-      type: 'recommended',
-      label: 'Fresh Greens recommendation',
+      id: 'mock-route-arc',
+      label: 'Northern arc',
       estimatedMinutes: 9,
       coordinates: arcPath(origin, destination),
     },
     {
-      id: 'mock-route-fastest',
-      type: 'alternate',
-      label: 'Fastest',
+      id: 'mock-route-direct',
+      label: 'Direct',
       estimatedMinutes: 6,
       coordinates: directPath(origin, destination),
     },
