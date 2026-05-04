@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -24,7 +25,16 @@ import { typography } from '../theme/typography';
  * and full bottom-sheet content land in future PRs.
  */
 export default function Home() {
+  const router = useRouter();
   const mapRef = useRef<MapView>(null);
+  // Destination params from the search screen, if any. URL params arrive
+  // as strings and may be undefined (when the user landed on /home without
+  // having searched). We parse them into numbers below.
+  const params = useLocalSearchParams<{
+    destLat?: string;
+    destLng?: string;
+    destName?: string;
+  }>();
   // Zones and routes both live in component state so they re-render the
   // map when fetched. Empty arrays initially → nothing renders → map shows
   // clean until data arrives a moment later. This is the "loading state"
@@ -60,18 +70,23 @@ export default function Home() {
         1000,
       );
 
+      // Destination comes from URL params (set by the search screen).
+      // Falls back to a fixed offset NE of the user when the user hasn't
+      // searched yet — gives the demo something to route to on first open.
+      const destination =
+        params.destLat && params.destLng
+          ? {
+              latitude: parseFloat(params.destLat),
+              longitude: parseFloat(params.destLng),
+            }
+          : {
+              latitude: center.latitude + 0.01,
+              longitude: center.longitude + 0.01,
+            };
+
       // Fetch zones AND routes in parallel. Promise.all kicks both off
       // at the same time and waits for both — faster than awaiting them
-      // sequentially. The cancellation flag check after handles the case
-      // where the user navigated away while either was in flight.
-      //
-      // Mock destination is a fixed offset (~1.1km NE) just so we have
-      // somewhere to route to. Real destination input lands when we wire
-      // the search bar.
-      const destination = {
-        latitude: center.latitude + 0.01,
-        longitude: center.longitude + 0.01,
-      };
+      // sequentially.
       const [fetchedZones, fetchedRoutes] = await Promise.all([
         getZonesForRegion(center),
         getRoutesBetween(center, destination),
@@ -81,7 +96,6 @@ export default function Home() {
       // Rank the candidate routes by how many safe vs caution vs avoid
       // zone waypoints they contain. The winner gets type='recommended'
       // and renders bold green; the rest get 'alternate' (muted gray).
-      // This is the actual "Fresh Greens picks the safer route" moment.
       const ranked = pickWinner(fetchedRoutes, fetchedZones);
 
       setZones(fetchedZones);
@@ -92,7 +106,10 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // Re-run whenever the destination URL params change, so submitting
+    // a new search refetches routes for the new endpoint without
+    // requiring the user to navigate away and back.
+  }, [params.destLat, params.destLng]);
 
   return (
     <View style={styles.root}>
@@ -166,7 +183,7 @@ export default function Home() {
         edges={['top']}
         pointerEvents="box-none"
       >
-        <SearchBar />
+        <SearchBar onPress={() => router.push('/search')} />
 
         <View style={styles.menuRow} pointerEvents="box-none">
           <Pressable
@@ -228,7 +245,10 @@ export default function Home() {
                 <Text style={styles.minutes}>
                   {recommended?.estimatedMinutes ?? '—'} min
                 </Text>
-                {' '}to <Text style={styles.destination}>your destination</Text>
+                {' '}to{' '}
+                <Text style={styles.destination}>
+                  {params.destName ?? 'your destination'}
+                </Text>
                 .
               </Text>
             </View>

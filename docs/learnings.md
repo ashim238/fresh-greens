@@ -4,6 +4,19 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/search-destination (2026-05-04)
+
+The app becomes interactive. What we did, in plain terms:
+
+- **URL params as state.** The destination doesn't live in React state — it lives in the URL. `router.replace({ pathname: '/home', params: { destLat, destLng, destName } })` puts the data into the URL. `useLocalSearchParams<{...}>()` on /home reads it back. Three nice properties: destination survives re-renders, deep-links work for free (`freshgreens://home?destLat=...`), and there's no "tell home to refetch" mechanism needed because the URL changing IS the trigger.
+- **`useEffect` deps array drives refetch.** Adding `params.destLat` and `params.destLng` to the deps array means: re-run this effect when those values change. Type a new destination → URL params update → effect re-runs → routes refetch. The "loop" between search and home is a single line of code.
+- **`Location.geocodeAsync` for free geocoding.** expo-location ships with forward geocoding (place name → coordinates). iOS uses Apple's geocoder, no API key. Returns an array because place names can be ambiguous ("Springfield" matches 30+ cities); we take the top result. Real production might surface a list for the user to pick.
+- **`<TextInput>` first appearance.** RN's text input primitive. `autoFocus` opens keyboard on mount. `returnKeyType="search"` makes the keyboard's blue button read "Search." `onSubmitEditing` fires on the return key. `editable={!loading}` prevents double-submission while geocoding.
+- **`router.replace` vs `router.push`.** Push adds a screen on top of the stack; replace swaps the current screen for a new one. We use replace from /search → /home so the search screen pops out of the stack rather than stacking duplicate /home routes. Minor stack quirk: the *original* /home is still in the stack one level deeper, so back-swipe lands there. Acceptable for thesis demo; future fix would be a global state store (Zustand or Context) instead of URL params.
+- **The thesis demo is now end-to-end.** Type → geocode → route → score → render → explain. Every step is real. The remaining work is polish (illustrations, schedule time, zone data sources) and additional flows (safety modal, auth) — none of which change the architectural shape of what's shipped.
+
+---
+
 ## feat/onboarding-pager (2026-05-04)
 
 Three onboarding screens become one. What we did, in plain terms:
