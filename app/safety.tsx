@@ -40,7 +40,7 @@ const TABS: SafetyTab[] = [
     id: 'pulled-over',
     label: 'I was pulled over',
     iconName: 'alert-circle',
-    href: null, // TODO: /pulled-over sub-flow (Officer/Trooper → Armed → What to Do)
+    href: '/pulled-over',
   },
   {
     id: 'roadside',
@@ -81,12 +81,19 @@ export default function SafetyModal() {
         <View style={styles.dragHandle} />
 
         <View style={styles.header}>
-          <Ionicons
-            name="shield-checkmark"
-            size={32}
-            color={colors.wiltedgreen}
-            accessible={false}
-          />
+          {/*
+            56x56 state-layer wrapper around the shield icon. Matches
+            Figma's structure — the wrapper's internal padding provides
+            the visual gap between icon and title block below.
+          */}
+          <View style={styles.iconBox}>
+            <Ionicons
+              name="shield-checkmark"
+              size={32}
+              color={colors.wiltedgreen}
+              accessible={false}
+            />
+          </View>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>Safety</Text>
             <Text style={styles.subtitle}>What's going on?</Text>
@@ -145,7 +152,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: 16,
-    gap: 32,
+    gap: 48, // matches Figma's gap-48 between drag/header/grid/footer
   },
   dragHandle: {
     width: 32,
@@ -156,7 +163,20 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   header: {
-    gap: 8,
+    // No explicit gap — the iconBox's internal padding-16 provides the
+    // visual separation between shield and title block below. Matches
+    // Figma's structure.
+  },
+  iconBox: {
+    // 56x56 dedicated space for the shield. No explicit padding — the
+    // icon (32pt) is smaller than the box and centers via alignItems +
+    // justifyContent, leaving ~12pt margin all around. Figma specifies
+    // p-16 but its renderer is forgiving; in RN, p-16 + 56 box would
+    // clip a 32 icon (inner area becomes 24x24).
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleBlock: {
     gap: 8,

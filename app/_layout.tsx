@@ -22,11 +22,15 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false }}>
         {/*
-          /safety is presented as a modal — slides up from the bottom over
-          the current screen, system swipe-down to dismiss. iOS-native
-          modal sheet behavior. Other routes use the default stack push.
+          Modal-presented routes — slide up from the bottom, system
+          swipe-down dismisses. iOS-native sheet behavior. Other routes
+          use the default stack push.
         */}
         <Stack.Screen name="safety" options={{ presentation: 'modal' }} />
+        <Stack.Screen
+          name="pulled-over"
+          options={{ presentation: 'modal' }}
+        />
       </Stack>
     </SafeAreaProvider>
   );
