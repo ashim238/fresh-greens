@@ -4,6 +4,22 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/zone-data-osm (2026-05-04)
+
+The thesis claim becomes defensible. Mock data is fully replaced with real public sources, and the daylight gradient is real solar geometry. What we did, in plain terms:
+
+- **Multi-source OSM data via Overpass API.** One round-trip query fetches three signal types into the same Zone[] pipeline: streets tagged `lit=*` (polyline), landuse polygons (residential/commercial/industrial — polygon), and parks (polygon, mapped to caution per nighttime-crime literature). Layered signals compound — a residential street that's `lit=yes` accumulates safe + safe; the scoring becomes more robust than any single signal.
+- **Discriminated union for geometry types.** `Zone` now has a `geometry: 'polygon' | 'polyline'` discriminator. Three places branch on it: parser (polygon for landuse, polyline for streets), scorer (in-polygon test vs. point-near-polyline), renderer (`<Polygon>` vs `<Polyline>`). TypeScript narrows the type when you check the tag.
+- **Point-to-polyline distance via equirectangular projection.** Lat/lng deltas → meters using `1° lat = 111000m` and `1° lng = 111000 × cos(lat)`. Project point onto each segment, clamp to segment extent, return Euclidean distance. Accurate enough at neighborhood scale; would matter at country scale where Earth curvature can't be ignored.
+- **Real solar geometry via SunCalc.** `lib/daylight.ts` now uses the library to compute actual sunset times per segment's lat/lng + estimated arrival time. The gradient encodes minutes-to-sunset against real solar math, not just position-along-route. 5KB pure-JS dependency, MIT.
+- **Hidden-by-default data overlays.** `SHOW_ZONES` constant in home.tsx defaults to false — the user just sees the route, not the polygon/polyline data underneath. Flip to true for thesis screenshots that need to argue "this data drove the choice." Same app, two views, both honest.
+- **AbortController for fetch timeouts.** RN's fetch has no built-in timeout, so a hanging server would block forever. Pattern: `const controller = new AbortController(); setTimeout(() => controller.abort(), 6000); fetch(url, { signal: controller.signal })`. Aborted fetch throws, gets caught, falls back to mock. Hard ceiling on wait time.
+- **Optimistic / progressive rendering.** Routes (OSRM) and zones (Overpass) start fetching in parallel, but we sequentially `await` them so routes render the moment they arrive (with a default ranking) and refine when zones land. Same total time, way better perceived speed. The intermediate state isn't wrong — it's just not yet opinionated.
+- **`pickWinner(routes, [])` is a graceful default.** With empty zones, all routes score 0; stable sort preserves OSRM's original order; first result becomes "recommended" by default. That matches what a non-Fresh-Greens nav app would do. When real zones arrive, scoring kicks in and may shift the choice.
+- **The thesis claim, validated.** Today's screenshot: real OSM lighting tags + real landuse classifications + real OSRM routing + real solar geometry. Mock-only is gone. The architecture's adapter pattern earned its full keep — no consumer code changed during any of these swaps.
+
+---
+
 ## feat/search-destination (2026-05-04)
 
 The app becomes interactive. What we did, in plain terms:

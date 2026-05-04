@@ -16,6 +16,16 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 /**
+ * Toggle for rendering zone overlays (polygons + polylines) on the map.
+ * Default OFF — the user just sees the route. The zone data still drives
+ * scoring; it's just invisible.
+ *
+ * Flip to `true` for thesis screenshots that need to show the data layer
+ * informing the route choice.
+ */
+const SHOW_ZONES = false;
+
+/**
  * Home — the main map screen.
  * Route: /home
  * Figma node: 825:3625 (Established variant)
@@ -84,22 +94,29 @@ export default function Home() {
               longitude: center.longitude + 0.01,
             };
 
-      // Fetch zones AND routes in parallel. Promise.all kicks both off
-      // at the same time and waits for both — faster than awaiting them
-      // sequentially.
-      const [fetchedZones, fetchedRoutes] = await Promise.all([
-        getZonesForRegion(center),
-        getRoutesBetween(center, destination),
-      ]);
+      // Fire both fetches in parallel, but DON'T await them together —
+      // that would gate the whole UI on the slower one. Instead:
+      //   1. Render routes as soon as OSRM responds (with no zone
+      //      ranking yet — first candidate becomes recommended by
+      //      default since pickWinner with [] zones gives all routes
+      //      score 0 and stable-sort preserves order).
+      //   2. When zones arrive a moment later, re-rank against real
+      //      data. The recommended route may shift; the screen updates.
+      //
+      // Net effect: route polyline appears immediately after OSRM
+      // (often <1s); the daylight gradient + scoring refines a beat
+      // later when Overpass finishes.
+      const routePromise = getRoutesBetween(center, destination);
+      const zonePromise = getZonesForRegion(center);
+
+      const fetchedRoutes = await routePromise;
       if (cancelled) return;
+      setRoutes(pickWinner(fetchedRoutes, []));
 
-      // Rank the candidate routes by how many safe vs caution vs avoid
-      // zone waypoints they contain. The winner gets type='recommended'
-      // and renders bold green; the rest get 'alternate' (muted gray).
-      const ranked = pickWinner(fetchedRoutes, fetchedZones);
-
+      const fetchedZones = await zonePromise;
+      if (cancelled) return;
       setZones(fetchedZones);
-      setRoutes(ranked);
+      setRoutes(pickWinner(fetchedRoutes, fetchedZones));
     }
 
     fetchAndCenterOnUser();
@@ -135,15 +152,36 @@ export default function Home() {
           zones so the polyline is always visible against the polygon
           fills.
         */}
-        {zones.map((zone) => (
-          <Polygon
-            key={zone.id}
-            coordinates={zone.coordinates}
-            fillColor={zoneColors[zone.type].fill}
-            strokeColor={zoneColors[zone.type].stroke}
-            strokeWidth={2}
-          />
-        ))}
+        {/*
+          Zone overlays — only rendered when SHOW_ZONES=true (debug/thesis-
+          screenshot mode). In normal use the user just sees the route;
+          the zone data still drives scoring invisibly behind the scenes.
+        */}
+        {SHOW_ZONES &&
+          zones.map((zone) => {
+            // Polyline zones (real OSM lit-street data) render as colored
+            // street overlays — stroke only, no fill. Polygon zones (mock
+            // fallback OR landuse from OSM) render as filled areas.
+            if (zone.geometry === 'polyline') {
+              return (
+                <Polyline
+                  key={zone.id}
+                  coordinates={zone.coordinates}
+                  strokeColor={zoneColors[zone.type].stroke}
+                  strokeWidth={4}
+                />
+              );
+            }
+            return (
+              <Polygon
+                key={zone.id}
+                coordinates={zone.coordinates}
+                fillColor={zoneColors[zone.type].fill}
+                strokeColor={zoneColors[zone.type].stroke}
+                strokeWidth={2}
+              />
+            );
+          })}
         {routes.map((route) => {
           // Recommended route renders as multiple polyline segments with
           // a daylight gradient (green → orange → red) representing how
