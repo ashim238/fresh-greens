@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/route-explanation (2026-05-04)
+
+The bottom sheet learns to talk. What we did, in plain terms:
+
+- **Anchored to Figma instead of inventing UI.** Found a "Route (Established)" variant at 825:3635 with the actual designed bottom sheet — greeting, daylight strip, main copy with destination, tradeoff explanation, two-button action row. Way better than the generic "passes through 2 safe zones" panel I'd have generated. **The instinct to verify against Figma before building is worth its own PR.** Always check first.
+- **Optional chaining + nullish coalescing for in-flight async data.** `recommended?.estimatedMinutes ?? '—'` handles three cases in one line: routes loaded with recommended (show minutes), routes loaded but no recommended (show dash), routes haven't loaded yet (show dash). The `?.` skips the property access if the object is undefined; the `??` provides a fallback for null/undefined results. Standard pattern for data that arrives a moment after render.
+- **Typography tokens grow naturally — added `bodyEmphasized`.** When a screen needs a token we don't have, add it. Don't fight the type ramp. The token is the same shape (size/lineHeight/weight/spacing) as the existing ones, just with a new name. New screens use it via spread without touching old screens.
+- **TODOs as future-PR markers.** Each placeholder in the layout is tagged with what data it'll consume when the right PR lands: `// TODO: real destination text once search wires`, `// TODO: personalized greeting once auth lands`, `// TODO: real schedule time once we install a sun calculator`. Each TODO is a future PR. Each future PR slots into the layout without restructuring. Architecture that survives staged delivery.
+- **Spacing-matches-Figma but text doesn't.** When the layout looks compact compared to a Figma render, check if your placeholder copy is shorter than the designer's expected copy length. Spacing is a function of gaps + text height. Same gap with shorter text = tighter visual. Doesn't mean the spacing is wrong; it means the data placeholder is.
+
+---
+
 ## feat/osrm-routing (2026-05-04)
 
 The mock got replaced with real and the screen didn't notice. What we did, in plain terms:

@@ -11,6 +11,7 @@ import { getRoutesBetween, routeColors } from '../lib/api/routes';
 import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
 import { pickWinner, type RankedRoute } from '../lib/scoring';
+import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 /**
@@ -34,6 +35,10 @@ export default function Home() {
   // `score`, both decided by pickWinner based on which zones the route
   // intersects.
   const [routes, setRoutes] = useState<RankedRoute[]>([]);
+
+  // Recommended route is the one we explain in the bottom sheet. May be
+  // undefined briefly on first render before the fetch completes.
+  const recommended = routes.find((route) => route.type === 'recommended');
 
   useEffect(() => {
     let cancelled = false;
@@ -175,15 +180,92 @@ export default function Home() {
       </SafeAreaView>
 
       {/*
-        Bottom sheet stub. Real content (recommendations, weather chip,
-        location header) lands in a follow-up PR. For now: just the
-        rounded-top white panel + drag handle to establish the shape.
+        Bottom sheet — Route (Established) variant.
+        Figma node: 825:3635
+        Layout mirrors Figma's nested groups: drag handle / headers
+        (greeting + daylight strip + main copy) / picture (tradeoff
+        explanation) / actions row (Schedule + Go).
       */}
       <SafeAreaView style={styles.bottomSheet} edges={['bottom']}>
         <View style={styles.dragHandle} />
-        <Text style={styles.bottomSheetPlaceholder}>
-          Recommendations and route info land here.
-        </Text>
+
+        <View style={styles.bottomSheetContent}>
+          <View style={styles.headers}>
+            <View style={styles.greetingRow}>
+              {/*
+                TODO: personalized greeting once auth lands. Figma copy is
+                "Mornin' Jordan. Ready to face the day?" — first half is
+                user-name + time-of-day, second half is the static prompt.
+              */}
+              <Text style={styles.greeting} numberOfLines={1}>
+                Ready to face the day?
+              </Text>
+
+              {/*
+                Daylight strip — gradient bar + sun/moon icons showing
+                daylight progression across the day.
+                TODO: install expo-linear-gradient and replace the flat
+                placeholder bar with a real gradient (orange → mauve →
+                indigo per Figma).
+              */}
+              <View style={styles.daylightStrip}>
+                <View style={styles.daylightBar} />
+                <View style={styles.daylightIcons}>
+                  <Ionicons name="sunny" size={16} color="#FFB347" />
+                  <Ionicons name="moon" size={16} color="#2D1B69" />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.mainCopyRow}>
+              {/*
+                TODO: real destination text once the search bar is wired.
+                Figma copy: "You've made a few early morning trips to
+                300 N Water lately. Heading there now?"
+              */}
+              <Text style={styles.mainCopy}>
+                About{' '}
+                <Text style={styles.minutes}>
+                  {recommended?.estimatedMinutes ?? '—'} min
+                </Text>
+                {' '}to <Text style={styles.destination}>your destination</Text>
+                .
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.tradeoffRow}>
+            <Text style={styles.tradeoffCopy}>
+              Heads up! You can leave in a bit and still make it on time with
+              some added daylight on your route.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.actionsRow}>
+          {/*
+            TODO: real schedule time once we install a sun calculator.
+            Figma copy: "Schedule for 7:38 AM" (computed from sunset
+            time + estimated trip duration).
+          */}
+          <Pressable
+            style={styles.scheduleBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Schedule trip for later when daylight is better"
+          >
+            <Text style={styles.scheduleText}>Schedule for later</Text>
+          </Pressable>
+
+          {/* TODO: wire to turn-by-turn / en-route screen once it exists */}
+          <Pressable
+            style={styles.goBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Start navigation"
+          >
+            <Ionicons name="arrow-forward" size={24} color={colors.white} />
+            <Text style={styles.goText}>Go</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -242,8 +324,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 16,
-    paddingHorizontal: 16,
-    alignItems: 'center',
+    gap: 16,
     // Shadow points UP (negative offset.y) since the sheet floats above
     // content from the bottom edge.
     shadowColor: '#000',
@@ -257,11 +338,98 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 100,
     backgroundColor: 'rgba(128, 128, 128, 0.55)',
-    marginBottom: 16,
+    alignSelf: 'center', // explicit since the parent no longer alignItems:center
   },
-  bottomSheetPlaceholder: {
+  bottomSheetContent: {
+    gap: 24,
+  },
+  headers: {
+    gap: 8,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+  },
+  greeting: {
     ...typography.footnoteRegular,
-    color: 'rgba(60, 60, 67, 0.6)',
-    paddingVertical: 16,
+    flex: 1,
+    color: 'rgba(80, 80, 80, 0.7)', // muted secondary per Figma
+  },
+  daylightStrip: {
+    width: 96,
+    gap: 4,
+  },
+  daylightBar: {
+    height: 4,
+    borderRadius: 100,
+    // Placeholder color — averaged middle of the orange→mauve→indigo
+    // gradient. TODO: install expo-linear-gradient for real gradient.
+    backgroundColor: '#C4785A',
+  },
+  daylightIcons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  mainCopyRow: {
+    paddingHorizontal: 16,
+  },
+  mainCopy: {
+    ...typography.bodyEmphasized,
+    color: colors.black,
+  },
+  minutes: {
+    color: colors.wiltedgreen,
+  },
+  destination: {
+    color: colors.wiltedgreen,
+    textDecorationLine: 'underline',
+  },
+  tradeoffRow: {
+    paddingHorizontal: 16,
+  },
+  tradeoffCopy: {
+    ...typography.footnoteRegular,
+    color: 'rgba(80, 80, 80, 0.7)',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  scheduleBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 100, // pill
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scheduleText: {
+    ...typography.footnoteEmphasized,
+    color: colors.wiltedgreen,
+  },
+  goBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 100,
+    backgroundColor: colors.freshgreen,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    // Approximates Figma M3 Elevation Light/1.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  goText: {
+    ...typography.subheadlineEmphasized,
+    color: colors.white,
   },
 });
