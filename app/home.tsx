@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SearchBar } from '../components/SearchBar';
 import { getRoutesBetween, routeColors } from '../lib/api/routes';
 import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
+import { gradientSegments } from '../lib/daylight';
 import { pickWinner, type RankedRoute } from '../lib/scoring';
 import { typography } from '../theme/typography';
 
@@ -121,14 +122,31 @@ export default function Home() {
             strokeWidth={2}
           />
         ))}
-        {routes.map((route) => (
-          <Polyline
-            key={route.id}
-            coordinates={route.coordinates}
-            strokeColor={routeColors[route.type].stroke}
-            strokeWidth={routeColors[route.type].width}
-          />
-        ))}
+        {routes.map((route) => {
+          // Recommended route renders as multiple polyline segments with
+          // a daylight gradient (green → orange → red) representing how
+          // daylight availability fades across the route's duration.
+          // Alternate routes stay muted gray — their daylight isn't
+          // relevant since they aren't the chosen path.
+          if (route.type === 'recommended') {
+            return gradientSegments(route).map((segment, idx) => (
+              <Polyline
+                key={`${route.id}-seg-${idx}`}
+                coordinates={segment.coordinates}
+                strokeColor={segment.color}
+                strokeWidth={routeColors.recommended.width}
+              />
+            ));
+          }
+          return (
+            <Polyline
+              key={route.id}
+              coordinates={route.coordinates}
+              strokeColor={routeColors[route.type].stroke}
+              strokeWidth={routeColors[route.type].width}
+            />
+          );
+        })}
       </MapView>
 
       {/*
