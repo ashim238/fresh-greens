@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/zone-data-mock (2026-05-03)
+
+The first piece of the actual product (everything before this was scaffolding around an empty map). What we did, in plain terms:
+
+- **Built a fake data source ("adapter") that pretends to be a real API.** `lib/api/zones.ts` has a function called `getZonesForRegion` that returns three made-up safety zones around the user's location. It's `async` and waits 100ms before returning — even though the data is hardcoded — so the rest of the app feels exactly like it would when we plug in a real API later.
+- **Why fake-but-real-shaped:** when we swap in the real API down the road, *only this one file changes*. The screen that uses it doesn't notice. That's the whole point of the adapter pattern — separate "where data comes from" from "what we do with it."
+- **Used `useState` for the first time.** `const [zones, setZones] = useState<Zone[]>([])` says: "give me a place to store an array of zones. Start it empty. When `setZones` is called, re-render the screen with the new value." That's the React loop in one sentence.
+- **`<Polygon>` must be a *child* of `<MapView>`**, not next to it. react-native-maps reads its children, sees the overlays, and hands them to the native map renderer. Same parent-decides-how-to-render pattern as `<View>` containing `<Text>`.
+- **Used reserved colors (green/yellow/red) on purpose.** The .cursorrules reserved-color rule explicitly allows reserved colors as legitimate UI safety signals. Zone shading is exactly that case — it's communicating "safe here / be careful here / avoid here." This isn't decoration.
+- **Mock-first development discipline.** Build the consumer (the home screen showing zones) against fake data first. The visual loop (save → reload → see zones on map) confirms the rendering works. Later, swap fake for real with high confidence the screens won't break.
+- **What this builds toward.** Real zone APIs (lighting, incidents, daylight) feed the same pipeline. A separate routes adapter provides candidate paths from a routing engine. A scoring function picks the best route based on which zones it passes through. The chosen route renders as a colored polyline. That's the actual Fresh Greens product — and every piece of it follows the same adapter-then-render pattern this PR establishes.
+
+---
+
 ## feat/home-overlay (2026-05-03)
 
 - **`pointerEvents="box-none"`** — Views that wrap floating UI but cover empty space need this so taps pass through to whatever's underneath (e.g., the map) unless they hit a child. Three values worth knowing: `"auto"` (default), `"none"` (blocks all), `"box-none"` (passes through, children still capture).
