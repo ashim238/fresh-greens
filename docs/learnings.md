@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/route-scoring (2026-05-04)
+
+The thesis crystallizes. What we did, in plain terms:
+
+- **Wrote pure functions for the first time.** `lib/scoring.ts` has no async, no API calls, no side effects. Same input always gives the same output. This is different from adapters in `lib/api/` (which reach out to the world). Pure functions are trivially testable, composable, predictable. They sit in the middle of the pipeline transforming data.
+- **The pipeline is now: adapters fetch → scoring decides → screens render.** Each layer has one job. If a real API replaces the mock, scoring doesn't change. If we tune the scoring weights, adapters don't change. If we redesign the map screen, the data flow doesn't change. This is what "separation of concerns" actually looks like in practice.
+- **Refactored Route to drop the `type` field.** The adapter shouldn't pre-judge which route is best — that's the scorer's job. Cleaner contract: adapter returns *candidates*; scorer decides *winners*. New `RankedRoute` type adds `type` and `score` after scoring.
+- **Point-in-polygon ray-casting algorithm.** From any point, cast a horizontal ray. Count edge crossings. Odd = inside, even = outside. Elegant because it works for any polygon shape. Worth knowing exists; rarely worth re-deriving from scratch.
+- **The spread-sort-spread immutable transform pattern.** `routes.map(r => ({ ...r, score }))` then `.sort()` then `.map(r => ({ ...r, type }))`. Each step creates new objects rather than mutating originals. Standard modern-JS way to transform an array without surprises.
+- **Validated by experiment.** Swapped the order of routes in the adapter's mock array. The scoring picked the same winner regardless. That's the proof — pure functions are deterministic, and scoring is operating on the data's *meaning* (which zones each route passes through), not its position.
+- **The thesis lives in this file.** Everything from here is tuning weights, layering modifiers (daylight, time-of-day, user preferences), and showing the user *why* this route was chosen. The mechanism that makes Fresh Greens the recommendation engine it claims to be — that's `pickWinner`.
+
+---
+
 ## feat/routes-adapter-mock (2026-05-03)
 
 Second piece of the product. What we did, in plain terms:
