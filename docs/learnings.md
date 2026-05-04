@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/onboarding-pager (2026-05-04)
+
+Three onboarding screens become one. What we did, in plain terms:
+
+- **Horizontal `FlatList` + `pagingEnabled` = native iOS pager.** No new dependency, no separate library. Set `horizontal pagingEnabled showsHorizontalScrollIndicator={false}` and the FlatList snaps to one item per swipe. Each item rendered at exactly screen-width using `useWindowDimensions`.
+- **`useWindowDimensions()`** just returns the current screen size. Updates on rotation. Use it instead of hardcoding 390 — different iPhones have different widths (390, 430, 375), and the value re-flows automatically when the user rotates.
+- **`useRef<FlatList>` + `scrollToIndex` = a remote control.** A ref grabs hold of the rendered FlatList; later you can call methods on it like `pagerRef.current?.scrollToIndex({ index: 1 })`. Same imperative-handle pattern as `useRef<MapView>` for `animateToRegion`. Without a ref you can only feed data; you can't *tell* the component to do something.
+- **`onMomentumScrollEnd` vs `onScrollEndDrag` — different moments, different jobs.** A swipe has two phases: (1) finger drags, (2) page snaps after release. `onScrollEndDrag` fires at the start of phase 2 (finger lifts). `onMomentumScrollEnd` fires at the END of phase 2 (snap completes). For tracking the active page, use `onMomentumScrollEnd`. For detecting "user dragged past the last page" (before the bounce-back snap pulls them back), use `onScrollEndDrag`.
+- **Magic numbers start as guesses, get tuned by feel.** Initial 60pt overscroll threshold felt stiff; dropped to 30pt. There's no objectively correct value — pick one, try it, iterate. Same workflow for `gap` values, padding, button heights. Architecture decisions deserve thought; small dials deserve iteration.
+- **Inline vs extract = master vs instance in Figma.** Same mental model: extracting code is the same as making a component in Figma. Master = single source of truth (the extracted function/component); instances = each use site (each call). Props = instance overrides. Detaching = inlining. Rule of three applies in both worlds: write it twice inline before componentizing, in code or in design.
+- **Two functions for two events, not one branching handler.** `handleScrollEnd` and `handleDragEnd` could've been one function with `if`-branches. Splitting them matches the natural shape of the problem — each event has different semantics — and makes each function's job obvious from its name.
+
+---
+
 ## feat/route-explanation (2026-05-04)
 
 The bottom sheet learns to talk. What we did, in plain terms:
