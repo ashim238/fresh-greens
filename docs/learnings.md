@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/osrm-routing (2026-05-04)
+
+The mock got replaced with real and the screen didn't notice. What we did, in plain terms:
+
+- **Replaced `getRoutesBetween`'s body with a real `fetch` to OSRM's free public API.** Same function signature, same return type (`Promise<Route[]>`), same usage in home.tsx. The consumer is decoupled from the data source — that's the entire point of the adapter pattern, and now you've felt it pay off.
+- **Try/catch with mock fallback for graceful degradation.** Three failure modes (no network, HTTP error, no routes found) all funnel to the same catch block: log warning, return mock data. The screen never breaks, even when the API is down. Resilience built in from the start, not retrofitted later.
+- **Typed only what we read from OSRM, not their whole schema.** `OSRMResponse` and `OSRMRoute` are minimal types covering the 4 fields we actually use. Pragmatic: if their API surface is huge but you only consume 5%, type the 5%. Don't sign up to maintain a mirror of someone else's API.
+- **GeoJSON coordinate order is `[longitude, latitude]` — NOT lat/lng.** Our internal type is `{ latitude, longitude }`. The conversion happens at the boundary in `parseOSRMRoute`. This is the single most common bug in geo code: invert the order somewhere and your polyline appears in Antarctica. Convert at the edge, keep the rest of the codebase in one convention.
+- **The architectural claim, validated.** Turn off WiFi → mock kicks in. Turn it back on → real routes return. Same screen, no code changes, no rebuilds. Every future external integration (real zone data, weather, incident reports) follows this exact `try { fetch } catch { fallback }` shape.
+
+---
+
 ## feat/daylight-gradient (2026-05-04)
 
 The thesis becomes visual. What we did, in plain terms:
