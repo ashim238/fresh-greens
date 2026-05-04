@@ -31,6 +31,10 @@ export default function RootLayout() {
           name="pulled-over"
           options={{ presentation: 'modal' }}
         />
+        <Stack.Screen
+          name="armed-or-not"
+          options={{ presentation: 'modal' }}
+        />
       </Stack>
     </SafeAreaProvider>
   );

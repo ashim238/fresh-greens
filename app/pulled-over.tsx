@@ -24,7 +24,7 @@ export default function PulledOver() {
   const router = useRouter();
 
   function handleNext() {
-    // TODO: navigate to /pulled-over/armed-or-not once that screen exists.
+    router.push('/armed-or-not');
   }
 
   function handleClose() {
