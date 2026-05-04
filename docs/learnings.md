@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/daylight-gradient (2026-05-04)
+
+The thesis becomes visual. What we did, in plain terms:
+
+- **Wrote a second pure function (`lib/daylight.ts`).** Same shape as scoring — no async, no I/O, takes data in, returns data out. `gradientSegments(route)` splits a route into colored chunks. Right now the colors are calibrated to position-along-route; later they'll be calibrated to real solar calculations. Function signature stays the same when we swap the body — same adapter-pattern discipline applied to pure utilities.
+- **JSX `.map()` inside `.map()` returns nested arrays. React handles this.** The outer map iterates routes; the inner map iterates the gradient segments of the recommended route. Each element gets its own key. React flattens automatically at render time. This is how you express "expand one element into N elements during render."
+- **Shared boundary coordinates prevent visible seams.** Each gradient segment starts at the previous segment's last point. Without overlap, the renderer would leave 1-pixel gaps where polylines don't draw. The `pointsPerSegment - 1` math in `gradientSegments` is what creates that single-point overlap.
+- **The reserved-color rule's daylight exception in action.** Red and orange used here as functional encoding (daylight availability), not as signal (hazard). This is exactly the case the .cursorrules exception was written for, and it's why the audit specifically documented this feature as not a violation.
+- **The thesis is now visual.** Before: a sentence about helping drivers be home before dark. After: a polyline that paints from green to orange to red as the route extends toward sunset. The user sees the tradeoff in one glance — no explanation needed. That's the thing screenshots in a thesis paper for.
+
+---
+
 ## feat/route-scoring (2026-05-04)
 
 The thesis crystallizes. What we did, in plain terms:
