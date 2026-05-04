@@ -1,23 +1,27 @@
 // Fresh Greens — route scoring.
 //
 // Pure functions (no async, no I/O) that take routes + zones and decide
-// which route is "recommended." This is the moment Fresh Greens stops
-// being "an app with a map" and becomes "an app that picks safer routes."
+// which route is "recommended."
 //
-// The algorithm is deliberately simple — for each waypoint of a route,
-// check which zone (if any) it falls inside, sum weighted scores. The
-// route with the highest total wins. Real-world refinement comes later
-// (route segment length weighting, time-of-day modifiers, user
-// preferences), but the contract stays the same.
+// Zones can have polygon or polyline geometry — the algorithm branches
+// per zone:
+//   polygon  → ray-casting point-in-polygon (waypoint inside the area?)
+//   polyline → point-near-polyline within a meters threshold (waypoint
+//              on/near this lit street?)
 
-import type { Coordinate, Zone, ZoneType } from './api/zones';
+import type {
+  Coordinate,
+  Zone,
+  ZoneType,
+} from './api/zones';
+import { POLYLINE_PROXIMITY_METERS } from './api/zones';
 import type { Route, RouteType } from './api/routes';
 
 /**
- * Per-zone-type score contribution per waypoint inside that zone.
+ * Per-zone-type score contribution per waypoint that hits that zone.
  * Tunable knob — these numbers express how risk-averse Fresh Greens is
  * by default. Higher safe weight = more willing to detour for safety.
- * Higher avoid penalty = more strongly avoids red zones.
+ * Higher avoid penalty = more strongly avoids unlit streets.
  */
 const SCORE_WEIGHTS: Record<ZoneType, number> = {
   safe: 2,
@@ -32,18 +36,24 @@ export type RankedRoute = Route & {
 };
 
 /**
- * Score a single route against the active zones.
- * For each waypoint, check each zone — if the point falls inside, add
- * the zone type's weight. Sum across all waypoints. Higher = better.
- *
- * Naïve O(waypoints × zones) — fine for the scales we care about
- * (~50 waypoints × ~10 zones = 500 checks per route).
+ * Score a single route against the active zones. For each waypoint,
+ * test against every zone using the right geometric primitive (in-polygon
+ * for areas, near-polyline for streets). Sum weighted scores. Higher is
+ * better.
  */
 export function scoreRoute(route: Route, zones: Zone[]): number {
   let total = 0;
   for (const point of route.coordinates) {
     for (const zone of zones) {
-      if (isPointInPolygon(point, zone.coordinates)) {
+      const hit =
+        zone.geometry === 'polygon'
+          ? isPointInPolygon(point, zone.coordinates)
+          : isPointNearPolyline(
+              point,
+              zone.coordinates,
+              POLYLINE_PROXIMITY_METERS,
+            );
+      if (hit) {
         total += SCORE_WEIGHTS[zone.type];
       }
     }
@@ -53,12 +63,8 @@ export function scoreRoute(route: Route, zones: Zone[]): number {
 
 /**
  * Score every candidate route, sort by score descending, mark the
- * winner as 'recommended' and the rest as 'alternate'.
- *
- * Returns RankedRoute[] (same length as input, sorted, with new fields).
- * The original Route objects aren't mutated — we spread them into new
- * objects with the added fields. Pure function: same input → same output,
- * no side effects.
+ * winner as 'recommended' and the rest as 'alternate'. Returns
+ * RankedRoute[] sorted highest-score-first.
  */
 export function pickWinner(routes: Route[], zones: Zone[]): RankedRoute[] {
   const scored = routes.map((route) => ({
@@ -77,13 +83,8 @@ export function pickWinner(routes: Route[], zones: Zone[]): RankedRoute[] {
 // --- Geometry helpers -------------------------------------------------------
 
 /**
- * Ray-casting point-in-polygon test. Standard algorithm: from the point,
- * cast a horizontal ray to the east and count how many polygon edges
- * it crosses. Odd count = inside; even count = outside.
- *
- * Works for any simple polygon (no self-intersections). Doesn't account
- * for the Earth's curvature — fine at neighborhood scale, would matter
- * at country scale.
+ * Ray-casting point-in-polygon test. From the point, cast a horizontal
+ * ray east; count edge crossings. Odd = inside, even = outside.
  */
 function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
   let inside = false;
@@ -100,4 +101,60 @@ function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
     if (intersects) inside = !inside;
   }
   return inside;
+}
+
+/**
+ * Returns true when the point is within `thresholdMeters` of any segment
+ * of the polyline. For each segment, project the point onto it and clamp
+ * to the segment's extent; that gives the closest in-segment point and
+ * its distance.
+ *
+ * Distance is computed in meters using an equirectangular projection
+ * (lat/lng deltas scaled to meters). Accurate enough at neighborhood
+ * scale; would matter at country scale.
+ */
+function isPointNearPolyline(
+  point: Coordinate,
+  polyline: Coordinate[],
+  thresholdMeters: number,
+): boolean {
+  for (let i = 0; i < polyline.length - 1; i++) {
+    if (
+      pointToSegmentDistanceMeters(point, polyline[i], polyline[i + 1]) <
+      thresholdMeters
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function pointToSegmentDistanceMeters(
+  point: Coordinate,
+  segStart: Coordinate,
+  segEnd: Coordinate,
+): number {
+  // Convert lat/lng deltas to meters via equirectangular projection.
+  // 1° latitude ≈ 111,000m always.
+  // 1° longitude ≈ 111,000m × cos(latitude in radians).
+  const latToMeters = 111000;
+  const lngToMeters =
+    111000 * Math.cos((point.latitude * Math.PI) / 180);
+
+  // Translate so segStart is at origin, then convert to meters.
+  const px = (point.longitude - segStart.longitude) * lngToMeters;
+  const py = (point.latitude - segStart.latitude) * latToMeters;
+  const sx = (segEnd.longitude - segStart.longitude) * lngToMeters;
+  const sy = (segEnd.latitude - segStart.latitude) * latToMeters;
+
+  const segLengthSquared = sx * sx + sy * sy;
+  // Degenerate segment (start === end) — point-to-point distance.
+  if (segLengthSquared === 0) return Math.hypot(px, py);
+
+  // Project point onto segment, clamp t to [0,1] so we stay within
+  // the segment rather than its infinite line extension.
+  const t = Math.max(0, Math.min(1, (px * sx + py * sy) / segLengthSquared));
+  const closestX = sx * t;
+  const closestY = sy * t;
+  return Math.hypot(px - closestX, py - closestY);
 }
