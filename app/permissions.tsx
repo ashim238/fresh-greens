@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +22,29 @@ import { typography } from '../theme/typography';
  */
 export default function Permissions() {
   const router = useRouter();
+
+  // Permission flow. requestForegroundPermissionsAsync handles all three
+  // states with a single call:
+  //   - undetermined → shows the iOS prompt → returns user's choice
+  //   - granted (already) → returns granted immediately, no prompt
+  //   - denied (already) → returns denied immediately, no prompt
+  //
+  // We use this rather than getForegroundPermissionsAsync because the
+  // "get" variant can return stale state right after the user toggles
+  // permission in iOS Settings; "request" forces a fresh OS-level check.
+  async function handleSettingsPress() {
+    const result = await Location.requestForegroundPermissionsAsync();
+
+    if (result.status === 'granted') {
+      router.push('/home');
+      return;
+    }
+
+    // Denied — only iOS Settings can re-enable. After the user toggles
+    // it on and swipes back, the next tap on this button hits the
+    // granted branch above.
+    Linking.openSettings();
+  }
 
   return (
     <View style={styles.root}>
@@ -88,16 +113,11 @@ export default function Permissions() {
             </View>
           </View>
 
-          {/*
-            TEMP: wired to /home for in-progress dev testing of the map screen.
-            Real behavior (next PR): Linking.openSettings() to open iOS Settings,
-            then auto-nav to /home once permission is granted on return.
-          */}
           <Pressable
             style={styles.cta}
             accessibilityRole="button"
             accessibilityLabel="Open Settings"
-            onPress={() => router.push('/home')}
+            onPress={handleSettingsPress}
           >
             <Text style={styles.ctaText}>Settings</Text>
           </Pressable>

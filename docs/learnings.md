@@ -4,6 +4,29 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/location-permission (2026-05-03)
+
+- **`useEffect(() => { ... }, [])`** runs after the component renders. Empty deps = "run once on mount." Use it for side effects: API calls, subscriptions, permission requests. Anything that talks to the outside world.
+- **Effects can't be async themselves.** Wrap an inner async function and call it. Always include the `cancelled` flag pattern + cleanup function for in-flight async — handles the case where the user navigates away mid-request and prevents touching a component that no longer exists.
+- **`useRef<T>(null)` gives you an imperative handle to a child component.** Refs hold a `.current` value that persists across renders without triggering re-renders when changed. Use the `?.` optional chain (`mapRef.current?.animateToRegion(...)`) to safely call methods even when the ref hasn't attached yet.
+- **`Location.requestForegroundPermissionsAsync` > `getForegroundPermissionsAsync` for re-checking.** The "get" variant can return stale state right after the user toggles permission in iOS Settings. The "request" variant goes to the OS for a fresh answer and is safe to call repeatedly — it returns granted/denied immediately if already decided, or shows the prompt if undetermined.
+- **iOS permission usage strings live in `app.json` via the plugin form.** `["expo-location", { "locationWhenInUsePermission": "..." }]`. Without the string, `requestForegroundPermissionsAsync` fails silently. The plugin form auto-handles both iOS Info.plist and Android manifest entries.
+- **Expo Go's permission-management modal is dev-only.** "Experience needs permissions" is Expo Go's per-project permission UI. It disappears in development builds and App Store builds — production users see the standard iOS system prompt with your custom string.
+- **Once iOS permission is denied, the system won't prompt again.** Only `Linking.openSettings()` (which opens iOS Settings) lets the user re-enable. After enabling and returning to the app, calling `requestForegroundPermissionsAsync` again returns granted.
+
+---
+
+## feat/home-map (2026-05-03)
+
+- **Native module install = two steps, easy to mis-sequence.** `npx expo install <pkg>` writes to package.json AND fetches into node_modules. If only the first happens (e.g., Cursor edits the manifest without running install), Metro errors with "added to package.json but doesn't seem to be installed." Fix: plain `npm install` to sync.
+- **After installing a native module, restart Expo with `-c`.** Metro caches the dependency graph; a new native module isn't visible until cache is cleared. Same pattern as expo-router install.
+- **Expo + npm 7+ peer-dep conflicts are routine.** `--legacy-peer-deps` is the official Expo workaround. Adding `.npmrc` with `legacy-peer-deps=true` makes it permanent, sticky across collaborators and CI. Industry-standard for Expo SDK 50+.
+- **`<MapView>` is a native bridge component**, not a JS-only React component. It wraps Apple MapKit on iOS and Google Maps on Android. Map tiles, gestures, animations all happen at the native layer — JS just hands props.
+- **`initialRegion` vs `region`.** `initialRegion` (uncontrolled) sets the starting viewport; user pan/zoom is preserved. `region` (controlled) forces the map back on every render. Use the former for normal navigation, latter for "snap to a specific location" features.
+- **Apple MapKit allows overlays but not basemap restyling.** Custom routes, markers, zones all draw on top of the map ✓. Restyling streets/labels themselves ✗. Fresh Greens' route customization lives in the data + overlay layer, not basemap geometry — so MapKit is sufficient. Switch to MapLibre/Mapbox only if dark-mode or fully custom basemap aesthetics become essential.
+
+---
+
 ## feat/onboarding-2 (2026-05-03)
 
 - **Extract on the third use, not before.** Two inline copies of the page-control pattern stayed inline. The third occasion is when you write `<PageControl />` for the first time — and at the same time, retrofit the two prior consumers to use it. Earlier extraction over-fits to the first variant; later extraction accumulates drift between copies.
