@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/home-report-button (2026-05-05)
+
+The community-reporting flow's entry point. What we did, in plain terms:
+
+- **`onLayout` + conditional-render pattern for buttons anchored to a measured sibling.** The Report button floats 24pt above a bottom sheet whose height grows with content. State holds the measured height (init 0); the sheet's `onLayout` writes to it; the button only renders when `> 0`. One frame of "no button" is preferable to one frame of "button at the wrong position." Reusable shape for any future floating-anchored UI (e.g., the En-Route side-button column tracking the same sheet).
+- **Expo-router unmatched routes interact weirdly with modal-presented routes in the stack.** Tapping a dead-link route then "back" landed on `/safety` (modal-presented) instead of `/home`, even after a fresh app start. Didn't dig into root cause — wrote a 15-line stub at `/report` instead. Sometimes a tool quirk is cheaper to paper over than to understand. The stub gets fully replaced by the next PR; the cost is low and the symptom is gone.
+- **Scope creep can be the right call.** The handoff said "dead link to /report is fine for one PR." It wasn't, once the modal-stack quirk surfaced. Expanding PR scope by 15 lines to ship clean nav beats shipping a documented bug. Revisit the handoff's assumptions when reality disagrees with them.
+- **Reserved-color rule grew without weakening.** Orange `alert-circle` for the Report identity icon could've been framed as an "exception to the rule." Instead it's framed as "consistent with the rule's intent" (reserved colors signal safety; reporting *is* a safety signal). Same outcome, but keeps the rule strong everywhere else — exceptions invite more exceptions; alignments don't.
+- **The audit pays compounding interest.** Six Figma frames came back tightened after one round of feedback (tile gap 32→24, submit 36→44pt, anonymity disclosure promoted to title block, per-category CTA copy differentiated, Title1 Regular added). Auditing before coding once saved auditing after coding three times.
+
+---
+
 ## chore/figma-fidelity-audit-2 (2026-05-05)
 
 Second audit pass on the lighter screens. What we did, in plain terms:
