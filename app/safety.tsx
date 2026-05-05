@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -123,17 +124,7 @@ export default function SafetyModal() {
           ))}
         </View>
 
-        <View style={styles.footer}>
-          {/*
-            TODO: real "trusted contact" notification backend. The pulse
-            dot is currently static; once auth + a contact picker exist,
-            this should reflect real notification state.
-          */}
-          <Text style={styles.footerText}>
-            Your trusted contact is being notified
-          </Text>
-          <View style={styles.pulseDot} />
-        </View>
+        <TrustedContactStatus />
       </SafeAreaView>
     </View>
   );
@@ -218,22 +209,5 @@ const styles = StyleSheet.create({
     ...typography.subheadlineEmphasized,
     color: colors.black,
     textAlign: 'center',
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  footerText: {
-    ...typography.footnoteRegular,
-    color: 'rgba(80, 80, 80, 0.7)',
-    textAlign: 'center',
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.freshgreen,
   },
 });

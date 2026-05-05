@@ -178,6 +178,7 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     alignItems: 'center',
+    gap: 16, // matches Figma — flex column gap between title and subtitle
     marginBottom: 160, // matches Figma — pushes title up because actions are anchored at the bottom
   },
   title: {
@@ -187,7 +188,6 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.subheadlineRegular,
     color: colors.white,
-    marginTop: 16,
   },
   actions: {
     alignItems: 'center',
@@ -224,6 +224,12 @@ const styles = StyleSheet.create({
     borderRadius: 1000, // pill — large radius clamps to half-height
     alignItems: 'center',
     justifyContent: 'center',
+    // Approximates Figma M3 Elevation Light/1 (the larger of two layers).
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   buttonPrimary: {
     backgroundColor: colors.freshgreen,

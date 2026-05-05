@@ -41,12 +41,18 @@ export default function GetStarted() {
       />
 
       <SafeAreaView style={styles.content}>
-        <View style={styles.spacerTop} />
+        {/*
+          Content wrapper: width: 326, vertically centered via parent's
+          justify-content. Matches Figma's absolutely-centered Content node
+          with gap-88 between title and the continue group. Replaces the
+          previous hardcoded spacerTop hack — now responsive across device
+          heights.
+        */}
+        <View style={styles.contentInner}>
+          <Text style={styles.title}>Get started</Text>
 
-        <Text style={styles.title}>Get started</Text>
-
-        <View style={styles.actions}>
-          {/* TODO: real auth handlers — these are visual-only for now */}
+          <View style={styles.actions}>
+            {/* TODO: real auth handlers — these are visual-only for now */}
           <Pressable
             style={styles.outlinedButton}
             accessibilityRole="button"
@@ -95,6 +101,7 @@ export default function GetStarted() {
               <Text style={styles.loginLink}>Log in</Text>
             </Text>
           </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -131,22 +138,21 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  spacerTop: {
-    // Pushes title down below the (future) cars illustration row.
-    // Tune this once the illustration lands.
-    height: 200,
+  contentInner: {
+    width: 326,
+    gap: 88, // gap between title and continue group, per Figma
+    alignItems: 'center',
   },
   title: {
     ...typography.title1Emphasized,
     color: colors.white,
     textAlign: 'center',
-    marginBottom: 88, // matches Figma — gap between title and button stack
   },
   actions: {
-    width: 326,
+    width: '100%', // fills contentInner's 326pt
     gap: 16,
   },
   outlinedButton: {
