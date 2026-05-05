@@ -55,6 +55,12 @@ export default function Home() {
   // `score`, both decided by pickWinner based on which zones the route
   // intersects.
   const [routes, setRoutes] = useState<RankedRoute[]>([]);
+  // Measured bottom-sheet height. The Report button floats 24pt above
+  // the sheet's top edge, so we need to know how tall the sheet is at
+  // runtime (it grows with content). 0 until first layout pass — the
+  // button stays unrendered until then to avoid a one-frame flash at
+  // the wrong position.
+  const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
 
   // Recommended route is the one we explain in the bottom sheet. May be
   // undefined briefly on first render before the fetch completes.
@@ -249,7 +255,11 @@ export default function Home() {
         (greeting + daylight strip + main copy) / picture (tradeoff
         explanation) / actions row (Schedule + Go).
       */}
-      <SafeAreaView style={styles.bottomSheet} edges={['bottom']}>
+      <SafeAreaView
+        style={styles.bottomSheet}
+        edges={['bottom']}
+        onLayout={(e) => setBottomSheetHeight(e.nativeEvent.layout.height)}
+      >
         <View style={styles.dragHandle} />
 
         <View style={styles.bottomSheetContent}>
@@ -333,6 +343,26 @@ export default function Home() {
           </Pressable>
         </View>
       </SafeAreaView>
+
+      {/*
+        Report button — floats 24pt above the bottom sheet's top edge,
+        right-aligned 16pt from the screen edge. Tracks the sheet's
+        height via onLayout so it lifts with the sheet as content grows.
+        Hidden until first layout pass measures the sheet.
+        Figma node: 825:3625 (Home, with Report button update)
+        Pushes to /report — currently a stub (see app/report.tsx); the
+        full reporting UI lands in the next PR (feat/community-report).
+      */}
+      {bottomSheetHeight > 0 && (
+        <Pressable
+          style={[styles.reportBtn, { bottom: bottomSheetHeight + 24 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Report something — opens reporting flow"
+          onPress={() => router.push('/report')}
+        >
+          <Ionicons name="alert-circle" size={32} color={colors.orange} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -498,5 +528,22 @@ const styles = StyleSheet.create({
   goText: {
     ...typography.subheadlineEmphasized,
     color: colors.white,
+  },
+  reportBtn: {
+    position: 'absolute',
+    right: 16,
+    // `bottom` set inline from measured sheet height + 24 offset.
+    width: 56,
+    height: 56,
+    borderRadius: 100, // circular (clamps to 28pt at this size)
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Approximates Figma M3 Elevation Light/2.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
 });
