@@ -359,12 +359,13 @@ const styles = StyleSheet.create({
     // button can left-align with the search bar's left edge (both 374pt).
   },
   menuRow: {
-    // Width 358 + alignItems flex-start places menu button at x=16 from
-    // screen edge — 8pt to the right of where the search bar's pill begins
-    // (x=8). This is intentional in the Figma design: the search bar
-    // overflows the parent's 16pt padding (it's 374pt wide on a 390pt
-    // screen), while the menu button respects the padding.
-    width: 358, // 390 screen - 16*2 padding
+    // Responsive: stretch to parent width with 16pt margins on each
+    // side. Combined with alignItems: flex-start, the menu button
+    // lands at exactly 16pt from the screen edge regardless of device
+    // width. Search bar (8pt from edge) sits 8pt to the left — the
+    // intentional design offset.
+    alignSelf: 'stretch',
+    marginHorizontal: 16,
     alignItems: 'flex-start',
   },
   menuButton: {

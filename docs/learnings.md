@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit (2026-05-04)
+
+Audit pass on the screens flagged for spacing/structural fidelity issues. What we did, in plain terms:
+
+- **Pulled-over: same flex-1 + justify-end miss as armed-or-not.** Close link was sitting `gap: 40` below the cards instead of being pushed to the bottom of available space. Fixed by adding a `closeArea` wrapper with `flex: 1, justifyContent: 'flex-end'` — same pattern that fixed armed-or-not.
+- **Search: full Landing rebuild.** Previous version was a barebones text input with back chevron — actual Figma shows gray-fill search bar (chevron + input + mic), Quick Tools horizontal scroll (Saved/Trending/Food/Gas/Parking), Fuel section CTA, Recent searches list. Rebuilt to match.
+- **Hardcoded widths fail on wider iPhones.** `width: 374` was set on the search bar (and `width: 358` on the menu row) on a 390pt iPhone 14 baseline. On iPhone 14 Pro Max (430pt) or 16 Pro Max (440pt), `width: 374` centered creates a 28pt+ edge margin instead of the intended 8pt. **Fix: `alignSelf: 'stretch'` + `marginHorizontal: 8`** — preserves the "8pt from each edge" design intent across all device widths. Applied to both /search and components/SearchBar.tsx; menuRow got the analogous `marginHorizontal: 16` fix.
+- **Audit methodology that worked.** Pull the Figma node via MCP, scan its source for the load-bearing structural patterns (flex-1, gap values, justify-content, items-*, fixed dimensions). Compare to my implementation. Look for missing wrappers, missing flex-1 + justify-* combinations, hardcoded widths that don't scale. Fix the structural misses; ignore pixel-level minor differences.
+- **Audit lesson worth keeping.** "Lands but feels off" feedback is signal that a structural pattern was missed (typically flex-1 + justify-* for "fill remaining space"), not that individual values are wrong. Match Figma's hierarchy, not just its numbers.
+
+---
+
 ## feat/armed-or-not (2026-05-04)
 
 The pulled-over flow advances. What we did, in plain terms:

@@ -42,11 +42,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    width: 374, // Figma w-[374px] — slightly wider than the parent's content area
     height: 48,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 1000, // pill
+    // Responsive sizing: stretch to parent width with 8pt margins on
+    // each side. Figma specs `w-374` on a 390pt iPhone 14 baseline
+    // (374 = 390 - 16), which is the "8pt from each edge" intent.
+    // Hardcoded 374 fails on wider devices (Pro Max, 16 Pro Max) where
+    // it creates a 28pt+ edge margin. alignSelf + marginHorizontal
+    // preserves the intent across device widths.
+    alignSelf: 'stretch',
+    marginHorizontal: 8,
     // Approximates Figma M3 Elevation Light/3. RN can only render one shadow,
     // so we use the bigger of the two layers Figma specifies.
     shadowColor: '#000',

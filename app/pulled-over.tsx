@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
@@ -12,13 +12,20 @@ import { typography } from '../theme/typography';
  *
  * Informational screen. Shows the user how to distinguish an officer
  * (standard police, brimmed cap, county/city marked car) from a trooper
- * (Smokey Bear hat, "State Trooper"/"Highway Patrol" on door). The
- * distinction matters because it affects jurisdiction, procedure, and
- * what the driver should expect — substance taken directly from the
- * Figma design.
+ * (Smokey Bear hat, "State Trooper"/"Highway Patrol" on door).
  *
  * Route: /pulled-over
  * Figma node: 825:3957
+ *
+ * Layout structure mirrors Figma's nested flex hierarchy:
+ *   Page (flex-1, gap-40, items-center)
+ *     Drag wrapper (pt-16)
+ *     Title block (gap-8, items-start, w-full)
+ *     Cards row (gap-24, items-start, justify-center, w-full)
+ *       Officer card → divider → Trooper card
+ *     Close area (flex-1, justify-end, w-full)
+ *       Forward arrow (alignSelf: center)
+ *       Close text (alignSelf: flex-end)
  */
 export default function PulledOver() {
   const router = useRouter();
@@ -36,15 +43,11 @@ export default function PulledOver() {
       <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['bottom']}>
-        {/* Drag handle in its own wrapper, matching Figma's pt-16 box. */}
-        <View style={styles.dragWrapper}>
-          <View style={styles.dragHandle} />
-        </View>
+        <View style={styles.page}>
+          <View style={styles.dragWrapper}>
+            <View style={styles.dragHandle} />
+          </View>
 
-        <ScrollView
-          contentContainerStyle={styles.page}
-          showsVerticalScrollIndicator={false}
-        >
           <View style={styles.titleBlock}>
             <Text style={styles.eyebrow}>Stay informed</Text>
             <Text style={styles.title}>Know the difference:</Text>
@@ -52,11 +55,10 @@ export default function PulledOver() {
 
           <View style={styles.cardsRow}>
             {/*
-              TODO: real Officer/Trooper illustrations exported from Figma.
-              For v1 the illustration slot is a transparent rounded card
-              with an Ionicon placeholder + label, matching Figma's
-              structural layout (no tinted fill — the design's cards are
-              transparent).
+              TODO: real Officer/Trooper character illustrations exported
+              from Figma. The illustrationBox dimensions match the design
+              (148×244); the icon placeholder sits inside until real
+              illustrations land in a polish PR.
             */}
             <View style={styles.card}>
               <View style={styles.illustrationBox}>
@@ -104,16 +106,18 @@ export default function PulledOver() {
           </View>
 
           {/*
-            Footer: forward arrow centered on its own row, "Close" link
-            right-aligned beneath. Matches Figma's two-row footer layout.
+            Close area: flex-1 + justify-end pushes the forward arrow + Close
+            link to the bottom of available space (matches Figma's design
+            where the close link sits at the bottom-right of the panel,
+            with the next arrow centered just above it).
           */}
-          <View style={styles.footer}>
+          <View style={styles.closeArea}>
             <Pressable
               onPress={handleNext}
               accessibilityRole="button"
               accessibilityLabel="Continue to next page"
               hitSlop={12}
-              style={styles.nextRow}
+              style={styles.nextButton}
             >
               <Ionicons name="chevron-forward" size={24} color="#3D3D3D" />
             </Pressable>
@@ -123,12 +127,12 @@ export default function PulledOver() {
               accessibilityRole="button"
               accessibilityLabel="Close"
               hitSlop={12}
-              style={styles.closeRow}
+              style={styles.closeButton}
             >
               <Text style={styles.closeText}>Close</Text>
             </Pressable>
           </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -145,9 +149,16 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  page: {
+    // Page 1 wrapper from Figma: flex-1 + gap-40 + items-center.
+    flex: 1,
+    gap: 40,
+    alignItems: 'center',
+  },
   dragWrapper: {
     paddingTop: 16,
     alignItems: 'center',
+    width: '100%',
   },
   dragHandle: {
     width: 32,
@@ -155,16 +166,13 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     backgroundColor: 'rgba(128, 128, 128, 0.55)',
   },
-  page: {
-    gap: 40, // Figma's outer column gap between drag/title/cards/footer
-    paddingTop: 40, // gap from drag handle to first content
-  },
   titleBlock: {
     gap: 8,
+    alignItems: 'flex-start',
+    width: '100%',
   },
   eyebrow: {
-    // Title1/Regular: same size/lineHeight/letterSpacing as Title1/Emphasized
-    // but weight 400 instead of 700 (per Figma).
+    // Title1/Regular per Figma — 28/34/400/0.38 in #3D3D3D.
     fontSize: 28,
     lineHeight: 34,
     fontWeight: '400',
@@ -172,6 +180,7 @@ const styles = StyleSheet.create({
     color: '#3D3D3D',
   },
   title: {
+    // Title1/Emphasized — 28/34/700/0.38 in black.
     ...typography.title1Emphasized,
     color: colors.black,
   },
@@ -180,6 +189,7 @@ const styles = StyleSheet.create({
     gap: 24,
     alignItems: 'flex-start',
     justifyContent: 'center',
+    width: '100%',
   },
   card: {
     flex: 1,
@@ -187,8 +197,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   illustrationBox: {
-    // Transparent card per Figma — no background fill. Real character
-    // illustrations land here in a follow-up PR.
+    // Transparent card per Figma — w-148 h-244 p-16 rounded-12. Real
+    // character illustrations land here in a polish PR; the icon+label
+    // placeholder establishes layout structure.
     width: 148,
     height: 244,
     borderRadius: 12,
@@ -198,6 +209,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardLabel: {
+    // Title3/Regular per Figma — 20/25/400/-0.45 in black.
     fontSize: 20,
     lineHeight: 25,
     fontWeight: '400',
@@ -207,10 +219,10 @@ const styles = StyleSheet.create({
   bullets: {
     gap: 16,
     width: '100%',
+    alignItems: 'flex-start',
   },
   bullet: {
-    // Callout/Regular per Figma — not yet a token in theme/typography.ts.
-    // Worth adding when there's a third use of this style.
+    // Callout/Regular per Figma — 16/21/400/-0.31 in black.
     fontSize: 16,
     lineHeight: 21,
     letterSpacing: -0.31,
@@ -225,15 +237,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#CAC4D0',
     marginVertical: 16,
   },
-  footer: {
+  closeArea: {
+    // flex-1 + justify-end pushes the next-arrow + Close to the bottom
+    // of remaining space (matches Figma's Close-at-bottom-right layout).
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-end',
     gap: 16,
   },
-  nextRow: {
-    alignItems: 'center',
+  nextButton: {
+    // Forward arrow centers itself horizontally regardless of parent
+    // alignment, matching Figma's absolute-centered next arrow.
+    alignSelf: 'center',
     paddingVertical: 8,
   },
-  closeRow: {
-    alignItems: 'flex-end',
+  closeButton: {
+    // Close text right-aligned per Figma (items-end on the close-area).
+    alignSelf: 'flex-end',
   },
   closeText: {
     ...typography.footnoteRegular,
