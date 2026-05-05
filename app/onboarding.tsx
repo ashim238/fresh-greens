@@ -201,6 +201,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    // Approximates Figma M3 Elevation Light/1 (the larger of two layers).
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   continueText: {
     ...typography.subheadlineEmphasized,

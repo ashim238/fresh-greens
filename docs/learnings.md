@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit-2 (2026-05-05)
+
+Second audit pass on the lighter screens. What we did, in plain terms:
+
+- **Recurring miss across screens: M3 Elevation 1 shadow on filled buttons.** Welcome (Get started + Log in), Onboarding (Continue), Permissions (Settings) all specced an Elevation 1 shadow in Figma — a small drop shadow that lifts the pill button off the surface — that I'd missed during initial builds. Added the same approximation pattern: `shadowOffset: {0, 1}, shadowOpacity: 0.15, shadowRadius: 3, elevation: 2`. Outlined buttons (Get Started's auth options, Permissions sub-rows) correctly don't have shadows.
+- **Get Started: replaced `spacerTop: 200` hack with flex centering.** Original used a 200pt View to push title down; restructured to use `flex: 1, alignItems: 'center', justifyContent: 'center'` on outer + `width: 326, gap: 88` on inner wrapper. Same visual on iPhone 14, but now responsive across device heights — content centers on whatever screen.
+- **Welcome: replaced `marginTop: 16` on subtitle with `gap: 16` on titleBlock.** Same visual outcome, but matches Figma's flex column structure rather than CSS-style margins. Cleaner hierarchy.
+- **Spot-checks passed for Home and Safety modal.** Home's bottom sheet was rebuilt against Figma 825:3635 carefully; Safety modal got fixed yesterday + the user consolidated the footer to TrustedContactStatus. Nothing additional to fix.
+- **Audit pattern that's worked across both passes.** Pull Figma node → scan for load-bearing structural patterns (flex hierarchies, gap values, justify-*, fixed dimensions, shadows) → compare structurally → fix. Don't chase pixel-level deltas; the structure is what reads as "right" or "off." Most screens needed only minor tweaks once the pattern was established.
+
+---
+
 ## chore/figma-fidelity-audit (2026-05-04)
 
 Audit pass on the screens flagged for spacing/structural fidelity issues. What we did, in plain terms:
