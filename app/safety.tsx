@@ -19,8 +19,8 @@ import { typography } from '../theme/typography';
  *
  * Each tab is a category entry point. Tapping one pushes the user
  * into a sub-flow:
- *   I was pulled over → /armed-or-not → /review-guidance (5 sub-views)
- *     (eventually: → recording → /contact → /review-guidance)
+ *   I was pulled over → /pulled-over (consolidated state-machine modal:
+ *     armed → transition → guidance → contact → review)
  *   I need roadside assistance → /roadside (TBD)
  *   I'm in an unfamiliar area → /unfamiliar (TBD)
  *   I want to share my location → /share-location (TBD)
@@ -42,11 +42,11 @@ const TABS: SafetyTab[] = [
     id: 'pulled-over',
     label: 'I was pulled over',
     iconName: 'alert-circle',
-    // Routes directly to /armed-or-not — the firearm question is the
-    // first thing that determines what guidance applies. The Officer
-    // vs Trooper informational content moved into /review-guidance
-    // (reflective post-incident flow), not the urgent pre-stop path.
-    href: '/armed-or-not',
+    // Routes to /pulled-over, a single consolidated modal that runs the
+    // entire flow as an internal state machine: armed-or-not → recording
+    // → contact → review-guidance. One swipe-down dismisses everything,
+    // instead of the four-deep modal stack we used to push.
+    href: '/pulled-over',
   },
   {
     id: 'roadside',

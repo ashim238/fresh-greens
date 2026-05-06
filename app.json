@@ -34,6 +34,12 @@
         {
           "locationWhenInUsePermission": "Fresh Greens uses your location to suggest routes that maximize visibility, daylight, and familiarity."
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Fresh Greens records audio during traffic stops as ambient protection. Recordings are saved to your account and never shared without your action."
+        }
       ]
     ]
   }

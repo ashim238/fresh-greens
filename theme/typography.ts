@@ -43,6 +43,12 @@ export const typography = {
     fontWeight: '400',
     letterSpacing: 0.38,
   },
+  title2Regular: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '400',
+    letterSpacing: -0.26,
+  },
   title2Emphasized: {
     fontSize: 22,
     lineHeight: 28,

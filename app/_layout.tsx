@@ -27,12 +27,15 @@ export default function RootLayout() {
           use the default stack push.
         */}
         <Stack.Screen name="safety" options={{ presentation: 'modal' }} />
+        {/*
+          /pulled-over consolidates what used to be four stacked modals
+          (/armed-or-not, /recording, /contact, /review-guidance) into a
+          single state-machine modal. One presentation, one swipe-down
+          dismissal — the user doesn't have to peel off four layers to
+          get back to /home after a stressful event.
+        */}
         <Stack.Screen
-          name="armed-or-not"
-          options={{ presentation: 'modal' }}
-        />
-        <Stack.Screen
-          name="review-guidance"
+          name="pulled-over"
           options={{ presentation: 'modal' }}
         />
         {/*

@@ -1,0 +1,1537 @@
+import { Ionicons } from '@expo/vector-icons';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
+import { useRouter } from 'expo-router';
+import * as Speech from 'expo-speech';
+import { StatusBar } from 'expo-status-bar';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { DragHandle } from '../components/DragHandle';
+import { TrustedContactStatus } from '../components/TrustedContactStatus';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+
+/**
+ * Pulled Over — the entire pulled-over safety flow in one modal.
+ *
+ * Previously this flow was four stacked modals
+ * (/armed-or-not → /recording → /contact → /review-guidance). Each one
+ * had its own swipe-down dismissal, so getting back to /home after a
+ * stressful event meant peeling off four layers. Bad UX, especially
+ * for a post-stop reflective flow that should feel like one held
+ * conversation.
+ *
+ * Consolidation: same content, single modal envelope, internal state
+ * machine moves between phases. One swipe-down exits the whole flow.
+ *
+ * Phases:
+ *   armed       — Are you armed? (3 answer cards)
+ *   transition  — "We'll walk you through what to do." (auto 3s → guidance)
+ *   guidance    — "Read the following" bullets + persistent recording
+ *                 widget with live waveform (real mic metering via
+ *                 expo-audio) + Read aloud (expo-speech) + Continue
+ *   contact     — Trusted contact screen (Call/Text + Review-guidance link).
+ *                 Outer avatar ring pulses to mirror the "live/connected"
+ *                 status the trusted-contact dot conveys elsewhere.
+ *   review      — 5 sub-views via reviewIndex (Officer/Trooper → Do →
+ *                 Have → Say → Know), chevron navigation
+ *
+ * Recording lifecycle: starts on the user's first armed answer (i.e.
+ * leaving the 'armed' phase) and runs until the modal dismisses. No
+ * stop button — ambient protection isn't something the user manages
+ * mid-encounter. The recording widget is *displayed* only on the
+ * guidance phase, but the recorder keeps running and the elapsed
+ * counter keeps ticking through the rest of the flow.
+ *
+ * If the user denies the microphone permission (or recording fails),
+ * the visual still works — the waveform falls back to a flat baseline
+ * and the timer keeps ticking via setInterval. The "Saved to your
+ * account" footnote in the widget is the contextual answer to "where
+ * does this recording go," kept inside the widget so it doesn't crowd
+ * the global TrustedContactStatus footer at the modal bottom.
+ *
+ * Route: /pulled-over
+ * Entry: tap "I was pulled over" on /safety
+ *
+ * Figma nodes (per phase):
+ *   armed             — 825:4034
+ *   transition        — 825:4100
+ *   guidance          — 825:4238
+ *   contact           — 825:4791
+ *   review (officer)  — 825:3957
+ *   review (do)       — 825:4386
+ *   review (have)     — 825:4533
+ *   review (say)      — 825:4599
+ *   review (know)     — 825:4724
+ */
+
+type ArmedAnswer = 'yes' | 'no' | 'preferred-not-to-answer';
+type Phase = 'armed' | 'transition' | 'guidance' | 'contact' | 'review';
+
+type AnswerCard = {
+  id: ArmedAnswer;
+  title: string;
+  subtitle?: string;
+};
+
+const ANSWERS: AnswerCard[] = [
+  {
+    id: 'yes',
+    title: 'Yes',
+    subtitle: 'I have a firearm, knife, or other weapon on me',
+  },
+  {
+    id: 'no',
+    title: 'No',
+    subtitle: 'I do not have a firearm, knife, or other weapon on me',
+  },
+  {
+    id: 'preferred-not-to-answer',
+    title: 'Prefer not to answer',
+  },
+];
+
+const TRANSITION_MS = 3000;
+const REVIEW_VIEW_COUNT = 5;
+
+const CONTACT_NAME = 'Myles Ashitey';
+const CONTACT_INITIALS = 'MA';
+
+// --- Waveform tuning -----------------------------------------------------
+// Number of bars rendered, polling interval for new metering samples, and
+// the dB → bar-height mapping. Voice typically registers around -40 to
+// -10 dB; silence sits at -60 or below.
+
+const WAVEFORM_BAR_COUNT = 48;
+const WAVEFORM_POLL_MS = 80;
+const WAVEFORM_MIN_HEIGHT = 4;
+const WAVEFORM_MAX_HEIGHT = 64;
+const METERING_FLOOR_DB = -60;
+const METERING_CEILING_DB = -10;
+
+/** Convert one dB sample to a bar height in pt. Clamped to [min, max]. */
+function dbToBarHeight(db: number): number {
+  // Map [floor, ceiling] dB → [0, 1] then to [min, max] pt.
+  const normalized = Math.max(
+    0,
+    Math.min(
+      1,
+      (db - METERING_FLOOR_DB) / (METERING_CEILING_DB - METERING_FLOOR_DB),
+    ),
+  );
+  return WAVEFORM_MIN_HEIGHT + normalized * (WAVEFORM_MAX_HEIGHT - WAVEFORM_MIN_HEIGHT);
+}
+
+// --- Main component ------------------------------------------------------
+
+export default function PulledOver() {
+  const router = useRouter();
+  const [phase, setPhase] = useState<Phase>('armed');
+  const [armed, setArmed] = useState<ArmedAnswer | null>(null);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [meteringHistory, setMeteringHistory] = useState<number[]>(() =>
+    new Array(WAVEFORM_BAR_COUNT).fill(METERING_FLOOR_DB),
+  );
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Tracks whether we've already kicked off the recorder. The lifecycle
+  // effect below is keyed on `phase` (so it can fire once we leave
+  // armed), but every subsequent phase change would otherwise re-trigger
+  // it and try to start an already-recording recorder — which throws on
+  // iOS. This ref is the "started exactly once" latch.
+  const hasStartedRecordingRef = useRef(false);
+
+  // Set up the audio recorder. Spreading HIGH_QUALITY with
+  // isMeteringEnabled lets us read the input level (dB) for the live
+  // waveform. The actual recorder is started/stopped imperatively in
+  // the effect below — the hook just gives us the instance.
+  const recorder = useAudioRecorder({
+    ...RecordingPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+  });
+  const recorderState = useAudioRecorderState(recorder, WAVEFORM_POLL_MS);
+
+  // Conservative default: show firearm advice unless the user explicitly
+  // said "no". 'preferred-not-to-answer' falls under the same conservative
+  // bucket as 'yes' so the guidance assumes a firearm may be present.
+  const showFirearmGuidance =
+    armed === 'yes' || armed === 'preferred-not-to-answer';
+
+  // Recording timer — runs from the first armed answer until the modal
+  // dismisses. Independent of the audio recorder so the timer keeps
+  // ticking even if mic permission was denied (the visual experience
+  // still reads as "we're protecting you" via the elapsed counter).
+  useEffect(() => {
+    if (phase === 'armed') return;
+    if (timerRef.current) return;
+    timerRef.current = setInterval(() => {
+      setElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [phase]);
+
+  // Auto-advance from transition → guidance after 3s. The transition
+  // phase is a brief reassurance ("We'll walk you through what to do.")
+  // with no controls of its own, so the timeout is the only way out.
+  useEffect(() => {
+    if (phase !== 'transition') return;
+    const timeout = setTimeout(() => setPhase('guidance'), TRANSITION_MS);
+    return () => clearTimeout(timeout);
+  }, [phase]);
+
+  // Audio recording lifecycle: request mic permission and start the
+  // recorder when the user first leaves the armed phase. Guarded by
+  // hasStartedRecordingRef so subsequent phase changes (transition →
+  // guidance → contact → review) don't re-invoke prepareToRecord/record
+  // on an already-recording recorder. Errors are soft-failed — if
+  // permission is denied or recording errors, the rest of the flow
+  // works fine; the waveform just stays at its baseline.
+  useEffect(() => {
+    if (phase === 'armed') return;
+    if (hasStartedRecordingRef.current) return;
+    hasStartedRecordingRef.current = true;
+    (async () => {
+      try {
+        const status = await requestRecordingPermissionsAsync();
+        if (!status.granted) {
+          console.warn('Microphone permission not granted; waveform disabled');
+          return;
+        }
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+      } catch (err) {
+        console.warn('expo-audio recorder failed to start', err);
+      }
+    })();
+    // recorder identity is stable from the hook; intentionally not in deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // Stop the recorder on unmount. Separate effect so it runs once at
+  // teardown and doesn't fire on every phase change.
+  useEffect(() => {
+    return () => {
+      try {
+        if (recorder.isRecording) {
+          recorder.stop();
+        }
+      } catch {
+        /* noop */
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sample metering into a circular buffer. Each tick: push the latest
+  // dB value, drop the oldest. Renders as a left-to-right scrolling
+  // waveform (newest on the right).
+  //
+  // Heartbeat dep: durationMillis. We *don't* depend on metering itself
+  // because metering can stay at a constant value across ticks (or be
+  // undefined entirely) — that would mean the effect never re-runs and
+  // the buffer stalls. durationMillis ticks up every WAVEFORM_POLL_MS
+  // while recording, so it's the reliable cadence signal.
+  useEffect(() => {
+    if (phase !== 'guidance') return;
+    setMeteringHistory((prev) => {
+      const next = prev.slice(1);
+      // metering may be undefined on the first tick, before the
+      // recorder has produced any samples, or if the platform doesn't
+      // expose it. Fall back to floor (silent) so the bar reads as a
+      // flat baseline rather than a NaN.
+      const sample =
+        typeof recorderState.metering === 'number'
+          ? recorderState.metering
+          : METERING_FLOOR_DB;
+      next.push(sample);
+      return next;
+    });
+  }, [phase, recorderState.durationMillis, recorderState.metering]);
+
+  // Stop any in-progress speech when leaving guidance phase, since the
+  // Read-aloud button only exists there. Without this the speech would
+  // keep narrating bullets into the contact / review screens.
+  useEffect(() => {
+    if (phase !== 'guidance') {
+      Speech.stop();
+    }
+    return () => {
+      Speech.stop();
+    };
+  }, [phase]);
+
+  function handleAnswer(answer: ArmedAnswer) {
+    setArmed(answer);
+    setPhase('transition');
+  }
+
+  function handleContinueToContact() {
+    setPhase('contact');
+  }
+
+  function handleReviewGuidance() {
+    setReviewIndex(0);
+    setPhase('review');
+  }
+
+  function handleReviewNext() {
+    if (reviewIndex < REVIEW_VIEW_COUNT - 1) {
+      setReviewIndex(reviewIndex + 1);
+    }
+  }
+
+  function handleReviewBack() {
+    if (reviewIndex > 0) setReviewIndex(reviewIndex - 1);
+  }
+
+  function handleClose() {
+    router.back();
+  }
+
+  return (
+    <View style={styles.root}>
+      <StatusBar style="dark" />
+
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <View style={styles.dragWrapper}>
+          <DragHandle />
+        </View>
+
+        {/*
+          Persistent recording chip — only on phases where the recording
+          widget itself isn't visible. Without this, recording vanishes
+          from the UI the moment the user taps Continue, even though the
+          recorder keeps running. Honors the "don't make recording feel
+          like a black box" concern: a small inline indicator with the
+          live timer sits above the phase content for the rest of the
+          flow. Hidden on guidance because the full widget is there.
+        */}
+        {(phase === 'contact' || phase === 'review') && (
+          <RecordingChip elapsed={elapsed} />
+        )}
+
+        <View style={styles.phaseContainer}>
+          {phase === 'armed' && <ArmedView onAnswer={handleAnswer} />}
+          {phase === 'transition' && <TransitionView />}
+          {phase === 'guidance' && (
+            <GuidanceView
+              showFirearmGuidance={showFirearmGuidance}
+              elapsed={elapsed}
+              meteringHistory={meteringHistory}
+              onContinue={handleContinueToContact}
+            />
+          )}
+          {phase === 'contact' && (
+            <ContactView onReviewGuidance={handleReviewGuidance} />
+          )}
+          {phase === 'review' && (
+            <ReviewView
+              index={reviewIndex}
+              showFirearmGuidance={showFirearmGuidance}
+              onNext={handleReviewNext}
+              onBack={handleReviewBack}
+              onClose={handleClose}
+            />
+          )}
+        </View>
+
+        {/*
+          TrustedContactStatus is the persistent indicator across phases.
+          Hidden on review (its own footer with chevrons + Close) and on
+          contact (the screen IS about the trusted contact — repeating
+          the status under it is noise).
+        */}
+        {(phase === 'armed' ||
+          phase === 'transition' ||
+          phase === 'guidance') && <TrustedContactStatus />}
+      </SafeAreaView>
+    </View>
+  );
+}
+
+// --- Phase: Armed --------------------------------------------------------
+
+function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
+  return (
+    <View style={armedStyles.page}>
+      <View style={armedStyles.titleBlock}>
+        <Text style={armedStyles.eyebrow}>Ok. Got it.</Text>
+        <Text style={armedStyles.title}>Are you armed?</Text>
+      </View>
+
+      <View style={armedStyles.answersWrapper}>
+        {ANSWERS.map((answer) => (
+          <Pressable
+            key={answer.id}
+            style={armedStyles.answerCard}
+            onPress={() => onAnswer(answer.id)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              answer.subtitle
+                ? `${answer.title} — ${answer.subtitle}`
+                : answer.title
+            }
+          >
+            <View style={armedStyles.answerContent}>
+              <Text style={armedStyles.answerTitle}>{answer.title}</Text>
+              {answer.subtitle && (
+                <Text style={armedStyles.answerSubtitle}>
+                  {answer.subtitle}
+                </Text>
+              )}
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// --- Phase: Transition ---------------------------------------------------
+
+function TransitionView() {
+  return (
+    <View style={transitionStyles.center}>
+      <View style={transitionStyles.textBlock}>
+        <Text style={transitionStyles.title}>
+          We'll walk you{'\n'}through what to do.
+        </Text>
+        <Text style={transitionStyles.subtitle}>
+          We've started recording{'\n'} for your safety.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// --- Phase: Guidance -----------------------------------------------------
+
+/**
+ * Live mic-driven waveform. Renders WAVEFORM_BAR_COUNT vertical bars,
+ * each height computed from a dB sample in the metering history (oldest
+ * on the left, newest on the right). When the recorder isn't active or
+ * the platform doesn't expose metering, the buffer stays at the floor
+ * value and the waveform reads as a flat baseline — graceful fallback
+ * rather than a broken visual.
+ */
+function Waveform({ history }: { history: number[] }) {
+  return (
+    <View style={guidanceStyles.waveformRow}>
+      {history.map((db, i) => (
+        <View
+          key={i}
+          style={[guidanceStyles.waveformBar, { height: dbToBarHeight(db) }]}
+        />
+      ))}
+    </View>
+  );
+}
+
+function GuidanceBullet({ children }: { children: ReactNode }) {
+  return (
+    <View style={guidanceStyles.bulletRow}>
+      <Text style={guidanceStyles.bulletDot}>•</Text>
+      <Text style={guidanceStyles.bulletText}>{children}</Text>
+    </View>
+  );
+}
+
+function GuidanceView({
+  showFirearmGuidance,
+  elapsed,
+  meteringHistory,
+  onContinue,
+}: {
+  showFirearmGuidance: boolean;
+  elapsed: number;
+  meteringHistory: number[];
+  onContinue: () => void;
+}) {
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // useMemo: bullet list shouldn't be rebuilt every render — the
+  // showFirearmGuidance value is stable for the life of the modal.
+  const bulletLines = useMemo<string[]>(
+    () => [
+      'Pull over safely in a well lit place',
+      ...(showFirearmGuidance
+        ? ["Inform the officer of your firearm's location"]
+        : []),
+      'Provide all necessary documentation',
+      "You don't have to consent to a search",
+    ],
+    [showFirearmGuidance],
+  );
+
+  const handleReadAloud = useCallback(() => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+    setIsSpeaking(true);
+    bulletLines.forEach((line, i) => {
+      Speech.speak(line, {
+        rate: 0.95,
+        onDone:
+          i === bulletLines.length - 1
+            ? () => setIsSpeaking(false)
+            : undefined,
+        onStopped: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false),
+      });
+    });
+  }, [bulletLines, isSpeaking]);
+
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
+  const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+  const seconds = (elapsed % 60).toString().padStart(2, '0');
+  const timeString = `00:${minutes}:${seconds}`;
+
+  return (
+    <View style={guidanceStyles.page}>
+      <View style={guidanceStyles.titleBlock}>
+        <Text style={guidanceStyles.eyebrow}>We can help</Text>
+        <Text style={guidanceStyles.title}>Read the following</Text>
+      </View>
+
+      {/*
+        Structured bullets — flex row with dot + text columns rather than
+        an inline `•{"  "}{text}`. Matches the indent and wrap behavior
+        of Figma's `<li class="list-disc ms-[30px]">` more faithfully:
+        the bullet character has its own column, multi-line text wraps
+        flush with the first line. Same pattern review-guidance uses.
+      */}
+      <View style={guidanceStyles.bullets}>
+        {bulletLines.map((line) => (
+          <GuidanceBullet key={line}>{line}</GuidanceBullet>
+        ))}
+      </View>
+
+      <Pressable
+        style={guidanceStyles.readAloudRow}
+        onPress={handleReadAloud}
+        accessibilityRole="button"
+        accessibilityLabel={isSpeaking ? 'Stop reading aloud' : 'Read aloud'}
+        hitSlop={12}
+      >
+        <Ionicons
+          name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
+          size={32}
+          color={colors.mutedTertiary}
+        />
+        <Text style={guidanceStyles.readAloudText}>
+          {isSpeaking ? 'Stop' : 'Read aloud'}
+        </Text>
+      </Pressable>
+
+      <View style={guidanceStyles.spacer} />
+
+      {/*
+        Recording widget — Figma node 825:4298. Background F2F2F7,
+        radius 20, padding 16, gap 8, items-center. The static
+        waveform bars from the Figma mockup are replaced with a real
+        live waveform driven by mic metering. Stop button removed:
+        recording is ambient protection across the rest of the flow,
+        not a thing the user manages mid-encounter. The "Saved to your
+        account" footnote answers "where does this go" without
+        crowding the trusted-contact status at the modal bottom.
+      */}
+      <View style={guidanceStyles.recordingWidget}>
+        <View style={guidanceStyles.recordingTextBlock}>
+          <Text style={guidanceStyles.recordingLabel}>Recording…</Text>
+          <Text style={guidanceStyles.recordingTimer}>{timeString}</Text>
+        </View>
+
+        <Waveform history={meteringHistory} />
+
+        <Text style={guidanceStyles.recordingFootnote}>
+          Recordings are saved to your account
+        </Text>
+      </View>
+
+      <Pressable
+        onPress={onContinue}
+        accessibilityRole="button"
+        accessibilityLabel="Continue to trusted contact"
+        style={guidanceStyles.continueBtn}
+      >
+        <Text style={guidanceStyles.continueText}>Continue</Text>
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.wiltedgreen}
+        />
+      </Pressable>
+    </View>
+  );
+}
+
+// --- Phase: Contact ------------------------------------------------------
+
+/**
+ * Reusable pulse hook — opacity 1 ↔ minOpacity, 800ms each direction,
+ * ease in-out. Same rhythm TrustedContactStatus uses for its dot
+ * (default minOpacity 0.3 reads as "alive" on a tiny 8pt dot).
+ *
+ * Pass a higher minOpacity (e.g. 0.55) when applying to a larger
+ * surface like the avatar ring — the same 0.3 floor on a 160pt ring
+ * reads as a strobe rather than a heartbeat. The rhythm stays
+ * consistent across surfaces; only the depth of the fade changes.
+ *
+ * useNativeDriver so the JS thread can be busy and the pulse keeps
+ * running smoothly.
+ */
+function usePulseOpacity(minOpacity: number = 0.3) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: minOpacity,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, minOpacity]);
+  return pulse;
+}
+
+/**
+ * Persistent recording indicator shown on phases where the recording
+ * widget itself isn't visible (contact, review). A pulse dot + label +
+ * live timer, sized small enough to live as a chip near the top of the
+ * modal without competing with the phase content. Reuses usePulseOpacity
+ * for cadence consistency with the trusted-contact dot — different
+ * color (red for recording, freshgreen for trusted contact) but the
+ * same heartbeat rhythm.
+ */
+function RecordingChip({ elapsed }: { elapsed: number }) {
+  const pulse = usePulseOpacity();
+  const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+  const seconds = (elapsed % 60).toString().padStart(2, '0');
+  return (
+    <View
+      style={chipStyles.row}
+      accessibilityRole="text"
+      accessibilityLabel={`Recording, ${minutes} minutes ${seconds} seconds elapsed`}
+    >
+      <Animated.View style={[chipStyles.dot, { opacity: pulse }]} />
+      <Text style={chipStyles.label}>Recording</Text>
+      <Text style={chipStyles.dotSeparator}>·</Text>
+      <Text style={chipStyles.timer}>
+        00:{minutes}:{seconds}
+      </Text>
+    </View>
+  );
+}
+
+function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
+  // Higher min opacity for the avatar ring (a 160pt surface reads as a
+  // strobe at the dot's 0.3 floor). Keeps the rhythm, softens the depth.
+  const ringPulse = usePulseOpacity(0.55);
+
+  return (
+    <View style={contactStyles.page}>
+      <View style={contactStyles.topContent}>
+        <View style={contactStyles.titleBlock}>
+          <Text style={contactStyles.title}>You're not alone.</Text>
+          <Text style={contactStyles.subtitle}>
+            Your trusted contacts are alerted during emergencies and can see
+            your current location.
+          </Text>
+        </View>
+
+        <View style={contactStyles.avatarBlock}>
+          {/*
+            Only the outermost ring stroke pulses. The middle ring,
+            filled circle, and initials are a static stack inside a
+            non-animated parent, so the user's identity doesn't flicker.
+            The outer ring is layered on top via absolute positioning
+            (its own bordered View overlapping the static stack), so
+            animating its opacity affects nothing else.
+          */}
+          <View style={contactStyles.avatarStack}>
+            <View style={contactStyles.avatarRingMiddle}>
+              <View style={contactStyles.avatarCircle}>
+                <Text style={contactStyles.avatarInitials}>
+                  {CONTACT_INITIALS}
+                </Text>
+              </View>
+            </View>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                contactStyles.avatarRingOuterPulse,
+                { opacity: ringPulse },
+              ]}
+            />
+          </View>
+          <Text style={contactStyles.contactName}>{CONTACT_NAME}</Text>
+        </View>
+
+        <View style={contactStyles.buttonsBlock}>
+          <Pressable
+            style={contactStyles.callBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Call ${CONTACT_NAME}`}
+          >
+            <Ionicons name="call" size={24} color={colors.white} />
+            <Text style={contactStyles.callBtnText}>Call</Text>
+          </Pressable>
+
+          <Pressable
+            style={contactStyles.textBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Text ${CONTACT_NAME}`}
+          >
+            <Ionicons
+              name="chatbubble"
+              size={24}
+              color={colors.wiltedgreen}
+            />
+            <Text style={contactStyles.textBtnText}>Text</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={onReviewGuidance}
+            accessibilityRole="link"
+            accessibilityLabel="Review guidance"
+            style={contactStyles.reviewLink}
+          >
+            <Text style={contactStyles.reviewLinkText}>Review guidance</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={contactStyles.footerHint}>
+        <Text style={contactStyles.footerHintText}>
+          Swipe down on the gray slider to{'\n'}return to navigation
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// --- Phase: Review (5 sub-views, formerly /review-guidance) --------------
+
+function ReviewView({
+  index,
+  showFirearmGuidance,
+  onNext,
+  onBack,
+  onClose,
+}: {
+  index: number;
+  showFirearmGuidance: boolean;
+  onNext: () => void;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <View style={reviewStyles.page}>
+      <View style={reviewStyles.content}>
+        {index === 0 && <OfficerTrooperView />}
+        {index === 1 && <WhatToDoView />}
+        {index === 2 && <WhatToHaveView />}
+        {index === 3 && <WhatToSayView showFirearm={showFirearmGuidance} />}
+        {index === 4 && <WhatToKnowView />}
+      </View>
+
+      <View style={reviewStyles.footer}>
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close and return to navigation"
+          hitSlop={12}
+          style={reviewStyles.closeBtn}
+        >
+          <Text style={reviewStyles.closeText}>Close</Text>
+        </Pressable>
+
+        <View style={reviewStyles.chevronsRow}>
+          {index > 0 ? (
+            <Pressable
+              onPress={onBack}
+              accessibilityRole="button"
+              accessibilityLabel="Previous"
+              hitSlop={12}
+              style={reviewStyles.chevronBtn}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={colors.labelTertiary}
+              />
+            </Pressable>
+          ) : (
+            <View style={reviewStyles.chevronBtn} />
+          )}
+          {index < REVIEW_VIEW_COUNT - 1 ? (
+            <Pressable
+              onPress={onNext}
+              accessibilityRole="button"
+              accessibilityLabel="Next"
+              hitSlop={12}
+              style={reviewStyles.chevronBtn}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={24}
+                color={colors.labelTertiary}
+              />
+            </Pressable>
+          ) : (
+            <View style={reviewStyles.chevronBtn} />
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function OfficerTrooperView() {
+  return (
+    <View style={officerStyles.page}>
+      <View style={officerStyles.titleBlock}>
+        <Text style={officerStyles.eyebrow}>Stay informed</Text>
+        <Text style={officerStyles.title}>Know the difference:</Text>
+      </View>
+
+      <View style={officerStyles.cardsRow}>
+        <View style={officerStyles.card}>
+          <View style={officerStyles.illustrationBox}>
+            <Ionicons name="shield" size={64} color="#1B3F8B" />
+            <Text style={officerStyles.cardLabel}>Officer</Text>
+          </View>
+          <View style={officerStyles.bullets}>
+            <Text style={officerStyles.bullet}>
+              •{'  '}Wears a{' '}
+              <Text style={officerStyles.emphasis}>standard police uniform</Text>{' '}
+              with a <Text style={officerStyles.emphasis}>brimmed cap</Text>
+            </Text>
+            <Text style={officerStyles.bullet}>
+              •{'  '}Drives a{' '}
+              <Text style={officerStyles.emphasis}>county or city marked car</Text>{' '}
+              with the municipality name
+            </Text>
+          </View>
+        </View>
+
+        <View style={officerStyles.divider} />
+
+        <View style={officerStyles.card}>
+          <View style={officerStyles.illustrationBox}>
+            <Ionicons name="shield-half" size={64} color="#5C5C5C" />
+            <Text style={officerStyles.cardLabel}>Trooper</Text>
+          </View>
+          <View style={officerStyles.bullets}>
+            <Text style={officerStyles.bullet}>
+              •{'  '}Wears a{' '}
+              <Text style={officerStyles.emphasis}>Smokey Bear hat</Text>
+            </Text>
+            <Text style={officerStyles.bullet}>
+              •{'  '}Vehicle has{' '}
+              <Text style={officerStyles.emphasis}>"State Trooper"</Text> or{' '}
+              <Text style={officerStyles.emphasis}>"Highway Patrol"</Text> on the door
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function ContentView({
+  illustration,
+  title,
+  bullets,
+}: {
+  illustration: ReactNode;
+  title: string;
+  bullets: ReactNode[];
+}) {
+  return (
+    <View style={contentStyles.page}>
+      <View style={contentStyles.illustrationBox}>{illustration}</View>
+      <View style={contentStyles.body}>
+        <Text style={contentStyles.title}>{title}</Text>
+        <View style={contentStyles.bullets}>{bullets}</View>
+      </View>
+    </View>
+  );
+}
+
+function Bullet({ children }: { children: ReactNode }) {
+  return (
+    <View style={contentStyles.bulletRow}>
+      <Text style={contentStyles.bulletDot}>•</Text>
+      <Text style={contentStyles.bulletText}>{children}</Text>
+    </View>
+  );
+}
+
+function Strong({ children }: { children: ReactNode }) {
+  return <Text style={contentStyles.bulletStrong}>{children}</Text>;
+}
+
+function WhatToDoView() {
+  return (
+    <ContentView
+      illustration={
+        <Ionicons name="car-outline" size={120} color={colors.wiltedgreen} />
+      }
+      title="Immediately after you've been stopped:"
+      bullets={[
+        <Bullet key="pull-over">
+          <Strong>Pull over</Strong> safely in a well lit place
+        </Bullet>,
+        <Bullet key="turn-off">
+          Turn off the car, and turn on the interior light
+        </Bullet>,
+        <Bullet key="window">
+          Partially <Strong>open the window</Strong>
+        </Bullet>,
+        <Bullet key="hands">
+          Place your <Strong>hands on the wheel</Strong>
+        </Bullet>,
+      ]}
+    />
+  );
+}
+
+function WhatToHaveView() {
+  return (
+    <ContentView
+      illustration={
+        <Ionicons name="card-outline" size={120} color={colors.wiltedgreen} />
+      }
+      title="What you must provide:"
+      bullets={[
+        <Bullet key="license">
+          Driver's <Strong>license</Strong>
+        </Bullet>,
+        <Bullet key="registration">
+          <Strong>Registration</Strong>
+        </Bullet>,
+        <Bullet key="insurance">
+          Proof of <Strong>insurance</Strong>
+        </Bullet>,
+      ]}
+    />
+  );
+}
+
+function WhatToSayView({ showFirearm }: { showFirearm: boolean }) {
+  const bullets: ReactNode[] = [];
+
+  if (showFirearm) {
+    bullets.push(
+      <Bullet key="firearm">
+        "Officer,{' '}
+        <Strong>
+          I have a valid concealed carry permit and am currently carrying a
+          firearm. It is located [location of firearm]
+        </Strong>
+        ."
+      </Bullet>,
+    );
+  }
+
+  bullets.push(
+    <Bullet key="ask-how">
+      <Strong>Ask how to proceed</Strong>
+    </Bullet>,
+    <Bullet key="remain-still">
+      <Strong>Remain still and do not reach</Strong> until instructed otherwise
+    </Bullet>,
+  );
+
+  return (
+    <ContentView
+      illustration={
+        <Ionicons
+          name="chatbubble-ellipses-outline"
+          size={120}
+          color={colors.wiltedgreen}
+        />
+      }
+      title="What you can say:"
+      bullets={bullets}
+    />
+  );
+}
+
+function WhatToKnowView() {
+  return (
+    <ContentView
+      illustration={
+        <Ionicons name="library-outline" size={120} color={colors.wiltedgreen} />
+      }
+      title="Know your rights:"
+      bullets={[
+        <Bullet key="answer">
+          You don't have to answer questions beyond{' '}
+          <Strong>identifying yourself</Strong>
+        </Bullet>,
+        <Bullet key="search">
+          You don't have to consent to a search.{' '}
+          <Strong>Say "I do not consent to a search"</Strong> clearly
+        </Bullet>,
+        <Bullet key="why">
+          You can <Strong>ask why</Strong> you were stopped
+        </Bullet>,
+      ]}
+    />
+  );
+}
+
+// --- Styles --------------------------------------------------------------
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  safe: {
+    flex: 1,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  dragWrapper: {
+    paddingTop: 16,
+    alignItems: 'center',
+  },
+  phaseContainer: {
+    flex: 1,
+    paddingTop: 24,
+  },
+});
+
+const chipStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 4,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.red,
+  },
+  label: {
+    ...typography.footnoteEmphasized,
+    color: colors.black,
+  },
+  dotSeparator: {
+    ...typography.footnoteRegular,
+    color: colors.mutedTertiary,
+  },
+  timer: {
+    // Tabular figures so the seconds digits don't jiggle as they
+    // change (default proportional figures shift width per glyph).
+    ...typography.footnoteRegular,
+    color: colors.mutedSecondary,
+    fontVariant: ['tabular-nums'],
+  },
+});
+
+const armedStyles = StyleSheet.create({
+  page: {
+    flex: 1,
+    gap: 40,
+  },
+  titleBlock: {
+    gap: 8,
+  },
+  eyebrow: {
+    ...typography.title1Regular,
+    color: colors.labelTertiary,
+  },
+  title: {
+    ...typography.title1Emphasized,
+    color: colors.black,
+  },
+  answersWrapper: {
+    flex: 1,
+    gap: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  answerCard: {
+    height: 100,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  answerContent: {
+    width: 238,
+    gap: 8,
+  },
+  answerTitle: {
+    ...typography.bodyEmphasized,
+    color: colors.black,
+  },
+  answerSubtitle: {
+    ...typography.subheadlineRegular,
+    color: colors.labelTertiary,
+  },
+});
+
+const transitionStyles = StyleSheet.create({
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  textBlock: {
+    gap: 8,
+    alignItems: 'center',
+  },
+  title: {
+    ...typography.title1Regular,
+    color: colors.black,
+    textAlign: 'center',
+  },
+  subtitle: {
+    ...typography.subheadlineRegular,
+    color: colors.labelTertiary,
+    textAlign: 'center',
+  },
+});
+
+const guidanceStyles = StyleSheet.create({
+  page: {
+    flex: 1,
+    gap: 24,
+  },
+  titleBlock: {
+    gap: 8,
+  },
+  eyebrow: {
+    ...typography.title1Regular,
+    color: colors.labelTertiary,
+  },
+  title: {
+    ...typography.title1Emphasized,
+    color: colors.black,
+  },
+  bullets: {
+    // Figma uses gap-[8px] between <li>s; we mirror that here. Bullets
+    // are now rendered as flex rows (dot + text columns) below.
+    gap: 8,
+    paddingLeft: 18, // matches Figma's ms-[30px] (page padding 16 + 14 ≈ 30)
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  bulletDot: {
+    ...typography.title3Regular,
+    color: colors.black,
+  },
+  bulletText: {
+    ...typography.title3Regular,
+    color: colors.black,
+    flex: 1,
+  },
+  readAloudRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  readAloudText: {
+    ...typography.subheadlineEmphasized,
+    color: colors.mutedTertiary,
+  },
+  spacer: {
+    flex: 1,
+  },
+  recordingWidget: {
+    backgroundColor: colors.systemGroupedBackground,
+    borderRadius: 20,
+    padding: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  recordingTextBlock: {
+    gap: 2,
+    alignItems: 'center',
+  },
+  recordingLabel: {
+    ...typography.bodyEmphasized,
+    color: colors.black,
+  },
+  recordingTimer: {
+    ...typography.subheadlineRegular,
+    color: colors.mutedSecondary,
+    fontVariant: ['tabular-nums'],
+  },
+  waveformRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    height: WAVEFORM_MAX_HEIGHT + 8,
+    paddingVertical: 4,
+    width: '100%',
+  },
+  waveformBar: {
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: colors.red,
+  },
+  recordingFootnote: {
+    ...typography.caption1Regular,
+    color: colors.mutedTertiary,
+    textAlign: 'center',
+  },
+  // Wiltedgreen-outline pill (mirrors Contact's Text button) — quieter
+  // than freshgreen-fill, conserving the freshgreen for genuine primary
+  // actions like Call. The "we're recording during a stop" register
+  // wants reserved, not cheerful.
+  continueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 1000,
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
+    backgroundColor: colors.white,
+  },
+  continueText: {
+    ...typography.subheadlineEmphasized,
+    color: colors.wiltedgreen,
+  },
+});
+
+const contactStyles = StyleSheet.create({
+  page: {
+    flex: 1,
+    gap: 40,
+  },
+  topContent: {
+    gap: 48,
+  },
+  titleBlock: {
+    gap: 8,
+  },
+  title: {
+    ...typography.title1Regular,
+    color: colors.black,
+  },
+  subtitle: {
+    ...typography.subheadlineRegular,
+    color: colors.mutedTertiary,
+  },
+  avatarBlock: {
+    gap: 16,
+    alignItems: 'center',
+  },
+  // 160×160 box that hosts both the static middle-ring stack (a flow
+  // child centered by alignItems/justifyContent) AND the animated outer
+  // ring (an absolute-positioned overlay). Separating these means the
+  // pulse only affects the outermost stroke; the middle ring + filled
+  // circle stay 100% opaque.
+  avatarStack: {
+    width: 160,
+    height: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarRingOuterPulse: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 80,
+    borderWidth: 3,
+    borderColor: colors.fadedgreen,
+  },
+  avatarRingMiddle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: colors.freshgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarCircle: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: colors.wiltedgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    ...typography.largeTitleEmphasized,
+    color: colors.white,
+  },
+  contactName: {
+    ...typography.title2Regular,
+    color: colors.black,
+    textAlign: 'center',
+  },
+  buttonsBlock: {
+    gap: 16,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  callBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    width: '100%',
+    backgroundColor: colors.freshgreen,
+    borderRadius: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  callBtnText: {
+    ...typography.subheadlineEmphasized,
+    color: colors.white,
+  },
+  textBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    width: '100%',
+    borderRadius: 1000,
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
+  },
+  textBtnText: {
+    ...typography.subheadlineEmphasized,
+    color: colors.wiltedgreen,
+  },
+  reviewLink: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewLinkText: {
+    ...typography.subheadlineRegular,
+    color: colors.labelTertiary,
+    textDecorationLine: 'underline',
+  },
+  footerHint: {
+    alignItems: 'center',
+  },
+  footerHintText: {
+    ...typography.footnoteRegular,
+    color: colors.mutedTertiary,
+    textAlign: 'center',
+  },
+});
+
+const reviewStyles = StyleSheet.create({
+  page: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+  footer: {
+    gap: 16,
+    paddingBottom: 8,
+  },
+  closeBtn: {
+    alignSelf: 'flex-end',
+  },
+  closeText: {
+    ...typography.footnoteRegular,
+    color: colors.mutedTertiary,
+    textDecorationLine: 'underline',
+  },
+  chevronsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 32,
+    alignItems: 'center',
+  },
+  chevronBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+const officerStyles = StyleSheet.create({
+  page: {
+    flex: 1,
+    gap: 40,
+    alignItems: 'center',
+  },
+  titleBlock: {
+    gap: 8,
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  eyebrow: {
+    ...typography.title1Regular,
+    color: colors.labelTertiary,
+  },
+  title: {
+    ...typography.title1Emphasized,
+    color: colors.black,
+  },
+  cardsRow: {
+    flexDirection: 'row',
+    gap: 24,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  card: {
+    flex: 1,
+    gap: 32,
+    alignItems: 'center',
+  },
+  illustrationBox: {
+    width: 148,
+    height: 244,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 32,
+    padding: 16,
+  },
+  cardLabel: {
+    ...typography.title3Regular,
+    color: colors.black,
+  },
+  bullets: {
+    gap: 16,
+    width: '100%',
+    alignItems: 'flex-start',
+  },
+  bullet: {
+    ...typography.calloutRegular,
+    color: colors.black,
+  },
+  emphasis: {
+    fontWeight: '600',
+  },
+  divider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(202, 196, 208, 1)',
+    marginVertical: 16,
+  },
+});
+
+const contentStyles = StyleSheet.create({
+  page: {
+    flex: 1,
+    gap: 40,
+    alignItems: 'center',
+  },
+  illustrationBox: {
+    width: 320,
+    height: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  body: {
+    width: '100%',
+    gap: 32,
+  },
+  title: {
+    ...typography.title1Emphasized,
+    color: colors.black,
+  },
+  bullets: {
+    gap: 16,
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  bulletDot: {
+    ...typography.title3Regular,
+    color: colors.black,
+  },
+  bulletText: {
+    ...typography.title3Regular,
+    color: colors.black,
+    flex: 1,
+  },
+  bulletStrong: {
+    ...typography.title3Emphasized,
+    color: colors.black,
+  },
+});
