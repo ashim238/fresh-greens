@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -20,10 +21,21 @@ import { typography } from '../theme/typography';
  */
 export default function Welcome() {
   const router = useRouter();
+  const { user, loading } = useUser();
   // Terms acknowledgement — was previously a decorative Pressable with no
   // state. Now a real toggle so VoiceOver can announce the checked state
   // and so we can later gate the primary CTAs on consent (TODO).
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Auto-redirect signed-in users to /home. The `loading` guard avoids
+  // a flash of Welcome while AsyncStorage is being read on cold start —
+  // we don't navigate until we actually know whether someone's signed
+  // in. router.replace (not push) so they can't swipe-back to /.
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/home');
+    }
+  }, [loading, user, router]);
 
   return (
     <View style={styles.root}>
@@ -121,16 +133,10 @@ export default function Welcome() {
             <Text style={styles.buttonText}>Get started</Text>
           </Pressable>
 
-          {/*
-            TEMP: wired to /onboarding for in-progress dev testing.
-            Real destination is /login once that screen exists. Chain to
-            walk through: Welcome → onboarding (swipe through 3 panels) →
-            Skip → permissions.
-          */}
           <Pressable
             style={[styles.button, styles.buttonSecondary]}
             accessibilityRole="button"
-            onPress={() => router.push('/onboarding')}
+            onPress={() => router.push('/login')}
           >
             <Text style={styles.buttonText}>Have an account? Log in</Text>
           </Pressable>

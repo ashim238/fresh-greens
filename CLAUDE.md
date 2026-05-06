@@ -99,10 +99,15 @@ Shared components (`components/`):
 ## What's shipped
 
 Onboarding flow:
-- Welcome (`/`) — title, subtitle, terms, two CTAs, illustrations (Vic, sun, hill).
-- Get Started (`/get-started`) — three "Continue with" auth buttons, divider, login prompt. Visual-only auth.
+- Welcome (`/`) — title, subtitle, terms, two CTAs, illustrations (Vic, sun, hill). Auto-redirects signed-in users to `/home` so returning users skip the entire intro.
+- Get Started (`/get-started`) — three "Continue with" auth buttons. **Apple Sign In is real** (via `expo-apple-authentication`); Google + Email are visual-only placeholders. First-time users route to `/onboarding`; returning users (already in storage) route directly to `/home`.
+- Login (`/login`) — returning-user auth entry. Mirrors Get Started's visual register; Apple Sign In always routes to `/home` (skips onboarding). "Don't have an account? Sign up" → `/get-started`.
 - Onboarding pager (`/onboarding`) — three swipeable panels (FlatList horizontal + pagingEnabled).
 - Permissions (`/permissions`) — real `expo-location` permission flow, Settings deep-link on denial.
+
+Auth + identity:
+- `lib/api/user.ts` — AsyncStorage-backed user adapter (`getStoredUser` / `setStoredUser` / `clearStoredUser` / `upsertUser`). Same adapter pattern as community-reports; backend swap-in point for the future. `User` type holds id, provider, displayName, email, derived initials, and signedInAt timestamp.
+- `hooks/useUser.ts` — reactive wrapper. Exposes `{ user, loading, signInWithApple, signOut }`. Apple's first-sign-in-only `fullName`/`email` are merged via `upsertUser` so returning sign-ins don't overwrite cached identity with nulls.
 
 Map / routing:
 - Home (`/home`) — full-bleed Apple Maps, real OSRM routes, real OSM zone data, real solar daylight gradient on the recommended route polyline. Bottom sheet shows the route's "why" (estimated time, destination name, tradeoff explanation).
@@ -159,11 +164,11 @@ All four thesis factors (light, police, wildlife, road conditions) are now cover
 - ~~Daylight gradient color consistency.~~ ✅ Resolved in `chore/figma-fidelity-audit-3`. `lib/daylight.ts` polyline now uses orange→mauve→indigo to match the bottom-sheet strip. Polyline and legend share one canonical gradient.
 - Real "Schedule for X:XX AM" computation using SunCalc + route duration.
 - Custom map markers (saved home, trusted friend, location landmarks).
-- /login screen (Welcome's "Have an account?" still TEMP-wired to /onboarding).
+- ~~/login screen (Welcome's "Have an account?" still TEMP-wired to /onboarding).~~ ✅ Shipped in `feat/auth-apple-signin` along with real Apple Sign In.
 
 ### Out-of-scope for thesis (defer)
 
-- Real auth backend.
+- Real auth backend. Apple Sign In + AsyncStorage user object ships in `feat/auth-apple-signin`; identity is local-only. A real backend (Supabase / Firestore / custom) would slot in by replacing `lib/api/user.ts`'s read/write internals — the public surface and `User` type stay stable, so consumers (`useUser`, screens that read user state) don't change.
 - Real community-report storage backend.
 - Real-time live re-routing.
 - Real turn-by-turn instructions on /en-route (basic en-route screen exists; copy is static placeholder until a routing engine that gives instructions, not just geometry, is integrated).
