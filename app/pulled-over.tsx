@@ -19,8 +19,8 @@ import {
 } from 'react';
 import {
   Animated,
-  Easing,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -29,6 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
+import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -606,44 +607,6 @@ function GuidanceView({
 // --- Phase: Contact ------------------------------------------------------
 
 /**
- * Reusable pulse hook — opacity 1 ↔ minOpacity, 800ms each direction,
- * ease in-out. Same rhythm TrustedContactStatus uses for its dot
- * (default minOpacity 0.3 reads as "alive" on a tiny 8pt dot).
- *
- * Pass a higher minOpacity (e.g. 0.55) when applying to a larger
- * surface like the avatar ring — the same 0.3 floor on a 160pt ring
- * reads as a strobe rather than a heartbeat. The rhythm stays
- * consistent across surfaces; only the depth of the fade changes.
- *
- * useNativeDriver so the JS thread can be busy and the pulse keeps
- * running smoothly.
- */
-function usePulseOpacity(minOpacity: number = 0.3) {
-  const pulse = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: minOpacity,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse, minOpacity]);
-  return pulse;
-}
-
-/**
  * Persistent recording indicator shown on phases where the recording
  * widget itself isn't visible (contact, review). A pulse dot + label +
  * live timer, sized small enough to live as a chip near the top of the
@@ -897,14 +860,24 @@ function ContentView({
   title: string;
   bullets: ReactNode[];
 }) {
+  // ScrollView (not plain View) because the bullet count varies across
+  // sub-views — Know now has 6 bullets, which combined with the 320pt
+  // illustration can overflow the modal's available height on iPhone
+  // 14/15. ScrollView gracefully handles overflow without changing the
+  // layout when content fits. showsVerticalScrollIndicator hidden so
+  // the visual stays clean when scrolling isn't needed.
   return (
-    <View style={contentStyles.page}>
+    <ScrollView
+      style={contentStyles.scroll}
+      contentContainerStyle={contentStyles.page}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={contentStyles.illustrationBox}>{illustration}</View>
       <View style={contentStyles.body}>
         <Text style={contentStyles.title}>{title}</Text>
         <View style={contentStyles.bullets}>{bullets}</View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -972,14 +945,22 @@ function WhatToSayView({ showFirearm }: { showFirearm: boolean }) {
   const bullets: ReactNode[] = [];
 
   if (showFirearm) {
+    // Split into two bullets — a clean, quotable script, and a separate
+    // non-quoted instruction about disclosing the location. The earlier
+    // single bullet had a "[location of firearm]" placeholder that
+    // read like an unrendered template variable on a stressful screen.
     bullets.push(
-      <Bullet key="firearm">
+      <Bullet key="firearm-quote">
         "Officer,{' '}
         <Strong>
           I have a valid concealed carry permit and am currently carrying a
-          firearm. It is located [location of firearm]
+          firearm
         </Strong>
         ."
+      </Bullet>,
+      <Bullet key="firearm-location">
+        <Strong>Tell the officer exactly where the firearm is</Strong>{' '}
+        before reaching for anything
       </Bullet>,
     );
   }
@@ -1009,6 +990,21 @@ function WhatToSayView({ showFirearm }: { showFirearm: boolean }) {
 }
 
 function WhatToKnowView() {
+  // Rights bullets aligned to ACLU's "Stopped by Police" guidance:
+  //   - Right to remain silent (clean phrasing; the earlier "beyond
+  //     identifying yourself" hedge tried to acknowledge stop-and-
+  //     identify states but didn't generalize correctly)
+  //   - Documents are still required even if you stay silent — pairs
+  //     with "What to Have" so users don't read "remain silent" as
+  //     "refuse to hand over license/registration/insurance"
+  //   - Right to refuse a search (kept; matches ACLU)
+  //   - Right to record (added; ACLU explicitly affirms this and the
+  //     app is doing exactly that during the guidance phase)
+  //   - Right to leave if not under arrest (added; ACLU's concrete
+  //     post-stop guidance, useful for the review register)
+  //   - Asking why you were stopped — kept as practical guidance,
+  //     framed as "you can" not "you have the right to" since the
+  //     officer isn't legally bound to answer
   return (
     <ContentView
       illustration={
@@ -1016,13 +1012,23 @@ function WhatToKnowView() {
       }
       title="Know your rights:"
       bullets={[
-        <Bullet key="answer">
-          You don't have to answer questions beyond{' '}
-          <Strong>identifying yourself</Strong>
+        <Bullet key="silent">
+          You have the <Strong>right to remain silent</Strong>
+        </Bullet>,
+        <Bullet key="documents">
+          You still have to provide your{' '}
+          <Strong>license, registration, and insurance</Strong>
         </Bullet>,
         <Bullet key="search">
           You don't have to consent to a search.{' '}
           <Strong>Say "I do not consent to a search"</Strong> clearly
+        </Bullet>,
+        <Bullet key="record">
+          You have the <Strong>right to record this interaction</Strong>
+        </Bullet>,
+        <Bullet key="leave">
+          If you are not under arrest, you have the{' '}
+          <Strong>right to leave</Strong>
         </Bullet>,
         <Bullet key="why">
           You can <Strong>ask why</Strong> you were stopped
@@ -1483,21 +1489,32 @@ const officerStyles = StyleSheet.create({
     color: colors.black,
   },
   emphasis: {
-    fontWeight: '600',
+    // Inline emphasis weight inside Officer/Trooper card bullets.
+    // Pulls from the typography token instead of an inline literal so
+    // weight changes flow through one source.
+    fontWeight: typography.bodyEmphasized.fontWeight,
   },
   divider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: 'rgba(202, 196, 208, 1)',
+    backgroundColor: colors.dividerNeutral,
     marginVertical: 16,
   },
 });
 
 const contentStyles = StyleSheet.create({
-  page: {
+  scroll: {
     flex: 1,
+  },
+  page: {
+    // ScrollView contentContainerStyle. flexGrow: 1 (not flex: 1) so
+    // the content fills available height when short, and can grow
+    // beyond it when long. minHeight: '100%' keeps short content
+    // anchored visually rather than collapsing.
+    flexGrow: 1,
     gap: 40,
     alignItems: 'center',
+    paddingBottom: 16,
   },
   illustrationBox: {
     width: 320,

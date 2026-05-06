@@ -117,7 +117,7 @@ export default function Search() {
                 onPress={() => router.back()}
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
-                hitSlop={8}
+                hitSlop={12}
               >
                 <Ionicons name="chevron-back" size={24} color={colors.labelSecondary} />
               </Pressable>
@@ -139,7 +139,7 @@ export default function Search() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Voice search (not yet supported)"
-                hitSlop={8}
+                hitSlop={12}
               >
                 {/* TODO: voice input via expo-speech / native speech-to-text */}
                 <Ionicons name="mic" size={20} color={colors.labelSecondary} />
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     // Fills/Tertiary per Figma — gray translucent on flat surfaces.
-    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    backgroundColor: colors.fillsTertiary,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     height: 96,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.3)',
+    borderColor: colors.cardBorderSubtle,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: colors.separatorSubtle,
   },
   section: {
     paddingHorizontal: 16,

@@ -33,6 +33,29 @@ export const colors = {
 
   // iOS system backgrounds
   systemGroupedBackground: '#F2F2F7',
+
+  // Daylight gradient anchors — documented exception to the reserved-
+  // color rule (orange used as functional daylight encoding, not as
+  // signaling). Three-stop palette mirrored on /home's bottom-sheet
+  // strip and on the route polyline in lib/daylight.ts so the legend
+  // and the polyline agree by *shared name*, not just shared values.
+  // See .cursorrules.
+  daylightDawn: '#FFB347',
+  daylightDusk: '#C4785A',
+  daylightNight: '#2D1B69',
+
+  // iOS system fills — neutral surface tints used for inactive controls
+  // and tertiary input fields. fillsTertiary is the standard search-bar
+  // gray on a flat (non-map) surface.
+  fillsTertiary: 'rgba(120, 120, 128, 0.12)',
+
+  // Borders + scrims + separators. Tokenized so the same semantic role
+  // doesn't get re-derived as raw rgba per screen.
+  modalScrim: 'rgba(0, 0, 0, 0.2)',          // dim layer behind /report popup
+  cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',    // input/card outlines
+  separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers in lists
+  dragHandleBar: 'rgba(128, 128, 128, 0.55)',// the gray bar atop modal sheets
+  dividerNeutral: 'rgba(202, 196, 208, 1)',  // vertical/horizontal card dividers
 } as const;
 
 // Type helper: lets TypeScript autocomplete color names and catch typos.

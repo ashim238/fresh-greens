@@ -138,11 +138,16 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    // 32pt gutter matches Figma's 326pt content-strip on the 390pt
+    // baseline. Inner content stretches to fill instead of hardcoding
+    // 326, so on Pro Max the column grows with the device rather than
+    // orphaning in the middle.
+    paddingHorizontal: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   contentInner: {
-    width: 326,
+    alignSelf: 'stretch',
     gap: 88, // gap between title and continue group, per Figma
     alignItems: 'center',
   },
@@ -156,7 +161,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   outlinedButton: {
-    width: 326,
+    alignSelf: 'stretch', // grows with device width instead of hardcoded 326
     height: 48,
     borderRadius: 100, // pill
     borderWidth: 1,
