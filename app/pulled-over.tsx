@@ -19,6 +19,7 @@ import {
 } from 'react';
 import {
   Animated,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
+import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -116,8 +118,11 @@ const ANSWERS: AnswerCard[] = [
 const TRANSITION_MS = 3000;
 const REVIEW_VIEW_COUNT = 5;
 
-const CONTACT_NAME = 'Myles Ashitey';
-const CONTACT_INITIALS = 'MA';
+// Fallback display when no trusted contact has been set yet (user
+// skipped the onboarding step). The Call/Text buttons are disabled in
+// that state and a small note prompts them to set one up later.
+const NO_CONTACT_NAME = 'No trusted contact set';
+const NO_CONTACT_INITIALS = '?';
 
 // --- Waveform tuning -----------------------------------------------------
 // Number of bars rendered, polling interval for new metering samples, and
@@ -639,6 +644,29 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
   // Higher min opacity for the avatar ring (a 160pt surface reads as a
   // strobe at the dot's 0.3 floor). Keeps the rhythm, softens the depth.
   const ringPulse = usePulseOpacity(0.55);
+  const { contact } = useTrustedContact();
+
+  // Real-contact fields when set; "no contact" placeholders when not.
+  // Call/Text are no-ops without a phone number; we visually disable
+  // them so the user understands why nothing happens on tap.
+  const displayName = contact?.name ?? NO_CONTACT_NAME;
+  const displayInitials = contact?.initials ?? NO_CONTACT_INITIALS;
+  const canCall = !!contact?.phoneNumber;
+
+  function handleCall() {
+    if (!contact?.phoneNumber) return;
+    // tel: is the universal phone-dial scheme. iOS recognizes it and
+    // launches the Phone app; Android similarly. expo-router doesn't
+    // intercept these — they pass through to the platform handler.
+    void Linking.openURL(`tel:${contact.phoneNumber}`);
+  }
+
+  function handleText() {
+    if (!contact?.phoneNumber) return;
+    // sms: opens Messages with the recipient pre-filled. No body
+    // pre-fill — the user picks what to say in the moment.
+    void Linking.openURL(`sms:${contact.phoneNumber}`);
+  }
 
   return (
     <View style={contactStyles.page}>
@@ -664,7 +692,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             <View style={contactStyles.avatarRingMiddle}>
               <View style={contactStyles.avatarCircle}>
                 <Text style={contactStyles.avatarInitials}>
-                  {CONTACT_INITIALS}
+                  {displayInitials}
                 </Text>
               </View>
             </View>
@@ -676,23 +704,37 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
               ]}
             />
           </View>
-          <Text style={contactStyles.contactName}>{CONTACT_NAME}</Text>
+          <Text style={contactStyles.contactName}>{displayName}</Text>
         </View>
 
         <View style={contactStyles.buttonsBlock}>
           <Pressable
-            style={contactStyles.callBtn}
+            style={[contactStyles.callBtn, !canCall && contactStyles.btnDisabled]}
+            onPress={handleCall}
+            disabled={!canCall}
             accessibilityRole="button"
-            accessibilityLabel={`Call ${CONTACT_NAME}`}
+            accessibilityLabel={
+              canCall
+                ? `Call ${displayName}`
+                : 'Call (no trusted contact set)'
+            }
+            accessibilityState={{ disabled: !canCall }}
           >
             <Ionicons name="call" size={24} color={colors.white} />
             <Text style={contactStyles.callBtnText}>Call</Text>
           </Pressable>
 
           <Pressable
-            style={contactStyles.textBtn}
+            style={[contactStyles.textBtn, !canCall && contactStyles.btnDisabled]}
+            onPress={handleText}
+            disabled={!canCall}
             accessibilityRole="button"
-            accessibilityLabel={`Text ${CONTACT_NAME}`}
+            accessibilityLabel={
+              canCall
+                ? `Text ${displayName}`
+                : 'Text (no trusted contact set)'
+            }
+            accessibilityState={{ disabled: !canCall }}
           >
             <Ionicons
               name="chatbubble"
@@ -1381,6 +1423,13 @@ const contactStyles = StyleSheet.create({
   textBtnText: {
     ...typography.subheadlineEmphasized,
     color: colors.wiltedgreen,
+  },
+  btnDisabled: {
+    // Visible-but-non-interactive state for Call/Text when no trusted
+    // contact is set yet. Same shape, dimmed — communicates "this is a
+    // button but it's not currently usable" rather than hiding it
+    // (which would leave the contact phase looking incomplete).
+    opacity: 0.4,
   },
   reviewLink: {
     height: 44,

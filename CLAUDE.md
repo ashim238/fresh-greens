@@ -102,12 +102,15 @@ Onboarding flow:
 - Welcome (`/`) — title, subtitle, terms, two CTAs, illustrations (Vic, sun, hill). Auto-redirects signed-in users to `/home` so returning users skip the entire intro.
 - Get Started (`/get-started`) — three "Continue with" auth buttons. **Apple Sign In is real** (via `expo-apple-authentication`); Google + Email are visual-only placeholders. First-time users route to `/onboarding`; returning users (already in storage) route directly to `/home`.
 - Login (`/login`) — returning-user auth entry. Mirrors Get Started's visual register; Apple Sign In always routes to `/home` (skips onboarding). "Don't have an account? Sign up" → `/get-started`.
-- Onboarding pager (`/onboarding`) — three swipeable panels (FlatList horizontal + pagingEnabled).
-- Permissions (`/permissions`) — real `expo-location` permission flow, Settings deep-link on denial.
+- Onboarding pager (`/onboarding`) — three swipeable panels (FlatList horizontal + pagingEnabled). Page 1–3 of 5.
+- Permissions (`/permissions`) — real `expo-location` + `expo-audio` (mic) permission flow, Settings deep-link on denial. Page 4 of 5. Mic moved here from mid-stress in /pulled-over so the prompt shows during calm onboarding.
+- Trusted Contact Setup (`/trusted-contact-setup`) — page 5 of 5. iOS-native contact picker via `expo-contacts`; selected contact stored in AsyncStorage and read by /pulled-over's contact phase. Skip allowed (Call/Text show as disabled in /pulled-over until set).
 
 Auth + identity:
 - `lib/api/user.ts` — AsyncStorage-backed user adapter (`getStoredUser` / `setStoredUser` / `clearStoredUser` / `upsertUser`). Same adapter pattern as community-reports; backend swap-in point for the future. `User` type holds id, provider, displayName, email, derived initials, and signedInAt timestamp.
 - `hooks/useUser.ts` — reactive wrapper. Exposes `{ user, loading, signInWithApple, signOut }`. Apple's first-sign-in-only `fullName`/`email` are merged via `upsertUser` so returning sign-ins don't overwrite cached identity with nulls.
+- `lib/api/trusted-contact.ts` — AsyncStorage-backed trusted-contact adapter (`getTrustedContact` / `setTrustedContact` / `clearTrustedContact`). Stores only what the safety flow needs (id, name, initials, phone, setAt) — not the full Contact, for both privacy and storage-size reasons.
+- `hooks/useTrustedContact.ts` — reactive wrapper. Exposes `{ contact, loading, pickContact, clearContact }`. `pickContact` opens iOS's native picker via `expo-contacts`'s `presentContactPickerAsync`, normalizes to our shape, and persists.
 
 Map / routing:
 - Home (`/home`) — full-bleed Apple Maps, real OSRM routes, real OSM zone data, real solar daylight gradient on the recommended route polyline. Bottom sheet shows the route's "why" (estimated time, destination name, tradeoff explanation).
@@ -116,7 +119,7 @@ Map / routing:
 
 Safety flow:
 - Safety modal (`/safety`) — 2x2 tab grid entry point.
-- Pulled Over (`/pulled-over`) — single consolidated modal containing the entire pulled-over flow as an internal state machine. Phases: `armed` (Yes/No/Prefer-not-to-answer) → `transition` ("We'll walk you through what to do.", auto 3s) → `guidance` ("Read the following" bullets + persistent recording widget + Read-aloud via `expo-speech` + Continue) → `contact` (Trusted contact: Call/Text/Review-guidance link) → `review` (5 sub-views: Officer/Trooper → Do → Have → Say → Know, chevron nav). Recording timer starts on the armed answer and runs through the rest of the flow; no stop button — recording is ambient protection that ends when the modal dismisses. Firearm-conditional guidance (`armed=yes` or `preferred-not-to-answer`) appears in both the guidance bullets and the "What to Say" review sub-view, kept consistent. Consolidation replaced what used to be four stacked modals so one swipe-down exits the whole flow back to /home.
+- Pulled Over (`/pulled-over`) — single consolidated modal containing the entire pulled-over flow as an internal state machine. Phases: `armed` (Yes/No/Prefer-not-to-answer) → `transition` ("We'll walk you through what to do.", auto 3s) → `guidance` ("Read the following" bullets + persistent recording widget + Read-aloud via `expo-speech` + Continue) → `contact` (Trusted contact: real avatar/name/initials read from `useTrustedContact`, Call/Text use `Linking.openURL('tel:'/'sms:')`, disabled when no contact set) → `review` (5 sub-views: Officer/Trooper → Do → Have → Say → Know, chevron nav). Recording timer starts on the armed answer and runs through the rest of the flow; no stop button — recording is ambient protection that ends when the modal dismisses. Firearm-conditional guidance (`armed=yes` or `preferred-not-to-answer`) appears in both the guidance bullets and the "What to Say" review sub-view, kept consistent. Consolidation replaced what used to be four stacked modals so one swipe-down exits the whole flow back to /home.
 
 Infrastructure:
 - Theme tokens + design rules consolidated.
@@ -142,9 +145,9 @@ The reporting flow itself is shipped (`/report` modal: picker → detail → tha
 
 The pulled-over flow shipped as a single consolidated `/pulled-over` modal (state machine, see "What's shipped" above). Remaining items:
 
-- **Real audio waveform.** The recording widget currently shows label + timer + pulse dot. Hardcoded waveform bars were stripped because they implied real audio levels but were static placeholders. Real waveform needs `expo-av` amplitude metering — its own PR.
-- **Real call/text wiring.** Contact phase's Call and Text buttons are visual-only. Wire `Linking.openURL('tel:…')` / `sms:…` once a real trusted-contact data model exists.
-- **Trusted contact data model.** Currently a hardcoded `CONTACT_NAME = 'Myles Ashitey'` placeholder. Needs auth + contact picker before Call/Text become real.
+- ~~**Real audio waveform.**~~ ✅ Shipped in `feat/recording-contact` — live mic-driven waveform via `expo-audio` metering, falls back to flat baseline when permission denied.
+- ~~**Real call/text wiring.**~~ ✅ Shipped in `feat/trusted-contact-end-to-end` — Call/Text use `Linking.openURL('tel:…')` / `sms:…` against the stored trusted-contact phone number. Disabled state when no contact set.
+- ~~**Trusted contact data model.**~~ ✅ Shipped in `feat/trusted-contact-end-to-end` — `lib/api/trusted-contact.ts` adapter + `useTrustedContact` hook + `/trusted-contact-setup` onboarding screen + iOS-native picker via `expo-contacts`.
 - **Officer / Trooper character illustrations** (review sub-view 0) — currently Ionicons placeholders.
 
 ### Routing formula — v2 follow-ups
