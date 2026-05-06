@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/routing-formula-zones (2026-05-06)
+
+The remaining three thesis factors — police, wildlife, road conditions — land as OSM-fed zones through the existing pipeline. What we did, in plain terms:
+
+- **The discriminated union earned its keep again.** Adding three new categories to the routing formula meant: extend the Overpass query union, add new tag dispatchers in the parser, add new entries in mock fallback. **No change** required to `pickWinner`'s public signature, no consumer changes in /home or /en-route, no scoring inner-loop rewrite. Discriminated `geometry: 'polygon' | 'polyline' | 'point'` made the geometry side trivial; adding optional `category: ZoneCategory` made per-source modulation possible without touching the type system everywhere else. Three new data sources, ~200 lines of net adapter additions, zero ripples.
+- **Time modulation belongs in scoring, not in the zones adapter.** The dawn/dusk wildlife multiplier could've been baked into the zone (compute "is it dusk" at fetch time, return type='avoid' instead of 'caution'). Doing it in scoring is cleaner: zones describe *what's there*; scoring decides *what to do about it given the trip context*. Trip context (departureTime) lives at the call site of `pickWinner`, not at the time of fetching zones — and a route may be re-scored against the same zones for different scheduled departures (the future "Schedule for 7:38 AM" feature). Single source of zone truth, multiple scorings as needed.
+- **Mixed-geometry Overpass queries (way + node) need both element types in the response parser.** OSM's `amenity=police` exists as both nodes (point markers) and ways (building polygons); `highway=speed_camera` and `hazard=wildlife_crossing` are always nodes. Parser used to assume `way` only — needed to add `parseOverpassNode` and a top-level dispatch on `element.type`. Lesson: when extending an Overpass query, check whether the new tag families use way/node/both before assuming the existing parser shape covers them.
+- **`departureTime` defaults to `new Date()` so adding the param wasn't a breaking change.** Existing call sites in /home and /en-route still call `pickWinner(rawRoutes, allZones)` with no third argument — they implicitly mean "leave now," which is what most trips are. Forward-looking signature for when scheduling lands; zero churn today. Default values are an underrated tool for forward-compatible API additions.
+- **Mock fallback grew with the categories.** Original mock was 3 polygons covering safe/caution/avoid. With the new categories shipping behind the same `SHOW_ZONES` debug toggle, the mock needed to demonstrate police/wildlife/road-condition zones too — otherwise the demo screenshot would be misleading when Overpass is unreachable. Six mock zones now, one per category. Mock fidelity is part of the demo experience, not a fallback afterthought.
+
+---
+
 ## chore/figma-fidelity-audit-3 (2026-05-06)
 
 Third fidelity audit, after three structural PRs (community-report, en-route, review-guidance). What we did, in plain terms:

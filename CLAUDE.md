@@ -44,18 +44,23 @@ Adapters (lib/api/*)        →   Scoring (lib/scoring.ts)        →   Screens 
 ```
 
 ### Adapters (`lib/api/`)
-- `zones.ts` — calls Overpass API; returns `Zone[]` with discriminated geometry (`'polygon' | 'polyline' | 'point'`). Each source feeds the same return type:
-  - Lit streets → polyline zones
-  - Landuse polygons (residential/commercial/industrial) → polygon zones
-  - Parks → polygon zones (caution per nighttime-crime research)
-  - Community reports → point zones (planned, see "What's next")
+- `zones.ts` — calls Overpass API; returns `Zone[]` with discriminated geometry (`'polygon' | 'polyline' | 'point'`) and category (`'lighting' | 'landuse' | 'park' | 'police' | 'wildlife' | 'road-condition' | 'community-report'`). Sources covered:
+  - **Lighting** (`lit=*`) → polyline zones (safe/caution/avoid by tag value)
+  - **Landuse** (residential/commercial/industrial) → polygon zones
+  - **Parks** (`leisure=park`) → polygon zones (caution per nighttime-crime research)
+  - **Police** (`amenity=police` building/point, `highway=speed_camera` point) → caution
+  - **Wildlife** (`hazard=wildlife_crossing` point, `landuse=forest`/`natural=wood` polygons) → caution; score amplified ×2 at dawn/dusk in `lib/scoring.ts`
+  - **Road conditions** (`surface=unpaved|gravel|dirt|sand|ground` → caution polyline; `smoothness=bad|very_bad` → caution; `smoothness=horrible|impassable` → avoid; `highway=construction` → caution)
+  - **Community reports** → point zones from `community-reports.ts`
+- `community-reports.ts` — AsyncStorage-backed; returns `Zone[]` with `category: 'community-report'`. Same pipeline as OSM zones.
 - `routes.ts` — calls OSRM; returns `Route[]` (candidate routes). Falls back to mock on error.
 - All adapters use the same shape: typed inputs/outputs, async signature, try/catch with mock fallback, AbortController timeouts where relevant.
 
 ### Scoring (`lib/scoring.ts`)
 - Pure functions — no async, no I/O, deterministic.
-- `scoreRoute(route, zones)` — for each waypoint, dispatches per zone geometry: in-polygon for areas, near-polyline for streets (20m threshold), point-to-point for community reports (~30m threshold). Sums weighted scores per `SCORE_WEIGHTS`: `safe: +2, caution: -1, avoid: -5`.
-- `pickWinner(routes, zones)` — scores all candidates, sorts descending, marks the winner `recommended` and the rest `alternate`. Returns `RankedRoute[]`.
+- `scoreRoute(route, zones, departureTime?)` — for each waypoint, dispatches per zone geometry: in-polygon for areas, near-polyline for streets (20m threshold), point-to-point for points (~30m threshold). Sums weighted scores per `SCORE_WEIGHTS`: `safe: +2, caution: -1, avoid: -5`.
+- **Per-category modulation:** wildlife zones at dawn/dusk (±30 min from sunrise/sunset, computed by SunCalc against the zone's coordinates and the trip's `departureTime`) have their score multiplied by 2. Time-of-day belongs in scoring (which has trip context), not in the zones adapter (which describes what's there).
+- `pickWinner(routes, zones, departureTime?)` — scores all candidates, sorts descending, marks the winner `recommended` and the rest `alternate`. Returns `RankedRoute[]`.
 
 ### Daylight gradient (`lib/daylight.ts`)
 - Pure function, uses SunCalc to compute real minutes-to-sunset per route segment based on departure time + lat/lng + travel time.
@@ -137,19 +142,13 @@ The reporting flow itself is shipped (`/report` modal: picker → detail → tha
 - **Trusted Contact screen** (`/contact`, Figma 825:4791) — gate between recording and `/review-guidance`. "Review guidance" subtext routes to `/review-guidance`; alternate path skips to /en-route.
 - When both land, `/armed-or-not` rewires from direct → `/review-guidance` to instead push the recording screen, and `/contact`'s subtext becomes the entry point to `/review-guidance`.
 
-### Routing formula — additional zone sources (thesis substance)
+### Routing formula — v2 follow-ups
 
-The thesis claim names four environmental factors. **Light** is captured (OSM `lit=*` polylines). The other three need adapter additions to `lib/api/zones.ts`:
+All four thesis factors (light, police, wildlife, road conditions) are now covered through OSM via `lib/api/zones.ts`. Heavier integrations queued, not blocking:
 
-- **Police** — caution-zone bias, not avoid. Sources: OSM `amenity=police` (police buildings/precincts, point or polygon) and `highway=speed_camera` (point). Traffic-stop concentration data deliberately *not* integrated — public datasets are aggregate-only and licensing varies; community-reported "felt unsafe" zones are the cleaner proxy.
-- **Wildlife** — caution-zone, **score amplified ×2 at dawn/dusk** (deer are crepuscular). Use SunCalc to detect time-of-day at trip start. Sources: OSM `hazard=wildlife_crossing` (sparse but real), `landuse=forest`, `natural=wood`. State DOT roadkill data and iNaturalist deferred to v2.
-- **Road conditions** — graduated caution → avoid by severity. Sources: OSM `surface=unpaved|gravel|dirt|sand`, `smoothness=bad|very_bad|horrible|impassable`, `highway=construction`. Default for unmapped roads is "no signal" (don't penalize undocumented roads). Flooding deferred to v2 (FEMA static + NOAA real-time).
-
-**v2 follow-ups under consideration (heavier integrations, queued not blocking):**
-- TIGER/Line road-classification overlay for unmapped roads — bigger lift than v1; needs per-region pre-extract or backend endpoint. Consider scoping to demo region (Mobile, AL).
-- State DOT 511 real-time construction/incident feed (ALDOT for the demo region). Single-state integration, fits the adapter pattern. Replaces OSM `highway=construction` (which lags real-time by weeks).
-
-All three v1 sources flow through the existing `Zone[]` pipeline — same shape, same scoring dispatch. The wildlife time-of-day modulation is a small change in `lib/scoring.ts` (per-zone score multiplier), not a new geometry type.
+- **TIGER/Line** — road-classification overlay for unmapped roads. Bigger lift than v1; needs per-region pre-extract or backend endpoint. Scope to demo region (Mobile, AL) when picked up.
+- **State DOT 511** — real-time construction/incident feed (ALDOT for the demo region). Single-state integration, fits the adapter pattern. Would replace the OSM `highway=construction` signal (which lags real-time by weeks).
+- **FEMA + NOAA flooding** — flood-zone (static) + real-time water level / advisory data. Especially relevant to New Orleans use cases per thesis evidence. Temporal/real-time concern — different data shape than OSM.
 
 ### Polish / smaller gaps
 
