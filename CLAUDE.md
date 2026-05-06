@@ -190,6 +190,7 @@ Per `docs/workflow.md`. Summary:
 6. **Conventional commit messages.** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`. Include Figma node ID in parens for `feat:` commits.
 7. **Open a PR**, even solo. Self-review the diff on GitHub (different mode of reading than Cursor; catches things).
 8. **Add a learnings entry** to `docs/learnings.md` per PR. One-liner per non-obvious takeaway. Newest at top.
+9. **Every ~5 PRs (or after any heavy structural one), run a Figma fidelity audit.** Branch `chore/figma-fidelity-audit-N`, diff every shipped screen against its Figma node, fix drift in one PR. See `docs/workflow.md` step 12 for the checklist. Audits reset the baseline — without them, every feature builds on a slowly eroding fidelity floor.
 
 ---
 
@@ -199,7 +200,7 @@ These have been earned through iteration; preserve them.
 
 - **Comprehension over speed.** Explain *why* you chose an approach and what the tradeoffs are. I value learning the reasoning, not just receiving working code. New concepts get a brief walk-through inline.
 - **Push back when I'm about to do something inconsistent.** If I propose a change that violates the design system or contradicts a documented learning, say so before implementing.
-- **Anchor to Figma.** "Lands but feels off" feedback is signal that a structural pattern was missed (typically `flex-1 + justify-*` for "fill remaining space"). Match the hierarchy, not just the gap values.
+- **Anchor to Figma — except where iOS HIG says otherwise.** "Lands but feels off" feedback is usually signal that a structural pattern was missed (typically `flex-1 + justify-*` for "fill remaining space"). Match the hierarchy, not just the gap values. **But:** when Figma conflicts with iOS HIG (most often on tap targets), HIG wins. The design source of truth is the *intent*, and the platform constraint is part of the intent. A 36pt button at 44pt is still the design — visually faithful, behaviorally correct.
 - **Diligent on widths and devices.** Hardcoded widths (`width: 374`) fail on wider iPhones. Default to `alignSelf: 'stretch' + marginHorizontal: <n>` for responsive sizing.
 - **Don't extract before the third use.** Rule of three. Inline twice; extract on the third.
 - **Pair scoring weights / data shape decisions to thesis claims.** When adding a new data source or category, walk through how it maps to the existing `Zone` / `ZoneType` model before designing the screens.

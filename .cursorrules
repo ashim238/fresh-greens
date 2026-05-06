@@ -43,7 +43,9 @@ The shadow is a physical-metaphor cue, not a fixed style.
 - **In-modal user prompts use Title1 Regular.** When a modal asks the user something — Felt-unsafe "Talk to us. What's going on?", Lighting "Street lights down or dimmer than normal?", Thank-You "Thanks for submitting." — regular weight reads as a held question. Bold would feel imperative on a moment that should feel like an invitation. Same exception covers emotionally charged full-screens (Contact "You're not alone.", Trip Summary arrival).
 
 ## Tap targets
-iOS HIG 44×44 pt minimum on both axes. Extending the hit area while keeping a smaller visual is acceptable (`hitSlop` on Pressable).
+iOS HIG 44×44 pt minimum on both axes — **on the visual, not just the hit area**. iOS HIG takes precedence over Figma when in conflict: if the design specs a 36pt button, build it at 44pt. Don't paper over a sub-44pt visual with `hitSlop` — invisible tap area below the visible affordance is a usability-and-confidence problem (users tap "near" the button hoping it works), not just a measurement one.
+
+`hitSlop` is for the narrow case where the visual is *genuinely* constrained — a small icon inside a dense row where 44pt would break the layout, or a child target inside an already-compliant larger container. Forgiveness padding on top of compliance, not the compliance mechanism itself.
 
 ## Code conventions
 - TypeScript strict mode. No `any` without a comment justifying it.
