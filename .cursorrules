@@ -40,7 +40,7 @@ The shadow is a physical-metaphor cue, not a fixed style.
 ## Typography
 - SF Pro family, iOS type ramp
 - Guidance/instruction screens: Title1 **Emphasized** (bold)
-- **Emotional-restraint exception:** Title1 **Regular** is permitted on emotionally charged screens (Contact "You're not alone.", Trip Summary arrival) — bold would feel imperative; regular feels held.
+- **In-modal user prompts use Title1 Regular.** When a modal asks the user something — Felt-unsafe "Talk to us. What's going on?", Lighting "Street lights down or dimmer than normal?", Thank-You "Thanks for submitting." — regular weight reads as a held question. Bold would feel imperative on a moment that should feel like an invitation. Same exception covers emotionally charged full-screens (Contact "You're not alone.", Trip Summary arrival).
 
 ## Tap targets
 iOS HIG 44×44 pt minimum on both axes. Extending the hit area while keeping a smaller visual is acceptable (`hitSlop` on Pressable).

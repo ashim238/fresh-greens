@@ -190,10 +190,10 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   cta: {
-    alignSelf: 'flex-start', // left-align inside content (which now stretches its other children)
+    alignSelf: 'flex-start',
     backgroundColor: colors.freshgreen,
     width: 163,
-    height: 40,
+    height: 44,
     borderRadius: 1000,
     alignItems: 'center',
     justifyContent: 'center',

@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -63,7 +64,7 @@ export default function ArmedOrNot() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.page}>
           <View style={styles.dragWrapper}>
-            <View style={styles.dragHandle} />
+            <DragHandle />
           </View>
 
           <View style={styles.titleBlock}>
@@ -124,22 +125,12 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     alignItems: 'center',
   },
-  dragHandle: {
-    width: 32,
-    height: 4,
-    borderRadius: 100,
-    backgroundColor: 'rgba(128, 128, 128, 0.55)',
-  },
   titleBlock: {
     gap: 8,
   },
   eyebrow: {
-    // Title1/Regular per Figma — 28/34/400/0.38 in #3D3D3D.
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '400',
-    letterSpacing: 0.38,
-    color: '#3D3D3D',
+    ...typography.title1Regular,
+    color: colors.labelTertiary,
   },
   title: {
     // Title1/Emphasized — 28/34/700/0.38 in black.
@@ -185,6 +176,6 @@ const styles = StyleSheet.create({
   answerSubtitle: {
     // Subheadline/Regular — 15/20/400/-0.23 in #3D3D3D.
     ...typography.subheadlineRegular,
-    color: '#3D3D3D',
+    color: colors.labelTertiary,
   },
 });

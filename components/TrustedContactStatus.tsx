@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   text: {
     ...typography.footnoteRegular,
-    color: 'rgba(80, 80, 80, 0.7)',
+    color: colors.mutedTertiary,
     textAlign: 'center',
   },
   dot: {

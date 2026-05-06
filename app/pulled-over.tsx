@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DragHandle } from '../components/DragHandle';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -45,7 +46,7 @@ export default function PulledOver() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.page}>
           <View style={styles.dragWrapper}>
-            <View style={styles.dragHandle} />
+            <DragHandle />
           </View>
 
           <View style={styles.titleBlock}>
@@ -119,7 +120,7 @@ export default function PulledOver() {
               hitSlop={12}
               style={styles.nextButton}
             >
-              <Ionicons name="chevron-forward" size={24} color="#3D3D3D" />
+              <Ionicons name="chevron-forward" size={24} color={colors.labelTertiary} />
             </Pressable>
 
             <Pressable
@@ -160,24 +161,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  dragHandle: {
-    width: 32,
-    height: 4,
-    borderRadius: 100,
-    backgroundColor: 'rgba(128, 128, 128, 0.55)',
-  },
   titleBlock: {
     gap: 8,
     alignItems: 'flex-start',
     width: '100%',
   },
   eyebrow: {
-    // Title1/Regular per Figma — 28/34/400/0.38 in #3D3D3D.
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '400',
-    letterSpacing: 0.38,
-    color: '#3D3D3D',
+    ...typography.title1Regular,
+    color: colors.labelTertiary,
   },
   title: {
     // Title1/Emphasized — 28/34/700/0.38 in black.
@@ -209,11 +200,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardLabel: {
-    // Title3/Regular per Figma — 20/25/400/-0.45 in black.
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: '400',
-    letterSpacing: -0.45,
+    ...typography.title3Regular,
     color: colors.black,
   },
   bullets: {
@@ -222,10 +209,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bullet: {
-    // Callout/Regular per Figma — 16/21/400/-0.31 in black.
-    fontSize: 16,
-    lineHeight: 21,
-    letterSpacing: -0.31,
+    ...typography.calloutRegular,
     color: colors.black,
   },
   emphasis: {
@@ -234,7 +218,7 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: '#CAC4D0',
+    backgroundColor: 'rgba(202, 196, 208, 1)',
     marginVertical: 16,
   },
   closeArea: {
@@ -257,7 +241,7 @@ const styles = StyleSheet.create({
   },
   closeText: {
     ...typography.footnoteRegular,
-    color: 'rgba(80, 80, 80, 0.7)',
+    color: colors.mutedTertiary,
     textDecorationLine: 'underline',
   },
 });

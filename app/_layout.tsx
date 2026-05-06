@@ -35,6 +35,19 @@ export default function RootLayout() {
           name="armed-or-not"
           options={{ presentation: 'modal' }}
         />
+        {/*
+          Report uses transparentModal (not modal) so the map underneath
+          stays visible — the popup is a centered card over a 20% scrim,
+          not an iOS-sheet that takes over the screen. Fade animation
+          keeps the entry/exit gentle.
+        */}
+        <Stack.Screen
+          name="report"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );

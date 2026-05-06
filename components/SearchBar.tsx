@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 type Props = {
@@ -28,11 +29,11 @@ export function SearchBar({
       accessibilityRole="search"
       accessibilityLabel={placeholder}
     >
-      <Ionicons name="search" size={24} color="#3C3C43" />
+      <Ionicons name="search" size={24} color={colors.labelSecondary} />
       <Text style={styles.placeholder} numberOfLines={1}>
         {placeholder}
       </Text>
-      <Ionicons name="mic" size={20} color="#3C3C43" />
+      <Ionicons name="mic" size={20} color={colors.labelSecondary} />
     </Pressable>
   );
 }
@@ -44,7 +45,7 @@ const styles = StyleSheet.create({
     gap: 16,
     height: 48,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 1000, // pill
     // Responsive sizing: stretch to parent width with 8pt margins on
     // each side. Figma specs `w-374` on a 390pt iPhone 14 baseline
@@ -65,6 +66,6 @@ const styles = StyleSheet.create({
   placeholder: {
     ...typography.bodyRegular,
     flex: 1,
-    color: 'rgba(60, 60, 67, 0.6)', // iOS Labels/Secondary
+    color: colors.mutedSecondary,
   },
 });
