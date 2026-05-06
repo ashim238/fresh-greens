@@ -218,6 +218,7 @@ function reportToZone(report: CommunityReport): Zone {
     label: `${category.label}${report.detail ? `: ${report.detail}` : ''}`,
     geometry: 'point',
     coordinates: [report.location],
+    category: 'community-report',
   };
 }
 

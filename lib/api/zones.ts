@@ -2,26 +2,50 @@
 //
 // Pulls multiple real data sources from OpenStreetMap's free Overpass API
 // in a single round-trip. Each source becomes a Zone with the appropriate
-// geometry kind:
+// geometry kind and category:
 //
-//   Lit streets (way + highway + lit tag) → polyline zone
+//   Lighting (way + highway + lit tag) → polyline zone, category 'lighting'
 //     lit=yes / 24/7 / automatic  → safe
 //     lit=interval / limited      → caution
 //     lit=no                      → avoid
 //
-//   Landuse polygons (way + landuse tag) → polygon zone
+//   Landuse (way + landuse tag) → polygon zone, category 'landuse'
 //     landuse=residential  → safe   (Jacobs' "eyes on the street")
 //     landuse=commercial   → caution (mixed-use, time-dependent)
 //     landuse=industrial   → avoid  (low foot traffic, esp. at night)
 //
-//   Parks (way + leisure=park) → polygon zone
+//   Parks (way + leisure=park) → polygon zone, category 'park'
 //     leisure=park → caution (research shows higher nighttime crime;
 //                             not "safe" despite intuition)
 //
+//   Police (way OR node + amenity=police, node + highway=speed_camera) →
+//     polygon/point zone, category 'police' → caution
+//     Reflects the lived-experience of Black drivers exercising caution
+//     around police presence. Caution-bias, not avoid: the app respects
+//     the wariness without paternalizing the choice.
+//
+//   Wildlife (node + hazard=wildlife_crossing, way + landuse=forest, way
+//     + natural=wood) → point/polygon zone, category 'wildlife' → caution
+//     Score is amplified ×2 at dawn/dusk in lib/scoring.ts because deer
+//     and other wildlife are crepuscular. Time-of-day modulation lives
+//     in scoring, not here — zones describe what's there; scoring decides
+//     what to do about it given the trip context.
+//
+//   Road conditions (way + highway + surface/smoothness tags, way +
+//     highway=construction) → polyline zone, category 'road-condition'
+//     Severity is graduated:
+//       surface=unpaved/gravel/dirt/sand/ground → caution
+//       smoothness=bad/very_bad                 → caution
+//       smoothness=horrible/impassable          → avoid
+//       highway=construction                    → caution
+//     Default for unmapped roads is "no signal" — we don't penalize
+//     undocumented infrastructure. v2 candidates: TIGER/Line for
+//     classification of unmapped roads, ALDOT 511 for real-time
+//     construction/incident feed.
+//
 // Multi-source coverage mitigates sparsity: even areas without rich
 // lighting tags usually have landuse data. When ALL sources fail or
-// return nothing, falls back to three mock polygon zones around the
-// user's center for resilience.
+// return nothing, falls back to mock zones around the user's center.
 //
 // All sources flow through the same Zone[] type and the same scoring
 // pipeline. Each source's contribution adds to the route's score, so
@@ -33,19 +57,33 @@ const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 /** Bail on the Overpass call if it doesn't respond within this window. */
 const OVERPASS_TIMEOUT_MS = 6000;
 
-/** How close (meters) a route waypoint must be to a lit street to count. */
+/** How close (meters) a route waypoint must be to a polyline zone to count. */
 export const POLYLINE_PROXIMITY_METERS = 20;
 
 /**
- * Influence radius (meters) for community-report point zones. A point
- * report counts as "hit" when a route waypoint is within this radius.
- * 30m roughly matches a city block's perpendicular extent — wide enough
- * to catch the route as it passes but not so wide that one report
- * shadows multiple streets.
+ * Influence radius (meters) for point-geometry zones (community reports,
+ * speed cameras, wildlife crossings). A point counts as "hit" when a
+ * route waypoint is within this radius. 30m roughly matches a city
+ * block's perpendicular extent — wide enough to catch the route as it
+ * passes but not so wide that one point shadows multiple streets.
  */
 export const POINT_PROXIMITY_METERS = 30;
 
 export type ZoneType = 'safe' | 'caution' | 'avoid';
+
+/**
+ * Source category for a zone. Lets scoring dispatch per-category logic
+ * (e.g., wildlife dawn/dusk amplification) without re-parsing tags, and
+ * lets future UI explain *why* a zone earned its safety classification.
+ */
+export type ZoneCategory =
+  | 'lighting'
+  | 'landuse'
+  | 'park'
+  | 'police'
+  | 'wildlife'
+  | 'road-condition'
+  | 'community-report';
 
 export type Coordinate = {
   latitude: number;
@@ -60,10 +98,12 @@ export type Coordinate = {
  *   polyline → open path of road; scoring uses point-near-polyline test
  *   point    → single location with influence radius; scoring uses
  *              point-to-point distance ≤ POINT_PROXIMITY_METERS.
- *              Used for community-submitted reports — see
- *              lib/api/community-reports.ts.
  *
  * For `point` geometry, `coordinates` is a single-element array.
+ *
+ * `category` is optional for backwards compatibility with existing zone
+ * fixtures, but every adapter-produced zone sets it. Scoring uses the
+ * category to apply per-category modulation (e.g., wildlife multiplier).
  */
 export type Zone = {
   id: string;
@@ -71,13 +111,14 @@ export type Zone = {
   label: string;
   geometry: 'polygon' | 'polyline' | 'point';
   coordinates: Coordinate[];
+  category?: ZoneCategory;
 };
 
 /**
  * Fetches safety zones around a given map center.
  *
- * Tries OSM Overpass first; falls back to mock polygon zones on any
- * failure (network error, non-OK response, parse error, no results).
+ * Tries OSM Overpass first; falls back to mock zones on any failure
+ * (network error, non-OK response, parse error, no results).
  */
 export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
   // AbortController + setTimeout: fetch has no built-in timeout, so a
@@ -104,15 +145,15 @@ export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
 
     const data: OverpassResponse = await response.json();
     if (!data.elements?.length) {
-      throw new Error('Overpass returned no lit ways');
+      throw new Error('Overpass returned no elements');
     }
 
     const zones = data.elements
-      .map(parseOverpassWay)
+      .map(parseOverpassElement)
       .filter((zone): zone is Zone => zone !== null);
 
     if (!zones.length) {
-      throw new Error('No usable lit values in Overpass response');
+      throw new Error('No usable values in Overpass response');
     }
 
     return zones;
@@ -154,7 +195,7 @@ export const zoneColors: Record<ZoneType, { fill: string; stroke: string }> = {
 // --- OSM Overpass ---------------------------------------------------------
 
 type OverpassResponse = {
-  elements?: OverpassWay[];
+  elements?: OverpassElement[];
 };
 
 type OverpassWay = {
@@ -164,33 +205,243 @@ type OverpassWay = {
   geometry?: { lat: number; lon: number }[];
 };
 
+type OverpassNode = {
+  type: 'node';
+  id: number;
+  tags?: Record<string, string>;
+  lat: number;
+  lon: number;
+};
+
+type OverpassElement = OverpassWay | OverpassNode;
+
 /**
- * Builds a multi-source Overpass QL query — combines lit highways,
- * landuse polygons, and parks into a single union. Output capped at 100
- * ways to keep map rendering snappy on dense urban areas.
+ * Builds a multi-source Overpass QL query — combines all four thesis
+ * factors (light, police, wildlife, road conditions) plus existing
+ * landuse/park context into a single union.
  *
- * The `(...)` syntax in Overpass is a union: every `way[...]` clause
- * inside contributes to the result set. `out geom 100;` returns up to
- * 100 ways with their full coordinate geometry.
+ * The `(...)` syntax is a union: every clause inside contributes to the
+ * result set. Mixed `way[...]` and `node[...]` queries pull both
+ * geometry kinds (e.g., police can be a building polygon OR a point
+ * marker; speed cameras and wildlife crossings are always points).
+ *
+ * `out geom 60` returns up to 60 elements with their full coordinate
+ * geometry. Cap is tuned for the public demo Overpass server's rate
+ * limit and parse cost on dense urban areas — plenty for scoring (each
+ * route waypoint just needs *some* zones to test against).
  */
 function buildOverpassQuery(center: Coordinate): string {
-  const radius = 1500; // meters — narrowed from 2km for faster response
+  const radius = 1500; // meters
   const lat = center.latitude;
   const lng = center.longitude;
-  // out geom 40: caps total returned ways. Plenty for scoring (each
-  // route waypoint just needs *some* zones to test against). Lower cap
-  // = smaller payload = faster network round-trip + parse. SHOW_ZONES
-  // is false in normal use, so visual coverage isn't a concern either.
   return `
     [out:json][timeout:25];
     (
       way["highway"]["lit"](around:${radius},${lat},${lng});
       way["landuse"~"^(residential|commercial|industrial)$"](around:${radius},${lat},${lng});
       way["leisure"="park"](around:${radius},${lat},${lng});
+      way["amenity"="police"](around:${radius},${lat},${lng});
+      node["amenity"="police"](around:${radius},${lat},${lng});
+      node["highway"="speed_camera"](around:${radius},${lat},${lng});
+      node["hazard"="wildlife_crossing"](around:${radius},${lat},${lng});
+      way["landuse"="forest"](around:${radius},${lat},${lng});
+      way["natural"="wood"](around:${radius},${lat},${lng});
+      way["highway"]["surface"~"^(unpaved|gravel|dirt|sand|ground)$"](around:${radius},${lat},${lng});
+      way["highway"]["smoothness"~"^(bad|very_bad|horrible|impassable)$"](around:${radius},${lat},${lng});
+      way["highway"="construction"](around:${radius},${lat},${lng});
     );
-    out geom 40;
+    out geom 60;
   `.trim();
 }
+
+/**
+ * Dispatches an Overpass element to the right parser based on element
+ * type and tags. Returns null when no parser claims the element.
+ */
+function parseOverpassElement(element: OverpassElement): Zone | null {
+  if (!element.tags) return null;
+  if (element.type === 'way') return parseOverpassWay(element);
+  if (element.type === 'node') return parseOverpassNode(element);
+  return null;
+}
+
+/**
+ * Parses an Overpass way into a Zone, branching by which tag is present.
+ * Tag-precedence order is intentional: more-specific tags win. A way
+ * with both `highway` and `lit` is a lit street (polyline), not a
+ * landuse polygon, even if it sits within one.
+ */
+function parseOverpassWay(way: OverpassWay): Zone | null {
+  if (!way.geometry?.length) return null;
+
+  const tags = way.tags ?? {};
+
+  // OSM uses { lat, lon } in geometry; convert to our { latitude, longitude }
+  // shape at the boundary so the rest of the codebase stays in one convention.
+  const coordinates: Coordinate[] = way.geometry.map(({ lat, lon }) => ({
+    latitude: lat,
+    longitude: lon,
+  }));
+
+  // Lit street → polyline zone (lighting category)
+  const litType = mapLitToZoneType(tags.lit);
+  if (litType) {
+    const streetName = tags.name ?? 'Unnamed street';
+    return {
+      id: `osm-way-${way.id}`,
+      type: litType,
+      label: `${streetName} (lit=${tags.lit})`,
+      geometry: 'polyline',
+      coordinates,
+      category: 'lighting',
+    };
+  }
+
+  // Highway-construction → polyline zone (road-condition, caution)
+  if (tags.highway === 'construction') {
+    return {
+      id: `osm-way-${way.id}`,
+      type: 'caution',
+      label: `Construction: ${tags.name ?? 'Unnamed road'}`,
+      geometry: 'polyline',
+      coordinates,
+      category: 'road-condition',
+    };
+  }
+
+  // Smoothness-graded road → polyline zone (road-condition)
+  // Must precede surface check: a road tagged both `surface=gravel` and
+  // `smoothness=horrible` should pick up the harsher avoid classification.
+  const smoothnessType = mapSmoothnessToZoneType(tags.smoothness);
+  if (smoothnessType) {
+    return {
+      id: `osm-way-${way.id}`,
+      type: smoothnessType,
+      label: `Road condition: smoothness=${tags.smoothness}`,
+      geometry: 'polyline',
+      coordinates,
+      category: 'road-condition',
+    };
+  }
+
+  // Surface-graded road → polyline zone (road-condition, caution)
+  if (tags.highway && isPoorSurface(tags.surface)) {
+    return {
+      id: `osm-way-${way.id}`,
+      type: 'caution',
+      label: `Road condition: surface=${tags.surface}`,
+      geometry: 'polyline',
+      coordinates,
+      category: 'road-condition',
+    };
+  }
+
+  // Police building → polygon zone (police category, caution)
+  if (tags.amenity === 'police') {
+    return {
+      id: `osm-way-${way.id}`,
+      type: 'caution',
+      label: `Police: ${tags.name ?? 'Unnamed station'}`,
+      geometry: 'polygon',
+      coordinates,
+      category: 'police',
+    };
+  }
+
+  // Forest / wood → polygon zone (wildlife category, caution)
+  // Tree coverage is a proxy for wildlife crossing risk; deer and other
+  // animals emerge from wooded margins. Score is amplified ×2 at
+  // dawn/dusk in lib/scoring.ts.
+  if (tags.landuse === 'forest' || tags.natural === 'wood') {
+    return {
+      id: `osm-way-${way.id}`,
+      type: 'caution',
+      label: `Wildlife: ${tags.landuse ?? tags.natural}`,
+      geometry: 'polygon',
+      coordinates,
+      category: 'wildlife',
+    };
+  }
+
+  // Park → polygon zone (caution per nighttime-crime research)
+  if (tags.leisure === 'park') {
+    return {
+      id: `osm-way-${way.id}`,
+      type: 'caution',
+      label: `Park: ${tags.name ?? 'Unnamed'}`,
+      geometry: 'polygon',
+      coordinates,
+      category: 'park',
+    };
+  }
+
+  // Landuse area → polygon zone
+  const landuseType = mapLanduseToZoneType(tags.landuse);
+  if (landuseType) {
+    return {
+      id: `osm-way-${way.id}`,
+      type: landuseType,
+      label: `Landuse: ${tags.landuse}`,
+      geometry: 'polygon',
+      coordinates,
+      category: 'landuse',
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Parses an Overpass node (point) into a Zone. Nodes carry a single
+ * lat/lon directly (no geometry array), so coordinates is always a
+ * single-element list.
+ */
+function parseOverpassNode(node: OverpassNode): Zone | null {
+  const tags = node.tags ?? {};
+  const coordinates: Coordinate[] = [
+    { latitude: node.lat, longitude: node.lon },
+  ];
+
+  // Police station as point → caution
+  if (tags.amenity === 'police') {
+    return {
+      id: `osm-node-${node.id}`,
+      type: 'caution',
+      label: `Police: ${tags.name ?? 'Unnamed station'}`,
+      geometry: 'point',
+      coordinates,
+      category: 'police',
+    };
+  }
+
+  // Speed camera → caution (police category — same agency-of-stop register)
+  if (tags.highway === 'speed_camera') {
+    return {
+      id: `osm-node-${node.id}`,
+      type: 'caution',
+      label: `Speed camera`,
+      geometry: 'point',
+      coordinates,
+      category: 'police',
+    };
+  }
+
+  // Wildlife crossing marker → caution (wildlife category)
+  if (tags.hazard === 'wildlife_crossing') {
+    return {
+      id: `osm-node-${node.id}`,
+      type: 'caution',
+      label: `Wildlife crossing`,
+      geometry: 'point',
+      coordinates,
+      category: 'wildlife',
+    };
+  }
+
+  return null;
+}
+
+// --- Tag-value mappings ---------------------------------------------------
 
 /**
  * Maps an OSM `lit` tag value to one of our zone types.
@@ -216,8 +467,7 @@ function mapLitToZoneType(lit: string | undefined): ZoneType | null {
  * Maps an OSM landuse tag value to a zone type. Mapping is intentionally
  * conservative — research shows landuse alone is a weak safety predictor.
  * Real strength comes from layering multiple signals (lit + landuse +
- * incident data + community input), which is why this adapter combines
- * sources rather than relying on landuse alone.
+ * incident data + community input).
  */
 function mapLanduseToZoneType(landuse: string | undefined): ZoneType | null {
   switch (landuse) {
@@ -233,68 +483,49 @@ function mapLanduseToZoneType(landuse: string | undefined): ZoneType | null {
 }
 
 /**
- * Parses an Overpass way into a Zone, branching by which tag is present.
- * Tag-precedence order: `lit` → polyline; `landuse` → polygon; `leisure=park`
- * → polygon. A way with multiple matching tags is most likely a lit street
- * (highways are tagged with both `highway` and possibly `lit`); landuse
- * polygons don't usually carry `lit`.
+ * Maps an OSM `smoothness` tag to a graduated zone type.
+ * `bad` / `very_bad` are uncomfortable but passable → caution.
+ * `horrible` / `impassable` are dangerous → avoid.
  */
-function parseOverpassWay(way: OverpassWay): Zone | null {
-  if (!way.tags || !way.geometry?.length) return null;
-
-  // OSM uses { lat, lon } in geometry; convert to our { latitude, longitude }
-  // shape at the boundary so the rest of the codebase stays in one convention.
-  const coordinates: Coordinate[] = way.geometry.map(({ lat, lon }) => ({
-    latitude: lat,
-    longitude: lon,
-  }));
-
-  // Lit street → polyline zone
-  const litType = mapLitToZoneType(way.tags.lit);
-  if (litType) {
-    const streetName = way.tags.name ?? 'Unnamed street';
-    return {
-      id: `osm-way-${way.id}`,
-      type: litType,
-      label: `${streetName} (lit=${way.tags.lit})`,
-      geometry: 'polyline',
-      coordinates,
-    };
+function mapSmoothnessToZoneType(
+  smoothness: string | undefined,
+): ZoneType | null {
+  switch (smoothness) {
+    case 'bad':
+    case 'very_bad':
+      return 'caution';
+    case 'horrible':
+    case 'impassable':
+      return 'avoid';
+    default:
+      return null;
   }
+}
 
-  // Landuse area → polygon zone
-  const landuseType = mapLanduseToZoneType(way.tags.landuse);
-  if (landuseType) {
-    return {
-      id: `osm-way-${way.id}`,
-      type: landuseType,
-      label: `Landuse: ${way.tags.landuse}`,
-      geometry: 'polygon',
-      coordinates,
-    };
+/**
+ * Returns true for OSM `surface` values that indicate poor infrastructure.
+ * Paved/asphalt/concrete are skipped (good surface = no caution signal).
+ */
+function isPoorSurface(surface: string | undefined): boolean {
+  switch (surface) {
+    case 'unpaved':
+    case 'gravel':
+    case 'dirt':
+    case 'sand':
+    case 'ground':
+      return true;
+    default:
+      return false;
   }
-
-  // Park → polygon zone (caution per nighttime-crime research)
-  if (way.tags.leisure === 'park') {
-    return {
-      id: `osm-way-${way.id}`,
-      type: 'caution',
-      label: `Park: ${way.tags.name ?? 'Unnamed'}`,
-      geometry: 'polygon',
-      coordinates,
-    };
-  }
-
-  return null;
 }
 
 // --- Mock fallback --------------------------------------------------------
 
 /**
- * Three hardcoded polygon zones around the center point. Only used when
- * Overpass is unreachable or returns no usable data. Same Zone shape
- * with geometry='polygon' so the consumer doesn't have to special-case
- * the fallback.
+ * Hardcoded zones around the center point. Only used when Overpass is
+ * unreachable or returns no usable data. Includes one example per
+ * category so SHOW_ZONES=true still demonstrates the data layer
+ * meaningfully even without network.
  */
 async function getZonesForRegionMock(center: Coordinate): Promise<Zone[]> {
   await delay(100);
@@ -305,6 +536,7 @@ async function getZonesForRegionMock(center: Coordinate): Promise<Zone[]> {
       label: 'Mock: well-lit residential area',
       geometry: 'polygon',
       coordinates: rectangleNear(center, 0.001, 0.001, 0.005, 0.005),
+      category: 'landuse',
     },
     {
       id: 'mock-caution-1',
@@ -312,6 +544,7 @@ async function getZonesForRegionMock(center: Coordinate): Promise<Zone[]> {
       label: 'Mock: moderate visibility',
       geometry: 'polygon',
       coordinates: rectangleNear(center, -0.005, 0.001, -0.001, 0.005),
+      category: 'landuse',
     },
     {
       id: 'mock-avoid-1',
@@ -319,6 +552,45 @@ async function getZonesForRegionMock(center: Coordinate): Promise<Zone[]> {
       label: 'Mock: incident reports',
       geometry: 'polygon',
       coordinates: rectangleNear(center, -0.003, -0.005, 0.001, -0.001),
+      category: 'landuse',
+    },
+    {
+      id: 'mock-police-1',
+      type: 'caution',
+      label: 'Mock: police station',
+      geometry: 'point',
+      coordinates: [
+        {
+          latitude: center.latitude + 0.004,
+          longitude: center.longitude - 0.004,
+        },
+      ],
+      category: 'police',
+    },
+    {
+      id: 'mock-wildlife-1',
+      type: 'caution',
+      label: 'Mock: wooded area',
+      geometry: 'polygon',
+      coordinates: rectangleNear(center, 0.005, -0.006, 0.009, -0.001),
+      category: 'wildlife',
+    },
+    {
+      id: 'mock-road-condition-1',
+      type: 'caution',
+      label: 'Mock: unpaved road',
+      geometry: 'polyline',
+      coordinates: [
+        {
+          latitude: center.latitude - 0.001,
+          longitude: center.longitude + 0.003,
+        },
+        {
+          latitude: center.latitude + 0.002,
+          longitude: center.longitude + 0.005,
+        },
+      ],
+      category: 'road-condition',
     },
   ];
 }

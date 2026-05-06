@@ -10,10 +10,20 @@
 //              on/near this lit street?)
 //   point    → point-to-point distance within POINT_PROXIMITY_METERS
 //              (waypoint near this community-reported location?)
+//
+// Per-category score modulation lives here too. Today: wildlife zones
+// during dawn/dusk get a ×2 multiplier because deer and other wildlife
+// are crepuscular — the same forested polygon is a stronger caution
+// signal at 6am than at noon. Time modulation belongs in scoring (which
+// has trip context) rather than in the zones adapter (which describes
+// what's there, not what to do about it given the trip).
+
+import SunCalc from 'suncalc';
 
 import type {
   Coordinate,
   Zone,
+  ZoneCategory,
   ZoneType,
 } from './api/zones';
 import {
@@ -34,6 +44,43 @@ const SCORE_WEIGHTS: Record<ZoneType, number> = {
   avoid: -5,
 };
 
+/**
+ * Per-category multiplier applied on top of the per-type weight.
+ * Default 1.0 (no modulation). Wildlife zones during dawn/dusk get
+ * ×2 — see docstring at top of file. Compute the multiplier per zone
+ * and per trip context (departureTime), not per type, so a forested
+ * polygon scored at noon is unmodulated but the same polygon scored
+ * at sunset is amplified.
+ */
+function categoryMultiplier(
+  category: ZoneCategory | undefined,
+  point: Coordinate,
+  departureTime: Date,
+): number {
+  if (category === 'wildlife' && isDawnOrDusk(point, departureTime)) {
+    return 2;
+  }
+  return 1;
+}
+
+/**
+ * Returns true when `time` falls within ±30 minutes of sunrise or sunset
+ * at the given location. Crepuscular wildlife (deer especially) emerge
+ * heavily during this window, justifying the score amplification.
+ *
+ * SunCalc is the same library lib/daylight.ts uses for the route
+ * polyline gradient — single solar-geometry source across the codebase.
+ */
+function isDawnOrDusk(point: Coordinate, time: Date): boolean {
+  const sun = SunCalc.getTimes(time, point.latitude, point.longitude);
+  const windowMs = 30 * 60_000;
+  const t = time.getTime();
+  return (
+    Math.abs(t - sun.sunrise.getTime()) <= windowMs ||
+    Math.abs(t - sun.sunset.getTime()) <= windowMs
+  );
+}
+
 /** A route after scoring — adds `type` (winner status) and `score`. */
 export type RankedRoute = Route & {
   type: RouteType;
@@ -45,14 +92,28 @@ export type RankedRoute = Route & {
  * test against every zone using the right geometric primitive (in-polygon
  * for areas, near-polyline for streets). Sum weighted scores. Higher is
  * better.
+ *
+ * `departureTime` enables per-category time-of-day modulation (e.g.,
+ * wildlife dawn/dusk amplification). Defaults to now — most trips are
+ * "leave now" — but a scheduled departure passes a future time so the
+ * preview reflects the trip the user will actually take.
  */
-export function scoreRoute(route: Route, zones: Zone[]): number {
+export function scoreRoute(
+  route: Route,
+  zones: Zone[],
+  departureTime: Date = new Date(),
+): number {
   let total = 0;
   for (const point of route.coordinates) {
     for (const zone of zones) {
       const hit = isWaypointInZone(point, zone);
       if (hit) {
-        total += SCORE_WEIGHTS[zone.type];
+        const multiplier = categoryMultiplier(
+          zone.category,
+          point,
+          departureTime,
+        );
+        total += SCORE_WEIGHTS[zone.type] * multiplier;
       }
     }
   }
@@ -90,11 +151,18 @@ function isWaypointInZone(point: Coordinate, zone: Zone): boolean {
  * Score every candidate route, sort by score descending, mark the
  * winner as 'recommended' and the rest as 'alternate'. Returns
  * RankedRoute[] sorted highest-score-first.
+ *
+ * `departureTime` flows through to `scoreRoute` for time-of-day
+ * modulation. Defaults to now.
  */
-export function pickWinner(routes: Route[], zones: Zone[]): RankedRoute[] {
+export function pickWinner(
+  routes: Route[],
+  zones: Zone[],
+  departureTime: Date = new Date(),
+): RankedRoute[] {
   const scored = routes.map((route) => ({
     ...route,
-    score: scoreRoute(route, zones),
+    score: scoreRoute(route, zones, departureTime),
   }));
 
   scored.sort((a, b) => b.score - a.score);
