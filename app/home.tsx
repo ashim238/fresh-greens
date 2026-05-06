@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DragHandle } from '../components/DragHandle';
 import { SearchBar } from '../components/SearchBar';
+import { useTrustedContact } from '../hooks/useTrustedContact';
+import { useUser } from '../hooks/useUser';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
 import {
@@ -48,6 +50,21 @@ const SHOW_ZONES = false;
  */
 export default function Home() {
   const router = useRouter();
+  const { signOut } = useUser();
+  const { clearContact } = useTrustedContact();
+
+  // __DEV__-gated: wipes the stored user + trusted contact and sends the
+  // app back to Welcome so we can cold-start the onboarding flow without
+  // deleting the app or wiping the simulator. Stripped from production
+  // builds automatically — `__DEV__` is a Metro-time constant that
+  // resolves to `false` outside development. Lives here (and not in
+  // Settings, which doesn't exist yet) because Welcome auto-redirects
+  // signed-in users, so the only reachable surface for a logged-in
+  // tester is /home.
+  async function handleDevReset() {
+    await Promise.all([signOut(), clearContact()]);
+    router.replace('/');
+  }
   const mapRef = useRef<MapView>(null);
   // Destination params from the search screen, if any. URL params arrive
   // as strings and may be undefined (when the user landed on /home without
@@ -332,6 +349,28 @@ export default function Home() {
           >
             <Ionicons name="menu" size={32} color={colors.labelSecondary} />
           </Pressable>
+
+          {/*
+            Dev-only reset chip — clears stored user + trusted contact and
+            routes to /, so we can cold-start the onboarding flow during
+            testing. Stripped from production builds via __DEV__.
+          */}
+          {__DEV__ && (
+            <Pressable
+              style={styles.devResetChip}
+              onPress={handleDevReset}
+              accessibilityRole="button"
+              accessibilityLabel="Reset onboarding state (dev only)"
+              hitSlop={12}
+            >
+              <Ionicons
+                name="refresh"
+                size={14}
+                color={colors.labelSecondary}
+              />
+              <Text style={styles.devResetText}>Reset (dev)</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
 
@@ -501,12 +540,14 @@ const styles = StyleSheet.create({
   },
   menuRow: {
     // Responsive: stretch to parent width with 16pt margins on each
-    // side. Combined with alignItems: flex-start, the menu button
-    // lands at exactly 16pt from the screen edge regardless of device
-    // width. Search bar (8pt from edge) sits 8pt to the left — the
-    // intentional design offset.
+    // side. Menu button sits left, optional dev-reset chip sits right
+    // via justifyContent: 'space-between'. With only the menu (production
+    // build), the chip is gone and the menu still aligns to start —
+    // space-between with one child collapses to flex-start behavior.
     alignSelf: 'stretch',
     marginHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
   menuButton: {
@@ -522,6 +563,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
+  },
+  // Dev-only "Reset" chip — small pill in the top-right of /home that
+  // wipes user + trusted contact and routes to /. Stripped in production.
+  // Visually distinct from real UI: shorter, less elevated, no brand color.
+  devResetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 100,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.cardBorderSubtle,
+    // Self-align center so the chip vertically centers against the
+    // menuButton (which is 48pt tall vs the chip's 28pt).
+    alignSelf: 'center',
+  },
+  devResetText: {
+    ...typography.caption2Regular,
+    color: colors.labelSecondary,
   },
   bottomSheet: {
     position: 'absolute',

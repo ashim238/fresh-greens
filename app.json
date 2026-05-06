@@ -41,6 +41,12 @@
         {
           "microphonePermission": "Fresh Greens records audio during traffic stops as ambient protection. Recordings are saved to your account and never shared without your action."
         }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Fresh Greens lets you pick a trusted contact to be alerted during safety events. We only read the contact you select."
+        }
       ]
     ]
   }

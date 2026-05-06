@@ -18,7 +18,8 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 /**
- * Onboarding — three swipeable panels followed by Permissions (page 4 of 4).
+ * Onboarding — three swipeable panels followed by Permissions (page 4
+ * of 5) and Trusted Contact Setup (page 5 of 5).
  *
  * Replaces the previous /onboarding-1, /onboarding-2, /onboarding-3 stack
  * routes with a single screen that uses a horizontal FlatList pager. This
@@ -109,7 +110,7 @@ export default function Onboarding() {
       <StatusBar style="light" />
 
       <SafeAreaView style={styles.safe}>
-        <PageControl total={4} activeIndex={pagerIndex} />
+        <PageControl total={5} activeIndex={pagerIndex} />
 
         <FlatList
           ref={pagerRef}

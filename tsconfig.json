@@ -1,6 +1,19 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    "paths": {
+      // Redirect TypeScript to phosphor's precompiled .d.ts files
+      // when we import from `phosphor-react-native/src/icons/*`.
+      // Metro still resolves the path to the package's source .tsx
+      // at runtime (per phosphor's `exports` field), but TypeScript
+      // uses the .d.ts — which avoids type-checking phosphor's
+      // source TSX (it has a `className` prop on Svg that fails
+      // strict type-checks; runtime is fine). skipLibCheck doesn't
+      // help here because skipLibCheck only skips .d.ts, not .tsx.
+      "phosphor-react-native/src/icons/*": [
+        "./node_modules/phosphor-react-native/lib/typescript/icons/*"
+      ]
+    }
   }
 }
