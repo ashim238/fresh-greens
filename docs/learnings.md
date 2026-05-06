@@ -4,6 +4,19 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/review-guidance (2026-05-06)
+
+The post-incident reflective Do/Have/Say/Know flow lands. What we did, in plain terms:
+
+- **CLAUDE.md was wrong about /what-to-do being a tab navigator.** It described "/what-to-do as a tab navigator with four content variants." The real design — discovered by asking the user, not by re-reading docs — is a *sequential* flow: Officer/Trooper → Do → Have → Say → Know, traversed with chevrons, one screen at a time. Reflective post-incident review, not active-driving urgent guidance. The doc described the Figma's *content variants* and inferred the wrong navigation pattern. Lesson: when CLAUDE.md describes architecture, treat it as one source among many — confirm with the user *and* with Figma before building.
+- **State machine in one route, not five separate routes.** Same play we used in /report (picker → detail → thank-you): one modal envelope, internal index 0–4, chevron back/forward decrements/increments. Sidesteps the iOS modal-on-modal stacking quirk this codebase has hit before (the prior /safety → /pulled-over → /armed-or-not chain). Cleaner state, cleaner architecture, faster build. Pattern reuse is its own win — every additional time we use it, the next person reaches for it sooner.
+- **`router.dismissAll()` is the right exit for nested modal flows.** Plain `router.back()` from /review-guidance only pops one level, leaving the user on /armed-or-not (also a modal), which they'd have to dismiss. Then /safety. Three taps to escape after a stressful arc — bad UX. `dismissAll()` unwinds every stacked modal at once and lands on the underlying stack route (/en-route). Pattern worth remembering for any modal flow that's >1 deep.
+- **Flow position determines the register, not the content.** The same Officer/Trooper screen we'd built for the active-pre-stop path turned out to belong in the *post*-stop reflective flow. The content didn't change; its position in the user journey did. Lesson: a screen's chrome and copy are determined by its job in the flow, not just by what's on it. Always confirm flow position before building.
+- **Conditional rendering branched on a single param keeps the data shape flat.** The "What to Say" sub-view's first bullet (concealed-carry declaration) only renders when `armed=yes` or `preferred-not-to-answer`. One boolean (`showFirearm`), one if-block in the bullets array — no separate variants table, no duplicated screens. Simple branch in the view, single source of truth in the URL param.
+- **Deleted /pulled-over.tsx in the same diff that absorbed its content.** Per anti-slop rule #5: "delete what you replace." Git history preserves the standalone Officer/Trooper screen if we ever want it again; the live tree stays uncluttered. No "in case we need it" leftovers.
+
+---
+
 ## feat/en-route (2026-05-05)
 
 The active-driving state. What we did, in plain terms:

@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,8 +29,10 @@ import { typography } from '../theme/typography';
  *     TrustedContactStatus footer
  */
 
+type ArmedAnswer = 'yes' | 'no' | 'preferred-not-to-answer';
+
 type Answer = {
-  id: string;
+  id: ArmedAnswer;
   title: string;
   subtitle?: string;
 };
@@ -46,15 +49,23 @@ const ANSWERS: Answer[] = [
     subtitle: 'I do not have a firearm, knife, or other weapon on me',
   },
   {
-    id: 'prefer-not-to-answer',
+    id: 'preferred-not-to-answer',
     title: 'Prefer not to answer',
   },
 ];
 
 export default function ArmedOrNot() {
+  const router = useRouter();
+
+  // TEMP wiring: armed-or-not → /review-guidance directly. Eventually
+  // becomes armed-or-not → recording → /contact → (Review guidance link)
+  // → /review-guidance. The recording + /contact screens land in
+  // follow-up PRs; the param shape and downstream screen don't change.
   function handleAnswer(answer: Answer) {
-    // TODO: navigate to /what-to-do?armed=${answer.id} once that screen exists.
-    console.log('[armed-or-not] selected:', answer.id);
+    router.push({
+      pathname: '/review-guidance',
+      params: { armed: answer.id },
+    });
   }
 
   return (

@@ -17,10 +17,10 @@ import { typography } from '../theme/typography';
  * options. The drag handle is decorative — modal dismissal happens via
  * the system swipe-down gesture.
  *
- * Each tab is a category entry point. Tapping one will (in future PRs)
- * push the user into a sub-flow:
- *   I was pulled over → /pulled-over (Officer/Trooper → Armed-or-Not
- *     → What to Do/Have/Say/Know)
+ * Each tab is a category entry point. Tapping one pushes the user
+ * into a sub-flow:
+ *   I was pulled over → /armed-or-not → /review-guidance (5 sub-views)
+ *     (eventually: → recording → /contact → /review-guidance)
  *   I need roadside assistance → /roadside (TBD)
  *   I'm in an unfamiliar area → /unfamiliar (TBD)
  *   I want to share my location → /share-location (TBD)
@@ -42,7 +42,11 @@ const TABS: SafetyTab[] = [
     id: 'pulled-over',
     label: 'I was pulled over',
     iconName: 'alert-circle',
-    href: '/pulled-over',
+    // Routes directly to /armed-or-not — the firearm question is the
+    // first thing that determines what guidance applies. The Officer
+    // vs Trooper informational content moved into /review-guidance
+    // (reflective post-incident flow), not the urgent pre-stop path.
+    href: '/armed-or-not',
   },
   {
     id: 'roadside',

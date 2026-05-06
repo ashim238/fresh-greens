@@ -28,11 +28,11 @@ export default function RootLayout() {
         */}
         <Stack.Screen name="safety" options={{ presentation: 'modal' }} />
         <Stack.Screen
-          name="pulled-over"
+          name="armed-or-not"
           options={{ presentation: 'modal' }}
         />
         <Stack.Screen
-          name="armed-or-not"
+          name="review-guidance"
           options={{ presentation: 'modal' }}
         />
         {/*
