@@ -119,7 +119,7 @@ export default function Search() {
                 accessibilityLabel="Go back"
                 hitSlop={8}
               >
-                <Ionicons name="chevron-back" size={24} color="#3C3C43" />
+                <Ionicons name="chevron-back" size={24} color={colors.labelSecondary} />
               </Pressable>
 
               <TextInput
@@ -127,7 +127,7 @@ export default function Search() {
                 onChangeText={setQuery}
                 onSubmitEditing={handleSubmit}
                 placeholder="Where are you headed?"
-                placeholderTextColor="rgba(60, 60, 67, 0.6)"
+                placeholderTextColor={colors.mutedSecondary}
                 style={styles.searchInput}
                 autoFocus
                 returnKeyType="search"
@@ -142,7 +142,7 @@ export default function Search() {
                 hitSlop={8}
               >
                 {/* TODO: voice input via expo-speech / native speech-to-text */}
-                <Ionicons name="mic" size={20} color="#3C3C43" />
+                <Ionicons name="mic" size={20} color={colors.labelSecondary} />
               </Pressable>
             </View>
 
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   error: {
     ...typography.footnoteRegular,
-    color: '#FF3B30',
+    color: colors.red,
     paddingHorizontal: 16,
   },
   quickToolsRow: {
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   recentLabel: {
     ...typography.footnoteRegular,
-    color: 'rgba(60, 60, 67, 0.6)',
+    color: colors.mutedSecondary,
     paddingHorizontal: 16,
   },
   recentItem: {

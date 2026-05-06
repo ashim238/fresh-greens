@@ -3,18 +3,23 @@
 // Pure functions (no async, no I/O) that take routes + zones and decide
 // which route is "recommended."
 //
-// Zones can have polygon or polyline geometry — the algorithm branches
-// per zone:
+// Zones can have polygon, polyline, or point geometry — the algorithm
+// branches per zone:
 //   polygon  → ray-casting point-in-polygon (waypoint inside the area?)
 //   polyline → point-near-polyline within a meters threshold (waypoint
 //              on/near this lit street?)
+//   point    → point-to-point distance within POINT_PROXIMITY_METERS
+//              (waypoint near this community-reported location?)
 
 import type {
   Coordinate,
   Zone,
   ZoneType,
 } from './api/zones';
-import { POLYLINE_PROXIMITY_METERS } from './api/zones';
+import {
+  POINT_PROXIMITY_METERS,
+  POLYLINE_PROXIMITY_METERS,
+} from './api/zones';
 import type { Route, RouteType } from './api/routes';
 
 /**
@@ -45,20 +50,40 @@ export function scoreRoute(route: Route, zones: Zone[]): number {
   let total = 0;
   for (const point of route.coordinates) {
     for (const zone of zones) {
-      const hit =
-        zone.geometry === 'polygon'
-          ? isPointInPolygon(point, zone.coordinates)
-          : isPointNearPolyline(
-              point,
-              zone.coordinates,
-              POLYLINE_PROXIMITY_METERS,
-            );
+      const hit = isWaypointInZone(point, zone);
       if (hit) {
         total += SCORE_WEIGHTS[zone.type];
       }
     }
   }
   return total;
+}
+
+/**
+ * Geometry-dispatch for scoring. Each zone-geometry kind has its own
+ * primitive; this picks the right one. Extracted from `scoreRoute`'s
+ * inner loop because three branches on zone.geometry inside a nested
+ * loop reads worse than one named function.
+ */
+function isWaypointInZone(point: Coordinate, zone: Zone): boolean {
+  switch (zone.geometry) {
+    case 'polygon':
+      return isPointInPolygon(point, zone.coordinates);
+    case 'polyline':
+      return isPointNearPolyline(
+        point,
+        zone.coordinates,
+        POLYLINE_PROXIMITY_METERS,
+      );
+    case 'point':
+      // Point zones store the location as a single-element array.
+      // Empty (defensive) → never hit.
+      if (zone.coordinates.length === 0) return false;
+      return (
+        pointToPointDistanceMeters(point, zone.coordinates[0]) <
+        POINT_PROXIMITY_METERS
+      );
+  }
 }
 
 /**
@@ -157,4 +182,21 @@ function pointToSegmentDistanceMeters(
   const closestX = sx * t;
   const closestY = sy * t;
   return Math.hypot(px - closestX, py - closestY);
+}
+
+/**
+ * Distance between two coordinates in meters, via equirectangular
+ * projection (lat/lng deltas scaled to meters). Same approach as the
+ * segment helper above; the math collapses to plain Euclidean distance
+ * when both endpoints are the same point.
+ */
+function pointToPointDistanceMeters(
+  a: Coordinate,
+  b: Coordinate,
+): number {
+  const latToMeters = 111000;
+  const lngToMeters = 111000 * Math.cos((a.latitude * Math.PI) / 180);
+  const dx = (b.longitude - a.longitude) * lngToMeters;
+  const dy = (b.latitude - a.latitude) * latToMeters;
+  return Math.hypot(dx, dy);
 }

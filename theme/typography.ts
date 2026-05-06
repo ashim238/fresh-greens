@@ -33,6 +33,22 @@ export const typography = {
     fontWeight: '700',
     letterSpacing: 0.38,
   },
+  // Same metrics as title1Emphasized at Regular weight. Used as the
+  // in-modal user-prompt register — see .cursorrules ("Typography").
+  // The modal asks the user something; regular weight reads as a held
+  // question rather than a directive.
+  title1Regular: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '400',
+    letterSpacing: 0.38,
+  },
+  title3Regular: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '400',
+    letterSpacing: -0.45,
+  },
   bodyRegular: {
     fontSize: 17,
     lineHeight: 22,
@@ -44,6 +60,12 @@ export const typography = {
     lineHeight: 22,
     fontWeight: '600',
     letterSpacing: -0.43,
+  },
+  calloutRegular: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '400',
+    letterSpacing: -0.31,
   },
   subheadlineRegular: {
     fontSize: 15,

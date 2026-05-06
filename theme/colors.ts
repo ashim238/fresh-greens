@@ -22,6 +22,17 @@ export const colors = {
   // Neutrals
   white: '#FFFFFF',
   black: '#000000',
+
+  // iOS system labels — semantic grays used for secondary/tertiary text,
+  // icon tints, and placeholder copy. Tokenized here so screens don't
+  // scatter raw rgba/hex values for the same semantic role.
+  labelSecondary: '#3C3C43',
+  labelTertiary: '#3D3D3D',
+  mutedSecondary: 'rgba(60, 60, 67, 0.6)',
+  mutedTertiary: 'rgba(80, 80, 80, 0.7)',
+
+  // iOS system backgrounds
+  systemGroupedBackground: '#F2F2F7',
 } as const;
 
 // Type helper: lets TypeScript autocomplete color names and catch typos.

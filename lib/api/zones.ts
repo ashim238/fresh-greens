@@ -36,6 +36,15 @@ const OVERPASS_TIMEOUT_MS = 6000;
 /** How close (meters) a route waypoint must be to a lit street to count. */
 export const POLYLINE_PROXIMITY_METERS = 20;
 
+/**
+ * Influence radius (meters) for community-report point zones. A point
+ * report counts as "hit" when a route waypoint is within this radius.
+ * 30m roughly matches a city block's perpendicular extent — wide enough
+ * to catch the route as it passes but not so wide that one report
+ * shadows multiple streets.
+ */
+export const POINT_PROXIMITY_METERS = 30;
+
 export type ZoneType = 'safe' | 'caution' | 'avoid';
 
 export type Coordinate = {
@@ -44,16 +53,23 @@ export type Coordinate = {
 };
 
 /**
- * A zone is a region or line of road tagged with a safety classification.
- * `geometry` discriminates how `coordinates` should be interpreted:
+ * A zone is a region, line, or single location tagged with a safety
+ * classification. `geometry` discriminates how `coordinates` should be
+ * interpreted:
  *   polygon  → closed area; scoring uses point-in-polygon test
  *   polyline → open path of road; scoring uses point-near-polyline test
+ *   point    → single location with influence radius; scoring uses
+ *              point-to-point distance ≤ POINT_PROXIMITY_METERS.
+ *              Used for community-submitted reports — see
+ *              lib/api/community-reports.ts.
+ *
+ * For `point` geometry, `coordinates` is a single-element array.
  */
 export type Zone = {
   id: string;
   type: ZoneType;
   label: string;
-  geometry: 'polygon' | 'polyline';
+  geometry: 'polygon' | 'polyline' | 'point';
   coordinates: Coordinate[];
 };
 

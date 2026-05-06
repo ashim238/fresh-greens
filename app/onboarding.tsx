@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     backgroundColor: colors.freshgreen,
-    height: 40,
+    height: 44,
     borderRadius: 1000,
     alignItems: 'center',
     justifyContent: 'center',

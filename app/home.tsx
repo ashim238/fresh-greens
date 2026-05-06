@@ -1,17 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polygon, Polyline } from 'react-native-maps';
+import MapView, { Circle, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DragHandle } from '../components/DragHandle';
 import { SearchBar } from '../components/SearchBar';
-import { getRoutesBetween, routeColors } from '../lib/api/routes';
-import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
+import { getCommunityReportsAsZones } from '../lib/api/community-reports';
+import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
+import {
+  getZonesForRegion,
+  POINT_PROXIMITY_METERS,
+  type Zone,
+  zoneColors,
+} from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
-import { pickWinner, type RankedRoute } from '../lib/scoring';
+import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -49,18 +60,43 @@ export default function Home() {
   // map when fetched. Empty arrays initially → nothing renders → map shows
   // clean until data arrives a moment later. This is the "loading state"
   // without explicit UI.
-  const [zones, setZones] = useState<Zone[]>([]);
-  // routes holds RankedRoute[] (post-scoring) rather than raw Route[].
-  // Each ranked route carries `type` ('recommended' | 'alternate') and
-  // `score`, both decided by pickWinner based on which zones the route
-  // intersects.
-  const [routes, setRoutes] = useState<RankedRoute[]>([]);
+  // OSM zones (lit streets, landuse, parks). Refreshed when destination
+  // changes. Hidden by default — they drive scoring invisibly.
+  const [osmZones, setOsmZones] = useState<Zone[]>([]);
+  // Community-submitted point reports. Refreshed every time /home gains
+  // focus, so a freshly-submitted report from /report appears
+  // immediately when the user closes the modal. Always rendered as
+  // visible Circle markers — these are the "trusted community" signal,
+  // unlike OSM zones which are infrastructure.
+  const [reportZones, setReportZones] = useState<Zone[]>([]);
+  // Raw OSRM routes — pre-scoring. Ranking is derived (useMemo below)
+  // so it recomputes automatically when zones change without needing
+  // another effect.
+  const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
   // Measured bottom-sheet height. The Report button floats 24pt above
   // the sheet's top edge, so we need to know how tall the sheet is at
   // runtime (it grows with content). 0 until first layout pass — the
   // button stays unrendered until then to avoid a one-frame flash at
   // the wrong position.
   const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
+
+  // Combined zone set fed to scoring. OSM + community reports flow
+  // through the same pipeline — same Zone type, same scorer dispatch.
+  // useMemo keeps the array reference stable across renders that don't
+  // change either source.
+  const allZones = useMemo(
+    () => [...osmZones, ...reportZones],
+    [osmZones, reportZones],
+  );
+
+  // Ranked routes are derived from raw routes + zones. Recomputes
+  // whenever any source changes — including when reportZones updates
+  // after a new community report lands. Replaces the previous
+  // setRoutes(pickWinner(...)) call sites.
+  const routes = useMemo(
+    () => pickWinner(rawRoutes, allZones),
+    [rawRoutes, allZones],
+  );
 
   // Recommended route is the one we explain in the bottom sheet. May be
   // undefined briefly on first render before the fetch completes.
@@ -117,12 +153,15 @@ export default function Home() {
 
       const fetchedRoutes = await routePromise;
       if (cancelled) return;
-      setRoutes(pickWinner(fetchedRoutes, []));
+      // Routes appear immediately with whatever zones we already have
+      // (likely community reports from useFocusEffect, possibly empty).
+      // The useMemo handles re-ranking when osmZones lands a moment
+      // later — no second setRoutes needed.
+      setRawRoutes(fetchedRoutes);
 
       const fetchedZones = await zonePromise;
       if (cancelled) return;
-      setZones(fetchedZones);
-      setRoutes(pickWinner(fetchedRoutes, fetchedZones));
+      setOsmZones(fetchedZones);
     }
 
     fetchAndCenterOnUser();
@@ -133,6 +172,25 @@ export default function Home() {
     // a new search refetches routes for the new endpoint without
     // requiring the user to navigate away and back.
   }, [params.destLat, params.destLng]);
+
+  // Refresh community reports each time /home gains focus. Two paths
+  // hit this: initial mount (when navigating in from any prior screen)
+  // and the dismissal of /report after a successful submission. The
+  // second path is what makes a freshly-submitted report appear on the
+  // map within a frame of the user closing the modal.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const fetched = await getCommunityReportsAsZones();
+        if (cancelled) return;
+        setReportZones(fetched);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   return (
     <View style={styles.root}>
@@ -164,7 +222,7 @@ export default function Home() {
           the zone data still drives scoring invisibly behind the scenes.
         */}
         {SHOW_ZONES &&
-          zones.map((zone) => {
+          osmZones.map((zone) => {
             // Polyline zones (real OSM lit-street data) render as colored
             // street overlays — stroke only, no fill. Polygon zones (mock
             // fallback OR landuse from OSM) render as filled areas.
@@ -178,16 +236,44 @@ export default function Home() {
                 />
               );
             }
-            return (
-              <Polygon
-                key={zone.id}
-                coordinates={zone.coordinates}
-                fillColor={zoneColors[zone.type].fill}
-                strokeColor={zoneColors[zone.type].stroke}
-                strokeWidth={2}
-              />
-            );
+            if (zone.geometry === 'polygon') {
+              return (
+                <Polygon
+                  key={zone.id}
+                  coordinates={zone.coordinates}
+                  fillColor={zoneColors[zone.type].fill}
+                  strokeColor={zoneColors[zone.type].stroke}
+                  strokeWidth={2}
+                />
+              );
+            }
+            // OSM adapter never returns 'point' geometry — community
+            // reports do, and they're rendered separately below.
+            return null;
           })}
+        {/*
+          Community-report points — always visible (not gated by
+          SHOW_ZONES). Rendered as Circles whose radius matches the
+          scoring influence radius (POINT_PROXIMITY_METERS), so the
+          map honestly shows what the scorer considers "in reach" of
+          the report. Color matches the category's safety classification
+          via the same zoneColors lookup OSM zones use.
+        */}
+        {reportZones.map((zone) => {
+          if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
+            return null;
+          }
+          return (
+            <Circle
+              key={zone.id}
+              center={zone.coordinates[0]}
+              radius={POINT_PROXIMITY_METERS}
+              fillColor={zoneColors[zone.type].fill}
+              strokeColor={zoneColors[zone.type].stroke}
+              strokeWidth={2}
+            />
+          );
+        })}
         {routes.map((route) => {
           // Recommended route renders as multiple polyline segments with
           // a daylight gradient (green → orange → red) representing how
@@ -243,7 +329,7 @@ export default function Home() {
             accessibilityLabel="Menu"
             onPress={() => router.push('/safety')}
           >
-            <Ionicons name="menu" size={32} color="#3C3C43" />
+            <Ionicons name="menu" size={32} color={colors.labelSecondary} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -260,7 +346,7 @@ export default function Home() {
         edges={['bottom']}
         onLayout={(e) => setBottomSheetHeight(e.nativeEvent.layout.height)}
       >
-        <View style={styles.dragHandle} />
+        <DragHandle />
 
         <View style={styles.bottomSheetContent}>
           <View style={styles.headers}>
@@ -401,7 +487,7 @@ const styles = StyleSheet.create({
   menuButton: {
     width: 48,
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -417,7 +503,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 16,
@@ -429,13 +515,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 8,
-  },
-  dragHandle: {
-    width: 32,
-    height: 4,
-    borderRadius: 100,
-    backgroundColor: 'rgba(128, 128, 128, 0.55)',
-    alignSelf: 'center', // explicit since the parent no longer alignItems:center
   },
   bottomSheetContent: {
     gap: 24,
@@ -452,7 +531,7 @@ const styles = StyleSheet.create({
   greeting: {
     ...typography.footnoteRegular,
     flex: 1,
-    color: 'rgba(80, 80, 80, 0.7)', // muted secondary per Figma
+    color: colors.mutedTertiary,
   },
   daylightStrip: {
     width: 96,
@@ -488,7 +567,7 @@ const styles = StyleSheet.create({
   },
   tradeoffCopy: {
     ...typography.footnoteRegular,
-    color: 'rgba(80, 80, 80, 0.7)',
+    color: colors.mutedTertiary,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -498,7 +577,7 @@ const styles = StyleSheet.create({
   },
   scheduleBtn: {
     flex: 1,
-    height: 36,
+    height: 44,
     borderRadius: 100, // pill
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
@@ -511,7 +590,7 @@ const styles = StyleSheet.create({
   },
   goBtn: {
     flex: 1,
-    height: 36,
+    height: 44,
     borderRadius: 100,
     backgroundColor: colors.freshgreen,
     flexDirection: 'row',

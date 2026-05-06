@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -79,7 +80,9 @@ export default function SafetyModal() {
       <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <View style={styles.dragHandle} />
+        <View style={styles.dragHandleWrapper}>
+          <DragHandle />
+        </View>
 
         <View style={styles.header}>
           {/*
@@ -145,12 +148,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 48, // matches Figma's gap-48 between drag/header/grid/footer
   },
-  dragHandle: {
-    width: 32,
-    height: 4,
-    borderRadius: 100,
-    backgroundColor: 'rgba(128, 128, 128, 0.55)',
-    alignSelf: 'center',
+  dragHandleWrapper: {
     marginTop: 16,
   },
   header: {
@@ -178,7 +176,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.bodyEmphasized,
-    color: '#3D3D3D', // iOS Labels/Secondary base
+    color: colors.labelTertiary,
   },
   grid: {
     flexDirection: 'row',
@@ -195,7 +193,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 96,
     borderRadius: 8,
-    backgroundColor: '#F2F2F7', // iOS Backgrounds/Secondary
+    backgroundColor: colors.systemGroupedBackground,
     alignItems: 'center',
     justifyContent: 'center',
     // Approximates Figma M3 Elevation Light/1.

@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   button: {
     width: 326,
-    height: 40,
+    height: 44,
     borderRadius: 1000, // pill — large radius clamps to half-height
     alignItems: 'center',
     justifyContent: 'center',

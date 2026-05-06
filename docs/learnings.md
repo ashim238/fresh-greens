@@ -4,6 +4,21 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/community-report (2026-05-05)
+
+The full community-reporting flow lands. What we did, in plain terms:
+
+- **Single screen, internal state machine — not three routes.** The Figma shows three "popups" (picker, detail, thank-you) but they all share one backdrop and one card. That's a state machine, not a router shape. `useState<'picker' | 'detail' | 'thank-you'>` + sub-component dispatch reads cleaner than three screens with inter-route param passing, AND avoids the iOS modal-stack quirk (see prior PR's note on /safety presentation). One screen, three views; the route boundary is the modal envelope, not the views.
+- **`presentation: 'transparentModal'` is the right tool when you want a popup, not a sheet.** iOS's `'modal'` slides up from the bottom and takes over the screen; `'transparentModal'` fades in over the previous screen which stays mounted. The map underneath stays interactive for the duration. Use it for anything that's conceptually an overlay — drop-pin, action sheet, confirmation — not a navigated destination.
+- **Refactored ranked-routes from `useState` to `useMemo`.** Old pattern: `setRoutes(pickWinner(...))` called from the fetch effect, twice (once with empty zones, once with full zones). New pattern: store `rawRoutes`, `osmZones`, `reportZones` as separate useState slots; derive `routes` via `useMemo`. Result: when reportZones updates from `useFocusEffect`, ranking recomputes automatically. No second effect needed. Three sources of truth, one derived value — cleaner than juggling setRoutes call sites.
+- **`useFocusEffect` for "refresh on return-to-screen" patterns.** Submitting a report on /report and tapping Close should land the user back on /home with the new report already on the map. `useFocusEffect(useCallback(...))` runs on every focus, including initial mount and post-modal-dismissal. Cheaper than a polling interval, more reliable than imperative refresh calls. Signature requires `useCallback` to stabilize the effect's identity — copy-paste the pattern, don't forget the wrapper.
+- **`Zone` discriminated union grew a new variant without breaking consumers.** Adding `'point'` to `'polygon' | 'polyline'` required: extending the type, adding a `case 'point'` branch in the scorer dispatch, and a new geometry-specific renderer. TypeScript caught the missing branch in scoring on the first compile. The reducer-style switch on `zone.geometry` is what makes the discriminated union earn its keep — adding a variant means adding one branch in each consumer, not auditing every callsite.
+- **Anonymity at write-time, not at storage-time.** Sensitive-category reports never persist a `submittedBy` field. The user can't later "de-anonymize" a sensitive report because there's no record of who they were when they made it. Compare: storing the field but flagging it `private: true` — same UX, much more leakable. The strongest privacy guarantee is the absence of data.
+- **Photo affordance as visible stub instead of hidden TODO.** The dashed-border tap target renders; tapping shows "coming soon." User sees the future of the feature without tripping over a half-built camera flow. Better than hiding it (loses context for designers/users) AND better than implementing a half-version (sets a ceiling on quality). Signal the intent; defer the work.
+- **`addCommunityReport` returns the inserted report.** The Thank-You screen needs the id to support Undo. Returning the full report from `add(...)` is one extra line in the adapter and saves the consumer a separate `getById` call. Adapters that return what they wrote are friendlier than adapters that return void.
+
+---
+
 ## feat/home-report-button (2026-05-05)
 
 The community-reporting flow's entry point. What we did, in plain terms:
