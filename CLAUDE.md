@@ -118,37 +118,16 @@ Infrastructure:
 
 ## What's NOT shipped (current focus)
 
-### Community reporting (next major arc)
+### Community reporting — open iteration items
 
-Designed in detail this session, not yet built. Two Figma frames added to canvas `825:3161` for the report modal — IDs unknown to me; pull `get_metadata` to find them.
+The reporting flow itself is shipped (`/report` modal: picker → detail → thank-you, AsyncStorage adapter, six categories with score weights, anonymity auto-on for sensitive categories). Open follow-ups:
 
-**Six categories (2×3 grid, score weights baked in):**
-
-| Category | Score weight | Anonymous? | Photo? | Suggested icon |
-|---|---|---|---|---|
-| Lighting | caution (-1) | No | Useful | `bulb-outline` |
-| Hazard | caution (-1) | No | Useful | `warning` |
-| Felt unsafe | avoid (-5) | **Yes (auto)** | No | `eye-outline` |
-| Incident | avoid (-5) | **Yes (auto)** | Situational | `flag` or `document-text-outline` |
-| Felt welcome | safe (+2) | No | Optional | `heart-outline` |
-| Black-owned spot | safe (+2) | No | Optional | `star-outline` |
-
-Anonymity is **auto-on for sensitive categories** (felt-unsafe, incident), not a per-report toggle.
-
-**v1 input:** single optional textbox (*"What else should others know? (optional)"*). Defer preset checkbox sub-tags until v2 once we have submission data.
-
-**Entry points:**
-- From Home: Report button → drop-pin mode (user picks location).
-- From En-Route: Report button → location locked to current GPS.
-- From map long-press (bonus): opens with long-pressed coords pre-filled.
-
-**Architecture:**
-- New adapter `lib/api/community-reports.ts`. Returns `Zone[]` with `geometry: 'point'` and ~30m influence radius. Mock-first (in-memory or AsyncStorage); real backend deferred.
-- `Zone` type already extended for point geometry; `lib/scoring.ts` already dispatches.
-
-**Home Report button — already added to Figma 825:3625:**
-- 56×56 circular, white fill, M3 Elevation 2 shadow, 32×32 orange `alert-circle` icon, right-aligned, tracks bottom sheet's top edge at 24pt offset.
-- Implementation: measure bottom sheet height with `onLayout`, position button at `bottom: bottomSheetHeight + 24, right: 16`.
+- **Home-screen entry mechanic — design call needed.** Currently /home's Report button opens `/report` with the user's GPS as the report location. The original intent was a richer interaction. Two candidate mechanics:
+  1. **Drag-to-place:** drag the Report button itself onto the map; release to drop the pin; modal opens at that location.
+  2. **Tap then drag:** tap Report → a draggable marker appears anchored to the user's current location → user drags it to refine → confirm to open the modal.
+  Drag-to-place is more direct but cramps the map's pan gesture during the drag; tap-then-drag is two-step but composes cleanly with map navigation. Pick before building. (En-route's entry point stays current-GPS — the driver isn't placing pins mid-drive.)
+- **v2 inputs.** Preset checkbox sub-tags per category, deferred from v1 until we have submission data telling us which sub-types matter.
+- **Real backend.** Replace the AsyncStorage adapter internals; public surface (`addCommunityReport`, `getCommunityReportsAsZones`) already designed to swap.
 
 ### Pulled-over flow continuation
 
@@ -161,18 +140,17 @@ Anonymity is **auto-on for sensitive categories** (felt-unsafe, incident), not a
 
 - Onboarding panel illustrations (steering wheel, sitting figure with thought bubble, thinking figure).
 - Officer / Trooper character illustrations (currently Ionicons placeholders).
-- `expo-linear-gradient` for the bottom-sheet daylight strip (currently flat color).
+- **Daylight gradient color consistency.** Confirm /home's bottom-sheet daylight strip (orange→mauve→indigo via `expo-linear-gradient`) matches the daylight key on Route (Experienced) bottom sheet, Figma 825:3715. The route-polyline gradient (`lib/daylight.ts` — green/yellow/orange/red per minutes-to-sunset) is a separate axis — make sure both reads are intentional and the legend in Route Experienced reflects whichever is canonical.
 - Real "Schedule for X:XX AM" computation using SunCalc + route duration.
 - Custom map markers (saved home, trusted friend, location landmarks).
 - /login screen (Welcome's "Have an account?" still TEMP-wired to /onboarding).
-- Side-button column on /home (Help / Shield / Report / Center) — Report is in Figma; full column hasn't been built.
 
 ### Out-of-scope for thesis (defer)
 
 - Real auth backend.
 - Real community-report storage backend.
 - Real-time live re-routing.
-- En-route turn-by-turn UI.
+- Real turn-by-turn instructions on /en-route (basic en-route screen exists; copy is static placeholder until a routing engine that gives instructions, not just geometry, is integrated).
 - Trip Summary screen variants.
 - Roadside / Unfamiliar / Share-location safety sub-flows.
 
