@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import {
   useFocusEffect,
@@ -368,7 +369,18 @@ export default function Home() {
                 indigo per Figma).
               */}
               <View style={styles.daylightStrip}>
-                <View style={styles.daylightBar} />
+                {/*
+                  Daylight progression: orange dawn → mauve dusk → indigo
+                  night. Per Figma 825:3647 (gradient stops match the
+                  swatch colors there). expo-linear-gradient renders this
+                  natively — RN core has no gradient primitive.
+                */}
+                <LinearGradient
+                  colors={['#FFB347', '#C4785A', '#2D1B69']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.daylightBar}
+                />
                 <View style={styles.daylightIcons}>
                   <Ionicons name="sunny" size={16} color="#FFB347" />
                   <Ionicons name="moon" size={16} color="#2D1B69" />
@@ -418,9 +430,18 @@ export default function Home() {
             <Text style={styles.scheduleText}>Schedule for later</Text>
           </Pressable>
 
-          {/* TODO: wire to turn-by-turn / en-route screen once it exists */}
           <Pressable
             style={styles.goBtn}
+            onPress={() =>
+              router.push({
+                pathname: '/en-route',
+                params: {
+                  ...(params.destLat ? { destLat: params.destLat } : {}),
+                  ...(params.destLng ? { destLng: params.destLng } : {}),
+                  ...(params.destName ? { destName: params.destName } : {}),
+                },
+              })
+            }
             accessibilityRole="button"
             accessibilityLabel="Start navigation"
           >
@@ -540,9 +561,6 @@ const styles = StyleSheet.create({
   daylightBar: {
     height: 4,
     borderRadius: 100,
-    // Placeholder color — averaged middle of the orange→mauve→indigo
-    // gradient. TODO: install expo-linear-gradient for real gradient.
-    backgroundColor: '#C4785A',
   },
   daylightIcons: {
     flexDirection: 'row',
@@ -577,6 +595,7 @@ const styles = StyleSheet.create({
   },
   scheduleBtn: {
     flex: 1,
+    // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
     height: 44,
     borderRadius: 100, // pill
     borderWidth: 1,
@@ -590,6 +609,7 @@ const styles = StyleSheet.create({
   },
   goBtn: {
     flex: 1,
+    // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
     height: 44,
     borderRadius: 100,
     backgroundColor: colors.freshgreen,

@@ -76,3 +76,21 @@ git branch -d feat/<screen-name>
 
 ## 11. Add a learnings entry
 If this PR taught you something — a new RN quirk, a layout trick, a tooling gotcha — add a one-liner to `docs/learnings.md`. Future-you reading them weekly is how you check that the work is sticking.
+
+## 12. Periodic Figma fidelity audit (every ~5 PRs, or after any heavy one)
+
+Visual drift compounds quietly. Every fifth PR — or earlier if the previous PR was structural (new screen, refactor, design-system change) — run a dedicated audit pass before starting the next feature:
+
+1. Branch `chore/figma-fidelity-audit-N` (incrementing `N` per audit).
+2. For each shipped screen, pull its Figma node via `get_design_context` and diff against the implementation. Look for:
+   - Token drift — inline hex/rgba/font sizes that should reference `theme/`.
+   - Spacing drift — gap/padding values that no longer match Figma.
+   - Tap-target violations (44pt iOS HIG minimum; `hitSlop` is fine).
+   - Reserved-color rule violations (see `.cursorrules`).
+   - Modal padding rules (16pt for tab/grid modals, 32pt for static-content).
+   - Responsive sizing — hardcoded widths that fail on wider iPhones.
+3. Capture every finding before fixing — easy to wander mid-fix and miss the next one.
+4. Fix in the same branch. One audit branch, one PR.
+5. Append a learnings entry covering recurring misses (these are the highest-leverage ones — a recurring miss is a habit; fixing the habit beats fixing the symptom).
+
+Audits don't ship features but they reset the baseline — every subsequent feature starts from a fidelity floor instead of a slow-eroding one. Track audit cadence in commit history (`git log --oneline | grep audit`) so it's easy to tell when the next one is due.

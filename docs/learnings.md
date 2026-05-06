@@ -4,6 +4,21 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/en-route (2026-05-05)
+
+The active-driving state. What we did, in plain terms:
+
+- **The Figma metadata audit reframed the docket.** Before pulling the full Flow canvas, "What's NOT shipped" in CLAUDE.md called En-Route "out of scope." After listing the 38 designed screens, En-Route turned out to be the connective tissue between the technical claim (good routes) and the moral claim (handling stops): the safety modal, the report modal, the trip-summary popup all presuppose you're driving. The doc was wrong; pull the canvas before trusting the doc. Lesson: design docs decay, design files don't.
+- **Map setup duplicated, not extracted (rule of three).** /home and /en-route share route fetching, zone fetching, scoring memos, useFocusEffect refresh, polyline rendering, circle rendering. About 80 lines of duplicated logic. The rule says inline twice, extract on three. Premature extraction would force a `<RoutedMap />` API decision before we know what /en-route's third sibling (Trip Summary? Two Zone Turn Card?) actually needs. Cheaper to copy-paste now and refactor when the shape is clear than to design for hypothetical future requirements.
+- **`router.push` on /en-route gives free swipe-to-dismiss.** No explicit "End trip" button on the design — the system swipe-back gesture handles it because the screen is stack-pushed (not modal-presented). Trusting the platform affordance kept the chrome clean. Modal presentation would've broken the gesture; stack push respects it.
+- **Side button column = the bridge.** Shield → /safety, Report → /report, Center → recenter. Three out of four buttons wire directly into existing flows. Building En-Route added zero new flows but unlocked four downstream ones (safety, report, recenter, future help). Highest leverage build of the session per line of code.
+- **Placeholder turn instruction beats fake turn-by-turn.** OSRM gives route geometry, not turn-by-turn instructions. Faking instructions ("Turn left in 0.3 mi") at runtime would require either a routing engine or a hand-tuned heuristic that lies. Static placeholder ("Turn left onto South Cedar Street, 0.5 mi") communicates the design intent without claiming functionality we don't have. Same play as the photo-stub on /report — visible affordance, honest scope.
+- **Title2/Emphasized was the missing token.** Turn instruction is 22/28/700/-0.26 — Title2/Emphasized in iOS HIG. Wasn't in `theme/typography.ts` because no prior screen needed it. Added it before using it (per anti-slop rule #2). Token system continues to grow only when the design demands it; not a token-completionist exercise.
+- **iOS HIG > Figma — but with a real exception clause.** Mid-PR we promoted "44pt visual takes precedence over Figma" from suggestion to rule (`.cursorrules` + CLAUDE.md). Then immediately ran into the case the rule's exception clause was written for: 4 utility-secondary buttons in a dense status row, where 44pt visual would crowd the ETA number and read as primary actions. Resolved with 28pt visual + `hitSlop=12` (52pt effective tap area). The exception is "small icon inside a dense row where 44pt would break the layout" — and "break" includes soft visual break, not just literal overflow. Rule + exception clause encoded together so the next person reading the rule sees both halves.
+- **Figma fidelity audit cadence is now codified.** Every ~5 PRs, branch `chore/figma-fidelity-audit-N`, diff every shipped screen against its Figma node, fix drift in one PR. Added to `docs/workflow.md` (step 12) and surfaced in `CLAUDE.md` (workflow step 9). Already 2 audits done informally — codifying made it part of the rhythm rather than something we'd notice was missing later. Five sub-44pt tap targets across the app (Welcome checkbox, pulled-over chevron + close, search recent items, report close X) noted but deferred to the next audit branch — keeps this PR scoped.
+
+---
+
 ## feat/community-report (2026-05-05)
 
 The full community-reporting flow lands. What we did, in plain terms:

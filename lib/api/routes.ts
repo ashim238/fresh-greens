@@ -30,6 +30,8 @@ export type Route = {
   label: string;
   /** Approximate duration in minutes */
   estimatedMinutes: number;
+  /** Total route distance in meters */
+  distanceMeters: number;
   /** Polyline of lat/lng waypoints from origin to destination */
   coordinates: Coordinate[];
 };
@@ -121,6 +123,7 @@ function parseOSRMRoute(osrmRoute: OSRMRoute, index: number): Route {
     id: `osrm-route-${index}`,
     label: index === 0 ? 'Primary route' : `Alternative ${index}`,
     estimatedMinutes: Math.max(1, Math.round(osrmRoute.duration / 60)),
+    distanceMeters: osrmRoute.distance,
     coordinates,
   };
 }
@@ -138,20 +141,45 @@ async function getRoutesBetweenMock(
 ): Promise<Route[]> {
   await delay(150);
 
+  const arc = arcPath(origin, destination);
+  const direct = directPath(origin, destination);
+
   return [
     {
       id: 'mock-route-arc',
       label: 'Northern arc',
       estimatedMinutes: 9,
-      coordinates: arcPath(origin, destination),
+      distanceMeters: estimatePathMeters(arc),
+      coordinates: arc,
     },
     {
       id: 'mock-route-direct',
       label: 'Direct',
       estimatedMinutes: 6,
-      coordinates: directPath(origin, destination),
+      distanceMeters: estimatePathMeters(direct),
+      coordinates: direct,
     },
   ];
+}
+
+/**
+ * Sums segment lengths along a coordinate path, in meters. Same
+ * equirectangular projection as lib/scoring.ts (latToMeters = 111000,
+ * lngToMeters scaled by cos(latitude)). Used only for the mock fallback —
+ * OSRM returns distance directly.
+ */
+function estimatePathMeters(path: Coordinate[]): number {
+  let total = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i + 1];
+    const latToMeters = 111000;
+    const lngToMeters = 111000 * Math.cos((a.latitude * Math.PI) / 180);
+    const dx = (b.longitude - a.longitude) * lngToMeters;
+    const dy = (b.latitude - a.latitude) * latToMeters;
+    total += Math.hypot(dx, dy);
+  }
+  return total;
 }
 
 function delay(ms: number): Promise<void> {
