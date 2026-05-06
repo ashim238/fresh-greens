@@ -394,10 +394,17 @@ const styles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: colors.modalScrim,
   },
   popup: {
-    width: 351,
+    // Stretches with a consistent 20pt edge margin on either side and
+    // a maxWidth so it doesn't go wider than the original Figma spec
+    // on tablet/landscape contexts. On 390pt → ~350pt (matches Figma's
+    // 351). On 430pt Pro Max → 390pt (proportional). On 600pt+ →
+    // capped at 400pt so the popup stays "focused dialog" not "page."
+    alignSelf: 'stretch',
+    marginHorizontal: 20,
+    maxWidth: 400,
     backgroundColor: colors.white,
     borderRadius: 20,
     paddingHorizontal: 16,
@@ -488,7 +495,7 @@ const styles = StyleSheet.create({
   textInput: {
     minHeight: 61,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.3)',
+    borderColor: colors.cardBorderSubtle,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -499,7 +506,7 @@ const styles = StyleSheet.create({
   photoStub: {
     height: 120,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.3)',
+    borderColor: colors.cardBorderSubtle,
     borderStyle: 'dashed',
     borderRadius: 8,
     alignItems: 'center',

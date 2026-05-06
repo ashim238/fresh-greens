@@ -18,6 +18,8 @@
 
 import SunCalc from 'suncalc';
 
+import { colors } from '../theme/colors';
+
 import type { Route } from './api/routes';
 import type { Coordinate } from './api/zones';
 
@@ -110,10 +112,15 @@ export function gradientSegments(
  * day/night edge case at extreme latitudes).
  */
 function colorForMinutesToSunset(minutes: number): string {
-  if (Number.isNaN(minutes)) return '#FFB347'; // safe default — full daylight
-  if (minutes > 90) return '#FFB347'; // orange anchor (strip start)
-  if (minutes > 60) return '#E19551'; // orange→mauve blend
-  if (minutes > 30) return '#C4785A'; // mauve anchor (strip middle)
-  if (minutes > 0) return '#784961'; // mauve→indigo blend
-  return '#2D1B69'; // indigo anchor (strip end) — past sunset
+  // Anchors come from the theme (daylightDawn / daylightDusk /
+  // daylightNight) so the polyline and the /home legend reference one
+  // source. The two blend stops (#E19551, #784961) are mathematical
+  // interpolations between the anchors and stay inline — they exist
+  // only to smooth the gradient, not as named design colors.
+  if (Number.isNaN(minutes)) return colors.daylightDawn; // safe default — full daylight
+  if (minutes > 90) return colors.daylightDawn;          // strip start
+  if (minutes > 60) return '#E19551';                    // dawn → dusk blend
+  if (minutes > 30) return colors.daylightDusk;          // strip middle
+  if (minutes > 0) return '#784961';                     // dusk → night blend
+  return colors.daylightNight;                           // strip end — past sunset
 }

@@ -376,14 +376,18 @@ export default function Home() {
                   natively — RN core has no gradient primitive.
                 */}
                 <LinearGradient
-                  colors={['#FFB347', '#C4785A', '#2D1B69']}
+                  colors={[
+                    colors.daylightDawn,
+                    colors.daylightDusk,
+                    colors.daylightNight,
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.daylightBar}
                 />
                 <View style={styles.daylightIcons}>
-                  <Ionicons name="sunny" size={16} color="#FFB347" />
-                  <Ionicons name="moon" size={16} color="#2D1B69" />
+                  <Ionicons name="sunny" size={16} color={colors.daylightDawn} />
+                  <Ionicons name="moon" size={16} color={colors.daylightNight} />
                 </View>
               </View>
             </View>

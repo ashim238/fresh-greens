@@ -173,7 +173,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    // 32pt gutter matches Figma's intent on the 390pt baseline (390 -
+    // 326 = 64 ÷ 2). Buttons + terms now stretch to fill the content
+    // width instead of hardcoding 326, so on Pro Max they grow with
+    // the device rather than orphaning in the middle.
+    paddingHorizontal: 32,
     paddingBottom: 24,
   },
   illustrationContainer: {
@@ -206,14 +210,17 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   actions: {
-    alignItems: 'center',
+    // alignItems: stretch so children with alignSelf: 'stretch' actually
+    // fill the container width. Center is the wrong cross-axis for a
+    // responsive button column — children would shrink to intrinsic.
+    alignItems: 'stretch',
     gap: 16,
   },
   terms: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    width: 326, // match button column width so the row sits within the same vertical strip
+    alignSelf: 'stretch', // tracks parent gutter so terms row aligns with buttons across devices
   },
   checkbox: {
     // 24pt visual (was 18pt). Below the 44pt HIG minimum because it's
@@ -243,7 +250,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   button: {
-    width: 326,
+    alignSelf: 'stretch', // grows with device width instead of hardcoded 326
     height: 44,
     borderRadius: 1000, // pill — large radius clamps to half-height
     alignItems: 'center',

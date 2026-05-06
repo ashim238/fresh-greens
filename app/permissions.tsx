@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.3)',
+    borderColor: colors.cardBorderSubtle,
   },
   subText: {
     ...typography.footnoteRegular,

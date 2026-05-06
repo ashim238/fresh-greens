@@ -1,5 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
+import { colors } from '../theme/colors';
+
 export function DragHandle() {
   return <View style={styles.handle} />;
 }
@@ -9,7 +11,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 4,
     borderRadius: 100,
-    backgroundColor: 'rgba(128, 128, 128, 0.55)',
+    backgroundColor: colors.dragHandleBar,
     alignSelf: 'center',
   },
 });
