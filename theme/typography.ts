@@ -55,6 +55,12 @@ export const typography = {
     fontWeight: '400',
     letterSpacing: -0.45,
   },
+  title3Emphasized: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '600',
+    letterSpacing: -0.45,
+  },
   bodyRegular: {
     fontSize: 17,
     lineHeight: 22,

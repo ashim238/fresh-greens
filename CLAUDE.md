@@ -64,7 +64,7 @@ Adapters (lib/api/*)        →   Scoring (lib/scoring.ts)        →   Screens 
 
 ### Screens (`app/`)
 - expo-router file-based: `app/index.tsx` = `/`, `app/onboarding.tsx` = `/onboarding`, etc.
-- Modal-presented screens (`/safety`, `/pulled-over`, `/armed-or-not`) configured in `app/_layout.tsx` via `Stack.Screen options={{ presentation: 'modal' }}`.
+- Modal-presented screens (`/safety`, `/armed-or-not`, `/review-guidance`) configured in `app/_layout.tsx` via `Stack.Screen options={{ presentation: 'modal' }}`.
 - Theme tokens consumed via spread: `{ ...typography.title1Emphasized, color: colors.white }`.
 
 ---
@@ -106,8 +106,8 @@ Map / routing:
 
 Safety flow:
 - Safety modal (`/safety`) — 2x2 tab grid entry point.
-- Pulled-over (`/pulled-over`) — Officer/Trooper informational screen (placeholder illustrations).
-- Armed-or-Not (`/armed-or-not`) — three-answer choice screen (Yes / No / Prefer not to answer).
+- Armed-or-Not (`/armed-or-not`) — three-answer choice screen (Yes / No / Prefer not to answer). Routes to /review-guidance with the answer as a param.
+- Review Guidance (`/review-guidance`) — single modal with 5 sub-views via internal index state machine (Officer/Trooper → Do → Have → Say → Know). Reflective post-incident flow; chevron back/forward navigation; Close uses `router.dismissAll()` to unwind the safety modal stack back to /en-route. The "What to Say" sub-view's first bullet (concealed-carry declaration) is conditional on `armed=yes` or `preferred-not-to-answer`.
 
 Infrastructure:
 - Theme tokens + design rules consolidated.
@@ -129,16 +129,19 @@ The reporting flow itself is shipped (`/report` modal: picker → detail → tha
 - **v2 inputs.** Preset checkbox sub-tags per category, deferred from v1 until we have submission data telling us which sub-types matter.
 - **Real backend.** Replace the AsyncStorage adapter internals; public surface (`addCommunityReport`, `getCommunityReportsAsZones`) already designed to swap.
 
-### Pulled-over flow continuation
+### Safety flow continuation
 
-`/armed-or-not`'s answers all log to console. Real destinations:
-- Each answer routes to `/what-to-do?armed=yes|no|preferred-not-to-answer`.
-- `/what-to-do` is a tab navigator with four content variants: **Do / Have / Say / Know**. Figma nodes 825:4386, 4533, 4599, 4724.
-- This is where the **legally-anchored copy** lives — the moral substance of the thesis. Layout is mostly mechanical; the editorial work is the words.
+`/review-guidance` (the Do/Have/Say/Know review) shipped as a 5-sub-view state machine. The path between `/armed-or-not` and `/review-guidance` is currently temp-wired (direct push); the eventual chain still needs to be built:
+
+- **Recording screen** ("Read the following") — appears between `/armed-or-not` and `/contact`. Copy varies based on the firearm answer: concealed-carry / "I'm armed" advice shows for `armed=yes` and `armed=preferred-not-to-answer` (conservative default); hides entirely for `armed=no`. Same conditional logic as `/review-guidance`'s "What to Say" sub-view — keep them consistent so the user gets the same firearm-aware guidance both before the stop (recording prep) and after (review). Figma node TBD.
+- **Trusted Contact screen** (`/contact`, Figma 825:4791) — gate between recording and `/review-guidance`. "Review guidance" subtext routes to `/review-guidance`; alternate path skips to /en-route.
+- When both land, `/armed-or-not` rewires from direct → `/review-guidance` to instead push the recording screen, and `/contact`'s subtext becomes the entry point to `/review-guidance`.
 
 ### Polish / smaller gaps
 
+- Welcome illustrations: clouds + wind (vic, sun, hill are in; sky elements are missing).
 - Onboarding panel illustrations (steering wheel, sitting figure with thought bubble, thinking figure).
+- Permissions: real location-pin + car illustration (currently Ionicons placeholders).
 - Officer / Trooper character illustrations (currently Ionicons placeholders).
 - **Daylight gradient color consistency.** Confirm /home's bottom-sheet daylight strip (orange→mauve→indigo via `expo-linear-gradient`) matches the daylight key on Route (Experienced) bottom sheet, Figma 825:3715. The route-polyline gradient (`lib/daylight.ts` — green/yellow/orange/red per minutes-to-sunset) is a separate axis — make sure both reads are intentional and the legend in Route Experienced reflects whichever is canonical.
 - Real "Schedule for X:XX AM" computation using SunCalc + route duration.
