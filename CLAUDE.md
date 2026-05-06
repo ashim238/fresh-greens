@@ -60,7 +60,7 @@ Adapters (lib/api/*)        →   Scoring (lib/scoring.ts)        →   Screens 
 ### Daylight gradient (`lib/daylight.ts`)
 - Pure function, uses SunCalc to compute real minutes-to-sunset per route segment based on departure time + lat/lng + travel time.
 - Splits route polyline into 5 segments, colors each by minutes-to-sunset (green → yellow → orange → red).
-- Per `.cursorrules`: red/orange here is the documented daylight-encoding exception to the reserved-color rule.
+- Per `.cursorrules`: orange here is the documented daylight-encoding exception to the reserved-color rule (orange/mauve/indigo gradient — the literal colors of light from afternoon through twilight).
 
 ### Screens (`app/`)
 - expo-router file-based: `app/index.tsx` = `/`, `app/onboarding.tsx` = `/onboarding`, etc.
@@ -137,13 +137,27 @@ The reporting flow itself is shipped (`/report` modal: picker → detail → tha
 - **Trusted Contact screen** (`/contact`, Figma 825:4791) — gate between recording and `/review-guidance`. "Review guidance" subtext routes to `/review-guidance`; alternate path skips to /en-route.
 - When both land, `/armed-or-not` rewires from direct → `/review-guidance` to instead push the recording screen, and `/contact`'s subtext becomes the entry point to `/review-guidance`.
 
+### Routing formula — additional zone sources (thesis substance)
+
+The thesis claim names four environmental factors. **Light** is captured (OSM `lit=*` polylines). The other three need adapter additions to `lib/api/zones.ts`:
+
+- **Police** — caution-zone bias, not avoid. Sources: OSM `amenity=police` (police buildings/precincts, point or polygon) and `highway=speed_camera` (point). Traffic-stop concentration data deliberately *not* integrated — public datasets are aggregate-only and licensing varies; community-reported "felt unsafe" zones are the cleaner proxy.
+- **Wildlife** — caution-zone, **score amplified ×2 at dawn/dusk** (deer are crepuscular). Use SunCalc to detect time-of-day at trip start. Sources: OSM `hazard=wildlife_crossing` (sparse but real), `landuse=forest`, `natural=wood`. State DOT roadkill data and iNaturalist deferred to v2.
+- **Road conditions** — graduated caution → avoid by severity. Sources: OSM `surface=unpaved|gravel|dirt|sand`, `smoothness=bad|very_bad|horrible|impassable`, `highway=construction`. Default for unmapped roads is "no signal" (don't penalize undocumented roads). Flooding deferred to v2 (FEMA static + NOAA real-time).
+
+**v2 follow-ups under consideration (heavier integrations, queued not blocking):**
+- TIGER/Line road-classification overlay for unmapped roads — bigger lift than v1; needs per-region pre-extract or backend endpoint. Consider scoping to demo region (Mobile, AL).
+- State DOT 511 real-time construction/incident feed (ALDOT for the demo region). Single-state integration, fits the adapter pattern. Replaces OSM `highway=construction` (which lags real-time by weeks).
+
+All three v1 sources flow through the existing `Zone[]` pipeline — same shape, same scoring dispatch. The wildlife time-of-day modulation is a small change in `lib/scoring.ts` (per-zone score multiplier), not a new geometry type.
+
 ### Polish / smaller gaps
 
 - Welcome illustrations: clouds + wind (vic, sun, hill are in; sky elements are missing).
 - Onboarding panel illustrations (steering wheel, sitting figure with thought bubble, thinking figure).
 - Permissions: real location-pin + car illustration (currently Ionicons placeholders).
 - Officer / Trooper character illustrations (currently Ionicons placeholders).
-- **Daylight gradient color consistency.** Confirm /home's bottom-sheet daylight strip (orange→mauve→indigo via `expo-linear-gradient`) matches the daylight key on Route (Experienced) bottom sheet, Figma 825:3715. The route-polyline gradient (`lib/daylight.ts` — green/yellow/orange/red per minutes-to-sunset) is a separate axis — make sure both reads are intentional and the legend in Route Experienced reflects whichever is canonical.
+- ~~Daylight gradient color consistency.~~ ✅ Resolved in `chore/figma-fidelity-audit-3`. `lib/daylight.ts` polyline now uses orange→mauve→indigo to match the bottom-sheet strip. Polyline and legend share one canonical gradient.
 - Real "Schedule for X:XX AM" computation using SunCalc + route duration.
 - Custom map markers (saved home, trusted friend, location landmarks).
 - /login screen (Welcome's "Have an account?" still TEMP-wired to /onboarding).

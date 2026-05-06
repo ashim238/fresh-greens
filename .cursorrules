@@ -29,7 +29,7 @@ Yellow, Red, Orange, Navy, and the daylight gradient are **UI signals**. In-flow
 
 1. **Brand/onboarding splash** may use reserved colors as atmospheric backgrounds (Welcome screen orange = sunrise).
 2. **Illustrations** are exempt — illustrative navy ≠ UI navy.
-3. **Daylight gradient** on route map (red/orange polylines) encodes daylight availability with a legend in the bottom sheet — functional, not signaling. Implementation note: drive from sunrise/sunset data per route segment, not a baked image.
+3. **Daylight gradient** on route map (orange → mauve → indigo polylines) encodes daylight availability — the literal color light has at that time of day. Bottom-sheet daylight strip uses the same palette so the polyline and the legend agree visually. Functional, not signaling. Implementation note: drive from sunrise/sunset data per route segment via SunCalc, not a baked image.
 4. **Report flow identity icon** (orange `alert-circle`): the Home/En-Route Report button and the Report modal title icon use orange because reporting *is* the safety signal — orange is the color of "something to flag." This is consistent with the rule's intent (reserved colors = safety signaling), not an exception to it.
 
 ## Search bar contextual treatment

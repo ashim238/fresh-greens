@@ -333,7 +333,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    // 10pt vertical padding around the 24pt icon = 44pt total tap height,
+    // satisfying the iOS HIG minimum on the visual itself (no hitSlop
+    // fallback). Was 4pt → 32pt total, below HIG.
+    paddingVertical: 10,
   },
   recentText: {
     ...typography.subheadlineEmphasized,

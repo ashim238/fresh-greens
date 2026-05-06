@@ -485,8 +485,12 @@ const contentStyles = StyleSheet.create({
     alignItems: 'center',
   },
   illustrationBox: {
+    // 320x320 square per Figma (each sub-view's illustration container is
+    // size-[320px]). Ionicons placeholders float small inside this until
+    // real illustrations land in a polish PR — at which point the assets
+    // will fill the box without resizing.
     width: 320,
-    height: 200,
+    height: 320,
     alignItems: 'center',
     justifyContent: 'center',
   },
