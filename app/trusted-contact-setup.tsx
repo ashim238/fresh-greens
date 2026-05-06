@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // Deep import path (phosphor-react-native exposes ./src/icons/* via
 // its `exports` field). Bypasses the barrel index, which Metro chokes
@@ -27,7 +27,8 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 /**
- * Trusted Contact Setup — onboarding step 5 of 5.
+ * Trusted Contact Setup — onboarding step 5 of 5, also reused as the
+ * "edit trusted contact" surface from /menu.
  *
  * Asks the user to pick the person who'll be alerted during the safety
  * flow and whose number the Call/Text buttons in /pulled-over dial.
@@ -39,14 +40,25 @@ import { typography } from '../theme/typography';
  *   - empty (no contact picked yet) → CTA + skip option
  *   - preview (contact picked) → avatar + name + Continue / change
  *
- * Skipping is allowed for v1. The pulled-over flow falls back to a
- * "no contact set" state when there's nothing stored. Set-and-forget
- * for the thesis demo; an editable Settings entry lands in a future PR.
+ * Routing depends on entry point. The `from` query param distinguishes:
+ *   - undefined / "onboarding" → Continue + Skip both `replace('/home')`,
+ *     ending the onboarding stack. Default behavior.
+ *   - "settings" → Continue + Skip both `back()`, returning to /menu
+ *     so the user lands back where they came from.
+ * Without this param, editing trusted contact from /menu would push the
+ * user to /home instead of returning to Settings — wrong stack semantics.
+ *
+ * Skipping is always allowed: /pulled-over falls back to a "no contact
+ * set" state when there's nothing stored.
  *
  * Route: /trusted-contact-setup
  */
+type EntryPoint = 'onboarding' | 'settings';
+
 export default function TrustedContactSetup() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ from?: EntryPoint }>();
+  const fromSettings = params.from === 'settings';
   const { contact, pickContact } = useTrustedContact();
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,11 +82,19 @@ export default function TrustedContactSetup() {
   }
 
   function handleContinue() {
-    router.replace('/home');
+    if (fromSettings) {
+      router.back();
+    } else {
+      router.replace('/home');
+    }
   }
 
   function handleSkip() {
-    router.replace('/home');
+    if (fromSettings) {
+      router.back();
+    } else {
+      router.replace('/home');
+    }
   }
 
   return (
@@ -82,8 +102,12 @@ export default function TrustedContactSetup() {
       <StatusBar style="light" />
 
       <SafeAreaView style={styles.safe}>
-        {/* Step 5 of 5 — final onboarding step before /home */}
-        <PageControl total={5} activeIndex={4} />
+        {/*
+          Step 5 of 5 — final onboarding step before /home. Hidden when
+          reached from /menu since the user isn't progressing through
+          onboarding; they're editing settings.
+        */}
+        {!fromSettings && <PageControl total={5} activeIndex={4} />}
 
         <View style={styles.content}>
           <View style={styles.copy}>

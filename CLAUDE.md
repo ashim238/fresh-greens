@@ -112,8 +112,13 @@ Auth + identity:
 - `lib/api/trusted-contact.ts` — AsyncStorage-backed trusted-contact adapter (`getTrustedContact` / `setTrustedContact` / `clearTrustedContact`). Stores only what the safety flow needs (id, name, initials, phone, setAt) — not the full Contact, for both privacy and storage-size reasons.
 - `hooks/useTrustedContact.ts` — reactive wrapper. Exposes `{ contact, loading, pickContact, clearContact }`. `pickContact` opens iOS's native picker via `expo-contacts`'s `presentContactPickerAsync`, normalizes to our shape, and persists.
 
+Settings:
+- Settings (`/menu`) — pushed from /home's avatar button (top-right of the menu row). Wiltedgreen page background, brand-cohesive with the auth/onboarding/contact-setup register. Hero header uses a Phosphor `Car` icon (TODO: swap to custom car asset matching the trusted-friend pin) in fadedgreen + display name + email. Sections below: Trusted contact (tappable burntgreen card → reuses `/trusted-contact-setup?from=settings` for editing) and Account (Sign out as wiltedgreen-outline pill, clears stored user + trusted contact and routes to `/`). Footnote in `fillsTertiary`-tinted box explains local-only sign-out vs Apple Sign In revocation. Recordings + Recent Trips slot in here when those features ship.
+  - **Direction for menu growth:** card-forward / tile-based / identity-prominent — Waze-flavored. When Recordings + Recent Trips arrive, render them as 2-column tappable tiles rather than full-width list rows. Low list-density, big visual cards. Keeps the menu scannable instead of bureaucratic as it grows.
+- The avatar button on `/home` uses the same Phosphor Car (28pt, fadedgreen, regular) as `/menu`'s hero (80pt). Same iconography across surfaces — user reads as a "car-in-the-system" everywhere.
+
 Map / routing:
-- Home (`/home`) — full-bleed Apple Maps, real OSRM routes, real OSM zone data, real solar daylight gradient on the recommended route polyline. Bottom sheet shows the route's "why" (estimated time, destination name, tradeoff explanation).
+- Home (`/home`) — full-bleed Apple Maps, real OSRM routes, real OSM zone data, real solar daylight gradient on the recommended route polyline. Bottom sheet shows the route's "why" (estimated time, destination name, tradeoff explanation). Avatar button top-right opens `/menu`.
 - Search (`/search`) — gray search bar (Fills/Tertiary), Quick Tools row (Saved/Trending/Food/Gas/Parking), Fuel section, Recent searches. `Location.geocodeAsync` for forward geocoding.
 - `SHOW_ZONES` constant in home.tsx — toggle for thesis screenshots showing the data layer; default `false` (clean user view).
 
