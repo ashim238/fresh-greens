@@ -12,9 +12,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Phosphor deep-import to bypass the package's barrel index. See
+// app/trusted-contact-setup.tsx for the longer note + tsconfig
+// `paths` mapping that keeps TypeScript happy.
+import { Car } from 'phosphor-react-native/src/icons/Car';
+
 import { DragHandle } from '../components/DragHandle';
 import { SearchBar } from '../components/SearchBar';
-import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
@@ -50,21 +54,7 @@ const SHOW_ZONES = false;
  */
 export default function Home() {
   const router = useRouter();
-  const { signOut } = useUser();
-  const { clearContact } = useTrustedContact();
-
-  // __DEV__-gated: wipes the stored user + trusted contact and sends the
-  // app back to Welcome so we can cold-start the onboarding flow without
-  // deleting the app or wiping the simulator. Stripped from production
-  // builds automatically — `__DEV__` is a Metro-time constant that
-  // resolves to `false` outside development. Lives here (and not in
-  // Settings, which doesn't exist yet) because Welcome auto-redirects
-  // signed-in users, so the only reachable surface for a logged-in
-  // tester is /home.
-  async function handleDevReset() {
-    await Promise.all([signOut(), clearContact()]);
-    router.replace('/');
-  }
+  const { user } = useUser();
   const mapRef = useRef<MapView>(null);
   // Destination params from the search screen, if any. URL params arrive
   // as strings and may be undefined (when the user landed on /home without
@@ -351,26 +341,31 @@ export default function Home() {
           </Pressable>
 
           {/*
-            Dev-only reset chip — clears stored user + trusted contact and
-            routes to /, so we can cold-start the onboarding flow during
-            testing. Stripped from production builds via __DEV__.
+            Avatar button — opens /menu (Settings hub). Uses the same
+            car-icon glyph as /menu's hero header, so the user's
+            identity reads as a "car-in-the-system" everywhere it
+            appears. Fadedgreen color matches /menu's hero (the
+            trusted-friend pin gets freshgreen — different role).
+            48pt white circular surface mirrors menuButton's elevation.
+            useUser is read for accessibility label only (announces
+            the user's name to VoiceOver) — visual is icon-only.
+
+            TODO: replace Car placeholder with custom car asset to
+            match the trusted-friend pin's iconography.
           */}
-          {__DEV__ && (
-            <Pressable
-              style={styles.devResetChip}
-              onPress={handleDevReset}
-              accessibilityRole="button"
-              accessibilityLabel="Reset onboarding state (dev only)"
-              hitSlop={12}
-            >
-              <Ionicons
-                name="refresh"
-                size={14}
-                color={colors.labelSecondary}
-              />
-              <Text style={styles.devResetText}>Reset (dev)</Text>
-            </Pressable>
-          )}
+          <Pressable
+            style={styles.avatarButton}
+            onPress={() => router.push('/menu')}
+            accessibilityRole="button"
+            accessibilityLabel={
+              user?.displayName
+                ? `Open Settings (signed in as ${user.displayName})`
+                : 'Open Settings'
+            }
+            hitSlop={8}
+          >
+            <Car size={28} color={colors.fadedgreen} weight="regular" />
+          </Pressable>
         </View>
       </SafeAreaView>
 
@@ -564,26 +559,22 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  // Dev-only "Reset" chip — small pill in the top-right of /home that
-  // wipes user + trusted contact and routes to /. Stripped in production.
-  // Visually distinct from real UI: shorter, less elevated, no brand color.
-  devResetChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: 28,
-    paddingHorizontal: 10,
-    borderRadius: 100,
+  // Avatar button — top-right of /home. 48pt circular surface that
+  // matches menuButton's elevation but reads as "identity / Settings"
+  // rather than "menu icon." Holds the user's car glyph (rendered
+  // in fadedgreen by the Car component itself).
+  avatarButton: {
+    width: 48,
+    height: 48,
     backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
-    // Self-align center so the chip vertically centers against the
-    // menuButton (which is 48pt tall vs the chip's 28pt).
-    alignSelf: 'center',
-  },
-  devResetText: {
-    ...typography.caption2Regular,
-    color: colors.labelSecondary,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   bottomSheet: {
     position: 'absolute',
