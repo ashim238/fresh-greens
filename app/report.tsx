@@ -180,7 +180,7 @@ function PickerView({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          hitSlop={8}
+          hitSlop={12}
         >
           <Ionicons name="close-circle-outline" size={20} color={colors.labelTertiary} />
         </Pressable>
@@ -265,7 +265,7 @@ function DetailView({
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          hitSlop={8}
+          hitSlop={12}
         >
           <Ionicons name="chevron-back" size={24} color={colors.labelTertiary} />
         </Pressable>
@@ -274,7 +274,7 @@ function DetailView({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          hitSlop={8}
+          hitSlop={12}
         >
           <Ionicons name="close-circle-outline" size={20} color={colors.labelTertiary} />
         </Pressable>
@@ -359,7 +359,7 @@ function ThankYouView({
           onPress={onUndo}
           accessibilityRole="button"
           accessibilityLabel="Undo submission and go back"
-          hitSlop={8}
+          hitSlop={12}
         >
           <Ionicons name="chevron-back" size={24} color={colors.labelTertiary} />
         </Pressable>

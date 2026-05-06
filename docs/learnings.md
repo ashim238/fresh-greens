@@ -4,6 +4,19 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit-3 (2026-05-06)
+
+Third fidelity audit, after three structural PRs (community-report, en-route, review-guidance). What we did, in plain terms:
+
+- **Recurring miss across screens: tap-target compliance via hitSlop=8 instead of hitSlop=12.** Pattern showed up in /report (4 close-X / chevron-back buttons, 8pt → 12pt), making them HIG-compliant on the visual + slop math. Lesson: when copying the modal-header dismiss pattern, default to hitSlop=12 from the start. 8pt was the original value; 4pt nudge per side compounds across every modal we ship.
+- **Daylight gradient had two competing palettes.** /home's bottom-sheet strip (orange→mauve→indigo, the literal colors of light from afternoon to night) and `lib/daylight.ts`'s polyline (green→yellow→orange→red, a severity scale) both encoded the same axis with different colors. The Figma's intent — confirmed via Route Experienced (825:3715) — is one canonical gradient: orange→mauve→indigo. The severity-style gradient ("good→bad") was inherited from a generic palette and contradicts the thesis register, which is "this is what your trip looks like at sunset," not "drive at risk." Updated `colorForMinutesToSunset` to sample the strip palette at 5 bands. One axis, one canonical encoding, one set of colors. Bottom-sheet strip and polyline now agree.
+- **Welcome checkbox had no state.** It rendered as a Pressable with no `useState`, no `accessibilityState`, no toggled visual. VoiceOver couldn't tell it was checked; tap did nothing. Added a real boolean state, accessibility state, and a checkmark Ionicon that renders only when checked. Visual bumped 18→24pt with `hitSlop=20` for HIG compliance via the exception clause (genuinely-constrained dense row alongside legal copy). Unrelated original miss — first build was visual-only, missed the interaction half.
+- **Search recent items: paddingVertical 4 → 10 was the cleanest HIG fix.** No hitSlop was set; the row was 32pt tall (icon 24 + 4×2). Bumping padding to 10pt brings total to 44pt — visual itself is HIG-compliant, no fallback math needed. Easier to reason about than hitSlop.
+- **En-route utility buttons: the 32pt icon in 44pt frame was visually crowded** (only 6pt of pill visible per side). Dropped to 24pt icons; same 44pt frame now reads as "icon sitting inside pill" rather than "icon filling pill." The earlier iteration that bumped icons to 32pt was reaching for in-driving readability, but at the cost of the visual register. 24pt was the correct middle ground all along — Figma had it at 16pt, we found 24pt as the readable-without-crowding sweet spot.
+- **Patterns ship faster than fixes.** Each of the five misses above was a single PR's worth of drift, but accumulated over three structural PRs they hit critical mass. Every audit, the pattern is the same: a few systemic misses (hitSlop, daylight gradient axis), a few one-offs (Welcome checkbox state). Auditing every ~5 PRs catches them before they become muscle memory.
+
+---
+
 ## feat/review-guidance (2026-05-06)
 
 The post-incident reflective Do/Have/Say/Know flow lands. What we did, in plain terms:

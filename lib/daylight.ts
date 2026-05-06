@@ -8,9 +8,13 @@
 //   - the segment's actual lat/lng (so a long east-west route can have
 //     different sunset times across its segments)
 //
-// Per .cursorrules: red/orange used here as functional daylight encoding,
-// NOT as signaling — exactly the documented exception to the reserved-
-// color rule.
+// Per .cursorrules: orange used here as functional daylight encoding (the
+// literal color of light at that time of day), NOT as signaling — exactly
+// the documented exception to the reserved-color rule. The polyline
+// palette (orange → mauve → indigo) matches the bottom-sheet daylight
+// strip on /home and Route (Experienced) so the legend and the polyline
+// agree visually — one canonical encoding for "amount of daylight,"
+// not two competing scales.
 
 import SunCalc from 'suncalc';
 
@@ -87,22 +91,29 @@ export function gradientSegments(
 }
 
 /**
- * Maps minutes-to-sunset to a daylight color.
- * Bands tuned for "how warm should this segment look" UX intuition:
- *   90+ min remaining  → full daylight (green)
- *   60–90 min          → afternoon (faded green)
- *   30–60 min          → golden hour begins (yellow)
- *   0–30 min           → sunset approaching (orange)
- *   negative           → past sunset, twilight (red)
+ * Maps minutes-to-sunset to a daylight color sampled from the
+ * orange → mauve → indigo gradient that the bottom-sheet daylight
+ * strip uses (Figma 825:3635 / 825:3715). Intermediate stops are
+ * linear-RGB blends between the three anchor colors, so the
+ * five-segment polyline reads as a smooth left-to-right slice of
+ * the same gradient the user sees in the legend.
  *
- * Falls back to bright daylight if SunCalc returned NaN (polar day/night
- * edge case at extreme latitudes).
+ * Bands map "minutes to sunset" → "what time of day this segment
+ * looks like":
+ *   90+ min remaining  → mid-afternoon (orange)
+ *   60–90 min          → late afternoon (warm orange)
+ *   30–60 min          → golden hour (mauve)
+ *   0–30 min           → sunset transition (dusty mauve)
+ *   negative           → past sunset, night (indigo)
+ *
+ * Falls back to mid-afternoon orange if SunCalc returned NaN (polar
+ * day/night edge case at extreme latitudes).
  */
 function colorForMinutesToSunset(minutes: number): string {
-  if (Number.isNaN(minutes)) return '#41AD49'; // safe default
-  if (minutes > 90) return '#41AD49'; // freshgreen
-  if (minutes > 60) return '#A0D6A4'; // fadedgreen
-  if (minutes > 30) return '#FFCC00'; // yellow
-  if (minutes > 0) return '#FF9500'; // orange
-  return '#FF3B30'; // red — past sunset
+  if (Number.isNaN(minutes)) return '#FFB347'; // safe default — full daylight
+  if (minutes > 90) return '#FFB347'; // orange anchor (strip start)
+  if (minutes > 60) return '#E19551'; // orange→mauve blend
+  if (minutes > 30) return '#C4785A'; // mauve anchor (strip middle)
+  if (minutes > 0) return '#784961'; // mauve→indigo blend
+  return '#2D1B69'; // indigo anchor (strip end) — past sunset
 }

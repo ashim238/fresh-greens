@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import {
   Image,
   Pressable,
@@ -18,6 +20,10 @@ import { typography } from '../theme/typography';
  */
 export default function Welcome() {
   const router = useRouter();
+  // Terms acknowledgement — was previously a decorative Pressable with no
+  // state. Now a real toggle so VoiceOver can announce the checked state
+  // and so we can later gate the primary CTAs on consent (TODO).
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   return (
     <View style={styles.root}>
@@ -77,10 +83,20 @@ export default function Welcome() {
           <View style={styles.terms}>
             <Pressable
               style={styles.checkbox}
-              hitSlop={12}
+              hitSlop={20}
+              onPress={() => setTermsAccepted((prev) => !prev)}
               accessibilityRole="checkbox"
+              accessibilityState={{ checked: termsAccepted }}
               accessibilityLabel="I acknowledge the Privacy Policy and agree to Fresh Greens' Terms and Conditions."
-            />
+            >
+              {termsAccepted && (
+                <Ionicons
+                  name="checkmark"
+                  size={18}
+                  color={colors.freshgreen}
+                />
+              )}
+            </Pressable>
             {/*
               Two stacked Text rows match the Figma line breaks exactly,
               instead of letting the text auto-wrap wherever it fits.
@@ -200,11 +216,19 @@ const styles = StyleSheet.create({
     width: 326, // match button column width so the row sits within the same vertical strip
   },
   checkbox: {
-    width: 18,
-    height: 18,
+    // 24pt visual (was 18pt). Below the 44pt HIG minimum because it's
+    // visually paired with multi-line legal copy at the same eye level
+    // — a 44pt box would dominate the layout. This is the exception
+    // clause case (.cursorrules tap-target rule): genuinely-constrained
+    // dense row, hitSlop=20 brings the effective tap area to 64pt
+    // which exceeds 44pt.
+    width: 24,
+    height: 24,
     borderWidth: 2,
     borderColor: colors.freshgreen,
-    borderRadius: 2,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   termsTextColumn: {
     flex: 1,

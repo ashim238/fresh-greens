@@ -394,7 +394,7 @@ export default function EnRoute() {
               >
                 <Ionicons
                   name="volume-high"
-                  size={32}
+                  size={24}
                   color={colors.labelSecondary}
                 />
               </Pressable>
@@ -413,7 +413,7 @@ export default function EnRoute() {
               >
                 <Ionicons
                   name="search"
-                  size={32}
+                  size={24}
                   color={colors.labelSecondary}
                 />
               </Pressable>
@@ -426,7 +426,7 @@ export default function EnRoute() {
               >
                 <Ionicons
                   name="git-branch"
-                  size={32}
+                  size={24}
                   color={colors.labelSecondary}
                 />
               </Pressable>
@@ -608,12 +608,11 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   utilityBtn: {
-    // 44x44 visual + 32pt icons. Bumped from utility-secondary (28pt
-    // visual / 16pt icon) for in-driving readability — at speed a 16pt
-    // glyph is hard to parse at a glance. HIG-compliant visual; hitSlop=12
-    // adds forgiveness padding (effective 68pt) for one-handed use on
-    // bumpy roads. This is the right tradeoff when the safety case for
-    // legibility outweighs the design intent of "secondary register."
+    // 44x44 visual + 24pt icons. Earlier iteration ran 32pt icons but
+    // they crowded the 44pt frame (only 6pt of pill visible). 24pt icons
+    // give 10pt of breathing room on each side — the icon reads as
+    // sitting *inside* the pill, not filling it. Still legible at speed;
+    // hitSlop=12 keeps effective tap area at 68pt for one-handed use.
     width: 44,
     height: 44,
     borderRadius: 1000,
