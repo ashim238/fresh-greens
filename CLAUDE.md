@@ -69,7 +69,7 @@ Adapters (lib/api/*)        →   Scoring (lib/scoring.ts)        →   Screens 
 
 ### Screens (`app/`)
 - expo-router file-based: `app/index.tsx` = `/`, `app/onboarding.tsx` = `/onboarding`, etc.
-- Modal-presented screens (`/safety`, `/armed-or-not`, `/review-guidance`) configured in `app/_layout.tsx` via `Stack.Screen options={{ presentation: 'modal' }}`.
+- Modal-presented screens (`/safety`, `/pulled-over`) configured in `app/_layout.tsx` via `Stack.Screen options={{ presentation: 'modal' }}`. `/pulled-over` runs the entire pulled-over flow internally (armed → transition → guidance → contact → review) so the stack only ever has one safety modal on top of the map.
 - Theme tokens consumed via spread: `{ ...typography.title1Emphasized, color: colors.white }`.
 
 ---
@@ -111,8 +111,7 @@ Map / routing:
 
 Safety flow:
 - Safety modal (`/safety`) — 2x2 tab grid entry point.
-- Armed-or-Not (`/armed-or-not`) — three-answer choice screen (Yes / No / Prefer not to answer). Routes to /review-guidance with the answer as a param.
-- Review Guidance (`/review-guidance`) — single modal with 5 sub-views via internal index state machine (Officer/Trooper → Do → Have → Say → Know). Reflective post-incident flow; chevron back/forward navigation; Close uses `router.dismissAll()` to unwind the safety modal stack back to /en-route. The "What to Say" sub-view's first bullet (concealed-carry declaration) is conditional on `armed=yes` or `preferred-not-to-answer`.
+- Pulled Over (`/pulled-over`) — single consolidated modal containing the entire pulled-over flow as an internal state machine. Phases: `armed` (Yes/No/Prefer-not-to-answer) → `transition` ("We'll walk you through what to do.", auto 3s) → `guidance` ("Read the following" bullets + persistent recording widget + Read-aloud via `expo-speech` + Continue) → `contact` (Trusted contact: Call/Text/Review-guidance link) → `review` (5 sub-views: Officer/Trooper → Do → Have → Say → Know, chevron nav). Recording timer starts on the armed answer and runs through the rest of the flow; no stop button — recording is ambient protection that ends when the modal dismisses. Firearm-conditional guidance (`armed=yes` or `preferred-not-to-answer`) appears in both the guidance bullets and the "What to Say" review sub-view, kept consistent. Consolidation replaced what used to be four stacked modals so one swipe-down exits the whole flow back to /home.
 
 Infrastructure:
 - Theme tokens + design rules consolidated.
@@ -134,13 +133,14 @@ The reporting flow itself is shipped (`/report` modal: picker → detail → tha
 - **v2 inputs.** Preset checkbox sub-tags per category, deferred from v1 until we have submission data telling us which sub-types matter.
 - **Real backend.** Replace the AsyncStorage adapter internals; public surface (`addCommunityReport`, `getCommunityReportsAsZones`) already designed to swap.
 
-### Safety flow continuation
+### Safety flow — open follow-ups
 
-`/review-guidance` (the Do/Have/Say/Know review) shipped as a 5-sub-view state machine. The path between `/armed-or-not` and `/review-guidance` is currently temp-wired (direct push); the eventual chain still needs to be built:
+The pulled-over flow shipped as a single consolidated `/pulled-over` modal (state machine, see "What's shipped" above). Remaining items:
 
-- **Recording screen** ("Read the following") — appears between `/armed-or-not` and `/contact`. Copy varies based on the firearm answer: concealed-carry / "I'm armed" advice shows for `armed=yes` and `armed=preferred-not-to-answer` (conservative default); hides entirely for `armed=no`. Same conditional logic as `/review-guidance`'s "What to Say" sub-view — keep them consistent so the user gets the same firearm-aware guidance both before the stop (recording prep) and after (review). Figma node TBD.
-- **Trusted Contact screen** (`/contact`, Figma 825:4791) — gate between recording and `/review-guidance`. "Review guidance" subtext routes to `/review-guidance`; alternate path skips to /en-route.
-- When both land, `/armed-or-not` rewires from direct → `/review-guidance` to instead push the recording screen, and `/contact`'s subtext becomes the entry point to `/review-guidance`.
+- **Real audio waveform.** The recording widget currently shows label + timer + pulse dot. Hardcoded waveform bars were stripped because they implied real audio levels but were static placeholders. Real waveform needs `expo-av` amplitude metering — its own PR.
+- **Real call/text wiring.** Contact phase's Call and Text buttons are visual-only. Wire `Linking.openURL('tel:…')` / `sms:…` once a real trusted-contact data model exists.
+- **Trusted contact data model.** Currently a hardcoded `CONTACT_NAME = 'Myles Ashitey'` placeholder. Needs auth + contact picker before Call/Text become real.
+- **Officer / Trooper character illustrations** (review sub-view 0) — currently Ionicons placeholders.
 
 ### Routing formula — v2 follow-ups
 
