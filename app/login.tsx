@@ -13,31 +13,33 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '../hooks/useUser';
-import { getStoredUser } from '../lib/api/user';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
 /**
- * Get Started — auth/signup entry screen for first-time users.
+ * Login — returning-user auth entry.
  *
- * "Continue with Apple" is the only working auth provider. Google /
- * Email buttons are visual-only placeholders until those flows land.
+ * Mirrors /get-started's visual register (same wiltedgreen sky, burnt-
+ * green ground, Apple/Google/Email button column) but copy and routing
+ * targets are tuned for users who already have an account:
+ *   - Title: "Welcome back" (vs "Get started")
+ *   - On successful Apple Sign In: route directly to /home (skip
+ *     onboarding entirely — these users have done it before)
+ *   - "Don't have an account? Sign up" link → /get-started
  *
- * On successful Apple Sign In:
- *   - First-time user (no prior stored user) → /onboarding (full intro)
- *   - Returning user (stored user already exists) → /home (skip intro)
- * The hook's signInWithApple does an upsert that merges cached
- * displayName/email with Apple's first-sign-in-only fields, so
- * returning users keep their identity even though Apple won't return
- * fullName again.
+ * Apple is the only working provider; Google + Email are visual-only
+ * placeholders matching the design intent. Same pattern as /get-started.
  *
- * "Already have an account? Log in" routes to /login — the dedicated
- * returning-user path that always skips onboarding.
+ * Route: /login
  *
- * Route: /get-started
- * Figma node: 825:3245
+ * Note on visual reuse: the layout/styles below are deliberately a
+ * near-clone of /get-started rather than an extracted shared component.
+ * The two screens have the same structure today but their copy +
+ * post-sign-in routing diverge, and the third use (settings sign-in?)
+ * doesn't exist yet — applying the rule of three, we'll wait for a
+ * third use before extracting an `<AuthScreen />` shared component.
  */
-export default function GetStarted() {
+export default function Login() {
   const router = useRouter();
   const { signInWithApple } = useUser();
   const [signingIn, setSigningIn] = useState(false);
@@ -48,16 +50,11 @@ export default function GetStarted() {
     setError(null);
     setSigningIn(true);
     try {
-      // First-time vs returning is decided by whether a user was already
-      // stored before this sign-in attempt. Apple itself doesn't tell us
-      // (it returns the same stable user-id whether it's the user's
-      // first or fiftieth sign-in to this app), so we check storage.
-      const wasReturning = (await getStoredUser()) !== null;
       await signInWithApple();
-      router.replace(wasReturning ? '/home' : '/onboarding');
+      // Returning-user route — /login is dedicated to people who already
+      // have an account, so they always skip onboarding.
+      router.replace('/home');
     } catch (err: unknown) {
-      // expo-apple-authentication throws ERR_REQUEST_CANCELED when the
-      // user dismisses the sheet — that's not an error worth surfacing.
       const code = (err as { code?: string })?.code;
       if (code !== 'ERR_REQUEST_CANCELED') {
         setError('Sign-in failed. Please try again.');
@@ -68,24 +65,19 @@ export default function GetStarted() {
     }
   }
 
-  function handleLogInLink() {
-    router.push('/login');
+  function handleSignUpLink() {
+    // replace, not push — login is a sibling of get-started, not a
+    // child. The user shouldn't be able to swipe-back from /get-started
+    // to /login (they came from / via the "Have an account?" link).
+    router.replace('/get-started');
   }
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      {/*
-        Background split: top wiltedgreen sky, bottom burntgreen ground.
-        Flat divider — cars sit right on the seam.
-      */}
       <View style={styles.ground} />
 
-      {/*
-        Cars + smoke trail. Anchored absolutely to the divider line (top: 20%
-        matches the ground's 80% bottom height). Spans the full width.
-      */}
       <Image
         source={require('../assets/illustrations/get-started-cars.png')}
         style={styles.cars}
@@ -95,15 +87,8 @@ export default function GetStarted() {
       />
 
       <SafeAreaView style={styles.content}>
-        {/*
-          Content wrapper: width: 326, vertically centered via parent's
-          justify-content. Matches Figma's absolutely-centered Content node
-          with gap-88 between title and the continue group. Replaces the
-          previous hardcoded spacerTop hack — now responsive across device
-          heights.
-        */}
         <View style={styles.contentInner}>
-          <Text style={styles.title}>Get started</Text>
+          <Text style={styles.title}>Welcome back</Text>
 
           <View style={styles.actions}>
             <Pressable
@@ -111,7 +96,7 @@ export default function GetStarted() {
               onPress={handleAppleSignIn}
               disabled={signingIn}
               accessibilityRole="button"
-              accessibilityLabel="Continue with Apple"
+              accessibilityLabel="Log in with Apple"
               accessibilityState={{ busy: signingIn, disabled: signingIn }}
             >
               {signingIn ? (
@@ -119,37 +104,29 @@ export default function GetStarted() {
               ) : (
                 <>
                   <Ionicons name="logo-apple" size={20} color={colors.white} />
-                  <Text style={styles.outlinedButtonText}>
-                    Continue with Apple
-                  </Text>
+                  <Text style={styles.outlinedButtonText}>Log in with Apple</Text>
                 </>
               )}
             </Pressable>
 
-            {/*
-              Google + Email are visual-only placeholders. Apple Sign In
-              is the only working provider in v1; these stay so the
-              screen still matches the Figma layout, but they no-op on
-              press until their flows are wired up.
-            */}
             <Pressable
               style={styles.outlinedButton}
               accessibilityRole="button"
-              accessibilityLabel="Continue with Google (not yet supported)"
+              accessibilityLabel="Log in with Google (not yet supported)"
               disabled
             >
               <Ionicons name="logo-google" size={20} color={colors.white} />
-              <Text style={styles.outlinedButtonText}>Continue with Google</Text>
+              <Text style={styles.outlinedButtonText}>Log in with Google</Text>
             </Pressable>
 
             <Pressable
               style={styles.outlinedButton}
               accessibilityRole="button"
-              accessibilityLabel="Continue with Email (not yet supported)"
+              accessibilityLabel="Log in with Email (not yet supported)"
               disabled
             >
               <Ionicons name="mail-outline" size={20} color={colors.white} />
-              <Text style={styles.outlinedButtonText}>Continue with Email</Text>
+              <Text style={styles.outlinedButtonText}>Log in with Email</Text>
             </Pressable>
 
             {error && <Text style={styles.errorText}>{error}</Text>}
@@ -161,14 +138,14 @@ export default function GetStarted() {
             </View>
 
             <Pressable
-              onPress={handleLogInLink}
+              onPress={handleSignUpLink}
               style={styles.loginRow}
               accessibilityRole="link"
-              accessibilityLabel="Already have an account? Log in"
+              accessibilityLabel="Don't have an account? Sign up"
             >
               <Text style={styles.loginPrompt}>
-                Already have an account?{' '}
-                <Text style={styles.loginLink}>Log in</Text>
+                Don't have an account?{' '}
+                <Text style={styles.loginLink}>Sign up</Text>
               </Text>
             </Pressable>
           </View>
@@ -184,7 +161,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.wiltedgreen,
   },
   ground: {
-    // Flat-edged lower section — no curve. Just a colored block at the bottom.
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -193,32 +169,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.burntgreen,
   },
   cars: {
-    // Anchored to the seam between sky (top 20%) and ground (bottom 80%).
-    // Explicit width: '100%' is required — Image + absolute positioning with
-    // only left/right shorthand can fall back to the asset's natural pixel
-    // size (huge, since it's a 3x export).
     position: 'absolute',
     top: '16%',
     left: 0,
     width: '100%',
     height: 110,
-    // translateX shifts the whole image right, pushing the smoke trail off
-    // the left edge while the cars sit in the right portion of the screen.
     transform: [{ translateX: 110 }],
   },
   content: {
     flex: 1,
-    // 32pt gutter matches Figma's 326pt content-strip on the 390pt
-    // baseline. Inner content stretches to fill instead of hardcoding
-    // 326, so on Pro Max the column grows with the device rather than
-    // orphaning in the middle.
     paddingHorizontal: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   contentInner: {
     alignSelf: 'stretch',
-    gap: 88, // gap between title and continue group, per Figma
+    gap: 88,
     alignItems: 'center',
   },
   title: {
@@ -227,34 +193,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    width: '100%', // fills contentInner's 326pt
+    width: '100%',
     gap: 16,
   },
   outlinedButton: {
-    alignSelf: 'stretch', // grows with device width instead of hardcoded 326
+    alignSelf: 'stretch',
     height: 48,
-    borderRadius: 100, // pill
+    borderRadius: 100,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8, // space between icon and label
+    gap: 8,
   },
   buttonBusy: {
-    // Subtle dim while the Apple sheet is up so the user has feedback
-    // even if the modal takes a beat to appear. Doesn't gray out the
-    // border — just lowers the foreground a touch.
     opacity: 0.7,
+  },
+  outlinedButtonText: {
+    ...typography.subheadlineEmphasized,
+    color: colors.white,
   },
   errorText: {
     ...typography.footnoteRegular,
     color: colors.red,
     textAlign: 'center',
-  },
-  outlinedButtonText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
   },
   divider: {
     flexDirection: 'row',
@@ -281,8 +244,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loginLink: {
-    // Inner Text inherits size/lineHeight/letterSpacing from loginPrompt;
-    // we only need the weight bump for "Log in" + the green color.
     color: colors.freshgreen,
     fontWeight: typography.footnoteEmphasized.fontWeight,
   },
