@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
-import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
@@ -23,10 +22,10 @@ import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
-import { MapMarker } from '../components/MapMarker';
+import { LandmarkMarker } from '../components/LandmarkMarker';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
-import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
+import { getZonesForRegion, type Zone } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
 import { formatDistance, formatDuration } from '../lib/format';
 import { pickWinner } from '../lib/scoring';
@@ -225,9 +224,10 @@ export default function EnRoute() {
         showsMyLocationButton={false}
       >
         {/*
-          Community-report points — same MapMarker treatment as
-          /home (post feat/map-markers-and-edge-indicators). Color
-          tints by safety classification via zoneColors.
+          Community-report points — LandmarkMarker (Figma's three-
+          state component: black-owned, local-business, report) keyed
+          on the report's category id. Same component /home uses, so
+          a submission reads identically on both surfaces.
         */}
         {reportZones.map((zone) => {
           if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
@@ -235,15 +235,13 @@ export default function EnRoute() {
           }
           const point = zone.coordinates[0];
           return (
-            <MapMarker
+            <LandmarkMarker
               key={zone.id}
               latitude={point.latitude}
               longitude={point.longitude}
-              surfaceColor={zoneColors[zone.type].stroke}
+              categoryId={zone.reportCategoryId}
               accessibilityLabel={zone.label}
-            >
-              <Megaphone size={20} color={colors.white} weight="fill" />
-            </MapMarker>
+            />
           );
         })}
         {routes.map((route) => {

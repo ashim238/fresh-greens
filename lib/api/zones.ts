@@ -112,6 +112,16 @@ export type Zone = {
   geometry: 'polygon' | 'polyline' | 'point';
   coordinates: Coordinate[];
   category?: ZoneCategory;
+  /**
+   * Set only when `category === 'community-report'`. Carries the
+   * report's source category so map markers can render the right
+   * glyph (e.g. eye for felt-unsafe, storefront for black-owned)
+   * without re-querying the reports adapter. The string is the
+   * `ReportCategoryId` from `lib/api/community-reports.ts`; we
+   * declare it as `string` here to keep zones.ts decoupled from
+   * the reports module's internal id set.
+   */
+  reportCategoryId?: string;
 };
 
 /**

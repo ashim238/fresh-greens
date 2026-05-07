@@ -17,7 +17,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Car } from 'phosphor-react-native/src/icons/Car';
 import { House } from 'phosphor-react-native/src/icons/House';
 import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
-
 // Daylight glyphs — same SVGs Figma uses on /en-route's ETA so the
 // symbol carries the same meaning on both surfaces.
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
@@ -25,6 +24,7 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
+import { LandmarkMarker } from '../components/LandmarkMarker';
 import { MapMarker } from '../components/MapMarker';
 import { SearchBar } from '../components/SearchBar';
 import { usePreferences } from '../hooks/usePreferences';
@@ -323,33 +323,30 @@ export default function Home() {
             return null;
           })}
         {/*
-          Community-report points — rendered as custom Markers
-          (Phosphor Megaphone glyph) only when they're inside the
-          current viewport. Off-viewport reports surface as
-          EdgeIndicators in the overlay below the map. Color tints by
-          the category's safety classification via zoneColors.
+          Community-report points — rendered as LandmarkMarker (the
+          three-state Figma component: black-owned, local-business,
+          report) only when they're inside the current viewport.
+          Off-viewport reports surface as EdgeIndicators in the
+          overlay below the map. The marker variant comes from the
+          report's category id, surfaced on Zone via the community-
+          reports adapter.
         */}
         {reportZones.map((zone) => {
           if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
             return null;
           }
           const point = zone.coordinates[0];
-          // Render only when in viewport. mapRegion may be null on the
-          // very first frame — render conservatively (yes) until
-          // onRegionChangeComplete fires.
           if (mapRegion && !isPointInRegion(point, mapRegion)) {
             return null;
           }
           return (
-            <MapMarker
+            <LandmarkMarker
               key={zone.id}
               latitude={point.latitude}
               longitude={point.longitude}
-              surfaceColor={zoneColors[zone.type].stroke}
+              categoryId={zone.reportCategoryId}
               accessibilityLabel={zone.label}
-            >
-              <Megaphone size={20} color={colors.white} weight="fill" />
-            </MapMarker>
+            />
           );
         })}
         {/*
