@@ -18,6 +18,7 @@ export const colors = {
   red: '#FF3B30',          // alert
   yellow: '#FFCC00',       // caution
   pink: '#FF2D55',         // role TBD — ask before use
+  navy: '#041E49',         // safety affordances (en-route shield button, etc.)
 
   // Neutrals
   white: '#FFFFFF',
