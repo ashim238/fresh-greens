@@ -331,6 +331,19 @@ export default function EnRoute() {
           ]}
           pointerEvents="box-none"
         >
+          {/*
+            Volume sits at the top of the column — set-once auxiliary,
+            so it goes furthest from the thumb-resting Center button at
+            the bottom. Same 56pt pill as the other four so the column
+            reads as a uniform stack.
+          */}
+          <Pressable
+            style={styles.sideBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle volume (coming soon)"
+          >
+            <Ionicons name="volume-high" size={32} color={colors.labelSecondary} />
+          </Pressable>
           <Pressable
             style={styles.sideBtn}
             accessibilityRole="button"
@@ -367,13 +380,13 @@ export default function EnRoute() {
 
       {/*
         Bottom sheet — Figma 825:3783. Layout:
-          [Search] [ETA "8:30"] [Paths] [Volume]
+          [Search] [ETA "8:30"] [Paths]
           [distance · duration]
           [End trip]
-        Volume sits rightmost — it's a "set once" auxiliary control, so
-        it goes to the edge. Paths is route-modification (closer to the
-        ETA). Search anchors the left slot — primary utility for "find
-        a stop along the way."
+        Symmetric: one utility per side flanking the ETA. Volume moved
+        to the right-side button column (above Help/Shield/Report/
+        Center) — it's a driving-utility control like the others in
+        that family, and removing it lets the bottom sheet read clean.
       */}
       <SafeAreaView
         style={styles.bottomSheet}
@@ -419,19 +432,6 @@ export default function EnRoute() {
               >
                 <Ionicons
                   name="git-branch"
-                  size={24}
-                  color={colors.labelSecondary}
-                />
-              </Pressable>
-
-              <Pressable
-                style={styles.utilityBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Toggle volume (coming soon)"
-                hitSlop={12}
-              >
-                <Ionicons
-                  name="volume-high"
                   size={24}
                   color={colors.labelSecondary}
                 />
