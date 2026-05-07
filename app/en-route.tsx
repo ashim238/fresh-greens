@@ -16,6 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
+// Daylight glyphs — same SVGs Figma uses on /home's gradient key
+// (node 825:3647) so the symbol means the same thing on both
+// surfaces: arrival in daylight (sun) vs darkness (moon).
+import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
+import DaylightSun from '../assets/illustrations/daylight-sun.svg';
+
 import { DragHandle } from '../components/DragHandle';
 import { MapMarker } from '../components/MapMarker';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
@@ -76,18 +82,24 @@ export default function EnRoute() {
   const recommended = routes.find((route) => route.type === 'recommended');
 
   // Arrival clock time (now + remaining minutes), formatted as "8:30".
-  // Figma shows the arrival time, not minutes-remaining — so we add the
-  // estimated duration to the current wall-clock time. Recomputed only
-  // when the recommended route's duration changes.
-  const arrivalTime = useMemo(() => {
-    if (!recommended) return '—';
+  // Figma shows the arrival time as `h:MM` with a sun/moon glyph
+  // beside it (not "8:30 PM") — the time stays compact (no wrap on
+  // narrow devices) and morning/evening reads as a graphic instead
+  // of an inline tag. We format manually rather than via
+  // toLocaleTimeString since the iOS default appends locale
+  // AM/PM that can't be cleanly stripped.
+  const arrivalDisplay = useMemo(() => {
+    if (!recommended) return { time: '—', isNight: false };
     const arrival = new Date(
       Date.now() + recommended.estimatedMinutes * 60_000,
     );
-    return arrival.toLocaleTimeString([], {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    const h24 = arrival.getHours();
+    const h12 = h24 % 12 || 12;
+    const minutes = String(arrival.getMinutes()).padStart(2, '0');
+    // Night ≈ 6pm–6am. Common app convention; matches the moon-glyph
+    // intent in Figma (moon = arriving in the dark, sun = daylight).
+    const isNight = h24 < 6 || h24 >= 18;
+    return { time: `${h12}:${minutes}`, isNight };
   }, [recommended]);
 
   // Distance in miles, derived from the recommended route's coordinates.
@@ -420,7 +432,24 @@ export default function EnRoute() {
             </View>
 
             <View style={styles.centerSlot}>
-              <Text style={styles.eta}>{arrivalTime}</Text>
+              {/*
+                ETA cluster — `[16pt spacer] [time] [16pt sun/moon]`
+                per Figma. The left spacer balances the right glyph
+                so the time text stays optically centered. nowrap on
+                the time defends against any future locale-format
+                expansion.
+              */}
+              <View style={styles.etaCluster}>
+                <View style={styles.etaIconSpacer} />
+                <Text style={styles.eta} numberOfLines={1}>
+                  {arrivalDisplay.time}
+                </Text>
+                {arrivalDisplay.isNight ? (
+                  <DaylightMoon width={16} height={16} />
+                ) : (
+                  <DaylightSun width={16} height={16} />
+                )}
+              </View>
             </View>
 
             <View style={styles.rightSlot}>
@@ -606,6 +635,15 @@ const styles = StyleSheet.create({
   centerSlot: {
     flex: 1,
     alignItems: 'center',
+  },
+  etaCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  etaIconSpacer: {
+    width: 16,
+    height: 16,
   },
   rightSlot: {
     flex: 1,
