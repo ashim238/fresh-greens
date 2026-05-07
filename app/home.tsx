@@ -477,18 +477,18 @@ export default function Home() {
 
         <View style={styles.menuRow} pointerEvents="box-none">
           {/*
-            TEMP: menu button wired to /safety for in-progress dev testing
-            of the safety modal. Real entry point lands when we build the
-            side-button navigation column (Help / Shield / Report / Center)
-            in a future PR — at which point the shield button opens /safety
-            and THIS button rewires to /menu (the Settings hub now shipped
-            via the avatar-circle button on the right side of the menu row).
+            Hamburger menu — pushes to /menu (Settings). Redundant with
+            the avatar button on the right, but a hamburger is the
+            expected pattern for "open the drawer" and the avatar is
+            an identity-affordance first; both wire to the same place
+            so neither feels broken. /safety reaches the user via the
+            shield in the en-route side-button column.
           */}
           <Pressable
             style={styles.menuButton}
             accessibilityRole="button"
             accessibilityLabel="Menu"
-            onPress={() => router.push('/safety')}
+            onPress={() => router.push('/menu')}
           >
             <Ionicons name="menu" size={32} color={colors.labelSecondary} />
           </Pressable>

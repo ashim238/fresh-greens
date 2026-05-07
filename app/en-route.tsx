@@ -11,6 +11,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Phosphor deep-import — see app/trusted-contact-setup.tsx for the
+// longer note on why we bypass the package's barrel index.
+import { Shield } from 'phosphor-react-native/src/icons/Shield';
+
 import { DragHandle } from '../components/DragHandle';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
@@ -335,11 +339,7 @@ export default function EnRoute() {
             accessibilityRole="button"
             accessibilityLabel="Open safety menu"
           >
-            <Ionicons
-              name="shield-checkmark"
-              size={32}
-              color={colors.wiltedgreen}
-            />
+            <Shield size={32} color={colors.navy} weight="duotone" />
           </Pressable>
           <Pressable
             style={styles.sideBtn}

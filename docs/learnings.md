@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/safety-button-rewire (2026-05-07)
+
+Untwists the placeholder safety wiring across /home and /en-route. /home's top-left hamburger now opens /menu (was TEMP-wired to /safety). /en-route's side-button shield switches from a green Ionicons placeholder to the Figma-faithful Phosphor `Shield` (`weight="duotone"`, `color={colors.navy}`). Adds `colors.navy: '#041E49'` to the palette as the canonical safety-affordance blue.
+
+- **Sample colors from screenshots when Figma's metadata is sparse.** The en-route frame's Figma node returned empty metadata (just bounding box, no children listed). Rather than chase down the right sub-node, downloaded the parent screenshot and ran a PIL pixel scan over the side-button column's y-band — found `#041E49` (deep navy) and `#a8c7fa` (light accent) in two passes. Worth knowing for any "what hex is this in Figma" question — when the design context tool isn't useful, a 5-line PIL script over a screenshot beats a 10-call Figma drill-down.
+- **Reserved-color rule promotion → token addition.** `.cursorrules` lists Navy as a reserved safety signal, but the palette didn't have a navy token until this PR (the Officer/Trooper illustration just used `#1B3F8B` baked into the PNG). Adding `colors.navy` puts the safety-affordance blue under the same token discipline as orange/red/yellow. Lesson: when a documented reserved color earns its first real UI use, that's the right moment to tokenize it — not at "ship the design system" time, when it would have been speculative.
+- **Phosphor `weight="duotone"` reads as Figma's two-tone icons for free.** Figma authors the en-route shield with two stops (`#041E49` outline + `#a8c7fa` fill). Phosphor's duotone weight derives the lighter accent automatically from the base color via opacity, which lands close enough to Figma's two-stop look that no manual second-color prop is needed. Worth knowing when the Figma source is two-stop and the Ionicons substitute is too flat.
+- **Redundant menu entries are fine when the affordances mean different things.** /home now has two paths to /menu: the hamburger (top-left) and the Car-glyph avatar (right). Tempted to remove one, but they read as different invitations — hamburger says "open the drawer," avatar says "this is you." Waze, Apple Maps, and Google Maps all maintain similar redundancy. Lesson: redundancy in nav affordances is a feature when the *role* of each entry is distinct, even if the destination is the same.
+
+---
+
 ## feat/map-markers-and-edge-indicators (2026-05-07)
 
 Replaces /home's community-report Circles with custom Phosphor-glyph Markers, adds a saved-home Marker (long-press the map → Alert confirms → persisted to AsyncStorage), and renders EdgeIndicator pills on the screen edge for any POI outside the current viewport. Off-screen indicators tap-to-recenter the map on the POI.
