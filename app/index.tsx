@@ -58,16 +58,30 @@ export default function Welcome() {
 
       <View style={styles.backdropContainer}>
         <View style={styles.backdropScene}>
-          {/* Static layers — z-order: hill (back), sun, border cloud, Vic */}
-          <View style={[styles.absLayer, { left: 0, top: 371 }]}>
-            <WelcomeHill width={390} height={475} />
-          </View>
-          <View style={[styles.absLayer, { left: 156, top: 333 }]}>
-            <WelcomeSun width={75} height={39.932} />
-          </View>
-          <View style={[styles.absLayer, { left: 0, top: 0 }]}>
-            <WelcomeBorderCloud width={390} height={40.12} />
-          </View>
+          {/*
+            Static layers — z-order: hill (back), sun, border cloud, Vic.
+            Position styles go directly on the Svg components rather than
+            wrapping each in a View. The Figma exports declare
+            `width="100%" height="100%"` internally, so an
+            absolute-positioned wrapper View without explicit dimensions
+            collapses to 0×0 — and the SVG inside resolves 100% to that
+            zero, rendering nothing.
+          */}
+          <WelcomeHill
+            width={390}
+            height={475}
+            style={[styles.absLayer, { left: 0, top: 371 }]}
+          />
+          <WelcomeSun
+            width={75}
+            height={39.932}
+            style={[styles.absLayer, { left: 156, top: 333 }]}
+          />
+          <WelcomeBorderCloud
+            width={390}
+            height={40.12}
+            style={[styles.absLayer, { left: 0, top: 0 }]}
+          />
           <Image
             source={require('../assets/illustrations/welcome-vic.png')}
             style={styles.vicImage}
@@ -83,34 +97,34 @@ export default function Welcome() {
             durations naturally desync the elements after a few
             cycles even though they all start at offset 0.
           */}
-          <Drift x={63.33} y={206.4} amplitude={12} duration={5800}>
+          <Drift x={63.33} y={206.4} w={76.97} h={42.41} amplitude={12} duration={5800}>
             <WelcomeCloudLarge width={76.97} height={42.41} />
           </Drift>
-          <Drift x={218.9} y={264.92} amplitude={10} duration={5200}>
+          <Drift x={218.9} y={264.92} w={52.26} h={19.07} amplitude={10} duration={5200}>
             <WelcomeCloudMed1 width={52.26} height={19.07} />
           </Drift>
-          <Drift x={233.93} y={108.07} amplitude={10} duration={5500}>
+          <Drift x={233.93} y={108.07} w={46.83} h={24.55} amplitude={10} duration={5500}>
             <WelcomeCloudMed2 width={46.83} height={24.55} />
           </Drift>
-          <Drift x={298.84} y={167.38} amplitude={8} duration={4600}>
+          <Drift x={298.84} y={167.38} w={33.21} h={14.04} amplitude={8} duration={4600}>
             <WelcomeCloudSm width={33.21} height={14.04} />
           </Drift>
-          <Drift x={282.45} y={120.07} amplitude={5} duration={4200}>
+          <Drift x={282.45} y={120.07} w={14.84} h={5} amplitude={5} duration={4200}>
             <WelcomeCloudOvalMed width={14.84} height={5} />
           </Drift>
-          <Drift x={79.76} y={61.29} amplitude={4} duration={3800}>
+          <Drift x={79.76} y={61.29} w={9.9} h={5} amplitude={4} duration={3800}>
             <WelcomeCloudOval1 width={9.9} height={5} />
           </Drift>
-          <Drift x={54.19} y={257.76} amplitude={5} duration={4400}>
+          <Drift x={54.19} y={257.76} w={14.84} h={5} amplitude={5} duration={4400}>
             <WelcomeCloudOval2 width={14.84} height={5} />
           </Drift>
-          <Drift x={255.63} y={285.5} amplitude={6} duration={3500}>
+          <Drift x={255.63} y={285.5} w={27.937} h={25.7} amplitude={6} duration={3500}>
             <WelcomeWindLg width={27.937} height={25.7} />
           </Drift>
-          <Drift x={67.83} y={199.89} amplitude={5} duration={3000}>
+          <Drift x={67.83} y={199.89} w={25.356} h={11.579} amplitude={5} duration={3000}>
             <WelcomeWindMed width={25.356} height={11.579} />
           </Drift>
-          <Drift x={272.84} y={98.45} amplitude={4} duration={2800}>
+          <Drift x={272.84} y={98.45} w={10.262} h={9.418} amplitude={4} duration={2800}>
             <WelcomeWindSm width={10.262} height={9.418} />
           </Drift>
         </View>
@@ -186,12 +200,16 @@ export default function Welcome() {
 function Drift({
   x,
   y,
+  w,
+  h,
   amplitude,
   duration,
   children,
 }: {
   x: number;
   y: number;
+  w: number;
+  h: number;
   amplitude: number;
   duration: number;
   children: ReactNode;
@@ -227,7 +245,16 @@ function Drift({
 
   return (
     <Animated.View
-      style={[styles.absLayer, { left: x, top: y, transform: [{ translateX: tx }] }]}
+      style={[
+        styles.absLayer,
+        {
+          left: x,
+          top: y,
+          width: w,
+          height: h,
+          transform: [{ translateX: tx }],
+        },
+      ]}
     >
       {children}
     </Animated.View>
