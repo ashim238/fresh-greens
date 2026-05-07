@@ -71,6 +71,16 @@ export type ReportCategory = {
   hasPhoto: boolean;
   /** Submit button copy. "Submit report" vs. "Submit review" by tone. */
   cta: string;
+  /**
+   * Optional whitelist of place-type sub-tags surfaced as inline
+   * chips in the detail view. Captured on the persisted report and
+   * carried through to the marker for future per-type glyph
+   * differentiation. Only the *place* categories (black-owned,
+   * felt-welcome) define this — incident/lighting/hazard/felt-unsafe
+   * describe conditions, not place types, so they leave it
+   * undefined.
+   */
+  subTags?: string[];
 };
 
 export const CATEGORIES: ReportCategory[] = [
@@ -126,6 +136,14 @@ export const CATEGORIES: ReportCategory[] = [
     anonymous: false,
     hasPhoto: false,
     cta: 'Submit review',
+    subTags: [
+      'Restaurant',
+      'Bar/Cafe',
+      'Retail',
+      'Park/Public space',
+      'Personal',
+      'Other',
+    ],
   },
   {
     id: 'black-owned',
@@ -136,6 +154,14 @@ export const CATEGORIES: ReportCategory[] = [
     anonymous: false,
     hasPhoto: false,
     cta: 'Submit review',
+    subTags: [
+      'Restaurant',
+      'Bar/Cafe',
+      'Retail',
+      'Salon/Barber',
+      'Services',
+      'Other',
+    ],
   },
 ];
 
@@ -157,6 +183,14 @@ export type CommunityReport = {
   categoryId: ReportCategoryId;
   location: Coordinate;
   detail?: string;
+  /**
+   * Place-type sub-tag the user picked from the category's `subTags`
+   * whitelist. Only set for categories that define `subTags` (place
+   * categories — black-owned, felt-welcome). String-typed (not a
+   * narrow union) so categories can grow their whitelists without a
+   * type-system migration.
+   */
+  subTag?: string;
   /** Anonymous-category reports never set this. */
   submittedBy?: string;
   /** ms since epoch — used for ordering and stale-cleanup if ever needed. */
@@ -220,6 +254,7 @@ function reportToZone(report: CommunityReport): Zone {
     coordinates: [report.location],
     category: 'community-report',
     reportCategoryId: report.categoryId,
+    reportSubTag: report.subTag,
   };
 }
 

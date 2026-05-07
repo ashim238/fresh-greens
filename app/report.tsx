@@ -95,14 +95,23 @@ export default function Report() {
     router.back();
   }
 
+  // Place-type sub-tag for categories that define a `subTags` whitelist.
+  // Reset on category change so a sub-tag from a previous selection
+  // can't bleed across a back-and-forth navigation.
+  const [selectedSubTag, setSelectedSubTag] = useState<string | undefined>(
+    undefined,
+  );
+
   function handlePickCategory(c: ReportCategory) {
     setCategory(c);
     setDetailText('');
+    setSelectedSubTag(undefined);
     setMode('detail');
   }
 
   function handleBackFromDetail() {
     setCategory(null);
+    setSelectedSubTag(undefined);
     setMode('picker');
   }
 
@@ -114,6 +123,7 @@ export default function Report() {
         categoryId: category.id,
         location,
         detail: detailText.trim() || undefined,
+        subTag: selectedSubTag,
         // Anonymous categories never persist a submitter; for non-
         // anonymous, the real implementation would attach the auth
         // user's id once auth lands. Mock placeholder for now.
@@ -173,6 +183,8 @@ export default function Report() {
             category={category}
             detailText={detailText}
             onChangeDetail={setDetailText}
+            selectedSubTag={selectedSubTag}
+            onChangeSubTag={setSelectedSubTag}
             onBack={handleBackFromDetail}
             onClose={handleClose}
             onSubmit={handleSubmit}
@@ -318,6 +330,8 @@ function DetailView({
   category,
   detailText,
   onChangeDetail,
+  selectedSubTag,
+  onChangeSubTag,
   onBack,
   onClose,
   onSubmit,
@@ -327,6 +341,8 @@ function DetailView({
   category: ReportCategory;
   detailText: string;
   onChangeDetail: (text: string) => void;
+  selectedSubTag: string | undefined;
+  onChangeSubTag: (subTag: string | undefined) => void;
   onBack: () => void;
   onClose: () => void;
   onSubmit: () => void;
@@ -393,6 +409,46 @@ function DetailView({
             Platform.OS === 'ios' ? DETAIL_INPUT_ACCESSORY_ID : undefined
           }
         />
+
+        {/*
+          Place-type chips — only render for categories that define
+          a `subTags` whitelist (the place categories: black-owned
+          and felt-welcome). Tap toggles the selection: tapping the
+          active chip again clears it.
+        */}
+        {category.subTags && category.subTags.length > 0 && (
+          <>
+            <Text style={styles.fieldLabel}>(Optional) What kind of place?</Text>
+            <View style={styles.chipsWrap}>
+              {category.subTags.map((tag) => {
+                const active = selectedSubTag === tag;
+                return (
+                  <Pressable
+                    key={tag}
+                    onPress={() =>
+                      onChangeSubTag(active ? undefined : tag)
+                    }
+                    disabled={submitting}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipLabel,
+                        active && styles.chipLabelActive,
+                      ]}
+                    >
+                      {tag}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {category.hasPhoto && (
           <>
@@ -603,6 +659,45 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // --- Place-type chips (sub-tag picker) ---
+  // Wraps so the 6-item chip set lays out across two rows on a
+  // narrow 351pt popup. 8pt gap matches the field-label-to-control
+  // rhythm elsewhere in the form block.
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  // Pill shape per the design system's pill register (same as the
+  // submit button + the home toggle buttons). 32pt visual height
+  // is below the 44pt HIG tap minimum, but a non-touchable hitSlop
+  // of 8 brings the effective area to 48pt — exception-clause
+  // case for chip rows of which 5+ would otherwise dominate the
+  // form layout. Outlined freshgreen on the unselected side keeps
+  // the brand register; filled freshgreen on selected is the
+  // standard "this is the choice" affordance.
+  chip: {
+    paddingHorizontal: 14,
+    height: 32,
+    borderRadius: 1000,
+    borderWidth: 1,
+    borderColor: colors.freshgreen,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: {
+    backgroundColor: colors.freshgreen,
+  },
+  chipLabel: {
+    ...typography.subheadlineRegular,
+    color: colors.freshgreen,
+  },
+  chipLabelActive: {
+    ...typography.subheadlineEmphasized,
+    color: colors.white,
   },
   submitBtn: {
     height: 44,

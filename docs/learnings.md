@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/report-business-subtype (2026-05-07)
+
+Inline place-type chips on the /report detail view, only for the *place* categories (`black-owned` and `felt-welcome`). Captures a `subTag` on each submission, threads it through to `Zone.reportSubTag` for future per-business-type marker glyph differentiation. The other four categories (incident, felt-unsafe, lighting, hazard) describe conditions and don't get chips — those are about a moment, not a place type.
+
+- **Optional whitelist on the source of truth, not a parallel data structure.** `ReportCategory.subTags?: string[]` lives next to `iconName`, `subtitle`, `cta` — the same spec that describes the category in every other dimension. The detail view checks `category.subTags && category.subTags.length > 0` to decide whether to render the chip row. Adding chips to a new category in the future is one array-edit away; no new component or registry.
+- **String-typed sub-tag in code, freedom-typed in data.** Made `Zone.reportSubTag?: string` and `CommunityReport.subTag?: string` — not narrow unions. Reasoning: per-category whitelists grow over time as we learn what users actually pick, and a narrow union would force a type-system migration every time a new chip is added. The validation invariant ("you can only submit a value from the active category's whitelist") lives at the *picker UI* level (chips render only the values from `category.subTags`), not at the storage type. That keeps the data layer schema-stable while the UI stays expressive.
+- **Pill-chip tap-target exception clause.** Chips are 32pt visual height — below the 44pt iOS HIG minimum. Added `hitSlop={8}` to bring the effective tap area to 48pt. Same exception-clause pattern as the Welcome screen's terms checkbox (24pt visual + hitSlop=20 = 64pt effective). Worth keeping in mind: when a dense control row would dominate the layout at strict-HIG sizing, hitSlop is the documented escape hatch — but only with explicit justification ("dense form row, multi-control layout") not as a general policy.
+- **Reset sub-tag on category navigation.** Both `handlePickCategory` (forward) and `handleBackFromDetail` (backward) clear `selectedSubTag`. Without those, a user who picked "Salon/Barber" for black-owned, went back, then picked felt-welcome would see the sub-tag carry over silently (and probably invalid for the new category's whitelist). Cheap pattern to remember when a screen has multiple state shapes that depend on each other: clear the dependent state when the parent changes.
+
+---
+
 ## feat/landmark-marker-green-variant (2026-05-07)
 
 Adds the 4th `positive` variant to `LandmarkMarker` (Figma's new green pin for felt-welcome) and swaps every per-category report glyph from an Ionicons fallback to the picker's illustrated SVG. Picker tile + detail header in `/report` now use those same glyphs, so the picker, the detail screen, and the resulting marker on the map all carry one identical illustration per category.
