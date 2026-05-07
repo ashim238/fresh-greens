@@ -19,6 +19,7 @@ import { Car } from 'phosphor-react-native/src/icons/Car';
 
 import { DragHandle } from '../components/DragHandle';
 import { SearchBar } from '../components/SearchBar';
+import { usePreferences } from '../hooks/usePreferences';
 import { useUser } from '../hooks/useUser';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
@@ -33,15 +34,11 @@ import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
-/**
- * Toggle for rendering zone overlays (polygons + polylines) on the map.
- * Default OFF — the user just sees the route. The zone data still drives
- * scoring; it's just invisible.
- *
- * Flip to `true` for thesis screenshots that need to show the data layer
- * informing the route choice.
- */
-const SHOW_ZONES = false;
+// Zone-overlay rendering is now a real user preference (toggled from
+// /menu's Zone Settings). Read from `usePreferences` inside the
+// component below — no module-level constant. Default OFF until the
+// user flips it in Settings; the zone data still drives scoring even
+// when overlays are hidden.
 
 /**
  * Home — the main map screen.
@@ -55,6 +52,10 @@ const SHOW_ZONES = false;
 export default function Home() {
   const router = useRouter();
   const { user } = useUser();
+  const { preferences } = usePreferences();
+  // showZones is `false` while preferences are loading from AsyncStorage;
+  // overlays just render on the next pass once the value resolves.
+  const showZones = preferences?.showZones ?? false;
   const mapRef = useRef<MapView>(null);
   // Destination params from the search screen, if any. URL params arrive
   // as strings and may be undefined (when the user landed on /home without
@@ -225,11 +226,12 @@ export default function Home() {
           fills.
         */}
         {/*
-          Zone overlays — only rendered when SHOW_ZONES=true (debug/thesis-
-          screenshot mode). In normal use the user just sees the route;
-          the zone data still drives scoring invisibly behind the scenes.
+          Zone overlays — rendered when the user has flipped the
+          "Show zones overlay" toggle in /menu's Zone Settings.
+          Default off; the zone data still drives scoring even when
+          overlays are hidden.
         */}
-        {SHOW_ZONES &&
+        {showZones &&
           osmZones.map((zone) => {
             // Polyline zones (real OSM lit-street data) render as colored
             // street overlays — stroke only, no fill. Polygon zones (mock
@@ -260,8 +262,8 @@ export default function Home() {
             return null;
           })}
         {/*
-          Community-report points — always visible (not gated by
-          SHOW_ZONES). Rendered as Circles whose radius matches the
+          Community-report points — always visible (not gated by the
+          Show-zones toggle). Rendered as Circles whose radius matches the
           scoring influence radius (POINT_PROXIMITY_METERS), so the
           map honestly shows what the scorer considers "in reach" of
           the report. Color matches the category's safety classification
@@ -328,8 +330,9 @@ export default function Home() {
             TEMP: menu button wired to /safety for in-progress dev testing
             of the safety modal. Real entry point lands when we build the
             side-button navigation column (Help / Shield / Report / Center)
-            in a future PR — at which point this button goes back to
-            opening a side menu, and the shield button opens /safety.
+            in a future PR — at which point the shield button opens /safety
+            and THIS button rewires to /menu (the Settings hub now shipped
+            via the avatar-circle button on the right side of the menu row).
           */}
           <Pressable
             style={styles.menuButton}
