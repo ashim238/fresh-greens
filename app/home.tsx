@@ -382,6 +382,7 @@ export default function Home() {
               latitude={point.latitude}
               longitude={point.longitude}
               categoryId={zone.reportCategoryId}
+              subTag={zone.reportSubTag}
               accessibilityLabel={zone.label}
             />
           );

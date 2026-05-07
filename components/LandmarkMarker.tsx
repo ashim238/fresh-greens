@@ -1,3 +1,10 @@
+import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
+import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
+import { House } from 'phosphor-react-native/src/icons/House';
+import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
+import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
+import { Tree } from 'phosphor-react-native/src/icons/Tree';
+import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
@@ -16,6 +23,7 @@ import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg'
 import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
+import { colors } from '../theme/colors';
 
 /**
  * Map landmark marker — the four-state component from Figma
@@ -66,12 +74,65 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
 }
 
 /**
+ * Phosphor (duotone) icon component per place sub-tag — only the
+ * place categories (`black-owned`, `felt-welcome`) define sub-tags
+ * in `community-reports.ts`'s CATEGORIES table, so this map only
+ * needs to cover what those whitelists allow. `'Other'` and any
+ * unrecognized value return null so the caller can fall back to
+ * the category-level SVG glyph.
+ */
+function phosphorForSubTag(subTag: string | undefined) {
+  switch (subTag) {
+    case 'Restaurant':
+      return ForkKnife;
+    case 'Bar/Cafe':
+      return Coffee;
+    case 'Retail':
+      return ShoppingBag;
+    case 'Salon/Barber':
+      return Scissors;
+    case 'Services':
+      return Wrench;
+    case 'Park/Public space':
+      return Tree;
+    case 'Personal':
+      return House;
+    default:
+      return null;
+  }
+}
+
+/**
  * The illustrated glyph for a given category — same SVG the
  * /report picker tile renders, scaled down to 16pt for the marker.
- * Unknown category ids fall back to the LocalBusiness menu glyph
- * (the most neutral of the set).
+ *
+ * When a `subTag` is set on a place-category report (e.g. a
+ * felt-welcome restaurant), the marker swaps in a per-type
+ * Phosphor duotone icon so a barber and a cafe read distinctly
+ * even when both fall under the same sentiment variant. The
+ * Phosphor color matches the variant's high-contrast foreground:
+ * brand green inside the black-owned pin's black bg, white inside
+ * the positive pin's wiltedgreen bg.
+ *
+ * `'Other'` and unset sub-tags fall through to the original
+ * category SVG glyph — the same illustration the picker tile
+ * renders — so the marker stays legible without a typed icon.
  */
-function GlyphForCategory({ categoryId }: { categoryId?: string }) {
+function GlyphForCategory({
+  categoryId,
+  subTag,
+  variant,
+}: {
+  categoryId?: string;
+  subTag?: string;
+  variant: Variant;
+}) {
+  const PhosphorIcon = phosphorForSubTag(subTag);
+  if (PhosphorIcon) {
+    const color = variant === 'black-owned' ? colors.freshgreen : colors.white;
+    return <PhosphorIcon size={16} color={color} weight="duotone" />;
+  }
+
   switch (categoryId) {
     case 'black-owned':
       return <GlyphBlackOwned width={16} height={16} />;
@@ -94,6 +155,7 @@ export function LandmarkMarker({
   latitude,
   longitude,
   categoryId,
+  subTag,
   accessibilityLabel,
   onPress,
 }: {
@@ -101,6 +163,13 @@ export function LandmarkMarker({
   longitude: number;
   /** Community-report category id (or undefined for a generic report pin). */
   categoryId?: string;
+  /**
+   * Place-type sub-tag (e.g. 'Restaurant', 'Salon/Barber'). When set
+   * on a place-category report, swaps the inner glyph for a per-type
+   * Phosphor duotone icon so similar pins read distinctly. `'Other'`
+   * or undefined keeps the category-level SVG glyph.
+   */
+  subTag?: string;
   accessibilityLabel?: string;
   onPress?: () => void;
 }) {
@@ -127,7 +196,7 @@ export function LandmarkMarker({
           {variant === 'report' && <BgReport width={24} height={24} />}
 
           <View style={styles.glyphWrap}>
-            <GlyphForCategory categoryId={categoryId} />
+            <GlyphForCategory categoryId={categoryId} subTag={subTag} variant={variant} />
           </View>
         </View>
       </View>
