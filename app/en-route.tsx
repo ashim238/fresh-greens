@@ -14,9 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
 import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
-import { Moon } from 'phosphor-react-native/src/icons/Moon';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
-import { Sun } from 'phosphor-react-native/src/icons/Sun';
+
+// Daylight glyphs — same SVGs Figma uses on /home's gradient key
+// (node 825:3647) so the symbol means the same thing on both
+// surfaces: arrival in daylight (sun) vs darkness (moon).
+import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
+import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { MapMarker } from '../components/MapMarker';
@@ -441,17 +445,9 @@ export default function EnRoute() {
                   {arrivalDisplay.time}
                 </Text>
                 {arrivalDisplay.isNight ? (
-                  <Moon
-                    size={16}
-                    color={colors.labelSecondary}
-                    weight="duotone"
-                  />
+                  <DaylightMoon width={16} height={16} />
                 ) : (
-                  <Sun
-                    size={16}
-                    color={colors.labelSecondary}
-                    weight="duotone"
-                  />
+                  <DaylightSun width={16} height={16} />
                 )}
               </View>
             </View>

@@ -18,6 +18,11 @@ import { Car } from 'phosphor-react-native/src/icons/Car';
 import { House } from 'phosphor-react-native/src/icons/House';
 import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
 
+// Daylight glyphs — same SVGs Figma uses on /en-route's ETA so the
+// symbol carries the same meaning on both surfaces.
+import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
+import DaylightSun from '../assets/illustrations/daylight-sun.svg';
+
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { MapMarker } from '../components/MapMarker';
@@ -578,8 +583,8 @@ export default function Home() {
                   style={styles.daylightBar}
                 />
                 <View style={styles.daylightIcons}>
-                  <Ionicons name="sunny" size={16} color={colors.daylightDawn} />
-                  <Ionicons name="moon" size={16} color={colors.daylightNight} />
+                  <DaylightSun width={16} height={16} />
+                  <DaylightMoon width={16} height={16} />
                 </View>
               </View>
             </View>
