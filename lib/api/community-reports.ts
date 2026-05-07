@@ -219,6 +219,7 @@ function reportToZone(report: CommunityReport): Zone {
     geometry: 'point',
     coordinates: [report.location],
     category: 'community-report',
+    reportCategoryId: report.categoryId,
   };
 }
 
