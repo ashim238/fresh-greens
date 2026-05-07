@@ -39,3 +39,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Sibling repo (the public design system specimen lives at
+# github.com/ashim238/fresh-greens-specimen) sometimes gets cloned
+# inside this checkout — ignore so it doesn't show up in `git status`.
+fresh-greens-specimen/

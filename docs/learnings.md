@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit-5 (2026-05-07)
+
+Fifth audit after 6 feature PRs landed since #4 (auth, trusted contact, menu hub, menu rework, recordings, illustrations + cloud animation). Ran a static sweep for the documented drift patterns — hardcoded widths, raw hex colors, fontSize/fontWeight overrides, fix-trace comments, stale TODOs — then fixed the small wins inline. Lighter-touch audit than #4 because most recent PRs included self-review polish passes; the surviving drift was almost entirely **stale comments** rather than design-system violations.
+
+- **Static sweep > screen-by-screen Figma diff for routine audits.** Pulling 12+ Figma frames and visually comparing is expensive (tokens + time) and mostly redundant when no design has changed since the last audit. A grep pass for the documented anti-patterns (`width: 374`, raw `#XXXXXX` outside theme, inline `fontWeight`, `// TODO: install <dep>`) catches 90% of real drift in seconds. Reserve full screen-by-screen Figma diffs for audits *after* a Figma update, not after a code-side feature run.
+- **Stale TODOs accumulate even when tasks ship.** Both `home.tsx:404` ("TODO: install expo-linear-gradient") and `home.tsx:462` ("once we install a sun calculator") referenced deps that had been installed *and used* — `LinearGradient` rendering five lines below the first TODO, suncalc threading through `lib/daylight.ts`. The shipping commit didn't update the now-misleading TODO. Lesson: when finishing work that resolves a TODO, search for the exact phrase ("install X", "TODO: X") and either delete the comment or rewrite it to capture what's still genuinely outstanding.
+- **Stale dimension comments outlive the code's responsiveness.** `get-started.tsx` had two comments referencing `width: 326` ("Content wrapper: width: 326", "fills contentInner's 326pt") long after the actual implementation was rewritten to `alignSelf: 'stretch'` for Pro Max responsiveness. The 326 was a Figma-baseline number that earned its place in early commits as documentation but became misleading when the implementation surpassed it. Lesson: when you flip a hardcoded value to a responsive pattern, audit the comments naming the old value — they become a trap for the next reader.
+- **`.gitignore` for sibling repos in the same checkout.** Cloning the public design-system specimen *inside* the private fresh-greens checkout produced a persistent `fresh-greens-specimen/` untracked entry in `git status`. Added an explicit ignore rule with a comment pointing to the canonical location. Worth knowing: when you have two related repos and one ends up nested locally, the right answer is `.gitignore`, not "remember not to commit it" — `git add -A` would have swept it in eventually.
+- **Audits get lighter as self-review-on-PR matures.** #1 and #2 caught major drift (token mismatches, hardcoded widths, ACLU copy errors). #4 was already lighter. #5 was almost entirely comment cleanup because recent PRs (`feat/illustrations`, `feat/welcome-cloud-animation`) shipped explicit `chore:` commits trimming slop *before* merge. The audit cadence stays valuable as a baseline-reset, but the per-audit fix volume has been declining — that's the system working.
+
+---
+
 ## feat/welcome-cloud-animation (2026-05-06)
 
 Splits the Welcome backdrop composite into individual layers so the clouds + wind elements can drift independently. Each animated element is wrapped in a `Drift` helper that runs an `Animated.loop(Animated.sequence([...]))` translateX oscillation with `Easing.inOut(Easing.sin)` and `useNativeDriver: true`.

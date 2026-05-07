@@ -96,11 +96,11 @@ export default function GetStarted() {
 
       <SafeAreaView style={styles.content}>
         {/*
-          Content wrapper: width: 326, vertically centered via parent's
-          justify-content. Matches Figma's absolutely-centered Content node
-          with gap-88 between title and the continue group. Replaces the
-          previous hardcoded spacerTop hack — now responsive across device
-          heights.
+          Content wrapper stretches with parent gutter (32pt each side
+          on the 390pt baseline = Figma's 326pt content strip). Vertically
+          centered via the parent's justify-content; gap-88 between
+          title and continue group per Figma's absolutely-centered
+          Content node.
         */}
         <View style={styles.contentInner}>
           <Text style={styles.title}>Get started</Text>
@@ -227,11 +227,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    width: '100%', // fills contentInner's 326pt
+    width: '100%',
     gap: 16,
   },
   outlinedButton: {
-    alignSelf: 'stretch', // grows with device width instead of hardcoded 326
+    alignSelf: 'stretch',
     height: 48,
     borderRadius: 100, // pill
     borderWidth: 1,

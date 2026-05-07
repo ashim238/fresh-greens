@@ -401,9 +401,6 @@ export default function Home() {
               {/*
                 Daylight strip — gradient bar + sun/moon icons showing
                 daylight progression across the day.
-                TODO: install expo-linear-gradient and replace the flat
-                placeholder bar with a real gradient (orange → mauve →
-                indigo per Figma).
               */}
               <View style={styles.daylightStrip}>
                 {/*
@@ -459,9 +456,9 @@ export default function Home() {
 
         <View style={styles.actionsRow}>
           {/*
-            TODO: real schedule time once we install a sun calculator.
-            Figma copy: "Schedule for 7:38 AM" (computed from sunset
-            time + estimated trip duration).
+            TODO: compute the real schedule time via SunCalc + route
+            duration (suncalc + lib/daylight.ts already wired). Figma
+            copy: "Schedule for 7:38 AM".
           */}
           <Pressable
             style={styles.scheduleBtn}
