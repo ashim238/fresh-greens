@@ -5,6 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  InputAccessoryView,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -133,6 +137,20 @@ export default function Report() {
         accessibilityLabel="Dismiss report"
       />
 
+      {/*
+        KeyboardAvoidingView lifts the centered popup above the iOS
+        keyboard when the detail-view TextInput focuses. Without it,
+        the keyboard covers the Submit CTA and the user can't see
+        what they're committing to. `behavior="padding"` shifts the
+        popup with the keyboard's animation curve; Android handles
+        the layout natively via android:windowSoftInputMode and
+        doesn't need the wrapper to do anything (`undefined`).
+      */}
+      <KeyboardAvoidingView
+        style={styles.popupCentering}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        pointerEvents="box-none"
+      >
       <View style={styles.popup}>
         {mode === 'picker' && (
           <PickerView
@@ -159,9 +177,37 @@ export default function Report() {
           />
         )}
       </View>
+      </KeyboardAvoidingView>
+
+      {/*
+        Done toolbar above the keyboard — iOS-only InputAccessoryView,
+        wired to the multiline detail TextInput by `inputAccessoryViewID`.
+        iOS's return key in a multiline input legitimately inserts a
+        newline, so users need a separate dismiss path. Tap Done →
+        Keyboard.dismiss(). The TextInput stays multiline for free-form
+        report detail.
+      */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={DETAIL_INPUT_ACCESSORY_ID}>
+          <View style={styles.inputAccessory}>
+            <Pressable
+              onPress={Keyboard.dismiss}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss keyboard"
+            >
+              <Text style={styles.inputAccessoryDone}>Done</Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      )}
     </View>
   );
 }
+
+// Module-level ID — same string referenced by the TextInput's
+// `inputAccessoryViewID` and the InputAccessoryView's `nativeID`.
+const DETAIL_INPUT_ACCESSORY_ID = 'report-detail-accessory';
 
 // --- Picker view ---------------------------------------------------------
 
@@ -308,6 +354,9 @@ function DetailView({
           multiline
           maxLength={280}
           editable={!submitting}
+          inputAccessoryViewID={
+            Platform.OS === 'ios' ? DETAIL_INPUT_ACCESSORY_ID : undefined
+          }
         />
 
         {category.hasPhoto && (
@@ -395,6 +444,14 @@ const styles = StyleSheet.create({
   scrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.modalScrim,
+  },
+  // Wrapper that centers the popup vertically — the KeyboardAvoidingView
+  // shifts this whole block up when the keyboard opens. Mirrors the
+  // root's center alignment so the popup keeps its position pre-focus.
+  popupCentering: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   popup: {
     // Stretches with a consistent 20pt edge margin on either side and
@@ -571,5 +628,23 @@ const styles = StyleSheet.create({
   thankYouCloseBtnText: {
     ...typography.subheadlineEmphasized,
     color: colors.white,
+  },
+
+  // iOS InputAccessoryView toolbar — small bar that sits directly
+  // above the keyboard. Right-aligned "Done" matches iOS Mail / Notes
+  // and is the platform-conventional dismiss target.
+  inputAccessory: {
+    backgroundColor: colors.systemGroupedBackground,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.cardBorderSubtle,
+  },
+  inputAccessoryDone: {
+    ...typography.bodyEmphasized,
+    color: colors.freshgreen,
+    paddingVertical: 4,
   },
 });
