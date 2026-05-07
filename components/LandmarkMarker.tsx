@@ -1,84 +1,94 @@
-import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
 import BgBlackOwned from '../assets/illustrations/mapmarker-bg-blackowned.svg';
 import BgLocalBusiness from '../assets/illustrations/mapmarker-bg-localbusiness.svg';
+import BgPositive from '../assets/illustrations/mapmarker-bg-positive.svg';
 import BgReport from '../assets/illustrations/mapmarker-bg-report.svg';
-import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-blackowned.svg';
+import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-black-owned.svg';
 import GlyphFeltUnsafe from '../assets/illustrations/mapmarker-glyph-felt-unsafe.svg';
+import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welcome.svg';
+import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
+import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
+import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 import GlyphLocalBusiness from '../assets/illustrations/mapmarker-glyph-localbusiness.svg';
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
+import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
-import { colors } from '../theme/colors';
 
 /**
- * Map landmark marker — the three-state component from Figma
+ * Map landmark marker — the four-state component from Figma
  * `1044:2667` (Draft tab). Renders a 48×48 teardrop pin with an
- * inner Bg circle (24×24) and a 16×16 glyph centered on the Bg.
+ * inner Bg circle (24×24) and a 16×16 illustrated glyph centered
+ * on the Bg.
  *
- * Variants:
- *   - 'black-owned'    — black pin + brand-green storefront glyph
- *   - 'local-business' — gray pin + white menu glyph
- *   - 'report'         — orange pin + per-category Ionicons glyph
- *                        (felt-unsafe uses the Figma eye SVG; the
- *                        other report categories use the same
- *                        Ionicons names the report-modal picker
- *                        already shows, so the marker glyph and the
- *                        modal tile match for the same submission)
+ * Variants (pin color carries sentiment):
+ *   - 'black-owned'    — black pin (place identity)
+ *   - 'positive'       — brand-green pin (welcoming sentiment)
+ *   - 'local-business' — gray pin (neutral business; reserved for
+ *                        future non-community-report data sources)
+ *   - 'report'         — orange pin (caution / observation)
  *
- * Anchored at bottom-center so the pin's tip sits on the coordinate
- * (matches native iOS pin behavior). `tracksViewChanges={false}`
- * stops react-native-maps from re-rendering on every pan/zoom.
+ * Inner glyph is per-category and matches the /report picker tile
+ * for the same submission, so the picker tile and the resulting
+ * marker glyph read identically.
+ *
+ * The Figma component spells the green variant "Postive" (sic) —
+ * we use the corrected `positive` in code and reference Figma's
+ * label here so future readers can find the link.
+ *
+ * Anchored at bottom-center so the pin's tip sits on the
+ * coordinate. `tracksViewChanges={false}` stops react-native-maps
+ * from re-rendering on every pan/zoom.
  */
 
-export type ReportCategoryGlyph =
-  | 'incident'
-  | 'felt-unsafe'
-  | 'lighting'
-  | 'hazard';
-
-type Variant = 'black-owned' | 'local-business' | 'report';
+type Variant = 'black-owned' | 'local-business' | 'positive' | 'report';
 
 /**
- * Maps a community-report category id to the marker variant +
- * glyph the design system uses for that submission. Unknown
- * categories fall through to the generic Report state with a
- * megaphone glyph.
+ * Maps a community-report category id to the marker variant.
+ * Unknown categories fall through to the generic Report state.
  */
-export function variantForCategoryId(categoryId: string | undefined): {
-  variant: Variant;
-  reportGlyph?: ReportCategoryGlyph;
-} {
+export function variantForCategoryId(categoryId: string | undefined): Variant {
   switch (categoryId) {
     case 'black-owned':
-      return { variant: 'black-owned' };
+      return 'black-owned';
     case 'felt-welcome':
-      return { variant: 'local-business' };
+      return 'positive';
     case 'felt-unsafe':
     case 'incident':
     case 'lighting':
     case 'hazard':
-      return { variant: 'report', reportGlyph: categoryId };
+      return 'report';
     default:
-      return { variant: 'report' };
+      return 'report';
   }
 }
 
-// Ionicons names per report category — match the picker tiles in
-// /report so the same submission reads the same way on the map and
-// in the modal. Felt-unsafe is the only category whose glyph is a
-// Figma SVG (intentional, since the eye icon doesn't have a clean
-// Ionicons equivalent that matches the brand register).
-const REPORT_IONICONS: Record<
-  Exclude<ReportCategoryGlyph, 'felt-unsafe'>,
-  React.ComponentProps<typeof Ionicons>['name']
-> = {
-  incident: 'flag',
-  lighting: 'bulb',
-  hazard: 'warning',
-};
+/**
+ * The illustrated glyph for a given category — same SVG the
+ * /report picker tile renders, scaled down to 16pt for the marker.
+ * Unknown category ids fall back to the LocalBusiness menu glyph
+ * (the most neutral of the set).
+ */
+function GlyphForCategory({ categoryId }: { categoryId?: string }) {
+  switch (categoryId) {
+    case 'black-owned':
+      return <GlyphBlackOwned width={16} height={16} />;
+    case 'felt-welcome':
+      return <GlyphFeltWelcome width={16} height={16} />;
+    case 'felt-unsafe':
+      return <GlyphFeltUnsafe width={16} height={16} />;
+    case 'incident':
+      return <GlyphIncident width={16} height={16} />;
+    case 'lighting':
+      return <GlyphLighting width={16} height={16} />;
+    case 'hazard':
+      return <GlyphHazard width={16} height={16} />;
+    default:
+      return <GlyphLocalBusiness width={16} height={16} />;
+  }
+}
 
 export function LandmarkMarker({
   latitude,
@@ -94,7 +104,7 @@ export function LandmarkMarker({
   accessibilityLabel?: string;
   onPress?: () => void;
 }) {
-  const { variant, reportGlyph } = variantForCategoryId(categoryId);
+  const variant = variantForCategoryId(categoryId);
 
   return (
     <Marker
@@ -106,34 +116,18 @@ export function LandmarkMarker({
     >
       <View style={styles.frame}>
         {variant === 'black-owned' && <PinBlackOwned width={30} height={39} style={styles.pin} />}
+        {variant === 'positive' && <PinPositive width={30} height={39} style={styles.pin} />}
         {variant === 'local-business' && <PinLocalBusiness width={30} height={39} style={styles.pin} />}
         {variant === 'report' && <PinReport width={30} height={39} style={styles.pin} />}
 
         <View style={styles.bgWrap}>
           {variant === 'black-owned' && <BgBlackOwned width={24} height={24} />}
+          {variant === 'positive' && <BgPositive width={24} height={24} />}
           {variant === 'local-business' && <BgLocalBusiness width={24} height={24} />}
           {variant === 'report' && <BgReport width={24} height={24} />}
 
           <View style={styles.glyphWrap}>
-            {variant === 'black-owned' && (
-              <GlyphBlackOwned width={16} height={16} />
-            )}
-            {variant === 'local-business' && (
-              <GlyphLocalBusiness width={16} height={16} />
-            )}
-            {variant === 'report' && reportGlyph === 'felt-unsafe' && (
-              <GlyphFeltUnsafe width={16} height={16} />
-            )}
-            {variant === 'report' && reportGlyph && reportGlyph !== 'felt-unsafe' && (
-              <Ionicons
-                name={REPORT_IONICONS[reportGlyph]}
-                size={14}
-                color={colors.white}
-              />
-            )}
-            {variant === 'report' && !reportGlyph && (
-              <Ionicons name="megaphone" size={14} color={colors.white} />
-            )}
+            <GlyphForCategory categoryId={categoryId} />
           </View>
         </View>
       </View>

@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/landmark-marker-green-variant (2026-05-07)
+
+Adds the 4th `positive` variant to `LandmarkMarker` (Figma's new green pin for felt-welcome) and swaps every per-category report glyph from an Ionicons fallback to the picker's illustrated SVG. Picker tile + detail header in `/report` now use those same glyphs, so the picker, the detail screen, and the resulting marker on the map all carry one identical illustration per category.
+
+- **Pin color is the sentiment axis; inner glyph is the type axis.** Earlier the marker had three variants and one shared "report" glyph (the eye, hard-coded for felt-unsafe). The user flagged: how do you tell a felt-welcome barber from a felt-unsafe barber if both use the same glyph? The answer was a fourth pin color (green = positive sentiment) so color reliably differentiates positive from negative regardless of place type. Lesson worth keeping: when a design needs to carry two orthogonal signals, give each its own visual axis (color *and* glyph) rather than overloading one.
+- **Match Figma's typo with a spelled-correctly name in code + a comment.** The Figma component's 4th state is labeled "Postive" (sic). Using the typo in code propagates the error; correcting it in code without context loses the link. Pattern: use `'positive'` in code and add one comment naming Figma's label so the next reader can find the source. The Figma can be fixed later without a code rename.
+- **One illustration source for picker + marker = visual rhyme without coordination cost.** Previously the picker rendered Ionicons (`flag`, `bulb`, `warning`) and the marker used a different glyph (Phosphor or hard-coded SVG). When you submitted an incident report, the picker showed a flag and the marker showed... a flag from a different icon set. Now both pull from the same `assets/illustrations/mapmarker-glyph-{categoryId}.svg`, so the picker tile and the resulting marker are pixel-identical. Worth knowing: when the same concept appears on two surfaces, importing the same SVG file into both is the cheapest way to keep them aligned.
+- **Naming convention upgrade: kebab-case glyph filenames matching `ReportCategoryId`.** The earlier `mapmarker-glyph-blackowned.svg` got dropped in favor of `mapmarker-glyph-black-owned.svg` — same kebab-case as the category id (`'black-owned'`). Now the lookup function is one switch statement that strings together the id and the file path. Smaller cognitive load for future readers.
+
+---
+
 ## fix/user-location-pin-z-order (2026-05-07)
 
 The iOS-native blue user-location dot (rendered by `showsUserLocation`) sat *under* LandmarkMarker pins when a community report's coordinate landed near the user's GPS — the orange pin's tip would obscure the dot. react-native-maps' `<Marker zIndex={…}>` controls draw order for custom markers, but `showsUserLocation` renders MKUserLocation natively and doesn't expose a zIndex hook. Fix: render our own user-location marker with `zIndex={1000}` instead.

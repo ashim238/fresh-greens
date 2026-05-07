@@ -16,6 +16,16 @@ import {
   View,
 } from 'react-native';
 
+// Same SVGs the LandmarkMarker renders inside its pin — using them
+// here keeps the picker tile and the resulting marker visually
+// identical for every category.
+import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-black-owned.svg';
+import GlyphFeltUnsafe from '../assets/illustrations/mapmarker-glyph-felt-unsafe.svg';
+import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welcome.svg';
+import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
+import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
+import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
+
 import {
   addCommunityReport,
   CATEGORIES,
@@ -209,6 +219,40 @@ export default function Report() {
 // `inputAccessoryViewID` and the InputAccessoryView's `nativeID`.
 const DETAIL_INPUT_ACCESSORY_ID = 'report-detail-accessory';
 
+// --- Category glyph ------------------------------------------------------
+
+/**
+ * Per-category illustrated glyph. Same SVGs the LandmarkMarker
+ * renders inside its pin (Figma 1044:2667), used here for the
+ * picker tile + the detail header so the picker, the detail view,
+ * and the resulting marker on the map all carry the same glyph
+ * for a given submission.
+ */
+function CategoryGlyph({
+  categoryId,
+  size,
+}: {
+  categoryId: string;
+  size: number;
+}) {
+  switch (categoryId) {
+    case 'black-owned':
+      return <GlyphBlackOwned width={size} height={size} />;
+    case 'felt-welcome':
+      return <GlyphFeltWelcome width={size} height={size} />;
+    case 'felt-unsafe':
+      return <GlyphFeltUnsafe width={size} height={size} />;
+    case 'incident':
+      return <GlyphIncident width={size} height={size} />;
+    case 'lighting':
+      return <GlyphLighting width={size} height={size} />;
+    case 'hazard':
+      return <GlyphHazard width={size} height={size} />;
+    default:
+      return null;
+  }
+}
+
 // --- Picker view ---------------------------------------------------------
 
 function PickerView({
@@ -256,12 +300,7 @@ function PickerView({
                 accessibilityLabel={c.label}
               >
                 <View style={styles.tileIconBox}>
-                  <Ionicons
-                    name={c.iconName as keyof typeof Ionicons.glyphMap}
-                    size={48}
-                    color={colors.black}
-                    accessible={false}
-                  />
+                  <CategoryGlyph categoryId={c.id} size={48} />
                 </View>
                 <Text style={styles.tileLabel}>{c.label}</Text>
               </Pressable>
@@ -328,11 +367,7 @@ function DetailView({
 
       <View style={styles.titleBlock}>
         <View style={styles.identityIcon}>
-          <Ionicons
-            name={category.iconName as keyof typeof Ionicons.glyphMap}
-            size={32}
-            color={colors.black}
-          />
+          <CategoryGlyph categoryId={category.id} size={32} />
         </View>
         {/* Title1 Regular — see .cursorrules. The modal is asking, not telling. */}
         <Text style={styles.titleRegular}>{category.label}</Text>
