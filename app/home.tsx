@@ -8,28 +8,36 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Circle, Polygon, Polyline } from 'react-native-maps';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Phosphor deep-import to bypass the package's barrel index. See
-// app/trusted-contact-setup.tsx for the longer note + tsconfig
-// `paths` mapping that keeps TypeScript happy.
+// Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
+// longer note + tsconfig `paths` mapping that keeps TypeScript happy.
 import { Car } from 'phosphor-react-native/src/icons/Car';
+import { House } from 'phosphor-react-native/src/icons/House';
+import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
 
 import { DragHandle } from '../components/DragHandle';
+import { EdgeIndicator } from '../components/EdgeIndicator';
+import { MapMarker } from '../components/MapMarker';
 import { SearchBar } from '../components/SearchBar';
 import { usePreferences } from '../hooks/usePreferences';
+import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useUser } from '../hooks/useUser';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
 import {
   getZonesForRegion,
-  POINT_PROXIMITY_METERS,
   type Zone,
   zoneColors,
 } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
+import {
+  edgePositionForPoint,
+  isPointInRegion,
+  type Region,
+} from '../lib/edge-indicators';
 import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -53,10 +61,21 @@ export default function Home() {
   const router = useRouter();
   const { user } = useUser();
   const { preferences } = usePreferences();
+  const { home, addSavedPlace } = useSavedPlaces();
   // showZones is `false` while preferences are loading from AsyncStorage;
   // overlays just render on the next pass once the value resolves.
   const showZones = preferences?.showZones ?? false;
   const mapRef = useRef<MapView>(null);
+  // Tracks the current visible region so we can decide whether each POI
+  // needs a Marker (in viewport) or an EdgeIndicator (out of viewport).
+  // Updated on `onRegionChangeComplete`; null until the user's first
+  // pan/zoom or the centering effect fires.
+  const [mapRegion, setMapRegion] = useState<Region | null>(null);
+  // Viewport size in pt. Measured once via the MapView's onLayout —
+  // edge-indicator positioning needs screen-space pixels, not lat/lng.
+  const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   // Destination params from the search screen, if any. URL params arrive
   // as strings and may be undefined (when the user landed on /home without
   // having searched). We parse them into numbers below.
@@ -74,9 +93,9 @@ export default function Home() {
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   // Community-submitted point reports. Refreshed every time /home gains
   // focus, so a freshly-submitted report from /report appears
-  // immediately when the user closes the modal. Always rendered as
-  // visible Circle markers — these are the "trusted community" signal,
-  // unlike OSM zones which are infrastructure.
+  // immediately when the user closes the modal. Rendered as MapMarkers
+  // when in the viewport and as EdgeIndicators when out — the "trusted
+  // community" signal layer, distinct from OSM infrastructure zones.
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   // Raw OSRM routes — pre-scoring. Ranking is derived (useMemo below)
   // so it recomputes automatically when zones change without needing
@@ -182,6 +201,27 @@ export default function Home() {
     // requiring the user to navigate away and back.
   }, [params.destLat, params.destLng]);
 
+  // Long-press on the map saves that location as the user's home.
+  // Goes through Alert so the user confirms before persistence —
+  // accidental long-presses on a navigation map shouldn't silently
+  // overwrite a real saved home.
+  function handleLongPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    Alert.alert(
+      'Save as home',
+      'Add this location to your saved places? Your home appears on the map and as an off-screen indicator when you pan away.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: () => {
+            void addSavedPlace({ kind: 'home', name: 'Home', latitude, longitude });
+          },
+        },
+      ],
+    );
+  }
+
   // Refresh community reports each time /home gains focus. Two paths
   // hit this: initial mount (when navigating in from any prior screen)
   // and the dismissal of /report after a successful submission. The
@@ -216,6 +256,14 @@ export default function Home() {
         }}
         showsUserLocation
         showsMyLocationButton={false}
+        onRegionChangeComplete={setMapRegion}
+        onLayout={(e) =>
+          setMapSize({
+            width: e.nativeEvent.layout.width,
+            height: e.nativeEvent.layout.height,
+          })
+        }
+        onLongPress={handleLongPress}
       >
         {/*
           Map overlays. Polygons (zones) and Polylines (routes) must be
@@ -262,28 +310,56 @@ export default function Home() {
             return null;
           })}
         {/*
-          Community-report points — always visible (not gated by the
-          Show-zones toggle). Rendered as Circles whose radius matches the
-          scoring influence radius (POINT_PROXIMITY_METERS), so the
-          map honestly shows what the scorer considers "in reach" of
-          the report. Color matches the category's safety classification
-          via the same zoneColors lookup OSM zones use.
+          Community-report points — rendered as custom Markers
+          (Phosphor Megaphone glyph) only when they're inside the
+          current viewport. Off-viewport reports surface as
+          EdgeIndicators in the overlay below the map. Color tints by
+          the category's safety classification via zoneColors.
         */}
         {reportZones.map((zone) => {
           if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
             return null;
           }
+          const point = zone.coordinates[0];
+          // Render only when in viewport. mapRegion may be null on the
+          // very first frame — render conservatively (yes) until
+          // onRegionChangeComplete fires.
+          if (mapRegion && !isPointInRegion(point, mapRegion)) {
+            return null;
+          }
           return (
-            <Circle
+            <MapMarker
               key={zone.id}
-              center={zone.coordinates[0]}
-              radius={POINT_PROXIMITY_METERS}
-              fillColor={zoneColors[zone.type].fill}
-              strokeColor={zoneColors[zone.type].stroke}
-              strokeWidth={2}
-            />
+              latitude={point.latitude}
+              longitude={point.longitude}
+              surfaceColor={zoneColors[zone.type].stroke}
+              accessibilityLabel={zone.label}
+            >
+              <Megaphone size={20} color={colors.white} weight="fill" />
+            </MapMarker>
           );
         })}
+        {/*
+          Saved home — rendered as a freshgreen pip with a House
+          glyph. Only visible when in the viewport; the EdgeIndicator
+          overlay below handles the off-viewport case.
+        */}
+        {home &&
+          (!mapRegion || isPointInRegion(home, mapRegion)) && (
+            <MapMarker
+              latitude={home.latitude}
+              longitude={home.longitude}
+              surfaceColor={colors.freshgreen}
+              accessibilityLabel={`${home.name} (saved place)`}
+            >
+              <House size={20} color={colors.white} weight="fill" />
+            </MapMarker>
+          )}
+        {/*
+          OSRM-derived routes. Recommended renders as a daylight-
+          gradient polyline; alternates render in muted gray. Always
+          on the map's native overlay layer.
+        */}
         {routes.map((route) => {
           // Recommended route renders as multiple polyline segments with
           // a daylight gradient (green → orange → red) representing how
@@ -310,6 +386,80 @@ export default function Home() {
           );
         })}
       </MapView>
+
+      {/*
+        Edge-indicator overlay — pills on the screen edge pointing to
+        POIs that are currently outside the viewport. Updates on every
+        pan/zoom (via mapRegion state) and renders in screen-space
+        rather than the map's native layer. pointerEvents="box-none"
+        keeps taps falling through to the map elsewhere.
+      */}
+      {mapRegion && mapSize && (
+        <View style={styles.edgeOverlay} pointerEvents="box-none">
+          {reportZones.map((zone) => {
+            if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
+              return null;
+            }
+            const point = zone.coordinates[0];
+            if (isPointInRegion(point, mapRegion)) return null;
+            const edge = edgePositionForPoint(point, mapRegion, mapSize);
+            return (
+              <EdgeIndicator
+                key={`edge-${zone.id}`}
+                x={edge.x}
+                y={edge.y}
+                rotation={edge.rotation}
+                surfaceColor={zoneColors[zone.type].stroke}
+                borderColor={colors.white}
+                arrowColor={zoneColors[zone.type].stroke}
+                accessibilityLabel={`${zone.label} (off-screen — tap to center)`}
+                onPress={() =>
+                  mapRef.current?.animateToRegion(
+                    {
+                      latitude: point.latitude,
+                      longitude: point.longitude,
+                      latitudeDelta: mapRegion.latitudeDelta,
+                      longitudeDelta: mapRegion.longitudeDelta,
+                    },
+                    400,
+                  )
+                }
+              >
+                <Megaphone size={16} color={colors.white} weight="fill" />
+              </EdgeIndicator>
+            );
+          })}
+          {home && !isPointInRegion(home, mapRegion) && (
+            (() => {
+              const edge = edgePositionForPoint(home, mapRegion, mapSize);
+              return (
+                <EdgeIndicator
+                  x={edge.x}
+                  y={edge.y}
+                  rotation={edge.rotation}
+                  surfaceColor={colors.freshgreen}
+                  borderColor={colors.white}
+                  arrowColor={colors.freshgreen}
+                  accessibilityLabel={`${home.name} (off-screen — tap to center)`}
+                  onPress={() =>
+                    mapRef.current?.animateToRegion(
+                      {
+                        latitude: home.latitude,
+                        longitude: home.longitude,
+                        latitudeDelta: mapRegion.latitudeDelta,
+                        longitudeDelta: mapRegion.longitudeDelta,
+                      },
+                      400,
+                    )
+                  }
+                >
+                  <House size={16} color={colors.white} weight="fill" />
+                </EdgeIndicator>
+              );
+            })()
+          )}
+        </View>
+      )}
 
       {/*
         Top overlay: search bar + menu button. pointerEvents="box-none"
@@ -518,6 +668,13 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  edgeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   topOverlay: {
     position: 'absolute',
