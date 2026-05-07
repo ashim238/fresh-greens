@@ -71,14 +71,6 @@ export default function Permissions() {
         */}
         <View style={styles.content}>
           <View style={styles.visualAndCopy}>
-            {/*
-              Visual: location pin + car, sized + offset to match Figma.
-              Location pin sits at 10.71pt from the left in a 35.9×40.4
-              wrap (the wrap accounts for the 17.72° rotation overflow);
-              car stacks below at 0 left offset, 8pt gap. Both authored
-              as SVGs in the design system, imported via
-              react-native-svg-transformer.
-            */}
             <View style={styles.visual}>
               <View style={styles.locationWrap}>
                 <View style={styles.locationRotated}>
@@ -179,9 +171,6 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   visual: {
-    // 8.55pt gap between location wrap and car wrap derives from
-    // Figma's mt-[48.55px] on the car minus the 40.374pt location
-    // wrap height. Rounded to 8 for cleanliness.
     gap: 8,
     alignItems: 'flex-start',
   },

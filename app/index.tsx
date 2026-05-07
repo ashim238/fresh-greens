@@ -46,12 +46,8 @@ export default function Welcome() {
       <StatusBar style="light" />
 
       {/*
-        Single composite backdrop — Vic, sun, hill, clouds, wind, and
-        the border cloud at the top of the screen. Authored as one
-        export from Figma's "Visuals" parent (node 825:3163), so the
-        positioning of every element is exactly as designed instead
-        of approximated separately. Replaces the previous three
-        layers (Vic PNG + sun PNG + CSS-shaped hill).
+        Composite backdrop exported from Figma's "Visuals" parent
+        (825:3163) — Vic, sun, hill, clouds, wind, border cloud.
       */}
       <Image
         source={require('../assets/illustrations/welcome-backdrop.png')}
@@ -61,16 +57,7 @@ export default function Welcome() {
         accessibilityLabel="Illustration of a person waving from inside a location pin, sitting above a green hill at sunrise with clouds and breezes around them"
       />
 
-      {/*
-        SafeAreaView pads its children away from the notch and home indicator
-        so text/buttons don't sit underneath them.
-      */}
       <SafeAreaView style={styles.content}>
-        {/*
-          Spacer claims leftover vertical space above the title.
-          The backdrop image places Vic in this region naturally —
-          we don't render Vic separately anymore.
-        */}
         <View style={styles.illustrationContainer} />
 
         <View style={styles.titleBlock}>
@@ -140,12 +127,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.orange,
   },
   backdrop: {
-    // Absolutely positioned full-screen image, sized to cover the
-    // entire root. resizeMode='cover' keeps the aspect ratio; on
-    // taller iPhones (Pro Max) the image scales up; on shorter
-    // (iPhone SE / mini) the top/bottom crop slightly — Vic stays
-    // visually centered, and the hill's bottom is below the visible
-    // safe area anyway, so cropping there is invisible.
     position: 'absolute',
     top: 0,
     left: 0,
@@ -164,9 +145,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   illustrationContainer: {
-    // Spacer — claims leftover vertical space above the title. Vic
-    // is rendered as part of the backdrop image, not as a child of
-    // this view, so this just contributes its flex.
     flex: 1,
   },
   titleBlock: {

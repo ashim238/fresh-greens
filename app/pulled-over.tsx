@@ -956,12 +956,6 @@ function OfficerTrooperView() {
       <View style={officerStyles.cardsRow}>
         <View style={officerStyles.card}>
           <View style={officerStyles.illustrationBox}>
-            {/*
-              Illustration wrapper sized 120×172 per Figma, with the
-              Officer image (100×157) anchored to the bottom of the
-              wrapper (Figma's `items-end`). Trooper uses center
-              alignment instead — see below.
-            */}
             <View
               style={[officerStyles.illustrationWrap, officerStyles.alignEnd]}
             >
@@ -1001,12 +995,6 @@ function OfficerTrooperView() {
                 accessible
                 accessibilityLabel="Illustration of a trooper wearing a Smokey Bear hat"
               />
-              {/*
-                Yellow-shield hat badge — Figma authors this as a
-                separate SVG layered on top of the Trooper PNG at
-                inset-[20.99%_43.22%_68.99%_43.23%] within the 120×172
-                wrapper. ≈16×17pt centered on the hat brim.
-              */}
               <TrooperHatBadge
                 width={16.26}
                 height={17.23}
@@ -1663,11 +1651,6 @@ const officerStyles = StyleSheet.create({
     gap: 32,
     padding: 16,
   },
-  // 120×172 illustration wrapper inside the 148×244 card. The image
-  // sits inside this; for Officer the image anchors to the bottom
-  // (alignEnd applied), for Trooper it centers (default). Wrapper
-  // also serves as the positioning context for the Trooper hat-badge
-  // SVG overlay.
   illustrationWrap: {
     width: 120,
     height: 172,
@@ -1678,9 +1661,6 @@ const officerStyles = StyleSheet.create({
   alignEnd: {
     justifyContent: 'flex-end',
   },
-  // PNGs exported at 1384×2186 (Officer) and 1384×2361 (Trooper) —
-  // far over the rendered point size, so resizeMode: 'contain' gives
-  // crisp downscaling at any device pixel ratio.
   officerImage: {
     width: 100,
     height: 157,
@@ -1689,9 +1669,8 @@ const officerStyles = StyleSheet.create({
     width: 100,
     height: 171,
   },
-  // Yellow-shield badge on the Trooper hat. Position derived from
-  // Figma's `inset-[20.99%_43.22%_68.99%_43.23%]` against the 120×172
-  // wrapper: top = 20.99% × 172 ≈ 36, left = 43.23% × 120 ≈ 52.
+  // Top + left derived from Figma's `inset-[20.99%_43.22%_68.99%_43.23%]`
+  // against the 120×172 wrapper.
   trooperBadge: {
     position: 'absolute',
     top: 36,

@@ -44,11 +44,6 @@ type Panel = {
   illustrationLabel: string;
 };
 
-// Each illustration was cropped from its Figma panel screenshot
-// (390×844) at y=369-720 — the bottom illustration area excluding
-// the Continue/Skip overlay. Original aspect ratio 390:351 = 1.111;
-// we use that ratio when rendering so the image scales cleanly on
-// wider iPhones (Pro Max line) without hardcoding a width.
 const PANELS: Panel[] = [
   {
     id: 'drive',
@@ -76,12 +71,6 @@ const PANELS: Panel[] = [
       'Illustration of a person thinking, with a thought bubble showing a no-fly icon',
   },
 ];
-
-// Source aspect ratio of the illustration crops (Figma 390×351).
-// Used as `aspectRatio` on the Image so it scales cleanly on wider
-// iPhones (Pro Max line) — width tracks the panel's full width,
-// height follows from the ratio.
-const ILLUSTRATION_ASPECT = 390 / 351;
 
 export default function Onboarding() {
   const router = useRouter();
@@ -150,20 +139,9 @@ export default function Onboarding() {
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.body}>{item.body}</Text>
               </View>
-              {/*
-                Illustration anchored to the bottom of the panel —
-                full-width (matches the Figma "extends edge-to-edge"
-                intent), with aspectRatio handling the height so
-                wider iPhones get a proportionally taller image
-                instead of a stretched one. Position absolute so the
-                title/body block above doesn't get pushed by it.
-              */}
               <Image
                 source={item.illustration}
-                style={[
-                  styles.illustration,
-                  { width, aspectRatio: ILLUSTRATION_ASPECT },
-                ]}
+                style={[styles.illustration, { width, aspectRatio: 390 / 351 }]}
                 resizeMode="cover"
                 accessible
                 accessibilityLabel={item.illustrationLabel}
@@ -219,24 +197,14 @@ const styles = StyleSheet.create({
     flex: 1, // claim the leftover vertical space between PageControl and actions
   },
   panel: {
-    // Each panel is exactly screen-width (set inline via useWindowDimensions
-    // when rendered) so pagingEnabled snaps to one panel per swipe.
-    //
-    // Padding lives on titleAndCopy (below) instead of here so the
-    // bottom-anchored illustration can sit edge-to-edge on the panel
-    // — Figma authors the illustration as a full-width visual that
-    // breaks out of the page gutter.
+    // flex:1 lets `bottom: 0` on the absolute illustration anchor to
+    // the FlatList's full height. Without it, items size to content
+    // and the illustration anchors to the bottom of the title/body
+    // block instead of the screen.
     paddingTop: 32,
-    // flex:1 makes each FlatList item fill the FlatList's own height,
-    // which lets `bottom: 0` on the absolute illustration anchor to
-    // the FlatList's bottom edge instead of the title/body block's
-    // bottom. Required for the bottom-anchor pattern below.
     flex: 1,
   },
   illustration: {
-    // Bottom-anchored, full-width within each FlatList item. Width +
-    // aspectRatio are set inline based on useWindowDimensions so the
-    // illustration scales proportionally on Pro Max devices.
     position: 'absolute',
     left: 0,
     bottom: 0,
