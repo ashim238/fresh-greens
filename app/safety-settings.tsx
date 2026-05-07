@@ -4,10 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-import bypasses the package's barrel — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
+import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { UserCircle } from 'phosphor-react-native/src/icons/UserCircle';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -30,6 +32,7 @@ import { typography } from '../theme/typography';
 export default function SafetySettings() {
   const router = useRouter();
   const { contact } = useTrustedContact();
+  const { recordings } = useRecordings();
 
   function handleBack() {
     router.back();
@@ -40,6 +43,17 @@ export default function SafetySettings() {
     // routes back here on save/skip rather than replacing with /home.
     router.push('/trusted-contact-setup?from=settings');
   }
+
+  function handleRecordings() {
+    router.push('/recordings');
+  }
+
+  const recordingsValue =
+    recordings.length === 0
+      ? 'None yet'
+      : recordings.length === 1
+        ? '1 recording'
+        : `${recordings.length} recordings`;
 
   return (
     <View style={styles.root}>
@@ -91,6 +105,37 @@ export default function SafetySettings() {
               <Text style={styles.rowValue}>
                 {contact?.name ?? 'Not set'}
               </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={colors.fadedgreen}
+            />
+          </Pressable>
+
+          {/*
+            Recordings — the audio captures from /pulled-over's safety
+            flow live here because the entire reason recordings exist
+            is the safety flow. Listing them on /menu would orphan them
+            from their context; here they sit next to the trusted
+            contact, the other artifact of that same flow.
+          */}
+          <Pressable
+            onPress={handleRecordings}
+            style={styles.row}
+            accessibilityRole="button"
+            accessibilityLabel={`Recordings, ${recordingsValue}. Tap to view.`}
+          >
+            <View style={styles.rowIconWrap}>
+              <Microphone
+                size={24}
+                color={colors.wiltedgreen}
+                weight="duotone"
+              />
+            </View>
+            <View style={styles.rowTextStack}>
+              <Text style={styles.rowLabel}>Recordings</Text>
+              <Text style={styles.rowValue}>{recordingsValue}</Text>
             </View>
             <Ionicons
               name="chevron-forward"

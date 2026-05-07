@@ -1,4 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { usePreventRemove } from '@react-navigation/native';
+// Phosphor deep-import — see app/trusted-contact-setup.tsx for the
+// longer note on why we bypass the package's barrel index.
+import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -6,7 +10,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -31,6 +35,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
+import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -119,10 +124,10 @@ const TRANSITION_MS = 3000;
 const REVIEW_VIEW_COUNT = 5;
 
 // Fallback display when no trusted contact has been set yet (user
-// skipped the onboarding step). The Call/Text buttons are disabled in
-// that state and a small note prompts them to set one up later.
-const NO_CONTACT_NAME = 'No trusted contact set';
-const NO_CONTACT_INITIALS = '?';
+// skipped the onboarding step). The avatar block becomes a tap target
+// that opens the contact picker — "out of luck" is a worse outcome
+// than asking the user to pick mid-stop.
+const NO_CONTACT_NAME = 'Add a contact';
 
 // --- Waveform tuning -----------------------------------------------------
 // Number of bars rendered, polling interval for new metering samples, and
@@ -153,6 +158,7 @@ function dbToBarHeight(db: number): number {
 
 export default function PulledOver() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [phase, setPhase] = useState<Phase>('armed');
   const [armed, setArmed] = useState<ArmedAnswer | null>(null);
   const [reviewIndex, setReviewIndex] = useState(0);
@@ -161,6 +167,7 @@ export default function PulledOver() {
     new Array(WAVEFORM_BAR_COUNT).fill(METERING_FLOOR_DB),
   );
 
+  const { addRecording } = useRecordings();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Tracks whether we've already kicked off the recorder. The lifecycle
   // effect below is keyed on `phase` (so it can fire once we leave
@@ -168,6 +175,18 @@ export default function PulledOver() {
   // it and try to start an already-recording recorder — which throws on
   // iOS. This ref is the "started exactly once" latch.
   const hasStartedRecordingRef = useRef(false);
+  // Mirror of hasStartedRecordingRef as state, so usePreventRemove
+  // (which only re-evaluates on render) sees the change. The ref is
+  // still the source of truth for the recording lifecycle effect; this
+  // state exists purely to drive the dismissal-prevention hook.
+  const [hasActiveRecording, setHasActiveRecording] = useState(false);
+  // Refs that capture the metadata snapshot at recording start, so the
+  // unmount cleanup can persist a Recording with the right armed
+  // context + timestamp even after `armed` state is gone. Refs (not
+  // state) because cleanup effects only run once at unmount and don't
+  // rebind to state values that have changed since the last commit.
+  const recordingArmedRef = useRef<ArmedAnswer | null>(null);
+  const recordingStartedAtRef = useRef<number | null>(null);
 
   // Set up the audio recorder. Spreading HIGH_QUALITY with
   // isMeteringEnabled lets us read the input level (dB) for the live
@@ -223,6 +242,12 @@ export default function PulledOver() {
     if (phase === 'armed') return;
     if (hasStartedRecordingRef.current) return;
     hasStartedRecordingRef.current = true;
+    setHasActiveRecording(true);
+    // Snapshot metadata for the eventual Recording entry. Captured
+    // here (not in cleanup) because by the time cleanup runs, the
+    // `armed` state has already been cleared from the React tree.
+    recordingArmedRef.current = armed;
+    recordingStartedAtRef.current = Date.now();
     (async () => {
       try {
         const status = await requestRecordingPermissionsAsync();
@@ -244,20 +269,61 @@ export default function PulledOver() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // Stop the recorder on unmount. Separate effect so it runs once at
-  // teardown and doesn't fire on every phase change.
-  useEffect(() => {
-    return () => {
+  // Stop the recorder and persist the captured audio when the user
+  // dismisses the modal.
+  //
+  // We use `usePreventRemove` rather than a useEffect cleanup because
+  // at unmount time `useAudioRecorder`'s own cleanup races ours and
+  // disposes the native recorder shared object — accessing
+  // recorder.uri / .stop() from inside an unmount cleanup throws
+  // NativeSharedObjectNotFound. usePreventRemove fires while the
+  // screen is still mounted and the recorder is still alive, then we
+  // dispatch the original action to let the dismiss complete.
+  //
+  // We picked usePreventRemove over navigation.addListener('beforeRemove')
+  // because native-stack's gesture dismiss removes the screen natively
+  // before JS can intercept; addListener + preventDefault gets a
+  // "screen was removed natively but didn't get removed from JS state"
+  // warning. usePreventRemove is the supported pattern for this case.
+  usePreventRemove(hasActiveRecording, ({ data }) => {
+    (async () => {
       try {
         if (recorder.isRecording) {
-          recorder.stop();
+          try {
+            await recorder.stop();
+          } catch (stopErr) {
+            console.warn('[pulled-over] recorder.stop() failed', stopErr);
+          }
         }
-      } catch {
-        /* noop */
+        const sourceUri = recorder.uri;
+        if (!sourceUri) {
+          console.warn('[pulled-over] no recorder uri; skipping save');
+          return;
+        }
+        const startedAt = recordingStartedAtRef.current ?? Date.now();
+        const durationMs = Date.now() - startedAt;
+        if (durationMs < 2000) {
+          console.log('[pulled-over] recording <2s; skipping save', { durationMs });
+          return;
+        }
+        const saved = await addRecording({
+          sourceUri,
+          durationMs,
+          armed: recordingArmedRef.current,
+          createdAt: startedAt,
+        });
+        console.log('[pulled-over] saved recording', saved.id, 'durationMs=', durationMs);
+      } catch (err) {
+        console.warn('[pulled-over] save failed', err);
+      } finally {
+        // Re-dispatch the navigation action we blocked. Setting
+        // hasActiveRecording=false first prevents this dispatch from
+        // re-triggering the prevent.
+        setHasActiveRecording(false);
+        navigation.dispatch(data.action);
       }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    })();
+  });
 
   // Sample metering into a circular buffer. Each tick: push the latest
   // dB value, drop the oldest. Renders as a left-to-right scrolling
@@ -644,13 +710,21 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
   // Higher min opacity for the avatar ring (a 160pt surface reads as a
   // strobe at the dot's 0.3 floor). Keeps the rhythm, softens the depth.
   const ringPulse = usePulseOpacity(0.55);
-  const { contact } = useTrustedContact();
+  const { contact, pickContact } = useTrustedContact();
 
-  // Real-contact fields when set; "no contact" placeholders when not.
-  // Call/Text are no-ops without a phone number; we visually disable
-  // them so the user understands why nothing happens on tap.
-  const displayName = contact?.name ?? NO_CONTACT_NAME;
-  const displayInitials = contact?.initials ?? NO_CONTACT_INITIALS;
+  // Real-contact fields when set; "add a contact" affordance when not.
+  // The avatar block itself becomes the tap target in the no-contact
+  // case — see the conditional Pressable wrap below — so a user who
+  // skipped onboarding can recover mid-stop instead of being stranded.
+  //
+  // displayName: defensive fallback for stale stored contacts that
+  // saved with name=undefined before the adapter learned to derive
+  // names from firstName/lastName/phone. Without this, those contacts
+  // would show "Add a contact" while the avatar was inert (hasContact
+  // is truthy on the contact object), stranding the user.
+  const hasContact = !!contact;
+  const displayName =
+    contact?.name?.trim() || contact?.phoneNumber || NO_CONTACT_NAME;
   const canCall = !!contact?.phoneNumber;
 
   function handleCall() {
@@ -668,6 +742,14 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
     void Linking.openURL(`sms:${contact.phoneNumber}`);
   }
 
+  async function handleAddContact() {
+    try {
+      await pickContact();
+    } catch (err) {
+      console.warn('[pulled-over] pickContact failed', err);
+    }
+  }
+
   return (
     <View style={contactStyles.page}>
       <View style={contactStyles.topContent}>
@@ -679,33 +761,53 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
           </Text>
         </View>
 
-        <View style={contactStyles.avatarBlock}>
+        <Pressable
+          style={contactStyles.avatarBlock}
+          onPress={hasContact ? undefined : handleAddContact}
+          disabled={hasContact}
+          accessibilityRole={hasContact ? undefined : 'button'}
+          accessibilityLabel={
+            hasContact
+              ? `${displayName}, trusted contact`
+              : 'Add a trusted contact'
+          }
+        >
           {/*
-            Only the outermost ring stroke pulses. The middle ring,
-            filled circle, and initials are a static stack inside a
-            non-animated parent, so the user's identity doesn't flicker.
-            The outer ring is layered on top via absolute positioning
-            (its own bordered View overlapping the static stack), so
-            animating its opacity affects nothing else.
+            Only the outermost ring stroke pulses, and only when a
+            contact is actually set — pulsing on an empty avatar would
+            falsely imply a connection that doesn't exist. The middle
+            ring + filled circle stay static so identity doesn't
+            flicker; the outer ring overlays them via absolute
+            positioning so animating its opacity affects nothing else.
           */}
           <View style={contactStyles.avatarStack}>
             <View style={contactStyles.avatarRingMiddle}>
               <View style={contactStyles.avatarCircle}>
-                <Text style={contactStyles.avatarInitials}>
-                  {displayInitials}
-                </Text>
+                {hasContact ? (
+                  <Text style={contactStyles.avatarInitials}>
+                    {contact?.initials}
+                  </Text>
+                ) : (
+                  <UserPlus
+                    size={56}
+                    color={colors.white}
+                    weight="duotone"
+                  />
+                )}
               </View>
             </View>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                contactStyles.avatarRingOuterPulse,
-                { opacity: ringPulse },
-              ]}
-            />
+            {hasContact && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  contactStyles.avatarRingOuterPulse,
+                  { opacity: ringPulse },
+                ]}
+              />
+            )}
           </View>
           <Text style={contactStyles.contactName}>{displayName}</Text>
-        </View>
+        </Pressable>
 
         <View style={contactStyles.buttonsBlock}>
           <Pressable
