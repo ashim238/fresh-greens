@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fresh Greens — Design System Specimen</title>
+<style>
+  /* ──────────────────────────────────────────────────────────────────
+     Fresh Greens — Design System Specimen
+     A static specimen page generated from theme/colors.ts and
+     theme/typography.ts. Single-file, no dependencies. Uses the
+     macOS system-font chain so the typography ramp renders in SF Pro
+     on the thesis author's machine — same font the iOS app uses.
+     ────────────────────────────────────────────────────────────── */
+
+  :root {
+    /* Color tokens, mirrored exactly from theme/colors.ts */
+    --freshgreen: #41AD49;
+    --wiltedgreen: #326936;
+    --burntgreen: #003F04;
+    --fadedgreen: #A0D6A4;
+    --orange: #FF9500;
+    --red: #FF3B30;
+    --yellow: #FFCC00;
+    --pink: #FF2D55;
+    --white: #FFFFFF;
+    --black: #000000;
+    --label-secondary: #3C3C43;
+    --label-tertiary: #3D3D3D;
+    --muted-secondary: rgba(60, 60, 67, 0.6);
+    --muted-tertiary: rgba(80, 80, 80, 0.7);
+    --system-grouped-background: #F2F2F7;
+    --daylight-dawn: #FFB347;
+    --daylight-dusk: #C4785A;
+    --daylight-night: #2D1B69;
+    --fills-tertiary: rgba(120, 120, 128, 0.12);
+    --modal-scrim: rgba(0, 0, 0, 0.2);
+    --card-border-subtle: rgba(0, 0, 0, 0.3);
+    --separator-subtle: rgba(0, 0, 0, 0.1);
+    --divider-on-dark: rgba(160, 214, 164, 0.25);
+    --drag-handle-bar: rgba(128, 128, 128, 0.55);
+    --divider-neutral: rgba(202, 196, 208, 1);
+
+    /* Spec-page palette */
+    --page-bg: #FAFAFA;
+    --section-line: rgba(0, 0, 0, 0.08);
+    --code-bg: rgba(0, 0, 0, 0.04);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                 "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    color: var(--black);
+    background: var(--page-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 64px 32px 96px;
+  }
+
+  /* --- Cover --- */
+  .cover {
+    background: var(--wiltedgreen);
+    color: var(--white);
+    padding: 48px 40px;
+    border-radius: 24px;
+    margin-bottom: 64px;
+  }
+  .cover .eyebrow {
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--fadedgreen);
+    margin: 0 0 12px;
+  }
+  .cover h1 {
+    font-size: 48px;
+    line-height: 56px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin: 0 0 8px;
+  }
+  .cover .subtitle {
+    font-size: 18px;
+    line-height: 26px;
+    color: var(--fadedgreen);
+    max-width: 540px;
+    margin: 0;
+  }
+  .cover .meta {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--divider-on-dark);
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--fadedgreen);
+  }
+  .cover .meta code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* --- Section --- */
+  section { margin-bottom: 80px; }
+  section > h2 {
+    font-size: 28px;
+    line-height: 34px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin: 0 0 8px;
+  }
+  section > .lede {
+    font-size: 15px;
+    line-height: 22px;
+    color: var(--label-secondary);
+    max-width: 600px;
+    margin: 0 0 32px;
+  }
+
+  /* --- Subsection --- */
+  .subsection { margin-bottom: 40px; }
+  .subsection h3 {
+    font-size: 13px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted-secondary);
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--section-line);
+  }
+
+  /* --- Color swatch grid --- */
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+  .swatch {
+    background: var(--white);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--separator-subtle);
+  }
+  .swatch .chip {
+    height: 96px;
+    border-bottom: 1px solid var(--separator-subtle);
+  }
+  /* Subtle inset on translucent swatches so they show against the card */
+  .swatch.translucent .chip {
+    background-image:
+      linear-gradient(45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.04) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.04) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+  .swatch .meta {
+    padding: 14px 16px 16px;
+  }
+  .swatch .name {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--black);
+    margin: 0 0 4px;
+  }
+  .swatch .value {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--muted-secondary);
+    margin: 0 0 8px;
+  }
+  .swatch .usage {
+    font-size: 12px;
+    line-height: 17px;
+    color: var(--label-secondary);
+    margin: 0;
+  }
+
+  /* --- Daylight gradient strip --- */
+  .gradient-strip {
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(
+      90deg,
+      var(--daylight-dawn) 0%,
+      var(--daylight-dusk) 50%,
+      var(--daylight-night) 100%
+    );
+    margin-top: 16px;
+    margin-bottom: 12px;
+  }
+  .gradient-caption {
+    font-size: 12px;
+    color: var(--label-secondary);
+    margin: 0;
+  }
+
+  /* --- Typography ramp --- */
+  .type-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 140px;
+    gap: 24px;
+    align-items: center;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--section-line);
+  }
+  .type-row:last-of-type { border-bottom: none; }
+  .type-row .token {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--muted-secondary);
+  }
+  .type-row .specimen {
+    /* Live demo of the type ramp using the actual ramp metrics. */
+    color: var(--black);
+  }
+  .type-row .metrics {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--muted-secondary);
+    text-align: right;
+  }
+
+  /* Type token classes — each mirrors the metrics from theme/typography.ts */
+  .t-large-title-emphasized { font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.4px; }
+  .t-title1-emphasized      { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: 0.38px; }
+  .t-title1-regular         { font-size: 28px; line-height: 34px; font-weight: 400; letter-spacing: 0.38px; }
+  .t-title2-emphasized      { font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -0.26px; }
+  .t-title2-regular         { font-size: 22px; line-height: 28px; font-weight: 400; letter-spacing: -0.26px; }
+  .t-title3-emphasized      { font-size: 20px; line-height: 25px; font-weight: 600; letter-spacing: -0.45px; }
+  .t-title3-regular         { font-size: 20px; line-height: 25px; font-weight: 400; letter-spacing: -0.45px; }
+  .t-body-emphasized        { font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.43px; }
+  .t-body-regular           { font-size: 17px; line-height: 22px; font-weight: 400; letter-spacing: -0.43px; }
+  .t-callout-regular        { font-size: 16px; line-height: 21px; font-weight: 400; letter-spacing: -0.31px; }
+  .t-subheadline-emphasized { font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.23px; }
+  .t-subheadline-regular    { font-size: 15px; line-height: 20px; font-weight: 400; letter-spacing: -0.23px; }
+  .t-footnote-emphasized    { font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: -0.08px; }
+  .t-footnote-regular       { font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -0.08px; }
+  .t-caption1-regular       { font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0px; }
+  .t-caption2-regular       { font-size: 11px; line-height: 13px; font-weight: 400; letter-spacing: 0.06px; }
+
+  /* --- Rules --- */
+  .rules-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rules-list li {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--section-line);
+  }
+  .rules-list li:last-child { border-bottom: none; }
+  .rules-list .rule-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--black);
+    margin: 0 0 8px;
+  }
+  .rules-list .rule-body {
+    font-size: 15px;
+    line-height: 22px;
+    color: var(--label-secondary);
+    margin: 0;
+  }
+  .rules-list .rule-body code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+
+  /* --- References --- */
+  .references-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .references-list li {
+    /* APA hanging indent: first line at 0, subsequent lines indented. */
+    padding-left: 36px;
+    text-indent: -36px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 21px;
+    color: var(--label-secondary);
+  }
+  .references-list li:last-child { margin-bottom: 0; }
+  .references-list em { font-style: italic; }
+  .references-list a {
+    color: var(--wiltedgreen);
+    text-decoration: none;
+    word-break: break-word;
+  }
+  .references-list a:hover { text-decoration: underline; }
+
+  /* --- Footer --- */
+  footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--section-line);
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--muted-secondary);
+  }
+  footer p { margin: 0 0 8px; }
+
+  /* --- Print --- */
+  @media print {
+    body { background: white; }
+    main { max-width: 100%; padding: 24px; }
+    .cover { break-after: page; }
+    section { break-inside: avoid-page; }
+    .swatch { break-inside: avoid; }
+    .type-row { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<!-- ───────────────────────────── COVER ───────────────────────────── -->
+
+<header class="cover">
+  <p class="eyebrow">Design System Specimen</p>
+  <h1>Fresh Greens</h1>
+  <p class="subtitle">
+    Tokens, type ramp, and design rules for the thesis navigation/safety
+    app. The application is iPhone-first React Native; this specimen
+    presents the tokens at parity with their in-app rendering.
+  </p>
+  <p class="meta">
+    Generated from <code>theme/colors.ts</code> and
+    <code>theme/typography.ts</code>. Figma source maintained
+    internally; private identifiers are intentionally omitted from
+    this published specimen.
+  </p>
+</header>
+
+<!-- ───────────────────────────── COLORS ───────────────────────────── -->
+
+<section>
+  <h2>Colors</h2>
+  <p class="lede">
+    The palette splits into brand greens (used freely), reserved colors
+    (UI safety signals only, with documented exceptions), neutrals, and
+    a set of iOS-derived semantic tokens for labels, backgrounds,
+    fills, and separators. Translucent values are shown over a checker
+    pattern so the alpha channel is visible.
+  </p>
+
+  <!-- Brand greens -->
+  <div class="subsection">
+    <h3>Brand greens — use freely for UI</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="chip" style="background: var(--freshgreen);"></div>
+        <div class="meta">
+          <p class="name">freshgreen</p>
+          <p class="value">#41AD49</p>
+          <p class="usage">Primary CTA, in-flow links.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--wiltedgreen);"></div>
+        <div class="meta">
+          <p class="name">wiltedgreen</p>
+          <p class="value">#326936</p>
+          <p class="usage">Secondary CTAs, atmospheric headers.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--burntgreen);"></div>
+        <div class="meta">
+          <p class="name">burntgreen</p>
+          <p class="value">#003F04</p>
+          <p class="usage">Deep accents (e.g., turn-card "Then" footer).</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--fadedgreen);"></div>
+        <div class="meta">
+          <p class="name">fadedgreen</p>
+          <p class="value">#A0D6A4</p>
+          <p class="usage">Supporting fills; the user's identity-glyph color.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reserved -->
+  <div class="subsection">
+    <h3>Reserved — UI safety signals only</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="chip" style="background: var(--orange);"></div>
+        <div class="meta">
+          <p class="name">orange</p>
+          <p class="value">#FF9500</p>
+          <p class="usage">Hazard, speed limit, construction.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--red);"></div>
+        <div class="meta">
+          <p class="name">red</p>
+          <p class="value">#FF3B30</p>
+          <p class="usage">Alert.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--yellow);"></div>
+        <div class="meta">
+          <p class="name">yellow</p>
+          <p class="value">#FFCC00</p>
+          <p class="usage">Caution.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--pink);"></div>
+        <div class="meta">
+          <p class="name">pink</p>
+          <p class="value">#FF2D55</p>
+          <p class="usage">Role TBD — ask before use.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Neutrals -->
+  <div class="subsection">
+    <h3>Neutrals</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="chip" style="background: var(--white); border-bottom: 1px solid var(--separator-subtle);"></div>
+        <div class="meta">
+          <p class="name">white</p>
+          <p class="value">#FFFFFF</p>
+          <p class="usage">Surface fills, primary text on dark backgrounds.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--black);"></div>
+        <div class="meta">
+          <p class="name">black</p>
+          <p class="value">#000000</p>
+          <p class="usage">Primary text on light backgrounds.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- iOS labels & backgrounds -->
+  <div class="subsection">
+    <h3>iOS system labels &amp; backgrounds</h3>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="chip" style="background: var(--label-secondary);"></div>
+        <div class="meta">
+          <p class="name">labelSecondary</p>
+          <p class="value">#3C3C43</p>
+          <p class="usage">Secondary text and icon tints.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--label-tertiary);"></div>
+        <div class="meta">
+          <p class="name">labelTertiary</p>
+          <p class="value">#3D3D3D</p>
+          <p class="usage">Tertiary text — eyebrows, deep captions.</p>
+        </div>
+      </div>
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--muted-secondary);"></div>
+        <div class="meta">
+          <p class="name">mutedSecondary</p>
+          <p class="value">rgba(60, 60, 67, 0.6)</p>
+          <p class="usage">Placeholder copy, timer secondaries.</p>
+        </div>
+      </div>
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--muted-tertiary);"></div>
+        <div class="meta">
+          <p class="name">mutedTertiary</p>
+          <p class="value">rgba(80, 80, 80, 0.7)</p>
+          <p class="usage">Footnotes; quietest readable text.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--system-grouped-background); border-bottom: 1px solid var(--separator-subtle);"></div>
+        <div class="meta">
+          <p class="name">systemGroupedBackground</p>
+          <p class="value">#F2F2F7</p>
+          <p class="usage">Recording widget surfaces; iOS list backgrounds.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daylight gradient -->
+  <div class="subsection">
+    <h3>Daylight gradient anchors</h3>
+    <p class="lede" style="margin-bottom: 16px;">
+      Documented exception to the reserved-color rule: orange used here
+      as functional daylight encoding (the literal color of light at
+      that time of day), not as signaling. Three-stop palette mirrored
+      on /home's bottom-sheet strip and on the route polyline so the
+      legend and polyline agree by shared token name.
+    </p>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="chip" style="background: var(--daylight-dawn);"></div>
+        <div class="meta">
+          <p class="name">daylightDawn</p>
+          <p class="value">#FFB347</p>
+          <p class="usage">Mid-afternoon to late-afternoon orange.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--daylight-dusk);"></div>
+        <div class="meta">
+          <p class="name">daylightDusk</p>
+          <p class="value">#C4785A</p>
+          <p class="usage">Golden hour to sunset transition mauve.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--daylight-night);"></div>
+        <div class="meta">
+          <p class="name">daylightNight</p>
+          <p class="value">#2D1B69</p>
+          <p class="usage">Past sunset, indigo night.</p>
+        </div>
+      </div>
+    </div>
+    <div class="gradient-strip"></div>
+    <p class="gradient-caption">
+      The three anchors interpolated as a continuous gradient — the
+      strip you see on /home's bottom sheet.
+    </p>
+  </div>
+
+  <!-- Fills, borders, separators -->
+  <div class="subsection">
+    <h3>Fills, scrims, borders &amp; separators</h3>
+    <div class="swatch-grid">
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--fills-tertiary);"></div>
+        <div class="meta">
+          <p class="name">fillsTertiary</p>
+          <p class="value">rgba(120, 120, 128, 0.12)</p>
+          <p class="usage">iOS Fills/Tertiary — search-bar gray on flat surfaces.</p>
+        </div>
+      </div>
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--modal-scrim);"></div>
+        <div class="meta">
+          <p class="name">modalScrim</p>
+          <p class="value">rgba(0, 0, 0, 0.2)</p>
+          <p class="usage">Dim layer behind /report popup.</p>
+        </div>
+      </div>
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--card-border-subtle);"></div>
+        <div class="meta">
+          <p class="name">cardBorderSubtle</p>
+          <p class="value">rgba(0, 0, 0, 0.3)</p>
+          <p class="usage">Input and card outlines.</p>
+        </div>
+      </div>
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--separator-subtle);"></div>
+        <div class="meta">
+          <p class="name">separatorSubtle</p>
+          <p class="value">rgba(0, 0, 0, 0.1)</p>
+          <p class="usage">Hairline dividers on light backgrounds.</p>
+        </div>
+      </div>
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--divider-on-dark);"></div>
+        <div class="meta">
+          <p class="name">dividerOnDark</p>
+          <p class="value">rgba(160, 214, 164, 0.25)</p>
+          <p class="usage">Hairline dividers on wiltedgreen surfaces.</p>
+        </div>
+      </div>
+      <div class="swatch translucent">
+        <div class="chip" style="background: var(--drag-handle-bar);"></div>
+        <div class="meta">
+          <p class="name">dragHandleBar</p>
+          <p class="value">rgba(128, 128, 128, 0.55)</p>
+          <p class="usage">The gray bar atop modal sheets.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background: var(--divider-neutral);"></div>
+        <div class="meta">
+          <p class="name">dividerNeutral</p>
+          <p class="value">rgba(202, 196, 208, 1)</p>
+          <p class="usage">Vertical/horizontal card dividers.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── TYPOGRAPHY ───────────────────────────── -->
+
+<section>
+  <h2>Typography</h2>
+  <p class="lede">
+    Naming follows Apple's iOS Human Interface Guidelines type ramp
+    (Apple Inc., n.d.) — largeTitle / title1 / body / subheadline /
+    footnote / caption1 / caption2 — with Regular and Emphasized
+    weight variants. Same convention Figma uses, so the mapping
+    between design and code is one-to-one. Weights follow React
+    Native's standard scale (400 / 600 / 700); Apple's "Semibold"
+    PostScript weight (590) maps to 600.
+  </p>
+
+  <div class="type-row">
+    <span class="token">largeTitleEmphasized</span>
+    <span class="specimen t-large-title-emphasized">Drive like you know these roads.</span>
+    <span class="metrics">34/41/700/0.4</span>
+  </div>
+  <div class="type-row">
+    <span class="token">title1Emphasized</span>
+    <span class="specimen t-title1-emphasized">For us, by us</span>
+    <span class="metrics">28/34/700/0.38</span>
+  </div>
+  <div class="type-row">
+    <span class="token">title1Regular</span>
+    <span class="specimen t-title1-regular">Are you armed?</span>
+    <span class="metrics">28/34/400/0.38</span>
+  </div>
+  <div class="type-row">
+    <span class="token">title2Emphasized</span>
+    <span class="specimen t-title2-emphasized">Hey Myles</span>
+    <span class="metrics">22/28/700/-0.26</span>
+  </div>
+  <div class="type-row">
+    <span class="token">title2Regular</span>
+    <span class="specimen t-title2-regular">Myles Ashitey</span>
+    <span class="metrics">22/28/400/-0.26</span>
+  </div>
+  <div class="type-row">
+    <span class="token">title3Emphasized</span>
+    <span class="specimen t-title3-emphasized">Pull over</span>
+    <span class="metrics">20/25/600/-0.45</span>
+  </div>
+  <div class="type-row">
+    <span class="token">title3Regular</span>
+    <span class="specimen t-title3-regular">Pull over safely in a well lit place</span>
+    <span class="metrics">20/25/400/-0.45</span>
+  </div>
+  <div class="type-row">
+    <span class="token">bodyEmphasized</span>
+    <span class="specimen t-body-emphasized">Recording…</span>
+    <span class="metrics">17/22/600/-0.43</span>
+  </div>
+  <div class="type-row">
+    <span class="token">bodyRegular</span>
+    <span class="specimen t-body-regular">Where are you headed?</span>
+    <span class="metrics">17/22/400/-0.43</span>
+  </div>
+  <div class="type-row">
+    <span class="token">calloutRegular</span>
+    <span class="specimen t-callout-regular">Wears a Smokey Bear hat</span>
+    <span class="metrics">16/21/400/-0.31</span>
+  </div>
+  <div class="type-row">
+    <span class="token">subheadlineEmphasized</span>
+    <span class="specimen t-subheadline-emphasized">Continue with Apple</span>
+    <span class="metrics">15/20/600/-0.23</span>
+  </div>
+  <div class="type-row">
+    <span class="token">subheadlineRegular</span>
+    <span class="specimen t-subheadline-regular">Add your car's model and fuel for refuel reminders</span>
+    <span class="metrics">15/20/400/-0.23</span>
+  </div>
+  <div class="type-row">
+    <span class="token">footnoteEmphasized</span>
+    <span class="specimen t-footnote-emphasized">Log in</span>
+    <span class="metrics">13/18/600/-0.08</span>
+  </div>
+  <div class="type-row">
+    <span class="token">footnoteRegular</span>
+    <span class="specimen t-footnote-regular">Your trusted contact is being notified</span>
+    <span class="metrics">13/18/400/-0.08</span>
+  </div>
+  <div class="type-row">
+    <span class="token">caption1Regular</span>
+    <span class="specimen t-caption1-regular">Recordings are saved to your account</span>
+    <span class="metrics">12/16/400/0</span>
+  </div>
+  <div class="type-row">
+    <span class="token">caption2Regular</span>
+    <span class="specimen t-caption2-regular">I acknowledge the Privacy Policy</span>
+    <span class="metrics">11/13/400/0.06</span>
+  </div>
+</section>
+
+<!-- ───────────────────────────── RULES ───────────────────────────── -->
+
+<section>
+  <h2>Design rules</h2>
+  <p class="lede">
+    The system isn't just tokens — it's the rules that govern when and
+    where each token is allowed. These rules live alongside the code
+    in <code>.cursorrules</code> at the repository root; below is a
+    summary of the principles that shape every screen.
+  </p>
+
+  <ul class="rules-list">
+    <li>
+      <p class="rule-title">Reserved-color rule</p>
+      <p class="rule-body">
+        Orange, red, yellow, and pink are reserved as UI safety
+        signals. They carry semantic weight — <em>hazard</em>,
+        <em>alert</em>, <em>caution</em>, <em>TBD</em> — and are not
+        used for brand decoration. Documented exceptions:
+        Welcome's orange-sky brand splash; the navy uniform on the
+        Officer/Trooper illustration; the daylight-gradient route
+        polyline; safety-zone fills; and the report-button alert
+        icon. Anywhere else, reserved colors are off-limits.
+      </p>
+    </li>
+    <li>
+      <p class="rule-title">Typography emotional-restraint exception</p>
+      <p class="rule-body">
+        Title1/Regular (28pt at weight 400) is permitted on
+        emotionally-charged screens — the in-modal user-prompt
+        register. The default for headers is the Emphasized weight;
+        Regular is reserved for moments where a held question reads
+        better than a directive. Used on /pulled-over's Trusted
+        Contact phase ("You're not alone."), the armed-or-not prompt
+        ("Are you armed?"), and the Trip Summary screen.
+      </p>
+    </li>
+    <li>
+      <p class="rule-title">Modal padding rules</p>
+      <p class="rule-body">
+        Modal screens use <code>paddingHorizontal: 16</code> for
+        tab-grid and card-based modals (Safety, Pulled-Over,
+        Armed-or-Not, Report). Static-content screens — the ones
+        that are mostly long-form text and a single CTA — use
+        <code>paddingHorizontal: 32</code> (Onboarding, Permissions,
+        Trusted Contact Setup, Settings). The wider gutter on
+        static-content screens gives the copy room to breathe; the
+        tighter gutter on grids fits more tappable density.
+      </p>
+    </li>
+    <li>
+      <p class="rule-title">Tap targets — iOS HIG 44×44 minimum</p>
+      <p class="rule-body">
+        Every interactive element has at least a 44pt-by-44pt
+        effective tap area, per Apple's iOS Human Interface
+        Guidelines (Apple Inc., n.d.). Either the visual itself
+        meets that bar, or <code>hitSlop</code> extends the tap
+        area beyond the visual. The default <code>hitSlop</code>
+        across modal dismiss patterns is 12pt, which makes a 24pt
+        visual icon a 48pt tap target. The exception clause is
+        genuinely-constrained dense rows where a 44pt visual would
+        dominate the layout — the Welcome terms checkbox, for
+        example, is 24pt visual with <code>hitSlop: 20</code> for
+        a 64pt effective area.
+      </p>
+    </li>
+    <li>
+      <p class="rule-title">Responsive widths — never hardcode 374</p>
+      <p class="rule-body">
+        Widths derived from the 390pt iPhone-baseline (often 374,
+        326, or 351) fail on the wider Pro Max line (430pt+) by
+        floating in the middle with too much edge gutter. The
+        responsive pattern is <code>alignSelf: 'stretch'</code>
+        plus a parent <code>paddingHorizontal</code> equal to the
+        intended gutter — the element grows with the device while
+        the gutter stays constant.
+      </p>
+    </li>
+    <li>
+      <p class="rule-title">One identity glyph across surfaces</p>
+      <p class="rule-body">
+        The user is represented as a car — same iconography
+        wherever they appear in the app: the avatar button on
+        /home, the profile glyph in /menu's hero. Differentiated
+        from the trusted-friend pin (also a car) by color:
+        fadedgreen for the user's own car, freshgreen for the
+        trusted contact. The shared metaphor is the thesis claim
+        rendered visually — the app sees the user as a car-in-the-
+        system, not a generic abstract user.
+      </p>
+    </li>
+    <li>
+      <p class="rule-title">Legal-guidance copy from authoritative sources</p>
+      <p class="rule-body">
+        The "What to Do," "What to Have," "What to Say," and "What
+        to Know" bullets in the Pulled Over flow are sourced from
+        the American Civil Liberties Union's
+        <em>Know Your Rights: Stopped by Police</em> guidance
+        (American Civil Liberties Union, n.d.). Tightening for
+        at-a-glance UI use was permitted; substantive rephrasing
+        was not. The right-to-record and right-to-leave bullets
+        added during fidelity audit 4 trace directly to the same
+        ACLU source. Sourcing legal copy from an authoritative
+        third party is a system rule, not a per-screen choice —
+        substituting paraphrased legal advice would weaken the
+        thesis claim that the app respects the lived legal
+        situation of Black drivers.
+      </p>
+    </li>
+    <li>
+      <p class="rule-title">Navigation UX anchored in user-familiar metaphors</p>
+      <p class="rule-body">
+        Where the app introduces novel safety surfaces (the
+        Pulled Over consolidated modal, the Trusted Contact
+        flow), the surrounding navigation chrome — search, route
+        preview, settings menu, profile greeting — borrows from
+        established navigation apps so users don't pay a
+        learning tax on top of the safety-flow novelty. The
+        Settings menu's profile-row greeting, single-row
+        sections, and swipe-with-peek tile carousel reference
+        Waze's pattern (Waze Mobile Ltd., n.d.); the search-bar
+        register and route bottom-sheet reference Google Maps
+        (Google LLC, n.d.). The thesis contribution is the
+        safety-aware routing and post-stop guidance, not a
+        reinvention of map navigation — anchoring the
+        familiar parts is what makes the unfamiliar parts
+        legible.
+      </p>
+    </li>
+  </ul>
+</section>
+
+<!-- ───────────────────────────── REFERENCES ───────────────────────────── -->
+
+<section>
+  <h2>References</h2>
+  <p class="lede">
+    Cited in APA 7th edition style. Works retrieved
+    from the open web at the time of thesis preparation.
+  </p>
+
+  <ul class="references-list">
+    <li>
+      American Civil Liberties Union. (n.d.).
+      <em>Know your rights: Stopped by police.</em>
+      Retrieved from
+      <a href="https://www.aclu.org/know-your-rights/stopped-by-police">https://www.aclu.org/know-your-rights/stopped-by-police</a>
+    </li>
+    <li>
+      Apple Inc. (n.d.). <em>Human interface guidelines.</em>
+      Apple Developer Documentation. Retrieved from
+      <a href="https://developer.apple.com/design/human-interface-guidelines">https://developer.apple.com/design/human-interface-guidelines</a>
+    </li>
+    <li>
+      Google LLC. (n.d.). <em>Google Maps</em> [Mobile app].
+      App Store. Retrieved from
+      <a href="https://apps.apple.com/us/app/google-maps/id585027354">https://apps.apple.com/us/app/google-maps/id585027354</a>
+    </li>
+    <li>
+      Waze Mobile Ltd. (n.d.). <em>Waze Navigation &amp; Live Traffic</em> [Mobile app].
+      App Store. Retrieved from
+      <a href="https://apps.apple.com/us/app/waze-navigation-live-traffic/id323229106">https://apps.apple.com/us/app/waze-navigation-live-traffic/id323229106</a>
+    </li>
+  </ul>
+</section>
+
+<!-- ───────────────────────────── FOOTER ───────────────────────────── -->
+
+<footer>
+  <p>
+    Fresh Greens — a thesis project. Tokens are the source of truth;
+    every screen consumes them via TypeScript imports rather than
+    inlining values. Adding a new token requires a single edit in
+    <code>theme/colors.ts</code> or <code>theme/typography.ts</code>;
+    every consumer picks it up via type-checked autocompletion.
+  </p>
+  <p>
+    This specimen is generated from the same files the iOS app reads.
+    Any drift between this page and the rendered application would be
+    a system violation, not a documentation gap.
+  </p>
+</footer>
+
+</main>
+</body>
+</html>
