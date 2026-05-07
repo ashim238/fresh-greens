@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit-6 (2026-05-07)
+
+Sixth audit, after #50/#51/#52 shipped (map markers, safety rewire, en-route polish). Static sweep found zero design-system drift — recent PRs continue to include `chore:` self-review trim commits, so per-PR hygiene is doing the work. The substantive find was the en-route ETA wrapping to two rows on narrower devices and missing the sun/moon glyph that Figma uses in place of AM/PM.
+
+- **Format the time manually when iOS's `toLocaleTimeString` won't drop AM/PM.** `toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })` honors locale for the AM/PM suffix even when you don't want it. There's no flag to suppress it cleanly across locales. Manual `${h12}:${minutes.padStart(2, '0')}` is more reliable when the design intentionally drops the suffix in favor of a glyph. Worth knowing for any "I want a specific time format and the locale API keeps adding things" moment.
+- **A graphic can replace a text qualifier and free up a layout.** Figma uses a 16pt sun/moon glyph beside "8:30" instead of "8:30 PM" because the glyph (a) compactifies the layout (no wrap on narrow centerSlot widths) and (b) reads faster than three letters. Sun before 6am or after 6pm reads as "arriving in the dark"; sun otherwise. The 16pt left-spacer keeps the time optically centered against the 16pt right-glyph. Worth keeping in the toolkit: when a layout cramps because of a text qualifier, ask whether a glyph would do the same job.
+- **Audit-verified subtext sizing — no change needed.** User flagged the en-route distance/duration subtext as potentially too small. Pulled Figma 825:3783's design context: subtext is 15pt Subheadline, *exactly* what we ship. No change. Worth noting that "looks small" perception sometimes reflects expectations from larger Apple/Google-Maps surfaces — Fresh Greens' bottom sheet keeps the Apple HIG subheadline scale intentionally, since it sits in a denser modal-content register, not a full-screen route summary.
+- **Audits get steadily lighter when per-PR hygiene holds.** #1 caught major drift; #4 was already lighter; #5 was almost entirely stale comments; #6 is one targeted ETA fix. The audit cadence still has value as a baseline reset, but the cumulative drift you're auditing against has dropped close to zero. Worth reading as confirmation that the slop-trim discipline is paying compounding interest.
+
+---
+
 ## feat/en-route-polish (2026-05-07)
 
 Bottom-sheet polish on /en-route + a shared `lib/format.ts` for trip duration and distance strings used across /home and /en-route. Also brings /en-route's community-report rendering up to /home's MapMarker pattern (the leftover Circle rendering had been creating a yellow halo around the user's location whenever a caution-zone test report was logged near current position) and makes /home's destination underline conditional on "recurring trip" intent.
