@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/user-location-pin-z-order (2026-05-07)
+
+The iOS-native blue user-location dot (rendered by `showsUserLocation`) sat *under* LandmarkMarker pins when a community report's coordinate landed near the user's GPS — the orange pin's tip would obscure the dot. react-native-maps' `<Marker zIndex={…}>` controls draw order for custom markers, but `showsUserLocation` renders MKUserLocation natively and doesn't expose a zIndex hook. Fix: render our own user-location marker with `zIndex={1000}` instead.
+
+- **`showsUserLocation` is opaque to z-order control.** When the iOS-native dot needs to consistently draw above other markers, the only reliable path is to disable `showsUserLocation` and render a custom `<Marker zIndex={…}>` at the user's GPS. The trade-off is losing the native MKUserLocation pulse animation; we re-add a subtle Animated pulse ring (1.6s loop, useNativeDriver) so the "this is live" cue isn't lost.
+- **`watchPositionAsync` cleanup matters.** The new effect subscribes via `Location.watchPositionAsync(opts, callback)` and cleans up via `subscription.remove()` in the unmount return. Without the cleanup, navigating away from /home would leak a position-watcher (battery + lifecycle bug). Worth knowing for any expo-location subscription — `remove()` on the returned subscription, always in the cleanup.
+- **One subscription per screen, not per app.** Both /home and /en-route subscribe independently. Tempted to lift to a context or hook (`useUserLocation()`), but the subscription is cheap and "screen unmounts → subscription cleans up" is easier to reason about than a long-lived global subscription that some screen might need to opt out of. Worth keeping in mind: when subscriptions are this cheap, per-screen ownership beats global state.
+- **`anchorScreenPosition` and `flat` are tempting but wrong here.** First draft included both as Marker props; tsc rejected `anchorScreenPosition` (doesn't exist) and `flat` would have made the dot tilt with the camera (we want it always upright). Lesson: for `<Marker>` props that look intuitive, check the actual TS surface before relying on inferred behavior.
+
+---
+
 ## feat/map-marker-icons-from-figma (2026-05-07)
 
 Subs in the Figma "MapMarker" component (Draft tab, node `1044:2667`) — three states (black-owned, local-business, report) authored as 48×48 teardrop pins with a 24×24 inner Bg circle and a 16×16 glyph centered on the Bg. Replaces the placeholder Phosphor Megaphone on /home and /en-route's community-report markers with category-aware versions. New `LandmarkMarker` component sits alongside the existing `MapMarker` (saved-home retains the circular-pip register).

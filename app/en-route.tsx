@@ -23,6 +23,7 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { LandmarkMarker } from '../components/LandmarkMarker';
+import { UserLocationMarker } from '../components/UserLocationMarker';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
 import { getZonesForRegion, type Zone } from '../lib/api/zones';
@@ -62,6 +63,12 @@ export default function EnRoute() {
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  // Live GPS for the custom UserLocationMarker — same pattern /home
+  // uses to keep the dot above LandmarkMarker pins via zIndex.
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   // Bottom-sheet height drives where the side button column floats. Same
   // pattern /home uses for the Report button: measure on layout, anchor
   // children relative to the measured value, conditionally render so we
@@ -175,6 +182,32 @@ export default function EnRoute() {
     };
   }, [params.destLat, params.destLng]);
 
+  // Subscribe to live GPS for the UserLocationMarker. Same setup as
+  // /home — high accuracy, 1s/5m thresholds, cleanup on unmount.
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | undefined;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 1000,
+          distanceInterval: 5,
+        },
+        (pos) => {
+          setUserLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        },
+      );
+    })();
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -220,7 +253,6 @@ export default function EnRoute() {
           zoom: 17,
           altitude: 1000,
         }}
-        showsUserLocation
         showsMyLocationButton={false}
       >
         {/*
@@ -264,6 +296,13 @@ export default function EnRoute() {
             />
           );
         })}
+
+        {userLocation && (
+          <UserLocationMarker
+            latitude={userLocation.latitude}
+            longitude={userLocation.longitude}
+          />
+        )}
       </MapView>
 
       {/*
