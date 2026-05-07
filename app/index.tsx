@@ -9,6 +9,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,6 +46,12 @@ export default function Welcome() {
   const router = useRouter();
   const { user, loading } = useUser();
   const [termsAccepted, setTermsAccepted] = useState(false);
+  // Scale the 390-baseline backdrop to the device width. Anchored at
+  // bottom-center so the hill stays glued to the bottom edge across
+  // iPhone SE through Pro Max instead of floating in the middle of
+  // an orange margin.
+  const { width: screenWidth } = useWindowDimensions();
+  const sceneScale = screenWidth / 390;
 
   useEffect(() => {
     if (!loading && user) {
@@ -57,7 +64,15 @@ export default function Welcome() {
       <StatusBar style="light" />
 
       <View style={styles.backdropContainer}>
-        <View style={styles.backdropScene}>
+        <View
+          style={[
+            styles.backdropScene,
+            {
+              transform: [{ scale: sceneScale }],
+              transformOrigin: 'bottom center',
+            },
+          ]}
+        >
           {/*
             Static layers — z-order: hill (back), sun, border cloud, Vic.
             Position styles go directly on the Svg components rather than
