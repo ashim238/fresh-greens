@@ -27,6 +27,7 @@ import { EdgeIndicator } from '../components/EdgeIndicator';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { MapMarker } from '../components/MapMarker';
 import { SearchBar } from '../components/SearchBar';
+import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useUser } from '../hooks/useUser';
@@ -77,6 +78,14 @@ export default function Home() {
   // Updated on `onRegionChangeComplete`; null until the user's first
   // pan/zoom or the centering effect fires.
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
+  // Live GPS for the custom UserLocationMarker (which replaces
+  // showsUserLocation so it can sit above LandmarkMarker pins via
+  // zIndex). Updated by the watchPositionAsync subscription below;
+  // null until the first fix arrives.
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   // Viewport size in pt. Measured once via the MapView's onLayout —
   // edge-indicator positioning needs screen-space pixels, not lat/lng.
   const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(
@@ -214,6 +223,35 @@ export default function Home() {
     // requiring the user to navigate away and back.
   }, [params.destLat, params.destLng]);
 
+  // Subscribe to live GPS for the custom UserLocationMarker. Permission
+  // was negotiated by /permissions during onboarding; we ask again here
+  // (cached → returns granted immediately, no re-prompt). Highest
+  // accuracy + 1s/5m thresholds are conservative defaults that update
+  // the dot smoothly without burning battery.
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | undefined;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 1000,
+          distanceInterval: 5,
+        },
+        (pos) => {
+          setUserLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        },
+      );
+    })();
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
   // Long-press on the map saves that location as the user's home.
   // Goes through Alert so the user confirms before persistence —
   // accidental long-presses on a navigation map shouldn't silently
@@ -267,7 +305,6 @@ export default function Home() {
           latitudeDelta: 0.02,
           longitudeDelta: 0.02,
         }}
-        showsUserLocation
         showsMyLocationButton={false}
         onRegionChangeComplete={setMapRegion}
         onLayout={(e) =>
@@ -395,6 +432,19 @@ export default function Home() {
             />
           );
         })}
+
+        {/*
+          Custom user-location dot — replaces showsUserLocation so it
+          can sit above LandmarkMarker pins (zIndex=1000) when a
+          report happens to land near the user's GPS. Renders only
+          after the first watchPositionAsync fix.
+        */}
+        {userLocation && (
+          <UserLocationMarker
+            latitude={userLocation.latitude}
+            longitude={userLocation.longitude}
+          />
+        )}
       </MapView>
 
       {/*
