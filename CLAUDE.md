@@ -178,10 +178,10 @@ All four thesis factors (light, police, wildlife, road conditions) are now cover
 
 ### Polish / smaller gaps
 
-- Welcome illustrations: clouds + wind (vic, sun, hill are in; sky elements are missing).
-- Onboarding panel illustrations (steering wheel, sitting figure with thought bubble, thinking figure).
-- Permissions: real location-pin + car illustration (currently Ionicons placeholders).
-- Officer / Trooper character illustrations (currently Ionicons placeholders).
+- ~~Welcome illustrations: clouds + wind.~~ ✅ Shipped in `feat/illustrations` — Welcome now uses a single composite backdrop PNG (`welcome-backdrop.png`) exported from Figma's "Visuals" parent (825:3163), containing Vic + sun + hill + clouds + wind + border cloud. Replaces the previous Vic PNG + sun PNG + CSS-shaped hill stack. Content (title, terms, buttons) overlays via SafeAreaView.
+- ~~Onboarding panel illustrations.~~ ✅ Shipped in `feat/illustrations` — each panel renders its illustration as a bottom-anchored full-width Image (`onboarding-1.png` / `-2.png` / `-3.png`, cropped from the Figma panel screenshots at y=369-720 to exclude the Continue/Skip overlay). Uses `aspectRatio: 390/351` so the image scales proportionally on wider iPhones.
+- ~~Permissions: real location-pin + car illustration.~~ ✅ Shipped in `feat/illustrations` — `permissions-location.svg` (rotated 17.72° in a 35.9×40.4 wrap to match Figma) + `permissions-car.svg` (57×40), imported as `react-native-svg` components.
+- ~~Officer / Trooper character illustrations.~~ ✅ Shipped in `feat/illustrations` — `officer.png` (100×157) and `trooper.png` (100×171) PNGs in 120×172 wrappers (Officer anchored to bottom, Trooper centered). Trooper's yellow-shield hat badge is a separate SVG (`trooper-hat-badge.svg`) layered on top at top:36/left:52 within the wrapper, computed from Figma's inset-[20.99%_43.22%_68.99%_43.23%] against the wrapper's 120×172 dimensions.
 - ~~Daylight gradient color consistency.~~ ✅ Resolved in `chore/figma-fidelity-audit-3`. `lib/daylight.ts` polyline now uses orange→mauve→indigo to match the bottom-sheet strip. Polyline and legend share one canonical gradient.
 - Real "Schedule for X:XX AM" computation using SunCalc + route duration.
 - Custom map markers (saved home, trusted friend, location landmarks).

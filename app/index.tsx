@@ -46,24 +46,20 @@ export default function Welcome() {
       <StatusBar style="light" />
 
       {/*
-        Sun — rendered BEFORE the hill so the hill paints over its bottom half,
-        creating the "rising sun" silhouette without needing a pre-clipped asset.
-        JSX source order = z-order: later siblings render on top.
+        Single composite backdrop — Vic, sun, hill, clouds, wind, and
+        the border cloud at the top of the screen. Authored as one
+        export from Figma's "Visuals" parent (node 825:3163), so the
+        positioning of every element is exactly as designed instead
+        of approximated separately. Replaces the previous three
+        layers (Vic PNG + sun PNG + CSS-shaped hill).
       */}
       <Image
-        source={require('../assets/illustrations/welcome-sun.png')}
-        style={styles.sun}
-        resizeMode="contain"
-        accessible={false}
+        source={require('../assets/illustrations/welcome-backdrop.png')}
+        style={styles.backdrop}
+        resizeMode="cover"
+        accessible
+        accessibilityLabel="Illustration of a person waving from inside a location pin, sitting above a green hill at sunrise with clouds and breezes around them"
       />
-
-      {/*
-        The hill. Sits absolutely at the bottom, behind the content.
-        Approximated with a tall View + a big top borderRadius — good enough
-        for v1. The Figma version has a more organic curve we can swap in
-        later as an SVG.
-      */}
-      <View style={styles.hill} />
 
       {/*
         SafeAreaView pads its children away from the notch and home indicator
@@ -71,20 +67,11 @@ export default function Welcome() {
       */}
       <SafeAreaView style={styles.content}>
         {/*
-          The Vic character. resizeMode="contain" scales the image to fit
-          inside its container while preserving aspect ratio — no squish.
-          The wrapping View has flex: 1 so it claims the leftover vertical
-          space (same role the placeholder used to play).
+          Spacer claims leftover vertical space above the title.
+          The backdrop image places Vic in this region naturally —
+          we don't render Vic separately anymore.
         */}
-        <View style={styles.illustrationContainer}>
-          <Image
-            source={require('../assets/illustrations/welcome-vic.png')}
-            style={styles.welcomeVic}
-            resizeMode="contain"
-            accessible
-            accessibilityLabel="Illustration of a person waving from inside a location pin"
-          />
-        </View>
+        <View style={styles.illustrationContainer} />
 
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Fresh Greens</Text>
@@ -152,30 +139,20 @@ const styles = StyleSheet.create({
     // Brand-exception use of a reserved color — see .cursorrules
     backgroundColor: colors.orange,
   },
-  hill: {
-    // Extending past the screen edges + huge radius gives a gentle arc
-    // (only the middle of a much wider ellipse is visible). With borderRadius
-    // alone on a screen-width element, RN clamps to half-width and you get
-    // a tombstone dome instead of a hill.
+  backdrop: {
+    // Absolutely positioned full-screen image, sized to cover the
+    // entire root. resizeMode='cover' keeps the aspect ratio; on
+    // taller iPhones (Pro Max) the image scales up; on shorter
+    // (iPhone SE / mini) the top/bottom crop slightly — Vic stays
+    // visually centered, and the hill's bottom is below the visible
+    // safe area anyway, so cropping there is invisible.
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     bottom: 0,
-    left: -160,
-    right: -160,
-    height: '55%',
-    backgroundColor: colors.burntgreen,
-    borderTopLeftRadius: 600,
-    borderTopRightRadius: 600,
-  },
-  sun: {
-    // Centered horizontally on screen, sitting at the top of the hill so the
-    // bottom half is hidden by the hill's overlap (the hill renders later in
-    // JSX = paints on top).
-    position: 'absolute',
-    top: '41%', // tune to nudge sun up/down relative to the hill ridge
-    left: '50%',
-    marginLeft: -45, // half the width — classic absolute-centering trick
-    width: 90,
-    height: 90,
+    width: '100%',
+    height: '100%',
   },
   content: {
     flex: 1,
@@ -187,20 +164,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   illustrationContainer: {
-    flex: 1, // claims all leftover vertical space above the title
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  welcomeVic: {
-    width: 200,
-    height: 250,
-    // transform shifts the image without affecting layout flow.
-    // translateX negative = move left (so the marker pin's point lines up
-    //   with the canvas's horizontal center, compensating for the raised arm
-    //   extending the bounding box to the left).
-    // translateY negative = move up (creating room below for the sun export).
-    // Tune both numbers to taste.
-    transform: [{ translateX: -20 }, { translateY: -50 }],
+    // Spacer — claims leftover vertical space above the title. Vic
+    // is rendered as part of the backdrop image, not as a child of
+    // this view, so this just contributes its flex.
+    flex: 1,
   },
   titleBlock: {
     alignItems: 'center',

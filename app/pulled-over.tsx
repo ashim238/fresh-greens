@@ -23,6 +23,7 @@ import {
 } from 'react';
 import {
   Animated,
+  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -32,6 +33,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
@@ -954,7 +956,23 @@ function OfficerTrooperView() {
       <View style={officerStyles.cardsRow}>
         <View style={officerStyles.card}>
           <View style={officerStyles.illustrationBox}>
-            <Ionicons name="shield" size={64} color="#1B3F8B" />
+            {/*
+              Illustration wrapper sized 120×172 per Figma, with the
+              Officer image (100×157) anchored to the bottom of the
+              wrapper (Figma's `items-end`). Trooper uses center
+              alignment instead — see below.
+            */}
+            <View
+              style={[officerStyles.illustrationWrap, officerStyles.alignEnd]}
+            >
+              <Image
+                source={require('../assets/illustrations/officer.png')}
+                style={officerStyles.officerImage}
+                resizeMode="contain"
+                accessible
+                accessibilityLabel="Illustration of an officer wearing a brimmed cap"
+              />
+            </View>
             <Text style={officerStyles.cardLabel}>Officer</Text>
           </View>
           <View style={officerStyles.bullets}>
@@ -975,7 +993,26 @@ function OfficerTrooperView() {
 
         <View style={officerStyles.card}>
           <View style={officerStyles.illustrationBox}>
-            <Ionicons name="shield-half" size={64} color="#5C5C5C" />
+            <View style={officerStyles.illustrationWrap}>
+              <Image
+                source={require('../assets/illustrations/trooper.png')}
+                style={officerStyles.trooperImage}
+                resizeMode="contain"
+                accessible
+                accessibilityLabel="Illustration of a trooper wearing a Smokey Bear hat"
+              />
+              {/*
+                Yellow-shield hat badge — Figma authors this as a
+                separate SVG layered on top of the Trooper PNG at
+                inset-[20.99%_43.22%_68.99%_43.23%] within the 120×172
+                wrapper. ≈16×17pt centered on the hat brim.
+              */}
+              <TrooperHatBadge
+                width={16.26}
+                height={17.23}
+                style={officerStyles.trooperBadge}
+              />
+            </View>
             <Text style={officerStyles.cardLabel}>Trooper</Text>
           </View>
           <View style={officerStyles.bullets}>
@@ -1625,6 +1662,40 @@ const officerStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 32,
     padding: 16,
+  },
+  // 120×172 illustration wrapper inside the 148×244 card. The image
+  // sits inside this; for Officer the image anchors to the bottom
+  // (alignEnd applied), for Trooper it centers (default). Wrapper
+  // also serves as the positioning context for the Trooper hat-badge
+  // SVG overlay.
+  illustrationWrap: {
+    width: 120,
+    height: 172,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  alignEnd: {
+    justifyContent: 'flex-end',
+  },
+  // PNGs exported at 1384×2186 (Officer) and 1384×2361 (Trooper) —
+  // far over the rendered point size, so resizeMode: 'contain' gives
+  // crisp downscaling at any device pixel ratio.
+  officerImage: {
+    width: 100,
+    height: 157,
+  },
+  trooperImage: {
+    width: 100,
+    height: 171,
+  },
+  // Yellow-shield badge on the Trooper hat. Position derived from
+  // Figma's `inset-[20.99%_43.22%_68.99%_43.23%]` against the 120×172
+  // wrapper: top = 20.99% × 172 ≈ 36, left = 43.23% × 120 ≈ 52.
+  trooperBadge: {
+    position: 'absolute',
+    top: 36,
+    left: 52,
   },
   cardLabel: {
     ...typography.title3Regular,

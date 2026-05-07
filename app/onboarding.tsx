@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
   FlatList,
+  Image,
+  type ImageSourcePropType,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -34,26 +36,52 @@ type Panel = {
   id: string;
   title: string;
   body: string;
+  illustration: ImageSourcePropType;
+  /**
+   * Plain-language description of the illustration, surfaced to
+   * VoiceOver. Falls back to "Onboarding illustration" when omitted.
+   */
+  illustrationLabel: string;
 };
 
+// Each illustration was cropped from its Figma panel screenshot
+// (390×844) at y=369-720 — the bottom illustration area excluding
+// the Continue/Skip overlay. Original aspect ratio 390:351 = 1.111;
+// we use that ratio when rendering so the image scales cleanly on
+// wider iPhones (Pro Max line) without hardcoding a width.
 const PANELS: Panel[] = [
   {
     id: 'drive',
     title: 'Drive like you know these roads',
     body: 'No one should feel uncomfortable on the open road. Fresh Greens places the agency back in your hands by suggesting routes that maximize visibility and familiarity.',
+    illustration: require('../assets/illustrations/onboarding-1.png'),
+    illustrationLabel:
+      'Illustration of hands gripping a steering wheel, viewed from the driver seat',
   },
   {
     id: 'community',
     title: 'For us, by us',
     body: 'Fresh Greens relies on insights shared by travelers like you. Community contributions are vital in the mapping process, ensuring drivers have a full understanding of their surroundings, from road hazards to the treatment of Black visitors.',
+    illustration: require('../assets/illustrations/onboarding-2.png'),
+    illustrationLabel:
+      'Illustration of a person sitting on a hill with a thought bubble reading "This street needs more lighting"',
   },
   {
     id: 'unique',
     title: 'Your viewpoint is unique',
     body:
       "That gut feeling that tells you to turn onto a road you've been down before is valuable. Fresh Greens integrates your intuition into the navigation, creating a driving experience specific to you.",
+    illustration: require('../assets/illustrations/onboarding-3.png'),
+    illustrationLabel:
+      'Illustration of a person thinking, with a thought bubble showing a no-fly icon',
   },
 ];
+
+// Source aspect ratio of the illustration crops (Figma 390×351).
+// Used as `aspectRatio` on the Image so it scales cleanly on wider
+// iPhones (Pro Max line) — width tracks the panel's full width,
+// height follows from the ratio.
+const ILLUSTRATION_ASPECT = 390 / 351;
 
 export default function Onboarding() {
   const router = useRouter();
@@ -122,6 +150,24 @@ export default function Onboarding() {
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.body}>{item.body}</Text>
               </View>
+              {/*
+                Illustration anchored to the bottom of the panel —
+                full-width (matches the Figma "extends edge-to-edge"
+                intent), with aspectRatio handling the height so
+                wider iPhones get a proportionally taller image
+                instead of a stretched one. Position absolute so the
+                title/body block above doesn't get pushed by it.
+              */}
+              <Image
+                source={item.illustration}
+                style={[
+                  styles.illustration,
+                  { width, aspectRatio: ILLUSTRATION_ASPECT },
+                ]}
+                resizeMode="cover"
+                accessible
+                accessibilityLabel={item.illustrationLabel}
+              />
             </View>
           )}
           horizontal
@@ -174,14 +220,34 @@ const styles = StyleSheet.create({
   },
   panel: {
     // Each panel is exactly screen-width (set inline via useWindowDimensions
-    // when rendered) so pagingEnabled snaps to one panel per swipe. Internal
-    // padding matches the previous per-screen onboarding layout.
-    paddingHorizontal: 32,
+    // when rendered) so pagingEnabled snaps to one panel per swipe.
+    //
+    // Padding lives on titleAndCopy (below) instead of here so the
+    // bottom-anchored illustration can sit edge-to-edge on the panel
+    // — Figma authors the illustration as a full-width visual that
+    // breaks out of the page gutter.
     paddingTop: 32,
+    // flex:1 makes each FlatList item fill the FlatList's own height,
+    // which lets `bottom: 0` on the absolute illustration anchor to
+    // the FlatList's bottom edge instead of the title/body block's
+    // bottom. Required for the bottom-anchor pattern below.
+    flex: 1,
+  },
+  illustration: {
+    // Bottom-anchored, full-width within each FlatList item. Width +
+    // aspectRatio are set inline based on useWindowDimensions so the
+    // illustration scales proportionally on Pro Max devices.
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
   },
   titleAndCopy: {
     width: '100%',
     gap: 32,
+    // Page gutter lives here now (was on `panel`). Pulling the
+    // padding inward keeps the title/body in their original column
+    // while letting the bottom illustration sit edge-to-edge.
+    paddingHorizontal: 32,
   },
   title: {
     ...typography.largeTitleEmphasized,
