@@ -53,7 +53,8 @@ export const colors = {
   // doesn't get re-derived as raw rgba per screen.
   modalScrim: 'rgba(0, 0, 0, 0.2)',          // dim layer behind /report popup
   cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',    // input/card outlines
-  separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers in lists
+  separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers on light bg
+  dividerOnDark: 'rgba(160, 214, 164, 0.25)',// hairline dividers on wiltedgreen
   dragHandleBar: 'rgba(128, 128, 128, 0.55)',// the gray bar atop modal sheets
   dividerNeutral: 'rgba(202, 196, 208, 1)',  // vertical/horizontal card dividers
 } as const;
