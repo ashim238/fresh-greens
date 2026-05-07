@@ -38,6 +38,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PageControl } from '../components/PageControl';
 import { usePreferences } from '../hooks/usePreferences';
+import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
@@ -134,6 +135,7 @@ export default function Menu() {
   const router = useRouter();
   const { user, signOut } = useUser();
   const { contact, clearContact } = useTrustedContact();
+  const { clearAll: clearSavedPlaces } = useSavedPlaces();
   const { preferences, setShowZones } = usePreferences();
   const { width: screenWidth } = useWindowDimensions();
   const [signingOut, setSigningOut] = useState(false);
@@ -193,10 +195,10 @@ export default function Menu() {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      // Clear stored user + trusted contact together. Keeps the next
-      // sign-in (potentially as a different Apple ID) from inheriting
-      // the previous user's contact.
-      await Promise.all([signOut(), clearContact()]);
+      // Clear all identity-attached state on sign-out so the next
+      // sign-in (potentially a different Apple ID) doesn't inherit the
+      // previous user's trusted contact, saved home, or other places.
+      await Promise.all([signOut(), clearContact(), clearSavedPlaces()]);
       router.replace('/');
     } finally {
       setSigningOut(false);
