@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   clearTrustedContact,
   deriveContactInitials,
+  deriveContactName,
   getTrustedContact,
   pickPrimaryPhoneNumber,
   setTrustedContact,
@@ -60,11 +61,18 @@ export function useTrustedContact() {
       );
     }
 
+    const name = deriveContactName(
+      picked.name,
+      picked.firstName,
+      picked.lastName,
+      phoneNumber,
+    );
+
     const stored = await setTrustedContact({
       id: picked.id,
-      name: picked.name,
+      name,
       initials: deriveContactInitials(
-        picked.name,
+        name,
         picked.firstName,
         picked.lastName,
       ),

@@ -101,6 +101,33 @@ export function deriveContactInitials(
 }
 
 /**
+ * Derives a non-empty display name from a Contact. iOS sometimes
+ * returns `name: undefined` for contacts that only have firstName /
+ * lastName / company set (the OS-level combined-name field is empty).
+ * We can't store undefined — `TrustedContact.name` is required, and
+ * downstream UI uses `?? "Add a contact"` fallbacks that would falsely
+ * show "Add a contact" even when a contact is set.
+ *
+ * Fallback chain: combined name → first + last → first or last alone
+ * → phone number → "Trusted contact". Always returns a string.
+ */
+export function deriveContactName(
+  name: string | null | undefined,
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+  phoneNumber: string,
+): string {
+  const trimmed = (name ?? '').trim();
+  if (trimmed) return trimmed;
+  const parts = [firstName, lastName]
+    .map((s) => (s ?? '').trim())
+    .filter(Boolean);
+  if (parts.length > 0) return parts.join(' ');
+  if (phoneNumber) return phoneNumber;
+  return 'Trusted contact';
+}
+
+/**
  * Picks the most-callable phone number from a contact's list. Prefers
  * the OS-flagged primary; falls back to the first entry with a number.
  * Returns null if the contact has no phones at all (rare but possible —
