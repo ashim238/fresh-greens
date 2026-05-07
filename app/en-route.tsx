@@ -8,23 +8,21 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Circle, Polyline } from 'react-native-maps';
+import MapView, { Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Phosphor deep-import — see app/trusted-contact-setup.tsx for the
+// Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
+import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
 import { DragHandle } from '../components/DragHandle';
+import { MapMarker } from '../components/MapMarker';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
-import {
-  getZonesForRegion,
-  POINT_PROXIMITY_METERS,
-  type Zone,
-  zoneColors,
-} from '../lib/api/zones';
+import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
+import { formatDistance, formatDuration } from '../lib/format';
 import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -214,19 +212,26 @@ export default function EnRoute() {
         showsUserLocation
         showsMyLocationButton={false}
       >
+        {/*
+          Community-report points — same MapMarker treatment as
+          /home (post feat/map-markers-and-edge-indicators). Color
+          tints by safety classification via zoneColors.
+        */}
         {reportZones.map((zone) => {
           if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
             return null;
           }
+          const point = zone.coordinates[0];
           return (
-            <Circle
+            <MapMarker
               key={zone.id}
-              center={zone.coordinates[0]}
-              radius={POINT_PROXIMITY_METERS}
-              fillColor={zoneColors[zone.type].fill}
-              strokeColor={zoneColors[zone.type].stroke}
-              strokeWidth={2}
-            />
+              latitude={point.latitude}
+              longitude={point.longitude}
+              surfaceColor={zoneColors[zone.type].stroke}
+              accessibilityLabel={zone.label}
+            >
+              <Megaphone size={20} color={colors.white} weight="fill" />
+            </MapMarker>
           );
         })}
         {routes.map((route) => {
@@ -361,13 +366,14 @@ export default function EnRoute() {
       )}
 
       {/*
-        Bottom sheet — Figma 825:3783. Layout per design:
-          [Volume] [End trip] [ETA "8:30"] [Search] [Paths]
+        Bottom sheet — Figma 825:3783. Layout:
+          [Search] [ETA "8:30"] [Paths] [Volume]
           [distance · duration]
-        End trip replaces the Figma's invisible "Spacer" slot — the design
-        had no exit affordance, but we need one (system swipe-back is too
-        easy to miss in active driving). End trip uses the close icon
-        on a small white pill, parity with the other utility buttons.
+          [End trip]
+        Volume sits rightmost — it's a "set once" auxiliary control, so
+        it goes to the edge. Paths is route-modification (closer to the
+        ETA). Search anchors the left slot — primary utility for "find
+        a stop along the way."
       */}
       <SafeAreaView
         style={styles.bottomSheet}
@@ -389,11 +395,11 @@ export default function EnRoute() {
               <Pressable
                 style={styles.utilityBtn}
                 accessibilityRole="button"
-                accessibilityLabel="Toggle volume (coming soon)"
+                accessibilityLabel="Search along route (coming soon)"
                 hitSlop={12}
               >
                 <Ionicons
-                  name="volume-high"
+                  name="search"
                   size={24}
                   color={colors.labelSecondary}
                 />
@@ -408,19 +414,6 @@ export default function EnRoute() {
               <Pressable
                 style={styles.utilityBtn}
                 accessibilityRole="button"
-                accessibilityLabel="Search along route (coming soon)"
-                hitSlop={12}
-              >
-                <Ionicons
-                  name="search"
-                  size={24}
-                  color={colors.labelSecondary}
-                />
-              </Pressable>
-
-              <Pressable
-                style={styles.utilityBtn}
-                accessibilityRole="button"
                 accessibilityLabel="Show alternate paths (coming soon)"
                 hitSlop={12}
               >
@@ -430,16 +423,29 @@ export default function EnRoute() {
                   color={colors.labelSecondary}
                 />
               </Pressable>
+
+              <Pressable
+                style={styles.utilityBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle volume (coming soon)"
+                hitSlop={12}
+              >
+                <Ionicons
+                  name="volume-high"
+                  size={24}
+                  color={colors.labelSecondary}
+                />
+              </Pressable>
             </View>
           </View>
 
           <View style={styles.secondaryRow}>
             <Text style={styles.secondaryDistance}>
-              {distanceMiles != null ? `${distanceMiles.toFixed(1)} mi.` : '—'}
+              {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
             </Text>
             <Text style={styles.secondarySeparator}>·</Text>
             <Text style={styles.secondaryDuration}>
-              {recommended ? `${recommended.estimatedMinutes} min` : '—'}
+              {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
             </Text>
           </View>
 

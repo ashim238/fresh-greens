@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/en-route-polish (2026-05-07)
+
+Bottom-sheet polish on /en-route + a shared `lib/format.ts` for trip duration and distance strings used across /home and /en-route. Also brings /en-route's community-report rendering up to /home's MapMarker pattern (the leftover Circle rendering had been creating a yellow halo around the user's location whenever a caution-zone test report was logged near current position) and makes /home's destination underline conditional on "recurring trip" intent.
+
+- **A "what is that yellow circle?" question is often a signal of cross-screen drift.** /home shipped MapMarker rendering for community reports in #50; /en-route still rendered the same data as wide caution Circles. Same data, two visual languages, three weeks apart in build order. Lesson: when a feature ships on screen A, sweep for "where else is this rendered?" before closing the PR. The audit cadence catches it eventually but the user notices first.
+- **`formatDuration`/`formatDistance` belong in their own module the moment two screens share them.** Considered inlining since each formatter is ~5 lines, but /home and /en-route both render the same trip's duration + distance — drift between them ("65 min" on /home vs "1 hr 5 min" on /en-route) would read as a bug, not a feature. The rule of three usually says "inline twice, extract on the third" but cross-screen consistency-of-rendering is a stronger pull than line-count parsimony. `lib/format.ts` joins `lib/scoring.ts` and `lib/daylight.ts` as pure-function utilities.
+- **Hard-code-false a feature flag when the dependency hasn't shipped yet.** Destination underline is meant to invite "save as home/work" for recurring trips. Without trip history (queued for `feat/recent-trips`), there's no way to *compute* recurrence — but the conditional rendering belongs in /home now so the flip-on is a one-line change later. Pattern: name the boolean (`isRegularDestination`), default it to `false`, and document the dependency in a comment. Better than coming back later and grafting the conditional in around live UI.
+- **"Set once, forget" controls go to the screen edge.** Volume sits rightmost in the en-route utility row — Apple Maps and Google Maps both put their speaker toggles at the edge for the same reason. Auxiliary controls don't need thumb-priority; nav-modification controls (paths, search) get the inner positions where the eye + thumb live. Worth keeping for future bottom-sheet button arrangements.
+
+---
+
 ## chore/safety-button-rewire (2026-05-07)
 
 Untwists the placeholder safety wiring across /home and /en-route. /home's top-left hamburger now opens /menu (was TEMP-wired to /safety). /en-route's side-button shield switches from a green Ionicons placeholder to the Figma-faithful Phosphor `Shield` (`weight="duotone"`, `color={colors.navy}`). Adds `colors.navy: '#041E49'` to the palette as the canonical safety-affordance blue.

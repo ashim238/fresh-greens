@@ -33,6 +33,7 @@ import {
   zoneColors,
 } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
+import { formatDuration } from '../lib/format';
 import {
   edgePositionForPoint,
   isPointInRegion,
@@ -84,6 +85,13 @@ export default function Home() {
     destLng?: string;
     destName?: string;
   }>();
+  // Whether to underline the destination text in the bottom sheet.
+  // The underline is the visual invitation to "save this as home/work"
+  // for recurring trips — not for one-off journeys to somewhere the
+  // user has never been. Hard-coded false until feat/recent-trips lands
+  // a real frequency signal; the conditional rendering is in place so
+  // flipping this becomes a one-line change.
+  const isRegularDestination = false;
   // Zones and routes both live in component state so they re-render the
   // map when fetched. Empty arrays initially → nothing renders → map shows
   // clean until data arrives a moment later. This is the "loading state"
@@ -578,17 +586,22 @@ export default function Home() {
 
             <View style={styles.mainCopyRow}>
               {/*
-                TODO: real destination text once the search bar is wired.
                 Figma copy: "You've made a few early morning trips to
-                300 N Water lately. Heading there now?"
+                300 N Water lately. Heading there now?" — the
+                destination underline is reserved for *recurring*
+                destinations (a save-as-home/work invitation), so it
+                only shows when the trip is recognized as regular.
+                Hard-coded false until feat/recent-trips lands a real
+                trip-frequency signal; right now every destination
+                renders plain.
               */}
               <Text style={styles.mainCopy}>
                 About{' '}
                 <Text style={styles.minutes}>
-                  {recommended?.estimatedMinutes ?? '—'} min
+                  {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
                 </Text>
                 {' '}to{' '}
-                <Text style={styles.destination}>
+                <Text style={isRegularDestination ? styles.destination : undefined}>
                   {params.destName ?? 'your destination'}
                 </Text>
                 .
