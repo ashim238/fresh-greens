@@ -122,6 +122,15 @@ export type Zone = {
    * the reports module's internal id set.
    */
   reportCategoryId?: string;
+  /**
+   * Set only when `category === 'community-report'` and the report's
+   * source category had a `subTags` whitelist that the user picked
+   * from (the *place* categories — black-owned, felt-welcome). Not
+   * yet used by the marker glyph mapping; reserved for a future PR
+   * that ships per-business-type glyphs (e.g. a barber-pole vs a
+   * fork-and-knife icon for different `subTag` values).
+   */
+  reportSubTag?: string;
 };
 
 /**
