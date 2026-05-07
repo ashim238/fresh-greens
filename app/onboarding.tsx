@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
   FlatList,
+  Image,
+  type ImageSourcePropType,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -34,6 +36,12 @@ type Panel = {
   id: string;
   title: string;
   body: string;
+  illustration: ImageSourcePropType;
+  /**
+   * Plain-language description of the illustration, surfaced to
+   * VoiceOver. Falls back to "Onboarding illustration" when omitted.
+   */
+  illustrationLabel: string;
 };
 
 const PANELS: Panel[] = [
@@ -41,17 +49,26 @@ const PANELS: Panel[] = [
     id: 'drive',
     title: 'Drive like you know these roads',
     body: 'No one should feel uncomfortable on the open road. Fresh Greens places the agency back in your hands by suggesting routes that maximize visibility and familiarity.',
+    illustration: require('../assets/illustrations/onboarding-1.png'),
+    illustrationLabel:
+      'Illustration of hands gripping a steering wheel, viewed from the driver seat',
   },
   {
     id: 'community',
     title: 'For us, by us',
     body: 'Fresh Greens relies on insights shared by travelers like you. Community contributions are vital in the mapping process, ensuring drivers have a full understanding of their surroundings, from road hazards to the treatment of Black visitors.',
+    illustration: require('../assets/illustrations/onboarding-2.png'),
+    illustrationLabel:
+      'Illustration of a person sitting on a hill with a thought bubble reading "This street needs more lighting"',
   },
   {
     id: 'unique',
     title: 'Your viewpoint is unique',
     body:
       "That gut feeling that tells you to turn onto a road you've been down before is valuable. Fresh Greens integrates your intuition into the navigation, creating a driving experience specific to you.",
+    illustration: require('../assets/illustrations/onboarding-3.png'),
+    illustrationLabel:
+      'Illustration of a person thinking, with a thought bubble showing a no-fly icon',
   },
 ];
 
@@ -122,6 +139,13 @@ export default function Onboarding() {
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.body}>{item.body}</Text>
               </View>
+              <Image
+                source={item.illustration}
+                style={[styles.illustration, { width, aspectRatio: 390 / 351 }]}
+                resizeMode="cover"
+                accessible
+                accessibilityLabel={item.illustrationLabel}
+              />
             </View>
           )}
           horizontal
@@ -173,15 +197,25 @@ const styles = StyleSheet.create({
     flex: 1, // claim the leftover vertical space between PageControl and actions
   },
   panel: {
-    // Each panel is exactly screen-width (set inline via useWindowDimensions
-    // when rendered) so pagingEnabled snaps to one panel per swipe. Internal
-    // padding matches the previous per-screen onboarding layout.
-    paddingHorizontal: 32,
+    // flex:1 lets `bottom: 0` on the absolute illustration anchor to
+    // the FlatList's full height. Without it, items size to content
+    // and the illustration anchors to the bottom of the title/body
+    // block instead of the screen.
     paddingTop: 32,
+    flex: 1,
+  },
+  illustration: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
   },
   titleAndCopy: {
     width: '100%',
     gap: 32,
+    // Page gutter lives here now (was on `panel`). Pulling the
+    // padding inward keeps the title/body in their original column
+    // while letting the bottom illustration sit edge-to-edge.
+    paddingHorizontal: 32,
   },
   title: {
     ...typography.largeTitleEmphasized,

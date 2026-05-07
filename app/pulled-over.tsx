@@ -23,6 +23,7 @@ import {
 } from 'react';
 import {
   Animated,
+  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -32,6 +33,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
@@ -954,7 +956,17 @@ function OfficerTrooperView() {
       <View style={officerStyles.cardsRow}>
         <View style={officerStyles.card}>
           <View style={officerStyles.illustrationBox}>
-            <Ionicons name="shield" size={64} color="#1B3F8B" />
+            <View
+              style={[officerStyles.illustrationWrap, officerStyles.alignEnd]}
+            >
+              <Image
+                source={require('../assets/illustrations/officer.png')}
+                style={officerStyles.officerImage}
+                resizeMode="contain"
+                accessible
+                accessibilityLabel="Illustration of an officer wearing a brimmed cap"
+              />
+            </View>
             <Text style={officerStyles.cardLabel}>Officer</Text>
           </View>
           <View style={officerStyles.bullets}>
@@ -975,7 +987,20 @@ function OfficerTrooperView() {
 
         <View style={officerStyles.card}>
           <View style={officerStyles.illustrationBox}>
-            <Ionicons name="shield-half" size={64} color="#5C5C5C" />
+            <View style={officerStyles.illustrationWrap}>
+              <Image
+                source={require('../assets/illustrations/trooper.png')}
+                style={officerStyles.trooperImage}
+                resizeMode="contain"
+                accessible
+                accessibilityLabel="Illustration of a trooper wearing a Smokey Bear hat"
+              />
+              <TrooperHatBadge
+                width={16.26}
+                height={17.23}
+                style={officerStyles.trooperBadge}
+              />
+            </View>
             <Text style={officerStyles.cardLabel}>Trooper</Text>
           </View>
           <View style={officerStyles.bullets}>
@@ -1625,6 +1650,31 @@ const officerStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 32,
     padding: 16,
+  },
+  illustrationWrap: {
+    width: 120,
+    height: 172,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  alignEnd: {
+    justifyContent: 'flex-end',
+  },
+  officerImage: {
+    width: 100,
+    height: 157,
+  },
+  trooperImage: {
+    width: 100,
+    height: 171,
+  },
+  // Top + left derived from Figma's `inset-[20.99%_43.22%_68.99%_43.23%]`
+  // against the 120×172 wrapper.
+  trooperBadge: {
+    position: 'absolute',
+    top: 36,
+    left: 52,
   },
   cardLabel: {
     ...typography.title3Regular,

@@ -6,6 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import PermissionsCar from '../assets/illustrations/permissions-car.svg';
+import PermissionsLocation from '../assets/illustrations/permissions-location.svg';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -69,13 +71,25 @@ export default function Permissions() {
         */}
         <View style={styles.content}>
           <View style={styles.visualAndCopy}>
-            {/*
-              Visual: location pin + car. Ionicons placeholders for v1 — the
-              Figma versions are custom illustrations we'll swap in later.
-            */}
             <View style={styles.visual}>
-              <Ionicons name="location" size={36} color={colors.fadedgreen} />
-              <Ionicons name="car" size={40} color={colors.fadedgreen} />
+              <View style={styles.locationWrap}>
+                <View style={styles.locationRotated}>
+                  <PermissionsLocation
+                    width={26.881}
+                    height={33.797}
+                    accessible
+                    accessibilityLabel="Location pin illustration"
+                  />
+                </View>
+              </View>
+              <View style={styles.carWrap}>
+                <PermissionsCar
+                  width={57}
+                  height={40}
+                  accessible
+                  accessibilityLabel="Car illustration"
+                />
+              </View>
             </View>
 
             {/* Copy block — body + sub instructions, all left-aligned */}
@@ -158,6 +172,21 @@ const styles = StyleSheet.create({
   },
   visual: {
     gap: 8,
+    alignItems: 'flex-start',
+  },
+  locationWrap: {
+    width: 35.891,
+    height: 40.374,
+    marginLeft: 10.71,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationRotated: {
+    transform: [{ rotate: '17.72deg' }],
+  },
+  carWrap: {
+    width: 57,
+    height: 40,
   },
   copy: {
     gap: 32, // gap between mainBody and subDirections
