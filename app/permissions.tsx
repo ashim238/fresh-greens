@@ -76,6 +76,19 @@ export default function Permissions() {
 
   const showSettingsRecovery = locationNeedsRecovery || micNeedsRecovery;
 
+  // Permission-specific recovery copy. Generic "Previously declined?"
+  // didn't tell users which permission still needed attention — first
+  // tester granted Location, missed that Microphone was still pending,
+  // wondered why the link persisted. Naming what's actually pending
+  // makes the next step obvious.
+  const recoveryPrompt = (() => {
+    if (locationNeedsRecovery && micNeedsRecovery) {
+      return 'Location and microphone need enabling';
+    }
+    if (locationNeedsRecovery) return 'Location needs enabling';
+    return 'Microphone needs enabling';
+  })();
+
   function handleOpenSettings() {
     // Linking.openSettings() opens the app's page in iOS Settings,
     // not the root Settings app. User lands directly where they can
@@ -205,10 +218,10 @@ export default function Permissions() {
               onPress={handleOpenSettings}
               style={styles.settingsLinkRow}
               accessibilityRole="link"
-              accessibilityLabel="Previously declined permissions. Open iOS Settings to enable."
+              accessibilityLabel={`${recoveryPrompt}. Open iOS Settings.`}
             >
               <Text style={styles.settingsLinkPrompt}>
-                Previously declined?{' '}
+                {recoveryPrompt} —{' '}
                 <Text style={styles.settingsLink}>Open iOS Settings</Text>
               </Text>
             </Pressable>
