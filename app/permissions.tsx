@@ -39,16 +39,19 @@ export default function Permissions() {
   const router = useRouter();
 
   // Recovery affordance: when the OS will no longer show the permission
-  // prompt (user previously tapped "Don't Allow"), `canAskAgain` flips
-  // to false. In that case `requestForegroundPermissionsAsync` /
-  // `requestRecordingPermissionsAsync` return the cached deny state
-  // immediately, no system dialog. Without a visible escape hatch, the
+  // prompt (user previously tapped "Don't Allow"), `canAskAgain` is
+  // false AND status is 'denied'. Without a visible escape hatch, the
   // user taps Continue and advances silently with no permissions —
   // worst-case UX. We surface a footnote-link recovery affordance below
-  // Continue when either permission is in this state, so the user has
-  // a way back to iOS Settings.
-  const [locationCanAsk, setLocationCanAsk] = useState(true);
-  const [micCanAsk, setMicCanAsk] = useState(true);
+  // Continue when either permission is in that state.
+  //
+  // Subtle: on iOS, `canAskAgain` is `false` after *any* decision,
+  // including grant — because iOS doesn't re-prompt for an already-
+  // granted permission either. So checking only `!canAskAgain` is too
+  // broad (link shows after granting too). The right condition is
+  // "status not granted AND OS won't ask again."
+  const [locationNeedsRecovery, setLocationNeedsRecovery] = useState(false);
+  const [micNeedsRecovery, setMicNeedsRecovery] = useState(false);
 
   // useFocusEffect re-checks on every focus, so when the user opens
   // iOS Settings via the recovery link, grants permission, and
@@ -62,8 +65,8 @@ export default function Permissions() {
           getRecordingPermissionsAsync(),
         ]);
         if (cancelled) return;
-        setLocationCanAsk(loc.canAskAgain);
-        setMicCanAsk(mic.canAskAgain);
+        setLocationNeedsRecovery(loc.status !== 'granted' && !loc.canAskAgain);
+        setMicNeedsRecovery(mic.status !== 'granted' && !mic.canAskAgain);
       })();
       return () => {
         cancelled = true;
@@ -71,7 +74,7 @@ export default function Permissions() {
     }, []),
   );
 
-  const showSettingsRecovery = !locationCanAsk || !micCanAsk;
+  const showSettingsRecovery = locationNeedsRecovery || micNeedsRecovery;
 
   function handleOpenSettings() {
     // Linking.openSettings() opens the app's page in iOS Settings,
