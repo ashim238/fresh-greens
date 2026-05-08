@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/permissions-settings-recovery (2026-05-08)
+
+Closes the "previously declined" silent-advance gap on /permissions. iOS only shows a permission prompt once — after the first "Don't Allow," `requestForegroundPermissionsAsync()` and `requestRecordingPermissionsAsync()` return the cached deny state immediately, no system dialog. Without a visible escape hatch, the user tapped Continue and advanced to /trusted-contact-setup with no permissions granted and no UI feedback. Now an inline footnote-link recovery affordance ("Previously declined? Open iOS Settings") appears below Continue when `canAskAgain === false` for either permission.
+
+- **`canAskAgain` is the right signal, not `status === 'denied'`.** Both `expo-location` and `expo-audio` return a `{ status, canAskAgain }` shape. The deny-vs-permanent-deny distinction matters: `denied` could be a fresh denial that the OS will still re-prompt for under some flows, while `canAskAgain === false` is the precise "OS won't prompt again, period" signal — that's what controls whether the recovery affordance is needed.
+- **`useFocusEffect` not `useEffect` for re-checking on return.** The recovery flow goes app → iOS Settings → user toggles → app. When they come back, the screen is already mounted (no re-mount), so a `useEffect([])` would never re-fire. `useFocusEffect` from expo-router fires on every focus, including return-from-Settings, so the affordance disappears once they grant permission. Subtle but important — without it, the link would persist incorrectly until navigation.
+- **Reused the inline-link register from Get Started, didn't invent a new one.** "Previously declined? Open iOS Settings" mirrors Get Started's "Already have an account? Log in" — footnoteRegular white prompt with a freshgreen underlined action span. No new design tokens, no new component, no new color. When the design system already has a pattern for "secondary action below the primary CTA," the right move is to reuse it — exactly the conversation that came out of audit 7's cursorrules-exception cleanup.
+- **`Linking.openSettings()` opens the app's page, not the root.** Tapping the recovery link drops the user directly into Fresh Greens' iOS Settings page where Location and Microphone toggles are visible. No "navigate to Privacy → Location → find Fresh Greens." This is RN built-in, no dependency added — the iOS-specific `app-settings:` URL scheme wrapped behind a cross-platform API.
+
+---
+
 ## fix/onboarding-illustrations-svg — full-bleed + Vic + SVG-default rule (2026-05-08)
 
 Second pass on the same branch. After the first round on phone, two things were off: the onboarding illustrations stopped just above the Continue button instead of bleeding to the screen edge (Figma puts Continue *on top* of the illustration, not above it), and Vic on the Welcome screen was the last 1x PNG holdout — went visibly blurry at the same densities the onboarding panels had. Same branch now bleeds illustrations to the bottom edge with Continue/Skip overlaying, Vic is SVG, and CLAUDE.md gained an "Asset format default: SVG" rule so this pattern doesn't repeat.

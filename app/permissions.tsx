@@ -1,9 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { requestRecordingPermissionsAsync } from 'expo-audio';
+import {
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync,
+} from 'expo-audio';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PermissionsCar from '../assets/illustrations/permissions-car.svg';
@@ -33,6 +37,48 @@ import { typography } from '../theme/typography';
  */
 export default function Permissions() {
   const router = useRouter();
+
+  // Recovery affordance: when the OS will no longer show the permission
+  // prompt (user previously tapped "Don't Allow"), `canAskAgain` flips
+  // to false. In that case `requestForegroundPermissionsAsync` /
+  // `requestRecordingPermissionsAsync` return the cached deny state
+  // immediately, no system dialog. Without a visible escape hatch, the
+  // user taps Continue and advances silently with no permissions —
+  // worst-case UX. We surface a footnote-link recovery affordance below
+  // Continue when either permission is in this state, so the user has
+  // a way back to iOS Settings.
+  const [locationCanAsk, setLocationCanAsk] = useState(true);
+  const [micCanAsk, setMicCanAsk] = useState(true);
+
+  // useFocusEffect re-checks on every focus, so when the user opens
+  // iOS Settings via the recovery link, grants permission, and
+  // navigates back, the affordance disappears on the next render.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const [loc, mic] = await Promise.all([
+          Location.getForegroundPermissionsAsync(),
+          getRecordingPermissionsAsync(),
+        ]);
+        if (cancelled) return;
+        setLocationCanAsk(loc.canAskAgain);
+        setMicCanAsk(mic.canAskAgain);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  const showSettingsRecovery = !locationCanAsk || !micCanAsk;
+
+  function handleOpenSettings() {
+    // Linking.openSettings() opens the app's page in iOS Settings,
+    // not the root Settings app. User lands directly where they can
+    // toggle Location / Microphone for Fresh Greens.
+    Linking.openSettings();
+  }
 
   // Permission flow. requestForegroundPermissionsAsync handles all three
   // states with a single call:
@@ -141,6 +187,29 @@ export default function Permissions() {
           >
             <Text style={styles.ctaText}>Continue</Text>
           </Pressable>
+
+          {/*
+            Recovery affordance for the "previously declined" state.
+            iOS doesn't re-prompt once the user taps Don't Allow, so
+            without this link the only escape is to find the app in
+            Settings manually. Inline-link register matches Get Started
+            / Login's "Already have an account? Log in" pattern —
+            footnoteRegular white prompt with a freshgreen underlined
+            action span.
+          */}
+          {showSettingsRecovery && (
+            <Pressable
+              onPress={handleOpenSettings}
+              style={styles.settingsLinkRow}
+              accessibilityRole="link"
+              accessibilityLabel="Previously declined permissions. Open iOS Settings to enable."
+            >
+              <Text style={styles.settingsLinkPrompt}>
+                Previously declined?{' '}
+                <Text style={styles.settingsLink}>Open iOS Settings</Text>
+              </Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     </View>
@@ -242,5 +311,21 @@ const styles = StyleSheet.create({
   ctaText: {
     ...typography.subheadlineEmphasized,
     color: colors.white,
+  },
+  // Recovery-affordance row — same inline-link pattern as Get Started's
+  // "Already have an account? Log in" (footnoteRegular white prompt +
+  // freshgreen underlined action). Left-aligned to match the rest of
+  // the Permissions content (visual + body + CTA all sit at flex-start).
+  settingsLinkRow: {
+    paddingVertical: 12,
+  },
+  settingsLinkPrompt: {
+    ...typography.footnoteRegular,
+    color: colors.white,
+  },
+  settingsLink: {
+    color: colors.freshgreen,
+    fontWeight: typography.footnoteEmphasized.fontWeight,
+    textDecorationLine: 'underline',
   },
 });
