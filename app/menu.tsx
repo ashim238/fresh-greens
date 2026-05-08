@@ -63,8 +63,8 @@ if (
  *   ‹                              ← back chevron only (no page title;
  *                                    profile row identifies the page)
  *
- *   [Car]  Hey {firstName}      ›  ← profile row, inert tap with TODO
- *          {email}
+ *   [Car]  Hey {firstName}         ← profile row, inert (opacity 0.5,
+ *          {email}                   no chevron) until /profile ships
  *
  *   ─── divider on dark ───────────
  *
@@ -172,12 +172,6 @@ export default function Menu() {
     router.back();
   }
 
-  function handleProfileTap() {
-    // TODO: push to a dedicated /profile screen when one exists.
-    // Inert for now — chevron sets the expectation that there's a
-    // destination, we just haven't built it yet.
-  }
-
   function handleZoneSettingsToggle() {
     // LayoutAnimation.configureNext schedules the next layout pass
     // to animate. easeInEaseOut is the standard "expand smoothly"
@@ -231,13 +225,16 @@ export default function Menu() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* --- Profile row (page identifier) --- */}
-          <Pressable
-            onPress={handleProfileTap}
-            style={styles.profileRow}
-            accessibilityRole="button"
-            accessibilityLabel={`Hey ${firstName}, view profile`}
-            accessibilityHint="Profile screen coming soon"
+          {/* --- Profile row (page identifier) ---
+              Inert until /profile ships. Per audit-7: matches the
+              Settings/Schedule/Theme rows' inert pattern (opacity 0.5,
+              no chevron, no tap) so "future destination" reads
+              consistently across the menu. */}
+          <View
+            style={[styles.profileRow, styles.profileRowInert]}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`Hey ${firstName}${user?.email ? `, ${user.email}` : ''}`}
           >
             <View style={styles.profileAvatar}>
               <Car
@@ -252,12 +249,7 @@ export default function Menu() {
                 <Text style={styles.profileEmail}>{user.email}</Text>
               )}
             </View>
-            <Ionicons
-              name="chevron-forward"
-              size={22}
-              color={colors.fadedgreen}
-            />
-          </Pressable>
+          </View>
 
           {/* Divider line — separates profile from settings list */}
           <View style={styles.divider} />
@@ -535,6 +527,12 @@ const styles = StyleSheet.create({
     gap: 16, // pulled back from 20 — felt too wide between glyph and type
     paddingVertical: 16,
     minHeight: 64, // profile carries page identity, give it weight
+  },
+  profileRowInert: {
+    // Audit-7 consistency rule: the menu's "future destination" affordance
+    // is opacity 0.5 + no chevron, applied uniformly to Settings/Schedule/
+    // Theme. Profile row inherits the same treatment until /profile ships.
+    opacity: 0.5,
   },
   profileAvatar: {
     width: 48,
