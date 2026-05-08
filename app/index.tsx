@@ -5,7 +5,6 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -24,6 +23,7 @@ import WelcomeCloudOvalMed from '../assets/illustrations/welcome-cloud-oval-med.
 import WelcomeCloudSm from '../assets/illustrations/welcome-cloud-sm.svg';
 import WelcomeHill from '../assets/illustrations/welcome-hill.svg';
 import WelcomeSun from '../assets/illustrations/welcome-sun.svg';
+import WelcomeVic from '../assets/illustrations/welcome-vic.svg';
 import WelcomeWindLg from '../assets/illustrations/welcome-wind-lg.svg';
 import WelcomeWindMed from '../assets/illustrations/welcome-wind-med.svg';
 import WelcomeWindSm from '../assets/illustrations/welcome-wind-sm.svg';
@@ -97,10 +97,10 @@ export default function Welcome() {
             height={40.12}
             style={[styles.absLayer, { left: 0, top: 0 }]}
           />
-          <Image
-            source={require('../assets/illustrations/welcome-vic.png')}
+          <WelcomeVic
+            width={166}
+            height={226}
             style={styles.vicImage}
-            resizeMode="contain"
             accessible
             accessibilityLabel="Illustration of a person waving from inside a location pin"
           />
@@ -304,8 +304,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 87.94,
     top: 88.72,
-    width: 166,
-    height: 226,
   },
 
   // --- Foreground content ---

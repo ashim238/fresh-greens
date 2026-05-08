@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Onboarding1Hill from '../assets/illustrations/onboarding-1-hill.svg';
 import Onboarding1Visual from '../assets/illustrations/onboarding-1-visual.svg';
@@ -140,6 +140,12 @@ export default function Onboarding() {
   // automatically on rotation. Each pager item must be exactly screen-width
   // so pagingEnabled snaps correctly to one item per swipe.
   const { width } = useWindowDimensions();
+  // Safe-area insets drive vertical placement directly instead of going
+  // through SafeAreaView. The pager fills the entire screen so the
+  // illustrations bleed all the way to the bottom edge (Continue overlays
+  // the lower portion, matching Figma); only the title/body and the
+  // foreground UI need safe-area offsets.
+  const insets = useSafeAreaInsets();
   // useRef gives us an imperative handle to the FlatList so the Continue
   // button can call scrollToIndex on it programmatically.
   const pagerRef = useRef<FlatList<Panel>>(null);
@@ -188,40 +194,68 @@ export default function Onboarding() {
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      <SafeAreaView style={styles.safe}>
-        <PageControl total={5} activeIndex={pagerIndex} />
-
-        <FlatList
-          ref={pagerRef}
-          data={PANELS}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={[styles.panel, { width }]}>
-              <View style={styles.titleAndCopy}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.body}>{item.body}</Text>
-              </View>
-              <View
-                style={[
-                  styles.illustration,
-                  { width, aspectRatio: item.illustrationAspect },
-                ]}
-                accessible
-                accessibilityLabel={item.illustrationLabel}
-              >
-                {item.renderIllustration()}
-              </View>
+      {/*
+        Background pager. Sits at root level (not inside SafeAreaView)
+        so each panel is screen-tall — the illustration's bottom: 0
+        anchors to the absolute bottom of the device, not to the top
+        of the action buttons. Continue/Skip overlay the lower portion
+        of the illustration, matching Figma's full-bleed layout.
+      */}
+      <FlatList
+        ref={pagerRef}
+        data={PANELS}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={[styles.panel, { width }]}>
+            <View
+              style={[
+                styles.titleAndCopy,
+                // Clear status bar + PageControl (44pt) + 32pt design gap.
+                // Matches Figma's title block at y=123 (screen top + 76pt
+                // below the safe-area inset).
+                { marginTop: insets.top + 76 },
+              ]}
+            >
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.body}>{item.body}</Text>
             </View>
-          )}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleScrollEnd}
-          onScrollEndDrag={handleDragEnd}
-          style={styles.pager}
-        />
+            <View
+              style={[
+                styles.illustration,
+                { width, aspectRatio: item.illustrationAspect },
+              ]}
+              accessible
+              accessibilityLabel={item.illustrationLabel}
+            >
+              {item.renderIllustration()}
+            </View>
+          </View>
+        )}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={handleDragEnd}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-        <View style={styles.actions}>
+      {/*
+        Foreground UI overlay. PageControl pinned to the top safe area,
+        Actions pinned to the bottom safe area, flex:1 spacer between.
+        pointerEvents="box-none" passes pager swipes through to the
+        FlatList everywhere except the action buttons (which set
+        pointerEvents="auto" on their wrapper).
+      */}
+      <View
+        style={[
+          styles.foreground,
+          { paddingTop: insets.top, paddingBottom: insets.bottom + 34 },
+        ]}
+        pointerEvents="box-none"
+      >
+        <PageControl total={5} activeIndex={pagerIndex} />
+        <View style={styles.spacer} pointerEvents="none" />
+        <View style={styles.actions} pointerEvents="auto">
           <Pressable
             style={styles.continueBtn}
             accessibilityRole="button"
@@ -244,7 +278,7 @@ export default function Onboarding() {
             <Text style={styles.skipText}>Skip</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
@@ -254,19 +288,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.wiltedgreen,
   },
-  safe: {
-    flex: 1,
-    paddingBottom: 34,
+  foreground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  pager: {
-    flex: 1, // claim the leftover vertical space between PageControl and actions
+  spacer: {
+    flex: 1,
   },
   panel: {
     // flex:1 lets `bottom: 0` on the absolute illustration anchor to
-    // the FlatList's full height. Without it, items size to content
-    // and the illustration anchors to the bottom of the title/body
-    // block instead of the screen.
-    paddingTop: 32,
+    // the FlatList's full height. Now that the FlatList fills the
+    // entire screen, that anchor sits at the absolute bottom edge —
+    // illustrations bleed full-bleed, Continue overlays them.
     flex: 1,
   },
   illustration: {
