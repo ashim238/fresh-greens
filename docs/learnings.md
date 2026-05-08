@@ -27,6 +27,17 @@ Replaces the three onboarding-panel PNGs with vector SVGs and fixes the aspect r
 
 ---
 
+## feat/per-type-marker-glyphs (2026-05-07)
+
+Wires the `Zone.reportSubTag` plumbing from `feat/report-business-subtype` into the actual marker. When a place-category report carries a sub-tag (`Restaurant`, `Bar/Cafe`, `Retail`, `Salon/Barber`, `Services`, `Park/Public space`, `Personal`), `LandmarkMarker` swaps its inner 16pt glyph for a per-type Phosphor duotone icon (`ForkKnife`, `Coffee`, `ShoppingBag`, `Scissors`, `Wrench`, `Tree`, `House`). `Other` and unset sub-tags stay on the original category SVG glyph.
+
+- **Don't ship Figma assets when the icon library covers it.** First instinct was to pull seven new SVGs from Figma. The user pushed back: duotone Phosphor icons are already imported across the project (Shield in /en-route, House/Megaphone in /home, Calendar/Car/Wrench in /menu) and read consistently with the rest of the system. Code-only change, no design round-trip, free legibility. Worth knowing: when the design asks for "an icon for X" and X has an obvious Phosphor equivalent, the cheapest path is the one that doesn't add a new asset to maintain.
+- **`Other` as a deliberate fallback, not a missing icon.** The whitelist for both place categories ends in `Other`. Earlier instinct was to map it to a generic Phosphor like `Question` or `DotsThree`. Better answer: fall through to the existing category-level SVG (the same one the picker tile renders). `Other` already means "I don't fit your taxonomy" — defaulting back to the category illustration says "we know this is a black-owned business / felt-welcome place; we just don't know what kind." Composes with the picker's visual language instead of inventing a new symbol.
+- **Variant-driven foreground color, not a per-icon color prop.** The marker's bg circle is black for `black-owned` and wiltedgreen for `positive`, so the Phosphor needs different foregrounds for contrast. Resisted the urge to make the caller pass a color or to store color metadata next to each sub-tag. Instead, `GlyphForCategory` reads the variant it already computed and picks `colors.freshgreen` for black-owned (brand mark inside the dark pin) and `colors.white` for positive (high contrast on the green bg). One source of truth (`variantForCategoryId`) drives both pin color and glyph color.
+- **Sub-tag map only covers what the whitelists allow.** `phosphorForSubTag` switches on the seven actual sub-tag strings from `community-reports.ts`'s CATEGORIES table. Returning `null` on anything else (including `Other`) is what makes the SVG fallback work. Tempting to add a `default: Question` case for "future safety" — but that would mask the very fallback the design wants. Worth keeping: when a function's `null` return is load-bearing for a downstream branch, leave the default empty rather than papering over with a generic.
+
+---
+
 ## feat/report-business-subtype (2026-05-07)
 
 Inline place-type chips on the /report detail view, only for the *place* categories (`black-owned` and `felt-welcome`). Captures a `subTag` on each submission, threads it through to `Zone.reportSubTag` for future per-business-type marker glyph differentiation. The other four categories (incident, felt-unsafe, lighting, hazard) describe conditions and don't get chips — those are about a moment, not a place type.
