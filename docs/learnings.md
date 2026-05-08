@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/onboarding-illustrations-svg (2026-05-08)
+
+Replaces the three onboarding-panel PNGs with vector SVGs and fixes the aspect ratios at the same time. The PNGs were 1x (390×351) so they upscaled blurry on every retina screen; on top of that, the panel renderer was hardcoded to `aspectRatio: 390/351` even though the Figma illustration frames are 390×475 (panels 1+3) and 390×565 (panel 2 — taller because the thought bubble sits above the hill). Per-panel components now layer the SVGs at the correct percentage insets inside an aspect-ratio-correct container.
+
+- **Two bugs hiding in one symptom.** "Blurry" and "wrong size" looked like one issue but were independent: density (1x bitmap) and layout (aspectRatio mismatch). Fixing only one would have left the other. Worth keeping: when the user reports a visual issue with multiple adjectives ("blurry, AND the sizing is inaccurate"), don't assume they're describing the same root cause — treat each as its own diagnosis.
+- **Per-panel layout > one-size-fits-all.** Tempting to keep `aspectRatio: 390/X` as a single constant for all three panels. But panel 2's thought bubble forces a taller frame (565 vs. 475), and forcing it into the same ratio either crops content or distorts. Solution: each `Panel` carries its own `illustrationAspect` and a `renderIllustration()` thunk. Three small components instead of one parametric one — cheaper than a generic layout DSL would have been, and reads more directly.
+- **Percentage insets, not pixel insets.** Panel 2's visual sits at x=10 in a 390-wide Figma frame. Hardcoding `left: 10` would put it at 10pt from the edge regardless of device width, breaking the proportions on Pro Max. Wrote it as `left: ${(10/390)*100}%` so it scales with the container. Same pattern as the responsive search-bar / menu-row rule from .cursorrules — pixels for tight UI affordances, percentages for everything that sits inside a proportional canvas.
+- **MCP asset URLs are session-bound.** Tried to pull SVG renders directly from Figma via `mcp__figma__get_design_context` to skip the manual export step, but the asset URLs returned 404 from `curl` (and would from `WebFetch` too). They're tied to the Figma desktop's auth session, not publicly fetchable. Lesson: when the MCP tool returns an asset URL, expect to fetch from the environment that issued it (Figma desktop) — the CLI session can't reach those URLs. For programmatic export the path is the Figma REST API + a personal access token, not the MCP.
+
+---
+
 ## feat/report-business-subtype (2026-05-07)
 
 Inline place-type chips on the /report detail view, only for the *place* categories (`black-owned` and `felt-welcome`). Captures a `subTag` on each submission, threads it through to `Zone.reportSubTag` for future per-business-type marker glyph differentiation. The other four categories (incident, felt-unsafe, lighting, hazard) describe conditions and don't get chips — those are about a moment, not a place type.

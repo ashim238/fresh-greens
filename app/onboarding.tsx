@@ -1,10 +1,8 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import {
   FlatList,
-  Image,
-  type ImageSourcePropType,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -15,6 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import Onboarding1Hill from '../assets/illustrations/onboarding-1-hill.svg';
+import Onboarding1Visual from '../assets/illustrations/onboarding-1-visual.svg';
+import Onboarding2Hill from '../assets/illustrations/onboarding-2-hill.svg';
+import Onboarding2Visual from '../assets/illustrations/onboarding-2-visual.svg';
+import Onboarding3 from '../assets/illustrations/onboarding-3.svg';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -28,6 +31,15 @@ import { typography } from '../theme/typography';
  * is the native iOS onboarding pattern: swipe to advance, dots reflect
  * current page, Continue button also advances programmatically.
  *
+ * Illustrations are SVG (not the previous 1x PNG screenshots) so they stay
+ * crisp on every density and at every screen width. Each panel's
+ * illustration is sized to its real Figma frame:
+ *  - Panel 1 (Drive):  390×475, hill fills + steering-wheel visual layered on top.
+ *  - Panel 2 (FuBu):   390×565, taller because the thought bubble sits
+ *                       above the hill (visual + hill exported as siblings,
+ *                       not nested in a single Figma frame).
+ *  - Panel 3 (Unique): 390×475, exported as a single SVG.
+ *
  * Route: /onboarding
  * Figma nodes: 825:3382 (panel 1), 825:3444 (panel 2), 825:3525 (panel 3)
  */
@@ -36,7 +48,15 @@ type Panel = {
   id: string;
   title: string;
   body: string;
-  illustration: ImageSourcePropType;
+  /**
+   * The illustration's intrinsic aspect ratio. Sets the height of the
+   * illustration container at runtime — width fills the screen, height
+   * derives from this ratio so the SVG inside renders at its true
+   * proportions on any device.
+   */
+  illustrationAspect: number;
+  /** Renders the layered SVG content. Sized to fill its parent container. */
+  renderIllustration: () => ReactNode;
   /**
    * Plain-language description of the illustration, surfaced to
    * VoiceOver. Falls back to "Onboarding illustration" when omitted.
@@ -44,12 +64,52 @@ type Panel = {
   illustrationLabel: string;
 };
 
+// Per-panel illustration components. Each renders its layered SVGs
+// inside an absolute-fill container — the parent View sets the
+// aspectRatio so percentages here resolve to the right pixel sizes.
+//
+// Panel 1: hill is the full illustration canvas (390×475). The
+// steering-wheel visual is 390×422 and bottom-aligns over the hill,
+// leaving the top ~53pt of the canvas as hill-only background.
+function PanelOneIllustration() {
+  return (
+    <>
+      <Onboarding1Hill width="100%" height="100%" style={StyleSheet.absoluteFill} />
+      <View style={panel1VisualStyles.wrap}>
+        <Onboarding1Visual width="100%" height="100%" />
+      </View>
+    </>
+  );
+}
+
+// Panel 2: hill (390×237) bottom-aligns; visual (371×414) top-aligns
+// with a small left inset (Figma puts the visual at x=10 inside the
+// 390-wide panel). Container is 390×565 to span both elements.
+function PanelTwoIllustration() {
+  return (
+    <>
+      <View style={panel2HillStyles.wrap}>
+        <Onboarding2Hill width="100%" height="100%" />
+      </View>
+      <View style={panel2VisualStyles.wrap}>
+        <Onboarding2Visual width="100%" height="100%" />
+      </View>
+    </>
+  );
+}
+
+// Panel 3: single SVG covers the full 390×475 illustration canvas.
+function PanelThreeIllustration() {
+  return <Onboarding3 width="100%" height="100%" style={StyleSheet.absoluteFill} />;
+}
+
 const PANELS: Panel[] = [
   {
     id: 'drive',
     title: 'Drive like you know these roads',
     body: 'No one should feel uncomfortable on the open road. Fresh Greens places the agency back in your hands by suggesting routes that maximize visibility and familiarity.',
-    illustration: require('../assets/illustrations/onboarding-1.png'),
+    illustrationAspect: 390 / 475,
+    renderIllustration: () => <PanelOneIllustration />,
     illustrationLabel:
       'Illustration of hands gripping a steering wheel, viewed from the driver seat',
   },
@@ -57,7 +117,8 @@ const PANELS: Panel[] = [
     id: 'community',
     title: 'For us, by us',
     body: 'Fresh Greens relies on insights shared by travelers like you. Community contributions are vital in the mapping process, ensuring drivers have a full understanding of their surroundings, from road hazards to the treatment of Black visitors.',
-    illustration: require('../assets/illustrations/onboarding-2.png'),
+    illustrationAspect: 390 / 565,
+    renderIllustration: () => <PanelTwoIllustration />,
     illustrationLabel:
       'Illustration of a person sitting on a hill with a thought bubble reading "This street needs more lighting"',
   },
@@ -66,7 +127,8 @@ const PANELS: Panel[] = [
     title: 'Your viewpoint is unique',
     body:
       "That gut feeling that tells you to turn onto a road you've been down before is valuable. Fresh Greens integrates your intuition into the navigation, creating a driving experience specific to you.",
-    illustration: require('../assets/illustrations/onboarding-3.png'),
+    illustrationAspect: 390 / 475,
+    renderIllustration: () => <PanelThreeIllustration />,
     illustrationLabel:
       'Illustration of a person thinking, with a thought bubble showing a no-fly icon',
   },
@@ -139,13 +201,16 @@ export default function Onboarding() {
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.body}>{item.body}</Text>
               </View>
-              <Image
-                source={item.illustration}
-                style={[styles.illustration, { width, aspectRatio: 390 / 351 }]}
-                resizeMode="cover"
+              <View
+                style={[
+                  styles.illustration,
+                  { width, aspectRatio: item.illustrationAspect },
+                ]}
                 accessible
                 accessibilityLabel={item.illustrationLabel}
-              />
+              >
+                {item.renderIllustration()}
+              </View>
             </View>
           )}
           horizontal
@@ -256,5 +321,43 @@ const styles = StyleSheet.create({
     ...typography.subheadlineEmphasized,
     color: colors.white,
     textDecorationLine: 'underline',
+  },
+});
+
+// Per-panel layered-illustration positioning. Percentages resolve
+// against the parent illustration container, which is sized via
+// aspectRatio so these stay accurate at any device width.
+const panel1VisualStyles = StyleSheet.create({
+  // Visual is 390×422 inside a 390×475 canvas. Bottom-aligned so the
+  // hill backdrops the steering wheel; top 53/475 ≈ 11.16% is hill only.
+  wrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: `${(422 / 475) * 100}%`,
+  },
+});
+
+const panel2HillStyles = StyleSheet.create({
+  // Hill (390×237) sits at the bottom of the 390×565 canvas — 237/565 ≈ 41.95%.
+  wrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: `${(237 / 565) * 100}%`,
+  },
+});
+
+const panel2VisualStyles = StyleSheet.create({
+  // Visual (371×414) at top of canvas, 10/390 ≈ 2.56% left inset.
+  // Width 371/390 ≈ 95.13%, height 414/565 ≈ 73.27%.
+  wrap: {
+    position: 'absolute',
+    top: 0,
+    left: `${(10 / 390) * 100}%`,
+    width: `${(371 / 390) * 100}%`,
+    height: `${(414 / 565) * 100}%`,
   },
 });
