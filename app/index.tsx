@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -23,7 +24,6 @@ import WelcomeCloudOvalMed from '../assets/illustrations/welcome-cloud-oval-med.
 import WelcomeCloudSm from '../assets/illustrations/welcome-cloud-sm.svg';
 import WelcomeHill from '../assets/illustrations/welcome-hill.svg';
 import WelcomeSun from '../assets/illustrations/welcome-sun.svg';
-import WelcomeVic from '../assets/illustrations/welcome-vic.svg';
 import WelcomeWindLg from '../assets/illustrations/welcome-wind-lg.svg';
 import WelcomeWindMed from '../assets/illustrations/welcome-wind-med.svg';
 import WelcomeWindSm from '../assets/illustrations/welcome-wind-sm.svg';
@@ -97,10 +97,20 @@ export default function Welcome() {
             height={40.12}
             style={[styles.absLayer, { left: 0, top: 0 }]}
           />
-          <WelcomeVic
-            width={166}
-            height={226}
+          {/*
+            Vic stays a PNG, not an SVG. Vic's illustration uses image-
+            fill rects in Figma (texture for skin/clothing) which export
+            as <pattern> elements with embedded base64 rasters —
+            react-native-svg renders those unreliably (mis-tiles on iOS,
+            pin shape wraps to the other side). The 3x bitmap source
+            (498×677) gives crisp display on every retina device. CLAUDE.md
+            "Asset format default: SVG" rule has the documented exception
+            for assets with image fills like this one.
+          */}
+          <Image
+            source={require('../assets/illustrations/welcome-vic-@3x.png')}
             style={styles.vicImage}
+            resizeMode="contain"
             accessible
             accessibilityLabel="Illustration of a person waving from inside a location pin"
           />
@@ -304,6 +314,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 87.94,
     top: 88.72,
+    width: 166,
+    height: 226,
   },
 
   // --- Foreground content ---
