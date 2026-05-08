@@ -97,6 +97,21 @@ export default function Welcome() {
             height={40.12}
             style={[styles.absLayer, { left: 0, top: 0 }]}
           />
+          {/*
+            Vic stays a PNG, not an SVG. Vic's illustration uses image-
+            fill rects in Figma (texture for skin/clothing) which export
+            as <pattern> elements with embedded base64 rasters —
+            react-native-svg renders those unreliably (mis-tiles on iOS,
+            pin shape wraps to the other side). The single PNG source
+            is exported at 3x density (498×677) and displayed at the
+            166×226 component size — RN downsamples on render so it
+            stays crisp on every retina device. We don't use the
+            `@3x` filename suffix because Metro reads that as a density
+            tag and expects a 1x base file alongside; a single
+            high-density bitmap referenced directly is simpler.
+            CLAUDE.md "Asset format default: SVG" rule has the
+            documented exception for assets with image fills like this.
+          */}
           <Image
             source={require('../assets/illustrations/welcome-vic.png')}
             style={styles.vicImage}
