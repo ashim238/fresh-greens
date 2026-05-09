@@ -65,7 +65,7 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
     case 'felt-welcome':
       return 'positive';
     case 'home':
-      return 'local-business';
+      return 'positive';
     case 'felt-unsafe':
     case 'incident':
     case 'lighting':

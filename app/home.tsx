@@ -509,10 +509,12 @@ export default function Home() {
           </Marker>
         )}
         {/*
-          Saved home — gray teardrop pin (local-business variant) with
-          the Figma house glyph. Matches the LandmarkMarker system.
-          Only visible when in the viewport; the EdgeIndicator overlay
-          below handles the off-viewport case.
+          Saved home — green teardrop pin (positive variant) with the
+          Figma house glyph. Matches the LandmarkMarker system; green
+          preserves the "home as welcoming" association from the
+          previous freshgreen MapMarker. Only visible when in the
+          viewport; the EdgeIndicator overlay below handles the
+          off-viewport case.
         */}
         {home &&
           (!mapRegion || isPointInRegion(home, mapRegion)) && (
@@ -647,7 +649,7 @@ export default function Home() {
                   x={edge.x}
                   y={edge.y}
                   rotation={edge.rotation}
-                  variant="local-business"
+                  variant="positive"
                   accessibilityLabel={`${home.name} (off-screen — tap to center)`}
                   onPress={() =>
                     mapRef.current?.animateToRegion(
