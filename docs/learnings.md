@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/user-car-glyph (2026-05-09)
+
+Swapped the Phosphor `Car` placeholder for the custom `user-car.svg` in both /home's avatar button and /menu's profile hero. Tiny PR by design — closes the long-standing TODO for the user's identity glyph.
+
+- **Filename casing matters in `react-native-svg-transformer` imports.** The asset arrived as `User-car.svg` (capital U). All other illustration assets are kebab-case lowercase (`mapmarker-pin-blackowned.svg`, `permissions-car.svg`, `daylight-moon.svg`), and CLAUDE.md specified the lowercase path. Renamed at intake. macOS's default APFS resolves imports case-insensitively, but iOS device builds and most CI runners are case-sensitive — a build that works locally and breaks on TestFlight is the kind of bug that's hard to reproduce later. Worth keeping: normalize casing at intake, not at debug time.
+
+---
+
 ## feat/trauma-informed-pulled-over (2026-05-09)
 
 Two trauma-informed UX additions to /pulled-over: tap-to-skip on the transition phase, and review's "Close" now returns to the contact phase instead of dismissing the whole modal. Both are user-pace-control moves backed by Stanford Trauma & Resilience Lab research and ACLU's app-design patterns — the safety flow now bends to the user's processing speed instead of forcing them along its own.

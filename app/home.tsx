@@ -13,10 +13,10 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Car } from 'phosphor-react-native/src/icons/Car';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
+import UserCar from '../assets/illustrations/user-car.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
@@ -710,9 +710,8 @@ export default function Home() {
             48pt white circular surface mirrors menuButton's elevation.
             useUser is read for accessibility label only (announces
             the user's name to VoiceOver) — visual is icon-only.
-
-            TODO: replace Car placeholder with custom car asset to
-            match the trusted-friend pin's iconography.
+            Renders the custom user-car SVG (the user's identity glyph,
+            paired with /menu's profile row).
           */}
           <Pressable
             style={({ pressed }) => [styles.avatarButton, pressed && pressedDim]}
@@ -725,7 +724,7 @@ export default function Home() {
             }
             hitSlop={8}
           >
-            <Car size={28} color={colors.fadedgreen} weight="regular" />
+            <UserCar width={28} height={28} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -991,8 +990,7 @@ const styles = StyleSheet.create({
   },
   // Avatar button — top-right of /home. 48pt circular surface that
   // matches menuButton's elevation but reads as "identity / Settings"
-  // rather than "menu icon." Holds the user's car glyph (rendered
-  // in fadedgreen by the Car component itself).
+  // rather than "menu icon." Holds the user-car SVG glyph.
   avatarButton: {
     width: 48,
     height: 48,
