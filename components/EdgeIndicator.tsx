@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
@@ -8,8 +8,9 @@ import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { typography } from '../theme/typography';
 
-import { GlyphForCategory, type Variant } from './LandmarkMarker';
+import { type Variant } from './LandmarkMarker';
 
 const PIN_SVGS: Record<Variant, typeof PinReport> = {
   'black-owned': PinBlackOwned,
@@ -18,28 +19,12 @@ const PIN_SVGS: Record<Variant, typeof PinReport> = {
   report: PinReport,
 };
 
-/**
- * Off-screen POI indicator rendered absolutely on the screen edge.
- * Tap recenters the map on the POI.
- *
- * Two visual modes:
- *   - **Pin mode** (`variant` set): 32pt teardrop silhouette matching
- *     the on-screen LandmarkMarker (Figma 296:439). Pulses with the
- *     canonical breathe rhythm via usePulseOpacity. Inner glyph
- *     matches the category SVG from the LandmarkMarker system.
- *   - **Pill mode** (no `variant`): original 32pt circular pill with
- *     a triangular arrow tip. Used for non-LandmarkMarker POIs
- *     (e.g., saved home).
- *
- * Position + rotation are computed in lib/edge-indicators.ts.
- */
 export function EdgeIndicator({
   x,
   y,
   rotation,
   variant,
-  categoryId,
-  subTag,
+  count,
   surfaceColor = colors.white,
   borderColor = colors.cardBorderSubtle,
   arrowColor = colors.labelSecondary,
@@ -51,8 +36,7 @@ export function EdgeIndicator({
   y: number;
   rotation: number;
   variant?: Variant;
-  categoryId?: string;
-  subTag?: string;
+  count?: number;
   surfaceColor?: string;
   borderColor?: string;
   arrowColor?: string;
@@ -62,6 +46,7 @@ export function EdgeIndicator({
 }) {
   const pulse = usePulseOpacity(0.55);
   const PinSvg = variant ? PIN_SVGS[variant] : null;
+  const showBadge = count != null && count > 1;
 
   return (
     <Pressable
@@ -77,26 +62,17 @@ export function EdgeIndicator({
     >
       {PinSvg ? (
         <Animated.View style={[styles.pinWrap, { opacity: pulse }]}>
-          <View style={styles.pinRotate}>
-            <PinSvg width={20} height={26} />
-          </View>
-          <View
-            style={[
-              styles.pinGlyph,
-              { transform: [{ rotate: `${-rotation}deg` }] },
-            ]}
-          >
-            {categoryId ? (
-              <GlyphForCategory
-                categoryId={categoryId}
-                subTag={subTag}
-                variant={variant!}
-                size={10}
-              />
-            ) : (
-              children
-            )}
-          </View>
+          <PinSvg width={24} height={32} />
+          {showBadge && (
+            <View
+              style={[
+                styles.badge,
+                { transform: [{ rotate: `${-rotation}deg` }] },
+              ]}
+            >
+              <Text style={styles.badgeText}>{count > 9 ? '9+' : count}</Text>
+            </View>
+          )}
         </Animated.View>
       ) : (
         <>
@@ -125,7 +101,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // --- Pin mode (Figma 296:439) ---
   pinWrap: {
     width: 32,
     height: 32,
@@ -137,18 +112,26 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  pinRotate: {
-    transform: [{ rotate: '-90deg' }],
-  },
-  pinGlyph: {
+  badge: {
     position: 'absolute',
-    left: 2,
-    width: 14,
-    height: 14,
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.burntgreen,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 3,
   },
-  // --- Pill mode (original) ---
+  badgeText: {
+    ...typography.caption2Regular,
+    color: colors.burntgreen,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
   pill: {
     width: 32,
     height: 32,

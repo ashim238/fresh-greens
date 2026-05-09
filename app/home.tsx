@@ -46,6 +46,7 @@ import { gradientSegments } from '../lib/daylight';
 import { formatDuration } from '../lib/format';
 import {
   edgePositionForPoint,
+  groupEdgeIndicators,
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
@@ -561,38 +562,68 @@ export default function Home() {
       */}
       {mapRegion && mapSize && (
         <View style={styles.edgeOverlay} pointerEvents="box-none">
-          {reportZones.map((zone) => {
-            if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
-              return null;
-            }
-            const point = zone.coordinates[0];
-            if (isPointInRegion(point, mapRegion)) return null;
-            const edge = edgePositionForPoint(point, mapRegion, mapSize);
-            const variant = variantForCategoryId(zone.reportCategoryId);
-            return (
-              <EdgeIndicator
-                key={`edge-${zone.id}`}
-                x={edge.x}
-                y={edge.y}
-                rotation={edge.rotation}
-                variant={variant}
-                categoryId={zone.reportCategoryId}
-                subTag={zone.reportSubTag}
-                accessibilityLabel={`${zone.label} (off-screen — tap to center)`}
-                onPress={() =>
-                  mapRef.current?.animateToRegion(
-                    {
-                      latitude: point.latitude,
-                      longitude: point.longitude,
-                      latitudeDelta: mapRegion.latitudeDelta,
-                      longitudeDelta: mapRegion.longitudeDelta,
-                    },
-                    400,
-                  )
-                }
-              />
-            );
-          })}
+          {(() => {
+            const offScreen = reportZones
+              .filter(
+                (z) =>
+                  z.geometry === 'point' &&
+                  z.coordinates.length > 0 &&
+                  !isPointInRegion(z.coordinates[0], mapRegion),
+              )
+              .map((zone) => ({
+                item: zone,
+                edge: edgePositionForPoint(zone.coordinates[0], mapRegion, mapSize),
+              }));
+            const groups = groupEdgeIndicators(offScreen);
+            return groups.map((group, i) => {
+              const variant = variantForCategoryId(group.items[0].reportCategoryId);
+              const first = group.items[0].coordinates[0];
+              return (
+                <EdgeIndicator
+                  key={`edge-group-${i}`}
+                  x={group.edge.x}
+                  y={group.edge.y}
+                  rotation={group.edge.rotation}
+                  variant={variant}
+                  count={group.items.length}
+                  accessibilityLabel={
+                    group.items.length === 1
+                      ? `${group.items[0].label} (off-screen — tap to center)`
+                      : `${group.items.length} reports nearby (off-screen — tap to zoom)`
+                  }
+                  onPress={() => {
+                    if (group.items.length === 1) {
+                      mapRef.current?.animateToRegion(
+                        {
+                          latitude: first.latitude,
+                          longitude: first.longitude,
+                          latitudeDelta: mapRegion.latitudeDelta,
+                          longitudeDelta: mapRegion.longitudeDelta,
+                        },
+                        400,
+                      );
+                    } else {
+                      const lats = group.items.map((z) => z.coordinates[0].latitude);
+                      const lngs = group.items.map((z) => z.coordinates[0].longitude);
+                      const minLat = Math.min(...lats);
+                      const maxLat = Math.max(...lats);
+                      const minLng = Math.min(...lngs);
+                      const maxLng = Math.max(...lngs);
+                      mapRef.current?.animateToRegion(
+                        {
+                          latitude: (minLat + maxLat) / 2,
+                          longitude: (minLng + maxLng) / 2,
+                          latitudeDelta: (maxLat - minLat) * 1.5 + 0.005,
+                          longitudeDelta: (maxLng - minLng) * 1.5 + 0.005,
+                        },
+                        400,
+                      );
+                    }
+                  }}
+                />
+              );
+            });
+          })()}
           {home && !isPointInRegion(home, mapRegion) && (
             (() => {
               const edge = edgePositionForPoint(home, mapRegion, mapSize);
