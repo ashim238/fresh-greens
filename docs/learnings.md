@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/schedule-for-am (2026-05-09)
+
+Replaced the static "Schedule for later" chip on /home with a real computation: `suggestedDepartureForDaylight(route, now)` in `lib/daylight.ts` returns a departure time only when leaving later genuinely buys more daylight, otherwise `null`. v1 rule: pre-sunrise departures get sunrise+15min (small buffer past the horizon, comfortably outside scoring.ts's dawn ±30-min wildlife window), capped to a 3-hour look-ahead. The chip — and its rationale copy ("Heads up! You can leave in a bit…") — both gate on the suggestion existing, so mid-day departures hide instead of showing a meaningless time.
+
+- **A "schedule for X" suggestion has to be explicitly nullable, not a default copy.** First instinct was to always render the chip with computed text, falling back to "Schedule for later" if the math didn't yield anything. That's what the static version was doing. But the rationale copy ("you can leave in a bit and still make it on time with some added daylight") is a *promise* — if it shows when daylight wouldn't actually improve, the app is lying. The fix is structural: make the helper return `Date | null`, gate every related piece of UI on the same `suggestedDeparture` value, and let the layout reflow when there's nothing to suggest. Worth keeping: when an affordance is conditional on data, hide both the affordance and its supporting copy together — partial truth reads worse than absence.
+- **Buffer past sunrise belongs in the schedule helper, not the dawn window in scoring.** Considered scheduling exactly at sunrise. Then realized scoring.ts's wildlife multiplier already calls ±30 min around sunrise/sunset "dawn" — so a sunrise-exact departure technically still has wildlife-amplified caution zones for the first half-hour. +15 min is short enough to feel like "leave in a bit," long enough to clear the visually-dim band. Putting the buffer in `suggestedDepartureForDaylight` (which has trip context) keeps `lib/scoring.ts` general — same separation that already lives there for time-of-day modulation. Worth keeping: when two pure-function modules both touch "is it daylight," let each own its own threshold; don't merge them into one shared constant.
+- **`Date#toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })` returns "7:38 AM" with no zero-padding on the hour.** That's exactly Figma's intended copy. Hand-rolling `${h}:${m.toString().padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}` would have shipped — but Intl gives correct AM/PM ordering for any locale (some put it before the hour) and edge-case-handles midnight/noon ambiguity. Worth keeping: trust Intl for human-readable times; only hand-format when you genuinely need a non-locale-standard shape.
+
+---
+
 ## feat/user-car-glyph (2026-05-09)
 
 Swapped the Phosphor `Car` placeholder for the custom `user-car.svg` in both /home's avatar button and /menu's profile hero. Tiny PR by design — closes the long-standing TODO for the user's identity glyph.

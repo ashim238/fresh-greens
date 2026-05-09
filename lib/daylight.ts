@@ -124,3 +124,41 @@ function colorForMinutesToSunset(minutes: number): string {
   if (minutes > 0) return '#784961';                     // dusk → night blend
   return colors.daylightNight;                           // strip end — past sunset
 }
+
+/**
+ * Returns a departure time that puts more of the route in daylight than
+ * leaving now would, or `null` if no near-future improvement exists.
+ *
+ * v1 rule: if the user is currently before sunrise at the route's
+ * starting coordinate, suggest sunrise + 15 minutes (small buffer past
+ * the horizon so the whole trip starts in real daylight, comfortably
+ * outside the dawn ±30-min wildlife window that lib/scoring.ts uses).
+ * Capped to a 3-hour look-ahead — beyond that, "schedule for later"
+ * stops feeling like "leave in a bit" and starts feeling like a
+ * different trip.
+ *
+ * Mid-day, late-afternoon, and post-sunset departures all return null:
+ * either the route is already in full daylight (no improvement possible),
+ * or the only "fix" would be tomorrow morning, which is out of scope
+ * for the in-line schedule chip.
+ */
+export function suggestedDepartureForDaylight(
+  route: Route,
+  now: Date = new Date(),
+): Date | null {
+  const start = route.coordinates[0];
+  if (!start) return null;
+
+  const sunTimes = SunCalc.getTimes(now, start.latitude, start.longitude);
+  const sunrise = sunTimes.sunrise;
+  if (Number.isNaN(sunrise.getTime())) return null;
+
+  const suggested = new Date(sunrise.getTime() + 15 * 60_000);
+  const minutesUntil = (suggested.getTime() - now.getTime()) / 60_000;
+
+  // Only meaningful if we're meaningfully *before* the suggested time
+  // (>5 min away) and it's within a reasonable wait (<3 hours).
+  if (minutesUntil < 5 || minutesUntil > 180) return null;
+
+  return suggested;
+}
