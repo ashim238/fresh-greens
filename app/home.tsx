@@ -177,8 +177,10 @@ export default function Home() {
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
   // when leaving later actually buys more daylight (currently: pre-dawn
   // departures). `null` hides the chip — see lib/daylight.ts for rules.
-  // Recomputes only when the recommended polyline changes; the chip
-  // doesn't need to tick every second.
+  // v1 limitation: `now` is captured at first render, so a user who
+  // lingers across sunrise will see a stale chip until /home remounts
+  // (which happens on tab/route change). Acceptable for thesis demo;
+  // a minute-resolution tick would fix it cheaply if needed later.
   const suggestedDeparture = useMemo(
     () => (recommended ? suggestedDepartureForDaylight(recommended) : null),
     [recommended],

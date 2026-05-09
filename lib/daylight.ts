@@ -130,17 +130,21 @@ function colorForMinutesToSunset(minutes: number): string {
  * leaving now would, or `null` if no near-future improvement exists.
  *
  * v1 rule: if the user is currently before sunrise at the route's
- * starting coordinate, suggest sunrise + 15 minutes (small buffer past
- * the horizon so the whole trip starts in real daylight, comfortably
- * outside the dawn ±30-min wildlife window that lib/scoring.ts uses).
- * Capped to a 3-hour look-ahead — beyond that, "schedule for later"
- * stops feeling like "leave in a bit" and starts feeling like a
- * different trip.
+ * starting coordinate, suggest sunrise + 15 minutes — a small buffer
+ * past the horizon so the trip starts visually past the dim band, even
+ * though scoring.ts still treats this as part of the dawn ±30-min
+ * wildlife window. The trade-off is intentional: clearing the wildlife
+ * window entirely would mean +31min, which begins to feel like a
+ * different trip rather than "leave in a bit."
+ *
+ * Capped to a 3-hour look-ahead and a 5-minute floor: beyond 3 hours,
+ * the suggestion stops feeling like "leave in a bit"; under 5 min, the
+ * math is real but the suggestion ("schedule for 4 minutes from now")
+ * is silly. Both bounds are product calls, not physics.
  *
  * Mid-day, late-afternoon, and post-sunset departures all return null:
- * either the route is already in full daylight (no improvement possible),
- * or the only "fix" would be tomorrow morning, which is out of scope
- * for the in-line schedule chip.
+ * either the route is already in full daylight, or the only "fix"
+ * would be tomorrow morning — out of scope for the in-line chip.
  */
 export function suggestedDepartureForDaylight(
   route: Route,
@@ -156,8 +160,6 @@ export function suggestedDepartureForDaylight(
   const suggested = new Date(sunrise.getTime() + 15 * 60_000);
   const minutesUntil = (suggested.getTime() - now.getTime()) / 60_000;
 
-  // Only meaningful if we're meaningfully *before* the suggested time
-  // (>5 min away) and it's within a reasonable wait (<3 hours).
   if (minutesUntil < 5 || minutesUntil > 180) return null;
 
   return suggested;
