@@ -232,6 +232,10 @@ export default function Onboarding() {
               ]}
               accessible
               accessibilityLabel={item.illustrationLabel}
+              // Smart Invert preserves images by default but mishandles
+              // SVGs rendered via react-native-svg. Pin so the
+              // illustrated palette stays intact when invert is on.
+              accessibilityIgnoresInvertColors
             >
               {item.renderIllustration()}
             </View>

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Easing } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing } from 'react-native';
 
 /**
  * Shared pulse animation — the canonical "live/connected" rhythm used
@@ -16,6 +16,15 @@ import { Animated, Easing } from 'react-native';
  * strobe instead of a pulse. Same rhythm, different depth — the
  * rhythm is what makes the surfaces feel like one system.
  *
+ * **Reduce Motion respect:** when iOS Accessibility → Motion → Reduce
+ * Motion is enabled, this hook short-circuits the loop and leaves the
+ * value pinned at 1 (fully visible, static). The element keeps its
+ * "alive" semantic via the visible dot/ring, but doesn't oscillate —
+ * matches Apple HIG's guidance for `UIAccessibilityIsReduceMotionEnabled`
+ * and WCAG 2.1 SC 2.3.3 (Animation from Interactions). The listener
+ * picks up runtime toggles too, so flipping the iOS setting while the
+ * app is open stops/starts the pulse on the next render pass.
+ *
  * Consumers:
  *   - TrustedContactStatus dot (default 0.3)
  *   - PulledOver / RecordingChip dot (default 0.3)
@@ -23,12 +32,41 @@ import { Animated, Easing } from 'react-native';
  *
  * If you reach for an `Animated.loop` to add another pulse to the
  * safety flow, use this hook instead — keeps all surfaces breathing
- * on the same beat without each component re-deriving the timing.
+ * on the same beat without each component re-deriving the timing,
+ * and inherits the Reduce Motion gate for free.
  */
 export function usePulseOpacity(minOpacity: number = 0.3): Animated.Value {
   const pulse = useRef(new Animated.Value(1)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  // Read the current Reduce Motion state on mount and subscribe to
+  // changes. iOS users can toggle the setting from Control Center
+  // without leaving the app; the subscription means the next render
+  // sees the new value.
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (!cancelled) setReduceMotion(enabled);
+    });
+    const sub = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotion,
+    );
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   useEffect(() => {
+    if (reduceMotion) {
+      // Pin opacity to 1 so the surface stays visible; just don't
+      // animate. Resetting here covers the "user enabled Reduce
+      // Motion mid-pulse" case — without this the value would stick
+      // at whatever frame the loop was on when we returned.
+      pulse.setValue(1);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
@@ -47,7 +85,7 @@ export function usePulseOpacity(minOpacity: number = 0.3): Animated.Value {
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse, minOpacity]);
+  }, [pulse, minOpacity, reduceMotion]);
 
   return pulse;
 }

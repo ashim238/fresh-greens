@@ -28,7 +28,12 @@ import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
-import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
+import {
+  getZonesForRegion,
+  type Zone,
+  zoneColors,
+  zoneDashPattern,
+} from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
 import { formatDistance, formatDuration } from '../lib/format';
 import { pickWinner } from '../lib/scoring';
@@ -283,6 +288,7 @@ export default function EnRoute() {
                   coordinates={zone.coordinates}
                   strokeColor={zoneColors[zone.type].stroke}
                   strokeWidth={4}
+                  lineDashPattern={zoneDashPattern[zone.type]}
                 />
               );
             }
@@ -294,6 +300,7 @@ export default function EnRoute() {
                   fillColor={zoneColors[zone.type].fill}
                   strokeColor={zoneColors[zone.type].stroke}
                   strokeWidth={1}
+                  lineDashPattern={zoneDashPattern[zone.type]}
                 />
               );
             }

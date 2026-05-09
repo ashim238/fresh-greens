@@ -136,7 +136,7 @@ export default function Permissions() {
         */}
         <View style={styles.content}>
           <View style={styles.visualAndCopy}>
-            <View style={styles.visual}>
+            <View style={styles.visual} accessibilityIgnoresInvertColors>
               <View style={styles.locationWrap}>
                 <View style={styles.locationRotated}>
                   <PermissionsLocation

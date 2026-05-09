@@ -183,7 +183,7 @@ export function LandmarkMarker({
       accessibilityLabel={accessibilityLabel}
       tracksViewChanges={false}
     >
-      <View style={styles.frame}>
+      <View style={styles.frame} accessibilityIgnoresInvertColors>
         {variant === 'black-owned' && <PinBlackOwned width={30} height={39} style={styles.pin} />}
         {variant === 'positive' && <PinPositive width={30} height={39} style={styles.pin} />}
         {variant === 'local-business' && <PinLocalBusiness width={30} height={39} style={styles.pin} />}
