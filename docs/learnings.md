@@ -12,6 +12,14 @@ Swapped the Phosphor `Car` placeholder for the custom `user-car.svg` in both /ho
 
 ---
 
+## chore/remove-orphaned-mapmarker (2026-05-09)
+
+Deleted `components/MapMarker.tsx`, orphaned by `feat/community-report-mechanic`'s switch to `LandmarkMarker` for the saved home pin. First action on a Pattern 2 (read-only dead-code sweep) finding from the parallel-agent workflow plan.
+
+- **Pattern 2 dead-code sweeps need a "public API surface" filter.** The Explore agent flagged `RankedRoute` (lib/scoring), `getCategory` (lib/api/community-reports), and `Cluster`/`ClusterOrZone` (lib/clustering) as "unused exports" — technically true (no other file imports them right now), but they're the public surface of pure-function modules and are documented as part of the contract. Adapter and lib modules export their full surface even when only some entry points are currently called; treating those as dead would amputate the API. Future Pattern 2 prompts should constrain "unused exports" to `app/` and `components/` (where surface area is internal) and exclude `lib/`/`hooks/`/`theme/` unless explicitly asked. Worth keeping: a "is this dead?" search needs to know whether it's looking at public or private surface — same grep, different verdict.
+
+---
+
 ## feat/trauma-informed-pulled-over (2026-05-09)
 
 Two trauma-informed UX additions to /pulled-over: tap-to-skip on the transition phase, and review's "Close" now returns to the contact phase instead of dismissing the whole modal. Both are user-pace-control moves backed by Stanford Trauma & Resilience Lab research and ACLU's app-design patterns — the safety flow now bends to the user's processing speed instead of forcing them along its own.
