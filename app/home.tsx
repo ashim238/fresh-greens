@@ -14,7 +14,6 @@ import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Car } from 'phosphor-react-native/src/icons/Car';
-import { House } from 'phosphor-react-native/src/icons/House';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
@@ -22,7 +21,6 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
-import { MapMarker } from '../components/MapMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
@@ -121,7 +119,7 @@ export default function Home() {
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   // Community-submitted point reports. Refreshed every time /home gains
   // focus, so a freshly-submitted report from /report appears
-  // immediately when the user closes the modal. Rendered as MapMarkers
+  // immediately when the user closes the modal. Rendered as LandmarkMarkers
   // when in the viewport and as EdgeIndicators when out — the "trusted
   // community" signal layer, distinct from OSM infrastructure zones.
   const [reportZones, setReportZones] = useState<Zone[]>([]);
@@ -493,20 +491,19 @@ export default function Home() {
           </Marker>
         )}
         {/*
-          Saved home — rendered as a freshgreen pip with a House
-          glyph. Only visible when in the viewport; the EdgeIndicator
-          overlay below handles the off-viewport case.
+          Saved home — gray teardrop pin (local-business variant) with
+          the Figma house glyph. Matches the LandmarkMarker system.
+          Only visible when in the viewport; the EdgeIndicator overlay
+          below handles the off-viewport case.
         */}
         {home &&
           (!mapRegion || isPointInRegion(home, mapRegion)) && (
-            <MapMarker
+            <LandmarkMarker
               latitude={home.latitude}
               longitude={home.longitude}
-              surfaceColor={colors.freshgreen}
+              categoryId="home"
               accessibilityLabel={`${home.name} (saved place)`}
-            >
-              <House size={20} color={colors.white} weight="fill" />
-            </MapMarker>
+            />
           )}
         {/*
           OSRM-derived routes. Recommended renders as a daylight-
@@ -632,9 +629,7 @@ export default function Home() {
                   x={edge.x}
                   y={edge.y}
                   rotation={edge.rotation}
-                  surfaceColor={colors.freshgreen}
-                  borderColor={colors.white}
-                  arrowColor={colors.freshgreen}
+                  variant="local-business"
                   accessibilityLabel={`${home.name} (off-screen — tap to center)`}
                   onPress={() =>
                     mapRef.current?.animateToRegion(
@@ -647,9 +642,7 @@ export default function Home() {
                       400,
                     )
                   }
-                >
-                  <House size={16} color={colors.white} weight="fill" />
-                </EdgeIndicator>
+                />
               );
             })()
           )}

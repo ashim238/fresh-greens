@@ -18,6 +18,7 @@ import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welco
 import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
+import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
 import GlyphLocalBusiness from '../assets/illustrations/mapmarker-glyph-localbusiness.svg';
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
@@ -63,6 +64,8 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
       return 'black-owned';
     case 'felt-welcome':
       return 'positive';
+    case 'home':
+      return 'local-business';
     case 'felt-unsafe':
     case 'incident':
     case 'lighting':
@@ -136,6 +139,8 @@ export function GlyphForCategory({
   }
 
   switch (categoryId) {
+    case 'home':
+      return <GlyphHome width={size} height={size} />;
     case 'black-owned':
       return <GlyphBlackOwned width={size} height={size} />;
     case 'felt-welcome':
