@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
 import { Calendar } from 'phosphor-react-native/src/icons/Calendar';
-import { Car } from 'phosphor-react-native/src/icons/Car';
 import { CircleHalf } from 'phosphor-react-native/src/icons/CircleHalf';
 import { GearSix } from 'phosphor-react-native/src/icons/GearSix';
 import { MapTrifold } from 'phosphor-react-native/src/icons/MapTrifold';
@@ -34,6 +33,7 @@ import {
 // size. TypeScript types come from types/svg.d.ts.
 import FuelIcon from '../assets/illustrations/fuel.svg';
 import NotificationIcon from '../assets/illustrations/notification.svg';
+import UserCar from '../assets/illustrations/user-car.svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PageControl } from '../components/PageControl';
@@ -241,11 +241,7 @@ export default function Menu() {
             accessibilityLabel={`Hey ${firstName}${user?.email ? `, ${user.email}` : ''}`}
           >
             <View style={styles.profileAvatar}>
-              <Car
-                size={28}
-                color={colors.fadedgreen}
-                weight="duotone"
-              />
+              <UserCar width={28} height={28} />
             </View>
             <View style={styles.profileTextStack}>
               <Text style={styles.profileGreeting}>Hey {firstName}</Text>

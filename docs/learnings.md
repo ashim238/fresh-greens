@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/user-car-glyph (2026-05-09)
+
+Swapped the Phosphor `Car` placeholder for the custom `user-car.svg` in both /home's avatar button and /menu's profile hero. Tiny PR by design — closes the long-standing TODO for the user's identity glyph.
+
+- **Filename casing matters in `react-native-svg-transformer` imports.** The asset arrived as `User-car.svg` (capital U). All other illustration assets are kebab-case lowercase (`mapmarker-pin-blackowned.svg`, `permissions-car.svg`, `daylight-moon.svg`), and CLAUDE.md specified the lowercase path. Renamed at intake. macOS's default APFS resolves imports case-insensitively, but iOS device builds and most CI runners are case-sensitive — a build that works locally and breaks on TestFlight is the kind of bug that's hard to reproduce later. Worth keeping: normalize casing at intake, not at debug time.
+
+---
+
 ## chore/remove-orphaned-mapmarker (2026-05-09)
 
 Deleted `components/MapMarker.tsx`, orphaned by `feat/community-report-mechanic`'s switch to `LandmarkMarker` for the saved home pin. First action on a Pattern 2 (read-only dead-code sweep) finding from the parallel-agent workflow plan.
