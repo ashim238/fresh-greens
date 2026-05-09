@@ -1,14 +1,15 @@
 import { type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
+import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 
-import type { Variant } from './LandmarkMarker';
+import { GlyphForCategory, type Variant } from './LandmarkMarker';
 
 const PIN_SVGS: Record<Variant, typeof PinReport> = {
   'black-owned': PinBlackOwned,
@@ -23,8 +24,9 @@ const PIN_SVGS: Record<Variant, typeof PinReport> = {
  *
  * Two visual modes:
  *   - **Pin mode** (`variant` set): 32pt teardrop silhouette matching
- *     the on-screen LandmarkMarker. The pin tip points toward the POI.
- *     Glyph counter-rotates to stay upright inside the pin head.
+ *     the on-screen LandmarkMarker (Figma 296:439). Pulses with the
+ *     canonical breathe rhythm via usePulseOpacity. Inner glyph
+ *     matches the category SVG from the LandmarkMarker system.
  *   - **Pill mode** (no `variant`): original 32pt circular pill with
  *     a triangular arrow tip. Used for non-LandmarkMarker POIs
  *     (e.g., saved home).
@@ -36,6 +38,8 @@ export function EdgeIndicator({
   y,
   rotation,
   variant,
+  categoryId,
+  subTag,
   surfaceColor = colors.white,
   borderColor = colors.cardBorderSubtle,
   arrowColor = colors.labelSecondary,
@@ -45,17 +49,18 @@ export function EdgeIndicator({
 }: {
   x: number;
   y: number;
-  /** Degrees, 0 = pointing right. */
   rotation: number;
-  /** When set, renders a teardrop pin matching the LandmarkMarker variant. */
   variant?: Variant;
+  categoryId?: string;
+  subTag?: string;
   surfaceColor?: string;
   borderColor?: string;
   arrowColor?: string;
-  children: ReactNode;
+  children?: ReactNode;
   onPress?: () => void;
   accessibilityLabel?: string;
 }) {
+  const pulse = usePulseOpacity(0.55);
   const PinSvg = variant ? PIN_SVGS[variant] : null;
 
   return (
@@ -71,25 +76,28 @@ export function EdgeIndicator({
       ]}
     >
       {PinSvg ? (
-        <View style={styles.pinWrap}>
-          {/* Pin SVG's natural tip is bottom-center. Rotate -90° so
-              the tip points right (matching rotation=0 convention). */}
+        <Animated.View style={[styles.pinWrap, { opacity: pulse }]}>
           <View style={styles.pinRotate}>
             <PinSvg width={20} height={26} />
           </View>
-          {/* Glyph sits in the pin's circular head area, counter-
-              rotated so the icon stays upright. Offset accounts for
-              the pin head center being slightly above geometric center
-              after the -90° base rotation moves it left of center. */}
           <View
             style={[
               styles.pinGlyph,
               { transform: [{ rotate: `${-rotation}deg` }] },
             ]}
           >
-            {children}
+            {categoryId ? (
+              <GlyphForCategory
+                categoryId={categoryId}
+                subTag={subTag}
+                variant={variant!}
+                size={10}
+              />
+            ) : (
+              children
+            )}
           </View>
-        </View>
+        </Animated.View>
       ) : (
         <>
           <View
@@ -117,7 +125,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // --- Pin mode ---
+  // --- Pin mode (Figma 296:439) ---
   pinWrap: {
     width: 32,
     height: 32,
@@ -134,9 +142,6 @@ const styles = StyleSheet.create({
   },
   pinGlyph: {
     position: 'absolute',
-    // The pin head center sits ~5pt left of the geometric center
-    // after the -90° rotation (the tip extends rightward). Nudge
-    // the glyph left to land on the head, not the overall center.
     left: 2,
     width: 14,
     height: 14,

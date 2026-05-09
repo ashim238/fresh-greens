@@ -118,36 +118,38 @@ function phosphorForSubTag(subTag: string | undefined) {
  * category SVG glyph — the same illustration the picker tile
  * renders — so the marker stays legible without a typed icon.
  */
-function GlyphForCategory({
+export function GlyphForCategory({
   categoryId,
   subTag,
   variant,
+  size = 16,
 }: {
   categoryId?: string;
   subTag?: string;
   variant: Variant;
+  size?: number;
 }) {
   const PhosphorIcon = phosphorForSubTag(subTag);
   if (PhosphorIcon) {
     const color = variant === 'black-owned' ? colors.freshgreen : colors.white;
-    return <PhosphorIcon size={16} color={color} weight="duotone" />;
+    return <PhosphorIcon size={size} color={color} weight="duotone" />;
   }
 
   switch (categoryId) {
     case 'black-owned':
-      return <GlyphBlackOwned width={16} height={16} />;
+      return <GlyphBlackOwned width={size} height={size} />;
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={16} height={16} />;
+      return <GlyphFeltWelcome width={size} height={size} />;
     case 'felt-unsafe':
-      return <GlyphFeltUnsafe width={16} height={16} />;
+      return <GlyphFeltUnsafe width={size} height={size} />;
     case 'incident':
-      return <GlyphIncident width={16} height={16} />;
+      return <GlyphIncident width={size} height={size} />;
     case 'lighting':
-      return <GlyphLighting width={16} height={16} />;
+      return <GlyphLighting width={size} height={size} />;
     case 'hazard':
-      return <GlyphHazard width={16} height={16} />;
+      return <GlyphHazard width={size} height={size} />;
     default:
-      return <GlyphLocalBusiness width={16} height={16} />;
+      return <GlyphLocalBusiness width={size} height={size} />;
   }
 }
 

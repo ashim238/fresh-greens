@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Car } from 'phosphor-react-native/src/icons/Car';
 import { House } from 'phosphor-react-native/src/icons/House';
-import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
@@ -577,6 +576,8 @@ export default function Home() {
                 y={edge.y}
                 rotation={edge.rotation}
                 variant={variant}
+                categoryId={zone.reportCategoryId}
+                subTag={zone.reportSubTag}
                 accessibilityLabel={`${zone.label} (off-screen — tap to center)`}
                 onPress={() =>
                   mapRef.current?.animateToRegion(
@@ -589,9 +590,7 @@ export default function Home() {
                     400,
                   )
                 }
-              >
-                <Megaphone size={12} color={colors.white} weight="fill" />
-              </EdgeIndicator>
+              />
             );
           })}
           {home && !isPointInRegion(home, mapRegion) && (
