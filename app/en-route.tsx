@@ -14,10 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
 import { ArrowBendUpLeft } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
-import { Lifebuoy } from 'phosphor-react-native/src/icons/Lifebuoy';
-import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
-import { SpeakerHigh } from 'phosphor-react-native/src/icons/SpeakerHigh';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
 // (node 825:3647) so the symbol means the same thing on both
@@ -382,7 +379,7 @@ export default function EnRoute() {
             <ArrowBendUpLeft
               size={56}
               color={colors.white}
-              weight="duotone"
+              weight="regular"
             />
             <Text style={styles.turnDistance}>
               0.5{' '}
@@ -400,21 +397,15 @@ export default function EnRoute() {
           <Pressable
             style={({ pressed }) => [styles.micBtn, pressed && pressedDim]}
             accessibilityRole="button"
-            accessibilityLabel="Voice guidance volume (not yet supported)"
+            accessibilityLabel="Voice control (not yet supported)"
           >
             {/*
-              Per Figma 825:3755 this right-side white pill is a volume
-              control for voice guidance, not a mic input. Phosphor
-              SpeakerHigh duotone matches the design's filled-icon
-              register and reads as "audio playing" rather than "voice
-              recording" (the mic glyph implied a record/speak action
-              that wasn't actually wired up).
+              Speech-control affordance — the mic glyph signals "tap to
+              speak a destination/command," matching the in-app voice-
+              search pattern Apple/Google/Waze all use during active
+              navigation.
             */}
-            <SpeakerHigh
-              size={24}
-              color={colors.labelSecondary}
-              weight="duotone"
-            />
+            <Ionicons name="mic" size={24} color={colors.labelSecondary} />
           </Pressable>
         </View>
 
@@ -451,37 +442,28 @@ export default function EnRoute() {
             reads as a uniform stack.
           */}
           {/*
-            Side-button glyphs are unified to Phosphor duotone for
-            visual consistency with /menu's nav rows and the Shield
-            below. The Ionicons used here previously (volume-high,
-            medical, locate) didn't share a stroke weight or terminal
-            style with the Phosphor Shield, so the column read as
-            mixed-family. Phosphor duotone gives a single icon vocabulary.
+            Side-button glyphs use Ionicons as a temporary stand-in.
+            The Figma design uses custom illustrated glyphs (one per
+            button — Volume, Help, Shield, Report, Center) that aren't
+            yet exported as SVG. When those drop into
+            assets/illustrations/, swap each Ionicon below for the
+            matching SVG component. Shield is already Phosphor (the
+            documented canonical safety-affordance) and Report uses
+            the documented orange alert-circle exception — those stay.
           */}
           <Pressable
             style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Toggle volume (coming soon)"
           >
-            <SpeakerHigh
-              size={32}
-              color={colors.labelSecondary}
-              weight="duotone"
-            />
+            <Ionicons name="volume-high" size={32} color={colors.labelSecondary} />
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Help (coming soon)"
           >
-            {/*
-              Lifebuoy (the orange ring buoy used for water rescues) is
-              the universal "help" symbol — Apple's emergency-SOS uses
-              it, Discord help, etc. Reads more cleanly as "I need
-              help" than the medical-cross which suggested "first aid
-              supplies." Stays red — emergency-color exception.
-            */}
-            <Lifebuoy size={32} color={colors.red} weight="duotone" />
+            <Ionicons name="medical" size={32} color={colors.red} />
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
@@ -505,18 +487,7 @@ export default function EnRoute() {
             accessibilityRole="button"
             accessibilityLabel="Recenter map on your location"
           >
-            {/*
-              NavigationArrow is Phosphor's compass-arrow glyph — the
-              universal "current heading" / "recenter to me" symbol on
-              every nav app (Apple Maps, Google Maps, Waze). Replaces
-              the Ionicons "locate" target-reticle, which read as
-              "find/search" more than "recenter."
-            */}
-            <NavigationArrow
-              size={32}
-              color={colors.labelSecondary}
-              weight="duotone"
-            />
+            <Ionicons name="locate" size={32} color={colors.labelSecondary} />
           </Pressable>
         </View>
       )}
@@ -662,10 +633,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 24,
     alignItems: 'flex-start',
-    // No paddingTop: the parent SafeAreaView provides the status-bar
-    // inset (~47pt on iPhone Pro), which matches Figma's pt-[47px] on
-    // node 825:3755. Earlier this stacked an extra 16pt on top of the
-    // safe-area inset and pushed the turn instruction too far down.
+    // 16pt of additional top padding on top of SafeAreaView's
+    // status-bar inset. Without it the turn arrow + instruction sit
+    // visually flush with the status bar — readable but cramped on
+    // device. The 16pt gives the turn-card content room to breathe
+    // below the time/battery icons.
+    paddingTop: 16,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
