@@ -8,11 +8,12 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polyline } from 'react-native-maps';
+import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
+import { ArrowBendUpLeft } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
@@ -24,9 +25,10 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import { DragHandle } from '../components/DragHandle';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { UserLocationMarker } from '../components/UserLocationMarker';
+import { usePreferences } from '../hooks/usePreferences';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
-import { getZonesForRegion, type Zone } from '../lib/api/zones';
+import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
 import { formatDistance, formatDuration } from '../lib/format';
 import { pickWinner } from '../lib/scoring';
@@ -60,6 +62,13 @@ export default function EnRoute() {
     destLng?: string;
     destName?: string;
   }>();
+  // Zone overlay rendering follows /home — driven by the user's
+  // preference, which lives in AsyncStorage and is toggled from
+  // /menu's Zone Settings accordion. Default off until they flip it,
+  // so first-time en-route users see a clean map; toggle persists
+  // across sessions and applies on both /home and /en-route.
+  const { preferences } = usePreferences();
+  const showZones = preferences?.showZones ?? false;
 
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const [reportZones, setReportZones] = useState<Zone[]>([]);
@@ -257,6 +266,40 @@ export default function EnRoute() {
         showsMyLocationButton={false}
       >
         {/*
+          Zone overlays — same render rules as /home. Rendered first
+          (before route polylines) so the route's daylight gradient
+          paints on top, not under. Only when the user has the
+          preference toggled on; default off keeps the active driving
+          map clean by default. Renders both polyline zones (lit
+          streets, surface conditions) and polygon zones (parks,
+          landuse, wildlife).
+        */}
+        {showZones &&
+          allZones.map((zone) => {
+            if (zone.geometry === 'polyline') {
+              return (
+                <Polyline
+                  key={zone.id}
+                  coordinates={zone.coordinates}
+                  strokeColor={zoneColors[zone.type].stroke}
+                  strokeWidth={4}
+                />
+              );
+            }
+            if (zone.geometry === 'polygon') {
+              return (
+                <Polygon
+                  key={zone.id}
+                  coordinates={zone.coordinates}
+                  fillColor={zoneColors[zone.type].fill}
+                  strokeColor={zoneColors[zone.type].stroke}
+                  strokeWidth={1}
+                />
+              );
+            }
+            return null;
+          })}
+        {/*
           Community-report points — LandmarkMarker (Figma's three-
           state component: black-owned, local-business, report) keyed
           on the report's category id. Same component /home uses, so
@@ -325,14 +368,18 @@ export default function EnRoute() {
             accessibilityLabel="Turn left in 0.5 miles"
           >
             {/*
-              Turn maneuver glyph — informational, not a button. Ionicons
-              doesn't ship a curving turn arrow; arrow-back-outline is the
-              closest stand-in until a custom turn-sign asset lands.
+              Turn maneuver glyph — informational, not a button. Phosphor's
+              ArrowBendUpLeft duotone reads as a real turn-sign curve
+              (the Ionicons arrow-back-outline used previously read as
+              "back chevron," not "turn left"). Duotone weight gives the
+              arrow visual mass against the wiltedgreen header without
+              going filled — matches the rest of the app's nav icon
+              register (Shield, House, Megaphone all duotone).
             */}
-            <Ionicons
-              name="arrow-back-outline"
+            <ArrowBendUpLeft
               size={56}
               color={colors.white}
+              weight="regular"
             />
             <Text style={styles.turnDistance}>
               0.5{' '}
@@ -352,7 +399,15 @@ export default function EnRoute() {
             accessibilityRole="button"
             accessibilityLabel="Voice control (not yet supported)"
           >
-            <Ionicons name="mic" size={24} color={colors.labelSecondary} />
+            {/*
+              Speech-control affordance — the mic glyph signals "tap to
+              speak a destination/command," matching the in-app voice-
+              search pattern Apple/Google/Waze all use during active
+              navigation. 32pt icon in a 48pt pill per Figma 825:3755
+              (inner Frame size-[32px] centered in size-[48px] pill =
+              8pt margin each side).
+            */}
+            <Ionicons name="mic" size={32} color={colors.labelSecondary} />
           </Pressable>
         </View>
 
@@ -387,6 +442,16 @@ export default function EnRoute() {
             so it goes furthest from the thumb-resting Center button at
             the bottom. Same 56pt pill as the other four so the column
             reads as a uniform stack.
+          */}
+          {/*
+            Side-button glyphs use Ionicons as a temporary stand-in.
+            The Figma design uses custom illustrated glyphs (one per
+            button — Volume, Help, Shield, Report, Center) that aren't
+            yet exported as SVG. When those drop into
+            assets/illustrations/, swap each Ionicon below for the
+            matching SVG component. Shield is already Phosphor (the
+            documented canonical safety-affordance) and Report uses
+            the documented orange alert-circle exception — those stay.
           */}
           <Pressable
             style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
@@ -570,6 +635,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 24,
     alignItems: 'flex-start',
+    // 16pt of additional top padding on top of SafeAreaView's
+    // status-bar inset. Without it the turn arrow + instruction sit
+    // visually flush with the status bar — readable but cramped on
+    // device. The 16pt gives the turn-card content room to breathe
+    // below the time/battery icons.
     paddingTop: 16,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -598,8 +668,14 @@ const styles = StyleSheet.create({
     color: colors.fadedgreen,
   },
   micBtn: {
-    width: 48,
-    height: 48,
+    // 56pt pill (Figma specs 48pt as Material 3 icon-button, but the
+    // side-button column is all 56pt — bumping the turn-card mic to
+    // match means every white-pill nav button on the en-route screen
+    // is the same size, and gives better tap target during driving.
+    // 32pt icon + 56pt pill = 12pt margin each side — same icon-to-
+    // pill ratio as the side buttons.
+    width: 56,
+    height: 56,
     borderRadius: 100,
     backgroundColor: colors.white,
     alignItems: 'center',
@@ -683,8 +759,14 @@ const styles = StyleSheet.create({
   },
   etaCluster: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    // Matches Figma 825:3783 ETA's `items-start` + no inter-item gap.
+    // The 16pt sun/moon glyph sits at the top of the row alongside
+    // the 41pt-line-height "8:30" — visually subtitling the time as
+    // "this is morning" / "this is night" rather than centered to
+    // the time's mid-line (which read like a satellite dot floating
+    // beside the digits).
+    alignItems: 'flex-start',
+    gap: 0,
   },
   etaIconSpacer: {
     width: 16,
