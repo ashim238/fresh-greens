@@ -42,6 +42,7 @@ import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
@@ -566,10 +567,18 @@ function Waveform({ history }: { history: number[] }) {
 }
 
 function GuidanceBullet({ children }: { children: ReactNode }) {
+  // Stress-readable + Dynamic-Type-aware. Guidance bullets are the
+  // longest reads in the app, happening during the most stressful
+  // moment — apply both the user's iOS Dynamic Type setting AND a
+  // 1.6× line-height ratio per Carter et al. 1998 cognitive-load
+  // research (validated by NN Group). The bullet dot Text gets the
+  // same scaled style so the dot glyph stays vertically aligned with
+  // the wrapped paragraph it labels.
+  const scaledStyle = dynamicType(relaxedLineHeight(typography.title3Regular));
   return (
     <View style={guidanceStyles.bulletRow}>
-      <Text style={guidanceStyles.bulletDot}>•</Text>
-      <Text style={guidanceStyles.bulletText}>{children}</Text>
+      <Text style={[guidanceStyles.bulletDot, scaledStyle]}>•</Text>
+      <Text style={[guidanceStyles.bulletText, scaledStyle]}>{children}</Text>
     </View>
   );
 }
@@ -1118,16 +1127,26 @@ function ContentView({
 }
 
 function Bullet({ children }: { children: ReactNode }) {
+  // Same scaled-and-relaxed treatment as GuidanceBullet — these are
+  // the review sub-views (What to Do/Have/Say/Know) that the user
+  // reads either during or just after the stop. Long paragraphs,
+  // identical cognitive-load context, identical typography needs.
+  const scaledStyle = dynamicType(relaxedLineHeight(typography.title3Regular));
   return (
     <View style={contentStyles.bulletRow}>
-      <Text style={contentStyles.bulletDot}>•</Text>
-      <Text style={contentStyles.bulletText}>{children}</Text>
+      <Text style={[contentStyles.bulletDot, scaledStyle]}>•</Text>
+      <Text style={[contentStyles.bulletText, scaledStyle]}>{children}</Text>
     </View>
   );
 }
 
 function Strong({ children }: { children: ReactNode }) {
-  return <Text style={contentStyles.bulletStrong}>{children}</Text>;
+  // Strong inherits its size from the surrounding Bullet's scaled
+  // style via React Native's nested-Text inheritance. Apply scaling
+  // directly here too so it doesn't fall back to the static base
+  // size when used outside a scaled parent.
+  const scaledStyle = dynamicType(relaxedLineHeight(typography.title3Emphasized));
+  return <Text style={[contentStyles.bulletStrong, scaledStyle]}>{children}</Text>;
 }
 
 function WhatToDoView() {
