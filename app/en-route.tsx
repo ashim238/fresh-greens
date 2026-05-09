@@ -403,9 +403,11 @@ export default function EnRoute() {
               Speech-control affordance — the mic glyph signals "tap to
               speak a destination/command," matching the in-app voice-
               search pattern Apple/Google/Waze all use during active
-              navigation.
+              navigation. 32pt icon in a 48pt pill per Figma 825:3755
+              (inner Frame size-[32px] centered in size-[48px] pill =
+              8pt margin each side).
             */}
-            <Ionicons name="mic" size={24} color={colors.labelSecondary} />
+            <Ionicons name="mic" size={32} color={colors.labelSecondary} />
           </Pressable>
         </View>
 
