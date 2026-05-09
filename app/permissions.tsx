@@ -338,8 +338,11 @@ const styles = StyleSheet.create({
   // "Already have an account? Log in" (footnoteRegular white prompt +
   // freshgreen underlined action). Left-aligned to match the rest of
   // the Permissions content (visual + body + CTA all sit at flex-start).
+  // paddingVertical: 16 brings the effective tap area up to ~46pt
+  // around the ~14pt footnote text — clears the iOS HIG 44pt minimum
+  // without going so wide that the link visually competes with Continue.
   settingsLinkRow: {
-    paddingVertical: 12,
+    paddingVertical: 16,
   },
   settingsLinkPrompt: {
     ...typography.footnoteRegular,

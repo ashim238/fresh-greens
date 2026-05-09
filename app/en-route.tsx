@@ -668,8 +668,14 @@ const styles = StyleSheet.create({
     color: colors.fadedgreen,
   },
   micBtn: {
-    width: 48,
-    height: 48,
+    // 56pt pill (Figma specs 48pt as Material 3 icon-button, but the
+    // side-button column is all 56pt — bumping the turn-card mic to
+    // match means every white-pill nav button on the en-route screen
+    // is the same size, and gives better tap target during driving.
+    // 32pt icon + 56pt pill = 12pt margin each side — same icon-to-
+    // pill ratio as the side buttons.
+    width: 56,
+    height: 56,
     borderRadius: 100,
     backgroundColor: colors.white,
     alignItems: 'center',
