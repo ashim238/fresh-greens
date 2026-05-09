@@ -10,40 +10,41 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polygon, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
-// longer note + tsconfig `paths` mapping that keeps TypeScript happy.
 import { Car } from 'phosphor-react-native/src/icons/Car';
-import { House } from 'phosphor-react-native/src/icons/House';
-import { Megaphone } from 'phosphor-react-native/src/icons/Megaphone';
-// Daylight glyphs — same SVGs Figma uses on /en-route's ETA so the
-// symbol carries the same meaning on both surfaces.
+import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
-import { LandmarkMarker } from '../components/LandmarkMarker';
-import { MapMarker } from '../components/MapMarker';
+import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
+import { ReportDetailCard } from '../components/ReportDetailCard';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useUser } from '../hooks/useUser';
-import { getCommunityReportsAsZones } from '../lib/api/community-reports';
+import {
+  getCommunityReportsAsZones,
+  type ReportCategoryId,
+} from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
 import {
   getZonesForRegion,
+  type Coordinate,
   type Zone,
   zoneColors,
   zoneDashPattern,
 } from '../lib/api/zones';
+import { clusterPointZones } from '../lib/clustering';
 import { gradientSegments } from '../lib/daylight';
 import { formatDuration } from '../lib/format';
 import {
   edgePositionForPoint,
+  groupEdgeIndicators,
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
@@ -118,7 +119,7 @@ export default function Home() {
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   // Community-submitted point reports. Refreshed every time /home gains
   // focus, so a freshly-submitted report from /report appears
-  // immediately when the user closes the modal. Rendered as MapMarkers
+  // immediately when the user closes the modal. Rendered as LandmarkMarkers
   // when in the viewport and as EdgeIndicators when out — the "trusted
   // community" signal layer, distinct from OSM infrastructure zones.
   const [reportZones, setReportZones] = useState<Zone[]>([]);
@@ -132,6 +133,24 @@ export default function Home() {
   // button stays unrendered until then to avoid a one-frame flash at
   // the wrong position.
   const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
+
+  // --- Report placement mode (tap-then-drag) ---
+  // When true, a draggable marker appears on the map. The user drags
+  // it to the report location, then taps Confirm to open /report with
+  // those coords. Cancel exits placement mode.
+  const [placingReport, setPlacingReport] = useState(false);
+  const [placementPin, setPlacementPin] = useState<Coordinate | null>(null);
+
+  // --- Report detail card ---
+  // Tapping an on-map community-report marker opens a compact detail
+  // card at the bottom of the screen. Stores the zone data needed to
+  // render the card; null = card hidden.
+  const [selectedReport, setSelectedReport] = useState<{
+    categoryId: ReportCategoryId;
+    detail?: string;
+    subTag?: string;
+    timestamp: number;
+  } | null>(null);
 
   // Combined zone set fed to scoring. OSM + community reports flow
   // through the same pipeline — same Zone type, same scorer dispatch.
@@ -154,6 +173,39 @@ export default function Home() {
   // Recommended route is the one we explain in the bottom sheet. May be
   // undefined briefly on first render before the fetch completes.
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // Clustered report markers — groups nearby points at low zoom to
+  // prevent overlapping pins in dense neighborhoods. Recomputes on
+  // every pan/zoom (mapRegion change) and when reports update.
+  const clusteredReports = useMemo(() => {
+    if (!mapRegion || !mapSize) return [];
+    return clusterPointZones(reportZones, mapRegion, mapSize.width, mapSize.height);
+  }, [reportZones, mapRegion, mapSize]);
+
+  function handleReportButtonPress() {
+    if (!userLocation) return;
+    setPlacingReport(true);
+    setPlacementPin({ ...userLocation });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }
+
+  function handleConfirmPlacement() {
+    if (!placementPin) return;
+    setPlacingReport(false);
+    router.push({
+      pathname: '/report',
+      params: {
+        latitude: String(placementPin.latitude),
+        longitude: String(placementPin.longitude),
+      },
+    });
+    setPlacementPin(null);
+  }
+
+  function handleCancelPlacement() {
+    setPlacingReport(false);
+    setPlacementPin(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -370,18 +422,50 @@ export default function Home() {
             return null;
           })}
         {/*
-          Community-report points — rendered as LandmarkMarker (the
-          three-state Figma component: black-owned, local-business,
-          report) only when they're inside the current viewport.
-          Off-viewport reports surface as EdgeIndicators in the
-          overlay below the map. The marker variant comes from the
-          report's category id, surfaced on Zone via the community-
-          reports adapter.
+          Community-report points — clustered at low zoom, individual
+          LandmarkMarkers at high zoom. Off-viewport reports surface
+          as EdgeIndicators in the overlay below. Tap opens the detail
+          card. Cluster markers show a count badge.
         */}
-        {reportZones.map((zone) => {
-          if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
-            return null;
+        {clusteredReports.map((item) => {
+          if (item.kind === 'cluster') {
+            const { cluster } = item;
+            if (mapRegion && !isPointInRegion(cluster.center, mapRegion)) {
+              return null;
+            }
+            return (
+              <Marker
+                key={cluster.id}
+                coordinate={cluster.center}
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
+                accessibilityLabel={`${cluster.count} community reports nearby — tap to zoom in`}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
+                  const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
+                  const minLat = Math.min(...lats);
+                  const maxLat = Math.max(...lats);
+                  const minLng = Math.min(...lngs);
+                  const maxLng = Math.max(...lngs);
+                  mapRef.current?.animateToRegion(
+                    {
+                      latitude: (minLat + maxLat) / 2,
+                      longitude: (minLng + maxLng) / 2,
+                      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.005),
+                      longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.005),
+                    },
+                    400,
+                  );
+                }}
+              >
+                <View style={styles.clusterMarker}>
+                  <Text style={styles.clusterCount}>{cluster.count}</Text>
+                </View>
+              </Marker>
+            );
           }
+          const { zone } = item;
           const point = zone.coordinates[0];
           if (mapRegion && !isPointInRegion(point, mapRegion)) {
             return null;
@@ -394,24 +478,52 @@ export default function Home() {
               categoryId={zone.reportCategoryId}
               subTag={zone.reportSubTag}
               accessibilityLabel={zone.label}
+              onPress={() =>
+                setSelectedReport({
+                  categoryId: zone.reportCategoryId as ReportCategoryId,
+                  detail: zone.reportDetail,
+                  subTag: zone.reportSubTag,
+                  timestamp: zone.reportTimestamp ?? Date.now(),
+                })
+              }
             />
           );
         })}
+        {/* Placement pin — draggable marker for tap-then-drag report entry. */}
+        {placingReport && placementPin && (
+          <Marker
+            coordinate={placementPin}
+            draggable
+            onDragEnd={(e) =>
+              setPlacementPin({
+                latitude: e.nativeEvent.coordinate.latitude,
+                longitude: e.nativeEvent.coordinate.longitude,
+              })
+            }
+            anchor={{ x: 0.5, y: 1 }}
+            accessibilityLabel="Report location — drag to adjust"
+          >
+            <View style={styles.placementPin}>
+              <Ionicons name="alert-circle" size={24} color={colors.orange} />
+            </View>
+          </Marker>
+        )}
         {/*
-          Saved home — rendered as a freshgreen pip with a House
-          glyph. Only visible when in the viewport; the EdgeIndicator
-          overlay below handles the off-viewport case.
+          Saved home — green teardrop pin (positive variant) with the
+          Figma house glyph. Matches the LandmarkMarker system; green
+          preserves the "home as welcoming" association from the
+          previous freshgreen MapMarker. Only visible when in the
+          viewport; the EdgeIndicator overlay below handles the
+          off-viewport case.
         */}
         {home &&
           (!mapRegion || isPointInRegion(home, mapRegion)) && (
-            <MapMarker
+            <LandmarkMarker
               latitude={home.latitude}
               longitude={home.longitude}
-              surfaceColor={colors.freshgreen}
+              categoryId="home"
               accessibilityLabel={`${home.name} (saved place)`}
-            >
-              <House size={20} color={colors.white} weight="fill" />
-            </MapMarker>
+            />
           )}
         {/*
           OSRM-derived routes. Recommended renders as a daylight-
@@ -467,39 +579,68 @@ export default function Home() {
       */}
       {mapRegion && mapSize && (
         <View style={styles.edgeOverlay} pointerEvents="box-none">
-          {reportZones.map((zone) => {
-            if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
-              return null;
-            }
-            const point = zone.coordinates[0];
-            if (isPointInRegion(point, mapRegion)) return null;
-            const edge = edgePositionForPoint(point, mapRegion, mapSize);
-            return (
-              <EdgeIndicator
-                key={`edge-${zone.id}`}
-                x={edge.x}
-                y={edge.y}
-                rotation={edge.rotation}
-                surfaceColor={zoneColors[zone.type].stroke}
-                borderColor={colors.white}
-                arrowColor={zoneColors[zone.type].stroke}
-                accessibilityLabel={`${zone.label} (off-screen — tap to center)`}
-                onPress={() =>
-                  mapRef.current?.animateToRegion(
-                    {
-                      latitude: point.latitude,
-                      longitude: point.longitude,
-                      latitudeDelta: mapRegion.latitudeDelta,
-                      longitudeDelta: mapRegion.longitudeDelta,
-                    },
-                    400,
-                  )
-                }
-              >
-                <Megaphone size={16} color={colors.white} weight="fill" />
-              </EdgeIndicator>
-            );
-          })}
+          {(() => {
+            const offScreen = reportZones
+              .filter(
+                (z) =>
+                  z.geometry === 'point' &&
+                  z.coordinates.length > 0 &&
+                  !isPointInRegion(z.coordinates[0], mapRegion),
+              )
+              .map((zone) => ({
+                item: zone,
+                edge: edgePositionForPoint(zone.coordinates[0], mapRegion, mapSize),
+              }));
+            const groups = groupEdgeIndicators(offScreen);
+            return groups.map((group, i) => {
+              const variant = variantForCategoryId(group.items[0].reportCategoryId);
+              const first = group.items[0].coordinates[0];
+              return (
+                <EdgeIndicator
+                  key={`edge-group-${i}`}
+                  x={group.edge.x}
+                  y={group.edge.y}
+                  rotation={group.edge.rotation}
+                  variant={variant}
+                  count={group.items.length}
+                  accessibilityLabel={
+                    group.items.length === 1
+                      ? `${group.items[0].label} (off-screen — tap to center)`
+                      : `${group.items.length} reports nearby (off-screen — tap to zoom)`
+                  }
+                  onPress={() => {
+                    if (group.items.length === 1) {
+                      mapRef.current?.animateToRegion(
+                        {
+                          latitude: first.latitude,
+                          longitude: first.longitude,
+                          latitudeDelta: mapRegion.latitudeDelta,
+                          longitudeDelta: mapRegion.longitudeDelta,
+                        },
+                        400,
+                      );
+                    } else {
+                      const lats = group.items.map((z) => z.coordinates[0].latitude);
+                      const lngs = group.items.map((z) => z.coordinates[0].longitude);
+                      const minLat = Math.min(...lats);
+                      const maxLat = Math.max(...lats);
+                      const minLng = Math.min(...lngs);
+                      const maxLng = Math.max(...lngs);
+                      mapRef.current?.animateToRegion(
+                        {
+                          latitude: (minLat + maxLat) / 2,
+                          longitude: (minLng + maxLng) / 2,
+                          latitudeDelta: (maxLat - minLat) * 1.5 + 0.005,
+                          longitudeDelta: (maxLng - minLng) * 1.5 + 0.005,
+                        },
+                        400,
+                      );
+                    }
+                  }}
+                />
+              );
+            });
+          })()}
           {home && !isPointInRegion(home, mapRegion) && (
             (() => {
               const edge = edgePositionForPoint(home, mapRegion, mapSize);
@@ -508,9 +649,7 @@ export default function Home() {
                   x={edge.x}
                   y={edge.y}
                   rotation={edge.rotation}
-                  surfaceColor={colors.freshgreen}
-                  borderColor={colors.white}
-                  arrowColor={colors.freshgreen}
+                  variant="positive"
                   accessibilityLabel={`${home.name} (off-screen — tap to center)`}
                   onPress={() =>
                     mapRef.current?.animateToRegion(
@@ -523,9 +662,7 @@ export default function Home() {
                       400,
                     )
                   }
-                >
-                  <House size={16} color={colors.white} weight="fill" />
-                </EdgeIndicator>
+                />
               );
             })()
           )}
@@ -725,15 +862,12 @@ export default function Home() {
       </SafeAreaView>
 
       {/*
-        Report button — floats 24pt above the bottom sheet's top edge,
-        right-aligned 16pt from the screen edge. Tracks the sheet's
-        height via onLayout so it lifts with the sheet as content grows.
-        Hidden until first layout pass measures the sheet.
-        Figma node: 825:3625 (Home, with Report button update)
-        Pushes to /report — currently a stub (see app/report.tsx); the
-        full reporting UI lands in the next PR (feat/community-report).
+        Report button — floats 24pt above the bottom sheet's top edge.
+        Tapping enters placement mode: a draggable marker appears at
+        the user's location. Drag to refine, then Confirm to open
+        /report with those coords.
       */}
-      {bottomSheetHeight > 0 && (
+      {bottomSheetHeight > 0 && !placingReport && (
         <Pressable
           style={({ pressed }) => [
             styles.reportBtn,
@@ -741,11 +875,61 @@ export default function Home() {
             pressed && pressedDim,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Report something — opens reporting flow"
-          onPress={() => router.push('/report')}
+          accessibilityLabel="Report something — place a pin on the map"
+          onPress={handleReportButtonPress}
         >
           <Ionicons name="alert-circle" size={32} color={colors.orange} />
         </Pressable>
+      )}
+
+      {/* Placement mode controls — confirm / cancel bar at the bottom. */}
+      {placingReport && (
+        <SafeAreaView
+          style={styles.placementBar}
+          edges={['bottom']}
+          pointerEvents="box-none"
+        >
+          <View style={styles.placementBarInner}>
+            <Text style={styles.placementHint}>
+              Drag the pin to the report location
+            </Text>
+            <View style={styles.placementActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.placementCancel,
+                  pressed && pressedDim,
+                ]}
+                onPress={handleCancelPlacement}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel report placement"
+              >
+                <X size={20} color={colors.labelSecondary} weight="bold" />
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.placementConfirm,
+                  pressed && pressedDim,
+                ]}
+                onPress={handleConfirmPlacement}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm report location"
+              >
+                <Text style={styles.placementConfirmText}>Confirm</Text>
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
+      )}
+
+      {/* Report detail card — appears when tapping an on-map marker. */}
+      {selectedReport && (
+        <ReportDetailCard
+          categoryId={selectedReport.categoryId}
+          detail={selectedReport.detail}
+          subTag={selectedReport.subTag}
+          timestamp={selectedReport.timestamp}
+          onDismiss={() => setSelectedReport(null)}
+        />
       )}
     </View>
   );
@@ -934,18 +1118,107 @@ const styles = StyleSheet.create({
   reportBtn: {
     position: 'absolute',
     right: 16,
-    // `bottom` set inline from measured sheet height + 24 offset.
     width: 56,
     height: 56,
-    borderRadius: 100, // circular (clamps to 28pt at this size)
+    borderRadius: 100,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    // Approximates Figma M3 Elevation Light/2.
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
   },
+  // --- Cluster marker ---
+  clusterMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.orange,
+    borderWidth: 2,
+    borderColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  clusterCount: {
+    ...typography.footnoteEmphasized,
+    color: colors.white,
+  } as const,
+  // --- Placement mode ---
+  placementPin: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.orange,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  placementBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  placementBarInner: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 16,
+  },
+  placementHint: {
+    ...typography.subheadlineRegular,
+    color: colors.mutedSecondary,
+    textAlign: 'center',
+  } as const,
+  placementActions: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  placementCancel: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.systemGroupedBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placementConfirm: {
+    flex: 1,
+    height: 44,
+    borderRadius: 100,
+    backgroundColor: colors.freshgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  placementConfirmText: {
+    ...typography.subheadlineEmphasized,
+    color: colors.white,
+  } as const,
 });

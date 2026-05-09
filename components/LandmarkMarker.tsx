@@ -18,6 +18,7 @@ import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welco
 import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
+import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
 import GlyphLocalBusiness from '../assets/illustrations/mapmarker-glyph-localbusiness.svg';
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
@@ -51,7 +52,7 @@ import { colors } from '../theme/colors';
  * from re-rendering on every pan/zoom.
  */
 
-type Variant = 'black-owned' | 'local-business' | 'positive' | 'report';
+export type Variant = 'black-owned' | 'local-business' | 'positive' | 'report';
 
 /**
  * Maps a community-report category id to the marker variant.
@@ -62,6 +63,8 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
     case 'black-owned':
       return 'black-owned';
     case 'felt-welcome':
+      return 'positive';
+    case 'home':
       return 'positive';
     case 'felt-unsafe':
     case 'incident':
@@ -118,36 +121,40 @@ function phosphorForSubTag(subTag: string | undefined) {
  * category SVG glyph — the same illustration the picker tile
  * renders — so the marker stays legible without a typed icon.
  */
-function GlyphForCategory({
+export function GlyphForCategory({
   categoryId,
   subTag,
   variant,
+  size = 16,
 }: {
   categoryId?: string;
   subTag?: string;
   variant: Variant;
+  size?: number;
 }) {
   const PhosphorIcon = phosphorForSubTag(subTag);
   if (PhosphorIcon) {
     const color = variant === 'black-owned' ? colors.freshgreen : colors.white;
-    return <PhosphorIcon size={16} color={color} weight="duotone" />;
+    return <PhosphorIcon size={size} color={color} weight="duotone" />;
   }
 
   switch (categoryId) {
+    case 'home':
+      return <GlyphHome width={size} height={size} />;
     case 'black-owned':
-      return <GlyphBlackOwned width={16} height={16} />;
+      return <GlyphBlackOwned width={size} height={size} />;
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={16} height={16} />;
+      return <GlyphFeltWelcome width={size} height={size} />;
     case 'felt-unsafe':
-      return <GlyphFeltUnsafe width={16} height={16} />;
+      return <GlyphFeltUnsafe width={size} height={size} />;
     case 'incident':
-      return <GlyphIncident width={16} height={16} />;
+      return <GlyphIncident width={size} height={size} />;
     case 'lighting':
-      return <GlyphLighting width={16} height={16} />;
+      return <GlyphLighting width={size} height={size} />;
     case 'hazard':
-      return <GlyphHazard width={16} height={16} />;
+      return <GlyphHazard width={size} height={size} />;
     default:
-      return <GlyphLocalBusiness width={16} height={16} />;
+      return <GlyphLocalBusiness width={size} height={size} />;
   }
 }
 

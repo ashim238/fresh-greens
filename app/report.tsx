@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
@@ -51,10 +51,9 @@ import { typography } from '../theme/typography';
  * the underlying screen (typically /home) stays visible the entire
  * time. Dismissal is via the X button or the system back gesture.
  *
- * Location: this PR uses the user's current GPS as the report location
- * regardless of entry point. Drop-pin mode (user taps a map point to
- * place the pin) is deferred to a future PR — the choreography that
- * answers "where is this report being placed?" is its own concern.
+ * Location: accepts optional `latitude`/`longitude` search params. When
+ * passed (from /home's tap-then-drag placement mode), uses those coords.
+ * When absent (from /en-route's Report button), falls back to current GPS.
  *
  * Figma nodes: 984:5010 (picker), 987:4291 (Felt unsafe), 992:4752
  * (Lighting), 992:4933 (Black-owned), 992:3933 (Thank You).
@@ -64,6 +63,7 @@ type Mode = 'picker' | 'detail' | 'thank-you';
 
 export default function Report() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ latitude?: string; longitude?: string }>();
   const [mode, setMode] = useState<Mode>('picker');
   const [category, setCategory] = useState<ReportCategory | null>(null);
   const [detailText, setDetailText] = useState('');
@@ -71,12 +71,16 @@ export default function Report() {
   const [submittedReport, setSubmittedReport] = useState<CommunityReport | null>(
     null,
   );
-  const [location, setLocation] = useState<Coordinate | null>(null);
+  const [location, setLocation] = useState<Coordinate | null>(() => {
+    const lat = params.latitude ? parseFloat(params.latitude) : NaN;
+    const lng = params.longitude ? parseFloat(params.longitude) : NaN;
+    if (!isNaN(lat) && !isNaN(lng)) return { latitude: lat, longitude: lng };
+    return null;
+  });
 
-  // Pull current GPS once on mount. Permission was already granted by
-  // /permissions earlier in the flow; this call returns immediately
-  // with cached coords on subsequent uses.
+  // Fall back to current GPS when no location was passed via params.
   useEffect(() => {
+    if (location) return;
     let cancelled = false;
     (async () => {
       const { status } = await Location.getForegroundPermissionsAsync();
@@ -91,7 +95,7 @@ export default function Report() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [location]);
 
   function handleClose() {
     router.back();

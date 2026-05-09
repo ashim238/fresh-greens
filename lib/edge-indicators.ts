@@ -96,3 +96,44 @@ export function edgePositionForPoint(
     rotation: (Math.atan2(dy, dx) * 180) / Math.PI,
   };
 }
+
+export type EdgeGroup<T> = {
+  edge: EdgePosition;
+  items: T[];
+};
+
+const ANGLE_THRESHOLD_DEG = 15;
+
+/**
+ * Groups off-screen items whose bearings fall within ANGLE_THRESHOLD_DEG
+ * of each other into a single edge indicator. Returns the edge position
+ * of the first item in each group (closest angular neighbor) plus all
+ * members. Single-item groups are returned as-is.
+ */
+export function groupEdgeIndicators<T>(
+  items: { item: T; edge: EdgePosition }[],
+): EdgeGroup<T>[] {
+  if (items.length === 0) return [];
+
+  const used = new Set<number>();
+  const groups: EdgeGroup<T>[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    if (used.has(i)) continue;
+    used.add(i);
+    const group: T[] = [items[i].item];
+    const anchor = items[i].edge;
+
+    for (let j = i + 1; j < items.length; j++) {
+      if (used.has(j)) continue;
+      let delta = Math.abs(items[j].edge.rotation - anchor.rotation);
+      if (delta > 180) delta = 360 - delta;
+      if (delta <= ANGLE_THRESHOLD_DEG) {
+        used.add(j);
+        group.push(items[j].item);
+      }
+    }
+    groups.push({ edge: anchor, items: group });
+  }
+  return groups;
+}

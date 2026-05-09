@@ -1,22 +1,30 @@
 import { type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { pressedDim } from '../theme/interaction';
-
+import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
+import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
+import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
+import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
+import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
+import { typography } from '../theme/typography';
 
-/**
- * Off-screen POI indicator — a small pill rendered absolutely on the
- * screen edge, with a glyph inside and a directional arrow on the
- * outer side. Tap recenters the map on the POI.
- *
- * Position + rotation are computed in lib/edge-indicators.ts and
- * passed in as { x, y, rotation } in screen-space pt.
- */
+import { type Variant } from './LandmarkMarker';
+
+const PIN_SVGS: Record<Variant, typeof PinReport> = {
+  'black-owned': PinBlackOwned,
+  positive: PinPositive,
+  'local-business': PinLocalBusiness,
+  report: PinReport,
+};
+
 export function EdgeIndicator({
   x,
   y,
   rotation,
+  variant,
+  count,
   surfaceColor = colors.white,
   borderColor = colors.cardBorderSubtle,
   arrowColor = colors.labelSecondary,
@@ -26,45 +34,61 @@ export function EdgeIndicator({
 }: {
   x: number;
   y: number;
-  /** Degrees, 0 = pointing right. */
   rotation: number;
+  variant?: Variant;
+  count?: number;
   surfaceColor?: string;
   borderColor?: string;
   arrowColor?: string;
-  children: ReactNode;
+  children?: ReactNode;
   onPress?: () => void;
   accessibilityLabel?: string;
 }) {
+  const pulse = usePulseOpacity(0.55);
+  const PinSvg = variant ? PIN_SVGS[variant] : null;
+  const showBadge = count != null && count > 1;
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
-      // Center the 32pt pill on (x, y); the parent overlay uses
-      // pointerEvents="box-none" so empty space passes taps through
-      // to the map.
       style={({ pressed }) => [
         styles.wrap,
         { left: x - 16, top: y - 16, transform: [{ rotate: `${rotation}deg` }] },
         pressed && pressedDim,
       ]}
     >
-      <View
-        style={[
-          styles.pill,
-          { backgroundColor: surfaceColor, borderColor },
-        ]}
-      >
-        {/* Counter-rotate the glyph so the icon stays upright while
-            the wrapping pill rotates with the bearing. */}
-        <View style={{ transform: [{ rotate: `${-rotation}deg` }] }}>
-          {children}
-        </View>
-      </View>
-      {/* Tip — a small triangle on the outside (right side after
-          rotation) that visually points toward the POI. */}
-      <View style={[styles.tip, { borderLeftColor: arrowColor }]} />
+      {PinSvg ? (
+        <Animated.View style={[styles.pinWrap, { opacity: pulse }]}>
+          <PinSvg width={24} height={32} />
+          {showBadge && (
+            <View
+              style={[
+                styles.badge,
+                { transform: [{ rotate: `${-rotation}deg` }] },
+              ]}
+            >
+              <Text style={styles.badgeText}>{count > 9 ? '9+' : count}</Text>
+            </View>
+          )}
+        </Animated.View>
+      ) : (
+        <>
+          <View
+            style={[
+              styles.pill,
+              { backgroundColor: surfaceColor, borderColor },
+            ]}
+          >
+            <View style={{ transform: [{ rotate: `${-rotation}deg` }] }}>
+              {children}
+            </View>
+          </View>
+          <View style={[styles.tip, { borderLeftColor: arrowColor }]} />
+        </>
+      )}
     </Pressable>
   );
 }
@@ -76,6 +100,37 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pinWrap: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.burntgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    ...typography.caption2Regular,
+    color: colors.burntgreen,
+    fontWeight: '700',
+    lineHeight: 14,
   },
   pill: {
     width: 32,
