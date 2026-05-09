@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   Easing,
   Image,
@@ -64,7 +65,21 @@ export default function Welcome() {
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      <View style={styles.backdropContainer}>
+      {/*
+        Backdrop is purely decorative atmosphere — sun, hill, clouds,
+        wind, Vic. Hidden from VoiceOver so the screen reader announces
+        only the foreground content (title, subtitle, terms, CTAs) in
+        document order. accessibilityIgnoresInvertColors keeps the
+        carefully-tuned orange-sky palette intact when iOS Smart Invert
+        is on (otherwise the whole atmosphere flips to a teal sky and
+        the brand register breaks).
+      */}
+      <View
+        style={styles.backdropContainer}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        accessibilityIgnoresInvertColors
+      >
         <View
           style={[
             styles.backdropScene,
@@ -254,8 +269,33 @@ function Drift({
   children: ReactNode;
 }) {
   const tx = useRef(new Animated.Value(0)).current;
+  // Reduce Motion respect — when iOS Accessibility → Motion → Reduce
+  // Motion is on, the cloud/wind drift stops oscillating and pins to
+  // y=0 (centered, static). The decoration stays visible; just no
+  // motion. Per Apple HIG + WCAG 2.1 SC 2.3.3 (Animation from
+  // Interactions). Live listener picks up runtime toggles.
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (!cancelled) setReduceMotion(enabled);
+    });
+    const sub = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotion,
+    );
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      tx.setValue(0);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(tx, {
@@ -280,7 +320,7 @@ function Drift({
     );
     loop.start();
     return () => loop.stop();
-  }, [amplitude, duration, tx]);
+  }, [amplitude, duration, tx, reduceMotion]);
 
   return (
     <Animated.View

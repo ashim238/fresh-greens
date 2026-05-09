@@ -211,6 +211,28 @@ export const zoneColors: Record<ZoneType, { fill: string; stroke: string }> = {
   },
 };
 
+/**
+ * Stroke-pattern encoding per ZoneType — a non-color cue layered on
+ * top of the color palette so users with red-green color vision
+ * deficiency can still distinguish safe / caution / avoid zones at a
+ * glance. Per WCAG 1.4.1 (Use of Color, Level A) and Apple HIG's
+ * "Don't rely solely on color" guidance.
+ *
+ *   - safe    → solid (the "default" / "okay" rhythm)
+ *   - caution → long-dash (read as "broken / heads-up")
+ *   - avoid   → short-dash (read as "stop / warning")
+ *
+ * Apply via Polygon/Polyline's `lineDashPattern` prop on iOS.
+ * Pattern arrays are `[on, off]` pixel runs. iOS-only; on Android
+ * the pattern silently no-ops and the zones remain color-only —
+ * acceptable since the project is iPhone-first.
+ */
+export const zoneDashPattern: Record<ZoneType, number[] | undefined> = {
+  safe: undefined,
+  caution: [10, 5],
+  avoid: [3, 3],
+};
+
 // --- OSM Overpass ---------------------------------------------------------
 
 type OverpassResponse = {

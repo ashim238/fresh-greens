@@ -23,6 +23,7 @@ import {
   useState,
 } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   Image,
   Linking,
@@ -233,6 +234,27 @@ export default function PulledOver() {
     if (phase !== 'transition') return;
     const timeout = setTimeout(() => setPhase('guidance'), TRANSITION_MS);
     return () => clearTimeout(timeout);
+  }, [phase]);
+
+  // VoiceOver focus management — announce each phase change so the
+  // screen reader user gets verbal confirmation that the flow has
+  // moved forward, even if their cursor stayed on a now-stale element
+  // from the previous phase. Apple HIG recommends moving focus when
+  // content changes meaningfully (WCAG 2.4.3 Focus Order); on a
+  // stress-time flow where the user can't visually track changes,
+  // this is more important than usual. announceForAccessibility is
+  // the right primitive here vs. setAccessibilityFocus — it speaks
+  // the phase identity immediately without disrupting the user's
+  // navigation cursor or merging child elements into one a11y group.
+  useEffect(() => {
+    const phaseAnnouncements: Record<Phase, string> = {
+      armed: 'Are you armed?',
+      transition: "We'll walk you through what to do",
+      guidance: 'Guidance for the stop',
+      contact: 'Trusted contact',
+      review: 'Reviewing guidance',
+    };
+    AccessibilityInfo.announceForAccessibility(phaseAnnouncements[phase]);
   }, [phase]);
 
   // Audio recording lifecycle: request mic permission and start the
@@ -1008,6 +1030,7 @@ function OfficerTrooperView() {
                 resizeMode="contain"
                 accessible
                 accessibilityLabel="Illustration of an officer wearing a brimmed cap"
+                accessibilityIgnoresInvertColors
               />
             </View>
             <Text style={officerStyles.cardLabel}>Officer</Text>
@@ -1037,6 +1060,7 @@ function OfficerTrooperView() {
                 resizeMode="contain"
                 accessible
                 accessibilityLabel="Illustration of a trooper wearing a Smokey Bear hat"
+                accessibilityIgnoresInvertColors
               />
               <TrooperHatBadge
                 width={16.26}

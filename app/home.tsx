@@ -38,6 +38,7 @@ import {
   getZonesForRegion,
   type Zone,
   zoneColors,
+  zoneDashPattern,
 } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
 import { formatDuration } from '../lib/format';
@@ -348,6 +349,7 @@ export default function Home() {
                   coordinates={zone.coordinates}
                   strokeColor={zoneColors[zone.type].stroke}
                   strokeWidth={4}
+                  lineDashPattern={zoneDashPattern[zone.type]}
                 />
               );
             }
@@ -359,6 +361,7 @@ export default function Home() {
                   fillColor={zoneColors[zone.type].fill}
                   strokeColor={zoneColors[zone.type].stroke}
                   strokeWidth={2}
+                  lineDashPattern={zoneDashPattern[zone.type]}
                 />
               );
             }
@@ -618,9 +621,18 @@ export default function Home() {
 
               {/*
                 Daylight strip — gradient bar + sun/moon icons showing
-                daylight progression across the day.
+                daylight progression across the day. Purely visual
+                metadata; the bottom-sheet copy below already announces
+                arrival context (estimated time + destination), so the
+                strip is redundant for VoiceOver users — hide to keep
+                the announcement order clean.
               */}
-              <View style={styles.daylightStrip}>
+              <View
+                style={styles.daylightStrip}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                accessibilityIgnoresInvertColors
+              >
                 {/*
                   Daylight progression: orange dawn → mauve dusk → indigo
                   night. Per Figma 825:3647 (gradient stops match the

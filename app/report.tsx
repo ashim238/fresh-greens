@@ -180,7 +180,15 @@ export default function Report() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         pointerEvents="box-none"
       >
-      <View style={styles.popup}>
+      {/*
+        accessibilityViewIsModal traps VoiceOver focus inside the
+        popup while it's presented — without it, the screen reader
+        can navigate to /home or /en-route content under the scrim.
+        Stack.Screen presentation='transparentModal' handles the
+        visual layer but doesn't enforce a11y containment; this prop
+        does. Per Apple HIG modals + WCAG 2.4.3 (Focus Order, Level A).
+      */}
+      <View style={styles.popup} accessibilityViewIsModal>
         {mode === 'picker' && (
           <PickerView
             onClose={handleClose}
