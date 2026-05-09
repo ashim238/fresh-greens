@@ -8,12 +8,16 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polyline } from 'react-native-maps';
+import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
+import { ArrowBendUpLeft } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
+import { Lifebuoy } from 'phosphor-react-native/src/icons/Lifebuoy';
+import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+import { SpeakerHigh } from 'phosphor-react-native/src/icons/SpeakerHigh';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
 // (node 825:3647) so the symbol means the same thing on both
@@ -24,9 +28,10 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import { DragHandle } from '../components/DragHandle';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { UserLocationMarker } from '../components/UserLocationMarker';
+import { usePreferences } from '../hooks/usePreferences';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
-import { getZonesForRegion, type Zone } from '../lib/api/zones';
+import { getZonesForRegion, type Zone, zoneColors } from '../lib/api/zones';
 import { gradientSegments } from '../lib/daylight';
 import { formatDistance, formatDuration } from '../lib/format';
 import { pickWinner } from '../lib/scoring';
@@ -60,6 +65,13 @@ export default function EnRoute() {
     destLng?: string;
     destName?: string;
   }>();
+  // Zone overlay rendering follows /home — driven by the user's
+  // preference, which lives in AsyncStorage and is toggled from
+  // /menu's Zone Settings accordion. Default off until they flip it,
+  // so first-time en-route users see a clean map; toggle persists
+  // across sessions and applies on both /home and /en-route.
+  const { preferences } = usePreferences();
+  const showZones = preferences?.showZones ?? false;
 
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const [reportZones, setReportZones] = useState<Zone[]>([]);
@@ -257,6 +269,40 @@ export default function EnRoute() {
         showsMyLocationButton={false}
       >
         {/*
+          Zone overlays — same render rules as /home. Rendered first
+          (before route polylines) so the route's daylight gradient
+          paints on top, not under. Only when the user has the
+          preference toggled on; default off keeps the active driving
+          map clean by default. Renders both polyline zones (lit
+          streets, surface conditions) and polygon zones (parks,
+          landuse, wildlife).
+        */}
+        {showZones &&
+          allZones.map((zone) => {
+            if (zone.geometry === 'polyline') {
+              return (
+                <Polyline
+                  key={zone.id}
+                  coordinates={zone.coordinates}
+                  strokeColor={zoneColors[zone.type].stroke}
+                  strokeWidth={4}
+                />
+              );
+            }
+            if (zone.geometry === 'polygon') {
+              return (
+                <Polygon
+                  key={zone.id}
+                  coordinates={zone.coordinates}
+                  fillColor={zoneColors[zone.type].fill}
+                  strokeColor={zoneColors[zone.type].stroke}
+                  strokeWidth={1}
+                />
+              );
+            }
+            return null;
+          })}
+        {/*
           Community-report points — LandmarkMarker (Figma's three-
           state component: black-owned, local-business, report) keyed
           on the report's category id. Same component /home uses, so
@@ -325,14 +371,18 @@ export default function EnRoute() {
             accessibilityLabel="Turn left in 0.5 miles"
           >
             {/*
-              Turn maneuver glyph — informational, not a button. Ionicons
-              doesn't ship a curving turn arrow; arrow-back-outline is the
-              closest stand-in until a custom turn-sign asset lands.
+              Turn maneuver glyph — informational, not a button. Phosphor's
+              ArrowBendUpLeft duotone reads as a real turn-sign curve
+              (the Ionicons arrow-back-outline used previously read as
+              "back chevron," not "turn left"). Duotone weight gives the
+              arrow visual mass against the wiltedgreen header without
+              going filled — matches the rest of the app's nav icon
+              register (Shield, House, Megaphone all duotone).
             */}
-            <Ionicons
-              name="arrow-back-outline"
+            <ArrowBendUpLeft
               size={56}
               color={colors.white}
+              weight="duotone"
             />
             <Text style={styles.turnDistance}>
               0.5{' '}
@@ -350,9 +400,21 @@ export default function EnRoute() {
           <Pressable
             style={({ pressed }) => [styles.micBtn, pressed && pressedDim]}
             accessibilityRole="button"
-            accessibilityLabel="Voice control (not yet supported)"
+            accessibilityLabel="Voice guidance volume (not yet supported)"
           >
-            <Ionicons name="mic" size={24} color={colors.labelSecondary} />
+            {/*
+              Per Figma 825:3755 this right-side white pill is a volume
+              control for voice guidance, not a mic input. Phosphor
+              SpeakerHigh duotone matches the design's filled-icon
+              register and reads as "audio playing" rather than "voice
+              recording" (the mic glyph implied a record/speak action
+              that wasn't actually wired up).
+            */}
+            <SpeakerHigh
+              size={24}
+              color={colors.labelSecondary}
+              weight="duotone"
+            />
           </Pressable>
         </View>
 
@@ -388,19 +450,38 @@ export default function EnRoute() {
             the bottom. Same 56pt pill as the other four so the column
             reads as a uniform stack.
           */}
+          {/*
+            Side-button glyphs are unified to Phosphor duotone for
+            visual consistency with /menu's nav rows and the Shield
+            below. The Ionicons used here previously (volume-high,
+            medical, locate) didn't share a stroke weight or terminal
+            style with the Phosphor Shield, so the column read as
+            mixed-family. Phosphor duotone gives a single icon vocabulary.
+          */}
           <Pressable
             style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Toggle volume (coming soon)"
           >
-            <Ionicons name="volume-high" size={32} color={colors.labelSecondary} />
+            <SpeakerHigh
+              size={32}
+              color={colors.labelSecondary}
+              weight="duotone"
+            />
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Help (coming soon)"
           >
-            <Ionicons name="medical" size={32} color={colors.red} />
+            {/*
+              Lifebuoy (the orange ring buoy used for water rescues) is
+              the universal "help" symbol — Apple's emergency-SOS uses
+              it, Discord help, etc. Reads more cleanly as "I need
+              help" than the medical-cross which suggested "first aid
+              supplies." Stays red — emergency-color exception.
+            */}
+            <Lifebuoy size={32} color={colors.red} weight="duotone" />
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
@@ -424,7 +505,18 @@ export default function EnRoute() {
             accessibilityRole="button"
             accessibilityLabel="Recenter map on your location"
           >
-            <Ionicons name="locate" size={32} color={colors.labelSecondary} />
+            {/*
+              NavigationArrow is Phosphor's compass-arrow glyph — the
+              universal "current heading" / "recenter to me" symbol on
+              every nav app (Apple Maps, Google Maps, Waze). Replaces
+              the Ionicons "locate" target-reticle, which read as
+              "find/search" more than "recenter."
+            */}
+            <NavigationArrow
+              size={32}
+              color={colors.labelSecondary}
+              weight="duotone"
+            />
           </Pressable>
         </View>
       )}
@@ -570,7 +662,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 24,
     alignItems: 'flex-start',
-    paddingTop: 16,
+    // No paddingTop: the parent SafeAreaView provides the status-bar
+    // inset (~47pt on iPhone Pro), which matches Figma's pt-[47px] on
+    // node 825:3755. Earlier this stacked an extra 16pt on top of the
+    // safe-area inset and pushed the turn instruction too far down.
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -683,8 +778,14 @@ const styles = StyleSheet.create({
   },
   etaCluster: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    // Matches Figma 825:3783 ETA's `items-start` + no inter-item gap.
+    // The 16pt sun/moon glyph sits at the top of the row alongside
+    // the 41pt-line-height "8:30" — visually subtitling the time as
+    // "this is morning" / "this is night" rather than centered to
+    // the time's mid-line (which read like a satellite dot floating
+    // beside the digits).
+    alignItems: 'flex-start',
+    gap: 0,
   },
   etaIconSpacer: {
     width: 16,
