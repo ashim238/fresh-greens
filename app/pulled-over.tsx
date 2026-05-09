@@ -447,7 +447,9 @@ export default function PulledOver() {
 
         <View style={styles.phaseContainer}>
           {phase === 'armed' && <ArmedView onAnswer={handleAnswer} />}
-          {phase === 'transition' && <TransitionView />}
+          {phase === 'transition' && (
+            <TransitionView onSkip={() => setPhase('guidance')} />
+          )}
           {phase === 'guidance' && (
             <GuidanceView
               showFirearmGuidance={showFirearmGuidance}
@@ -465,7 +467,16 @@ export default function PulledOver() {
               showFirearmGuidance={showFirearmGuidance}
               onNext={handleReviewNext}
               onBack={handleReviewBack}
-              onClose={handleClose}
+              // "Close" on review now returns to the contact phase
+              // rather than dismissing the entire modal. Trauma-
+              // informed UX: a user reading the guidance might realize
+              // they need to call their trusted contact mid-read; with
+              // the prior behavior they'd have to dismiss the safety
+              // modal entirely and reopen, restarting the recording
+              // flow. Now the in-modal back is preserved; full modal
+              // exit is via the iOS swipe-down gesture (handled by the
+              // Stack.Screen presentation: 'modal').
+              onClose={() => setPhase('contact')}
             />
           )}
         </View>
@@ -527,9 +538,28 @@ function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
 
 // --- Phase: Transition ---------------------------------------------------
 
-function TransitionView() {
+function TransitionView({ onSkip }: { onSkip: () => void }) {
+  // Trauma-informed control: the 3-second auto-advance was a calming
+  // pause by design, but for users processing a stop in real time,
+  // 3 seconds of "wait, what?" can feel longer than helpful. Making
+  // the whole card a Pressable lets users skip ahead the moment
+  // they're ready — pace control during stress is one of the
+  // strongest predictors of self-regulation per Stanford's Trauma &
+  // Resilience Lab. The auto-advance still fires for users who don't
+  // tap (default calming pace preserved); tapping is opt-in
+  // acceleration. accessibilityHint announces both behaviors so
+  // VoiceOver users know they can choose.
   return (
-    <View style={transitionStyles.center}>
+    <Pressable
+      style={({ pressed }) => [
+        transitionStyles.center,
+        pressed && pressedDim,
+      ]}
+      onPress={onSkip}
+      accessibilityRole="button"
+      accessibilityLabel="We'll walk you through what to do. We've started recording for your safety."
+      accessibilityHint="Auto-advances after 3 seconds, or tap to advance now"
+    >
       <View style={transitionStyles.textBlock}>
         <Text style={transitionStyles.title}>
           We'll walk you{'\n'}through what to do.
@@ -537,8 +567,9 @@ function TransitionView() {
         <Text style={transitionStyles.subtitle}>
           We've started recording{'\n'} for your safety.
         </Text>
+        <Text style={transitionStyles.skipHint}>Tap to continue</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -956,11 +987,11 @@ function ReviewView({
         <Pressable
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="Close and return to navigation"
+          accessibilityLabel="Back to trusted contact"
           hitSlop={12}
           style={({ pressed }) => [reviewStyles.closeBtn, pressed && pressedDim]}
         >
-          <Text style={reviewStyles.closeText}>Close</Text>
+          <Text style={reviewStyles.closeText}>Back</Text>
         </Pressable>
 
         <View style={reviewStyles.chevronsRow}>
@@ -1396,6 +1427,18 @@ const transitionStyles = StyleSheet.create({
     ...typography.subheadlineRegular,
     color: colors.labelTertiary,
     textAlign: 'center',
+  },
+  // Subtle "Tap to continue" hint — much smaller than title/subtitle
+  // so it doesn't compete with the calming message but sits visible
+  // enough that users discover the skip-ahead affordance. Spaced
+  // 24pt below the subtitle so it reads as separate UI hint, not
+  // continuation of the message.
+  skipHint: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    textAlign: 'center',
+    marginTop: 24,
+    opacity: 0.7,
   },
 });
 
