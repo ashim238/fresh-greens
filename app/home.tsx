@@ -439,7 +439,25 @@ export default function Home() {
                 coordinate={cluster.center}
                 anchor={{ x: 0.5, y: 0.5 }}
                 tracksViewChanges={false}
-                accessibilityLabel={`${cluster.count} community reports nearby`}
+                accessibilityLabel={`${cluster.count} community reports nearby — tap to zoom in`}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
+                  const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
+                  const minLat = Math.min(...lats);
+                  const maxLat = Math.max(...lats);
+                  const minLng = Math.min(...lngs);
+                  const maxLng = Math.max(...lngs);
+                  mapRef.current?.animateToRegion(
+                    {
+                      latitude: (minLat + maxLat) / 2,
+                      longitude: (minLng + maxLng) / 2,
+                      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.005),
+                      longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.005),
+                    },
+                    400,
+                  );
+                }}
               >
                 <View style={styles.clusterMarker}>
                   <Text style={styles.clusterCount}>{cluster.count}</Text>
