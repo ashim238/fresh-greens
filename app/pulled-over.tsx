@@ -10,6 +10,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
+import * as Haptics from 'expo-haptics';
 import { useNavigation, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { StatusBar } from 'expo-status-bar';
@@ -40,6 +41,7 @@ import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -366,11 +368,17 @@ export default function PulledOver() {
   }, [phase]);
 
   function handleAnswer(answer: ArmedAnswer) {
+    // Heavy impact for the armed answer — this is the moment the
+    // safety flow turns from "what's happening" into "what to do."
+    // The physical thump cues the user that their answer landed and
+    // the app is now actively helping them, not just listening.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     setArmed(answer);
     setPhase('transition');
   }
 
   function handleContinueToContact() {
+    Haptics.selectionAsync().catch(() => {});
     setPhase('contact');
   }
 
@@ -468,7 +476,10 @@ function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
         {ANSWERS.map((answer) => (
           <Pressable
             key={answer.id}
-            style={armedStyles.answerCard}
+            style={({ pressed }) => [
+              armedStyles.answerCard,
+              pressed && pressedDim,
+            ]}
             onPress={() => onAnswer(answer.id)}
             accessibilityRole="button"
             accessibilityLabel={
@@ -619,7 +630,10 @@ function GuidanceView({
       </View>
 
       <Pressable
-        style={guidanceStyles.readAloudRow}
+        style={({ pressed }) => [
+          guidanceStyles.readAloudRow,
+          pressed && pressedDim,
+        ]}
         onPress={handleReadAloud}
         accessibilityRole="button"
         accessibilityLabel={isSpeaking ? 'Stop reading aloud' : 'Read aloud'}
@@ -664,7 +678,10 @@ function GuidanceView({
         onPress={onContinue}
         accessibilityRole="button"
         accessibilityLabel="Continue to trusted contact"
-        style={guidanceStyles.continueBtn}
+        style={({ pressed }) => [
+          guidanceStyles.continueBtn,
+          pressed && pressedDim,
+        ]}
       >
         <Text style={guidanceStyles.continueText}>Continue</Text>
         <Ionicons
@@ -731,6 +748,11 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
 
   function handleCall() {
     if (!contact?.phoneNumber) return;
+    // Medium impact — confirms the action is firing as the Phone app
+    // lifts. Recording continues, but the user's attention is about
+    // to leave the app, so the haptic is the last sensory cue from
+    // Fresh Greens before the dialer takes focus.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     // tel: is the universal phone-dial scheme. iOS recognizes it and
     // launches the Phone app; Android similarly. expo-router doesn't
     // intercept these — they pass through to the platform handler.
@@ -739,6 +761,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
 
   function handleText() {
     if (!contact?.phoneNumber) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     // sms: opens Messages with the recipient pre-filled. No body
     // pre-fill — the user picks what to say in the moment.
     void Linking.openURL(`sms:${contact.phoneNumber}`);
@@ -764,7 +787,10 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
         </View>
 
         <Pressable
-          style={contactStyles.avatarBlock}
+          style={({ pressed }) => [
+            contactStyles.avatarBlock,
+            pressed && !hasContact && pressedDim,
+          ]}
           onPress={hasContact ? undefined : handleAddContact}
           disabled={hasContact}
           accessibilityRole={hasContact ? undefined : 'button'}
@@ -813,7 +839,11 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
 
         <View style={contactStyles.buttonsBlock}>
           <Pressable
-            style={[contactStyles.callBtn, !canCall && contactStyles.btnDisabled]}
+            style={({ pressed }) => [
+              contactStyles.callBtn,
+              !canCall && contactStyles.btnDisabled,
+              pressed && canCall && pressedDim,
+            ]}
             onPress={handleCall}
             disabled={!canCall}
             accessibilityRole="button"
@@ -829,7 +859,11 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
           </Pressable>
 
           <Pressable
-            style={[contactStyles.textBtn, !canCall && contactStyles.btnDisabled]}
+            style={({ pressed }) => [
+              contactStyles.textBtn,
+              !canCall && contactStyles.btnDisabled,
+              pressed && canCall && pressedDim,
+            ]}
             onPress={handleText}
             disabled={!canCall}
             accessibilityRole="button"
@@ -852,7 +886,10 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             onPress={onReviewGuidance}
             accessibilityRole="link"
             accessibilityLabel="Review guidance"
-            style={contactStyles.reviewLink}
+            style={({ pressed }) => [
+              contactStyles.reviewLink,
+              pressed && pressedDim,
+            ]}
           >
             <Text style={contactStyles.reviewLinkText}>Review guidance</Text>
           </Pressable>
@@ -899,7 +936,7 @@ function ReviewView({
           accessibilityRole="button"
           accessibilityLabel="Close and return to navigation"
           hitSlop={12}
-          style={reviewStyles.closeBtn}
+          style={({ pressed }) => [reviewStyles.closeBtn, pressed && pressedDim]}
         >
           <Text style={reviewStyles.closeText}>Close</Text>
         </Pressable>
@@ -911,7 +948,10 @@ function ReviewView({
               accessibilityRole="button"
               accessibilityLabel="Previous"
               hitSlop={12}
-              style={reviewStyles.chevronBtn}
+              style={({ pressed }) => [
+                reviewStyles.chevronBtn,
+                pressed && pressedDim,
+              ]}
             >
               <Ionicons
                 name="chevron-back"
@@ -928,7 +968,10 @@ function ReviewView({
               accessibilityRole="button"
               accessibilityLabel="Next"
               hitSlop={12}
-              style={reviewStyles.chevronBtn}
+              style={({ pressed }) => [
+                reviewStyles.chevronBtn,
+                pressed && pressedDim,
+              ]}
             >
               <Ionicons
                 name="chevron-forward"

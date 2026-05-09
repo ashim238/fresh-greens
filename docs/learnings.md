@@ -4,6 +4,23 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/interaction-polish (2026-05-09)
+
+Three small visual-fidelity wins on one branch — press-state feedback on Pressables app-wide, haptic feedback on key actions, and a status-bar style audit. Each is mechanically simple; the impact is in the texture of the app feeling like an iOS-native build instead of a stylized React Native demo.
+
+- **Press-state via a single `pressedDim` constant + inline functional-style.** Tried three patterns before settling on this one: (a) a `<PressableDimmed>` HOC re-export — reduced edits but obscured the convention; (b) a `pressDim(style)` helper function — cleaner per call site but adds an indirection layer; (c) **`{ pressed } => [styles.x, pressed && pressedDim]` with a single shared constant** — verbose at the call site but explicit, copy-pasteable, and keeps the pattern visible to future readers. Picked (c) because the project's style is to favor explicit RN idioms over HOCs/helpers when the cost of inline is just ~50 chars. The constant lives in `theme/interaction.ts` so a future change (different opacity, scale, or color shift) lands in one place.
+- **Haptics map to *moments*, not buttons.** First instinct was to fire haptics on every Pressable. Wrong instinct — that's just buzzing noise. The right model: map haptics to **discrete moments of consequence**. Five chosen:
+  - **Apple Sign In success** → `notificationAsync(Success)`. The Apple sheet is a black-box modal; the success haptic confirms completion before /home or /onboarding paints.
+  - **Continue chain advances** (onboarding → permissions → trusted-contact) → `selectionAsync()`. Subtle iOS picker-wheel "click" — present but not loud.
+  - **Submit Report success** → `notificationAsync(Success)`. The contribution moment lands as a tactile confirmation alongside the Thank-You frame.
+  - **Long-press save home** → `impactAsync(Light)`. Mirrors iOS Maps' pin-drop thump — without it, the long-press gesture feels uncertain.
+  - **Pulled-over armed answer** → `impactAsync(Heavy)`. The most consequential haptic in the app: the moment the safety flow turns from "what's happening" into "what to do." Heavy weight cues "your answer landed and we're actively helping now."
+  - **Call/Text trusted contact** → `impactAsync(Medium)`. The last sensory cue from Fresh Greens before the dialer/Messages takes focus.
+- **`.catch(() => {})` after every `Haptics.*` call.** All Haptics methods return promises that can reject if the device doesn't support haptics (e.g., older iPad models, simulator). A rejected promise without a catch is an unhandled rejection in dev. The empty `.catch()` makes haptics fire-and-forget — they enhance the experience when present, do nothing when absent, and never crash. Worth keeping: any non-critical platform API call should swallow its rejection silently.
+- **Status-bar audit was a 5-minute pass with zero fixes.** All 15 routes already had appropriate `style="light"` or `"dark"` based on their primary background (light on wiltedgreen/orange/burntgreen, dark on white/map). The pattern was set early and has held through every subsequent screen. Worth recording as a reminder: when a convention is right at the start, audits later are confirmation passes, not fix-up passes. Ranking it highly in "low-effort visual wins" turned out to be wrong — the win was already banked.
+
+---
+
 ## feat/permissions-settings-recovery (2026-05-08)
 
 Closes the "previously declined" silent-advance gap on /permissions. iOS only shows a permission prompt once — after the first "Don't Allow," `requestForegroundPermissionsAsync()` and `requestRecordingPermissionsAsync()` return the cached deny state immediately, no system dialog. Without a visible escape hatch, the user tapped Continue and advanced to /trusted-contact-setup with no permissions granted and no UI feedback. Now an inline footnote-link recovery affordance ("Previously declined? Open iOS Settings") appears below Continue when `canAskAgain === false` for either permission.

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 type Props = {
@@ -24,7 +25,7 @@ export function SearchBar({
 }: Props) {
   return (
     <Pressable
-      style={styles.container}
+      style={({ pressed }) => [styles.container, pressed && pressedDim]}
       onPress={onPress}
       accessibilityRole="search"
       accessibilityLabel={placeholder}

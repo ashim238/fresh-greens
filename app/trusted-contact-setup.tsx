@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // Deep import path (phosphor-react-native exposes ./src/icons/* via
@@ -24,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PageControl } from '../components/PageControl';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -82,6 +84,7 @@ export default function TrustedContactSetup() {
   }
 
   function handleContinue() {
+    Haptics.selectionAsync().catch(() => {});
     if (fromSettings) {
       router.back();
     } else {
@@ -136,7 +139,11 @@ export default function TrustedContactSetup() {
             // redundant tap target for users who don't realize the card
             // is interactive.
             <Pressable
-              style={[styles.emptyState, picking && styles.emptyStateBusy]}
+              style={({ pressed }) => [
+                styles.emptyState,
+                picking && styles.emptyStateBusy,
+                pressed && !picking && pressedDim,
+              ]}
               onPress={handlePickContact}
               disabled={picking}
               accessibilityRole="button"
@@ -171,7 +178,11 @@ export default function TrustedContactSetup() {
             {contact ? (
               <>
                 <Pressable
-                  style={[styles.cta, styles.ctaPrimary]}
+                  style={({ pressed }) => [
+                    styles.cta,
+                    styles.ctaPrimary,
+                    pressed && pressedDim,
+                  ]}
                   onPress={handleContinue}
                   accessibilityRole="button"
                   accessibilityLabel="Continue with this trusted contact"
@@ -179,7 +190,11 @@ export default function TrustedContactSetup() {
                   <Text style={styles.ctaText}>Continue</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.cta, picking && styles.ctaBusy]}
+                  style={({ pressed }) => [
+                    styles.cta,
+                    picking && styles.ctaBusy,
+                    pressed && !picking && pressedDim,
+                  ]}
                   onPress={handlePickContact}
                   disabled={picking}
                   accessibilityRole="button"
@@ -195,10 +210,11 @@ export default function TrustedContactSetup() {
               </>
             ) : (
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.cta,
                   styles.ctaPrimary,
                   picking && styles.ctaBusy,
+                  pressed && !picking && pressedDim,
                 ]}
                 onPress={handlePickContact}
                 disabled={picking}
@@ -216,7 +232,7 @@ export default function TrustedContactSetup() {
 
             <Pressable
               onPress={handleSkip}
-              style={styles.skipBtn}
+              style={({ pressed }) => [styles.skipBtn, pressed && pressedDim]}
               accessibilityRole="button"
               accessibilityLabel="Skip for now"
               hitSlop={12}

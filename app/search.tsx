@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -118,6 +119,7 @@ export default function Search() {
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
                 hitSlop={12}
+                style={({ pressed }) => pressed ? pressedDim : undefined}
               >
                 <Ionicons name="chevron-back" size={24} color={colors.labelSecondary} />
               </Pressable>
@@ -140,6 +142,7 @@ export default function Search() {
                 accessibilityRole="button"
                 accessibilityLabel="Voice search (not yet supported)"
                 hitSlop={12}
+                style={({ pressed }) => pressed ? pressedDim : undefined}
               >
                 {/* TODO: voice input via expo-speech / native speech-to-text */}
                 <Ionicons name="mic" size={20} color={colors.labelSecondary} />
@@ -162,7 +165,7 @@ export default function Search() {
               {QUICK_TOOLS.map((tool) => (
                 <Pressable
                   key={tool.id}
-                  style={styles.quickTool}
+                  style={({ pressed }) => [styles.quickTool, pressed && pressedDim]}
                   accessibilityRole="button"
                   accessibilityLabel={tool.label}
                   // TODO: wire to category-filtered search (e.g., search
@@ -188,7 +191,7 @@ export default function Search() {
             screen.
           */}
           <Pressable
-            style={styles.section}
+            style={({ pressed }) => [styles.section, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Configure fuel reminders"
           >
@@ -207,7 +210,7 @@ export default function Search() {
             {RECENT_SEARCHES.map((recent) => (
               <Pressable
                 key={recent.id}
-                style={styles.recentItem}
+                style={({ pressed }) => [styles.recentItem, pressed && pressedDim]}
                 onPress={() => {
                   setQuery(recent.label);
                   // Don't auto-submit — user may want to edit the query first.

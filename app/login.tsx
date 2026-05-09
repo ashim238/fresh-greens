@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -51,6 +53,11 @@ export default function Login() {
     setSigningIn(true);
     try {
       await signInWithApple();
+      // Success haptic — same cue as get-started, confirms the Apple
+      // sheet completed cleanly before /home paints.
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      ).catch(() => {});
       // Returning-user route — /login is dedicated to people who already
       // have an account, so they always skip onboarding.
       router.replace('/home');
@@ -92,7 +99,11 @@ export default function Login() {
 
           <View style={styles.actions}>
             <Pressable
-              style={[styles.outlinedButton, signingIn && styles.buttonBusy]}
+              style={({ pressed }) => [
+                styles.outlinedButton,
+                signingIn && styles.buttonBusy,
+                pressed && !signingIn && pressedDim,
+              ]}
               onPress={handleAppleSignIn}
               disabled={signingIn}
               accessibilityRole="button"
@@ -139,7 +150,7 @@ export default function Login() {
 
             <Pressable
               onPress={handleSignUpLink}
-              style={styles.loginRow}
+              style={({ pressed }) => [styles.loginRow, pressed && pressedDim]}
               accessibilityRole="link"
               accessibilityLabel="Don't have an account? Sign up"
             >

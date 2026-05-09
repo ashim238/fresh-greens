@@ -29,6 +29,7 @@ import WelcomeWindMed from '../assets/illustrations/welcome-wind-med.svg';
 import WelcomeWindSm from '../assets/illustrations/welcome-wind-sm.svg';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -199,7 +200,11 @@ export default function Welcome() {
           </View>
 
           <Pressable
-            style={[styles.button, styles.buttonPrimary]}
+            style={({ pressed }) => [
+              styles.button,
+              styles.buttonPrimary,
+              pressed && pressedDim,
+            ]}
             accessibilityRole="button"
             onPress={() => router.push('/get-started')}
           >
@@ -207,7 +212,11 @@ export default function Welcome() {
           </Pressable>
 
           <Pressable
-            style={[styles.button, styles.buttonSecondary]}
+            style={({ pressed }) => [
+              styles.button,
+              styles.buttonSecondary,
+              pressed && pressedDim,
+            ]}
             accessibilityRole="button"
             onPress={() => router.push('/login')}
           >

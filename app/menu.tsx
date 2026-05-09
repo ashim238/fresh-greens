@@ -42,6 +42,7 @@ import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 // LayoutAnimation needs explicit opt-in on Android. iOS supports it
@@ -210,7 +211,10 @@ export default function Menu() {
             accessibilityRole="button"
             accessibilityLabel="Back"
             hitSlop={12}
-            style={styles.headerBackBtn}
+            style={({ pressed }) => [
+              styles.headerBackBtn,
+              pressed && pressedDim,
+            ]}
           >
             <Ionicons
               name="chevron-back"
@@ -414,6 +418,9 @@ export default function Menu() {
             accessibilityRole="button"
             accessibilityLabel="Sign out"
             accessibilityState={{ busy: signingOut, disabled: signingOut }}
+            style={({ pressed }) =>
+              pressed && !signingOut ? pressedDim : undefined
+            }
           >
             {signingOut ? (
               <ActivityIndicator color={colors.fadedgreen} />
@@ -458,7 +465,11 @@ function SettingsRow({
     <Pressable
       onPress={inert ? undefined : onPress}
       disabled={inert}
-      style={[styles.row, inert && styles.rowInert]}
+      style={({ pressed }) => [
+        styles.row,
+        inert && styles.rowInert,
+        pressed && !inert && pressedDim,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: inert, expanded: chevronDirection === 'down' }}

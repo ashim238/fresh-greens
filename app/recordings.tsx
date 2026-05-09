@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRecordings } from '../hooks/useRecordings';
 import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -127,7 +128,10 @@ export default function Recordings() {
             accessibilityRole="button"
             accessibilityLabel="Back"
             hitSlop={12}
-            style={styles.headerBackBtn}
+            style={({ pressed }) => [
+              styles.headerBackBtn,
+              pressed && pressedDim,
+            ]}
           >
             <Ionicons
               name="chevron-back"
@@ -209,7 +213,7 @@ function RecordingCard({
     <View style={[styles.card, isActive && styles.cardActive]}>
       <Pressable
         onPress={onTogglePlay}
-        style={styles.playButton}
+        style={({ pressed }) => [styles.playButton, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel={
           isPlaying ? `Pause ${formatTimestamp(recording.createdAt)}` : `Play ${formatTimestamp(recording.createdAt)}`
@@ -237,7 +241,7 @@ function RecordingCard({
 
       <Pressable
         onPress={onDelete}
-        style={styles.deleteButton}
+        style={({ pressed }) => [styles.deleteButton, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel={`Delete recording from ${formatTimestamp(recording.createdAt)}`}
         hitSlop={12}
