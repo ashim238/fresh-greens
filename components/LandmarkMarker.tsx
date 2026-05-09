@@ -51,7 +51,7 @@ import { colors } from '../theme/colors';
  * from re-rendering on every pan/zoom.
  */
 
-type Variant = 'black-owned' | 'local-business' | 'positive' | 'report';
+export type Variant = 'black-owned' | 'local-business' | 'positive' | 'report';
 
 /**
  * Maps a community-report category id to the marker variant.

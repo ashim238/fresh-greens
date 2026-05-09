@@ -255,6 +255,8 @@ function reportToZone(report: CommunityReport): Zone {
     category: 'community-report',
     reportCategoryId: report.categoryId,
     reportSubTag: report.subTag,
+    reportDetail: report.detail,
+    reportTimestamp: report.timestamp,
   };
 }
 

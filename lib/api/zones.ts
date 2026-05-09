@@ -131,6 +131,10 @@ export type Zone = {
    * fork-and-knife icon for different `subTag` values).
    */
   reportSubTag?: string;
+  /** Community-report detail text (the optional user-written message). */
+  reportDetail?: string;
+  /** Community-report submission timestamp (ms since epoch). */
+  reportTimestamp?: number;
 };
 
 /**
