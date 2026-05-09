@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -66,7 +67,10 @@ export default function SafetySettings() {
             accessibilityRole="button"
             accessibilityLabel="Back"
             hitSlop={12}
-            style={styles.headerBackBtn}
+            style={({ pressed }) => [
+              styles.headerBackBtn,
+              pressed && pressedDim,
+            ]}
           >
             <Ionicons
               name="chevron-back"
@@ -85,7 +89,7 @@ export default function SafetySettings() {
           {/* Trusted contact row — same row pattern as /menu */}
           <Pressable
             onPress={handleEditTrustedContact}
-            style={styles.row}
+            style={({ pressed }) => [styles.row, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel={
               contact
@@ -122,7 +126,7 @@ export default function SafetySettings() {
           */}
           <Pressable
             onPress={handleRecordings}
-            style={styles.row}
+            style={({ pressed }) => [styles.row, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel={`Recordings, ${recordingsValue}. Tap to view.`}
           >

@@ -3,6 +3,7 @@ import {
   getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
 } from 'expo-audio';
+import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +15,7 @@ import PermissionsCar from '../assets/illustrations/permissions-car.svg';
 import PermissionsLocation from '../assets/illustrations/permissions-location.svg';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -113,6 +115,7 @@ export default function Permissions() {
   // without location, flat-baseline waveform without mic) and they can
   // re-enable later via system Settings.
   async function handleContinuePress() {
+    Haptics.selectionAsync().catch(() => {});
     await Location.requestForegroundPermissionsAsync();
     await requestRecordingPermissionsAsync();
     router.push('/trusted-contact-setup');
@@ -196,7 +199,7 @@ export default function Permissions() {
           </View>
 
           <Pressable
-            style={styles.cta}
+            style={({ pressed }) => [styles.cta, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Continue and grant permissions"
             onPress={handleContinuePress}
@@ -216,7 +219,10 @@ export default function Permissions() {
           {showSettingsRecovery && (
             <Pressable
               onPress={handleOpenSettings}
-              style={styles.settingsLinkRow}
+              style={({ pressed }) => [
+                styles.settingsLinkRow,
+                pressed && pressedDim,
+              ]}
               accessibilityRole="link"
               accessibilityLabel={`${recoveryPrompt}. Open iOS Settings.`}
             >

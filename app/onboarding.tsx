@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useRef, useState, type ReactNode } from 'react';
@@ -20,6 +21,7 @@ import Onboarding2Visual from '../assets/illustrations/onboarding-2-visual.svg';
 import Onboarding3 from '../assets/illustrations/onboarding-3.svg';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -176,6 +178,10 @@ export default function Onboarding() {
   }
 
   function handleContinue() {
+    // Light tick on each Continue tap — selectionAsync is the
+    // subtlest haptic, the iOS picker-wheel "click" — so it doesn't
+    // dominate the swipe gesture but reads as "next" each time.
+    Haptics.selectionAsync().catch(() => {});
     if (pagerIndex < PANELS.length - 1) {
       pagerRef.current?.scrollToIndex({
         index: pagerIndex + 1,
@@ -257,7 +263,10 @@ export default function Onboarding() {
         <View style={styles.spacer} pointerEvents="none" />
         <View style={styles.actions} pointerEvents="auto">
           <Pressable
-            style={styles.continueBtn}
+            style={({ pressed }) => [
+              styles.continueBtn,
+              pressed && pressedDim,
+            ]}
             accessibilityRole="button"
             accessibilityLabel={
               pagerIndex < PANELS.length - 1
@@ -270,7 +279,7 @@ export default function Onboarding() {
           </Pressable>
 
           <Pressable
-            style={styles.skipBtn}
+            style={({ pressed }) => [styles.skipBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Skip onboarding"
             onPress={handleSkip}

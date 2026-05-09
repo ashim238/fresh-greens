@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -35,6 +36,7 @@ import {
 } from '../lib/api/community-reports';
 import type { Coordinate } from '../lib/api/zones';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -129,6 +131,13 @@ export default function Report() {
         // user's id once auth lands. Mock placeholder for now.
         submittedBy: category.anonymous ? undefined : 'mock-user',
       });
+      // Success haptic on submission — the contribution lands as a
+      // tactile confirmation, matching the visual transition into the
+      // Thank-You frame. Reporting is the active community-building
+      // moment of the app; the cue gives it weight.
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      ).catch(() => {});
       setSubmittedReport(report);
       setMode('thank-you');
     } catch (error) {
@@ -306,7 +315,7 @@ function PickerView({
             {CATEGORIES.slice(rowStart, rowStart + 2).map((c) => (
               <Pressable
                 key={c.id}
-                style={styles.tile}
+                style={({ pressed }) => [styles.tile, pressed && pressedDim]}
                 onPress={() => onPick(c)}
                 accessibilityRole="button"
                 accessibilityLabel={c.label}
@@ -433,7 +442,11 @@ function DetailView({
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
-                    style={[styles.chip, active && styles.chipActive]}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      active && styles.chipActive,
+                      pressed && !submitting && pressedDim,
+                    ]}
                   >
                     <Text
                       style={[
@@ -454,7 +467,7 @@ function DetailView({
           <>
             <Text style={styles.fieldLabel}>(Optional) Add a photo</Text>
             <Pressable
-              style={styles.photoStub}
+              style={({ pressed }) => [styles.photoStub, pressed && pressedDim]}
               onPress={handlePhotoStubTap}
               accessibilityRole="button"
               accessibilityLabel="Add a photo (coming soon)"
@@ -466,9 +479,10 @@ function DetailView({
       </View>
 
       <Pressable
-        style={[
+        style={({ pressed }) => [
           styles.submitBtn,
           (!locationKnown || submitting) && styles.submitBtnDisabled,
+          pressed && locationKnown && !submitting && pressedDim,
         ]}
         onPress={onSubmit}
         disabled={!locationKnown || submitting}

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
@@ -15,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUser } from '../hooks/useUser';
 import { getStoredUser } from '../lib/api/user';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -54,6 +56,13 @@ export default function GetStarted() {
       // first or fiftieth sign-in to this app), so we check storage.
       const wasReturning = (await getStoredUser()) !== null;
       await signInWithApple();
+      // Success haptic confirms the Apple sheet completed cleanly —
+      // the visual transition (sheet dismiss → router.replace) is fast
+      // enough that a confirmation cue helps the user know the sign-in
+      // landed before /home or /onboarding paints.
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success,
+      ).catch(() => {});
       router.replace(wasReturning ? '/home' : '/onboarding');
     } catch (err: unknown) {
       // expo-apple-authentication throws ERR_REQUEST_CANCELED when the
@@ -107,7 +116,11 @@ export default function GetStarted() {
 
           <View style={styles.actions}>
             <Pressable
-              style={[styles.outlinedButton, signingIn && styles.buttonBusy]}
+              style={({ pressed }) => [
+                styles.outlinedButton,
+                signingIn && styles.buttonBusy,
+                pressed && !signingIn && pressedDim,
+              ]}
               onPress={handleAppleSignIn}
               disabled={signingIn}
               accessibilityRole="button"
@@ -162,7 +175,7 @@ export default function GetStarted() {
 
             <Pressable
               onPress={handleLogInLink}
-              style={styles.loginRow}
+              style={({ pressed }) => [styles.loginRow, pressed && pressedDim]}
               accessibilityRole="link"
               accessibilityLabel="Already have an account? Log in"
             >

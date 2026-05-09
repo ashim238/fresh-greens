@@ -1,6 +1,8 @@
 import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { pressedDim } from '../theme/interaction';
+
 import { colors } from '../theme/colors';
 
 /**
@@ -42,9 +44,10 @@ export function EdgeIndicator({
       // Center the 32pt pill on (x, y); the parent overlay uses
       // pointerEvents="box-none" so empty space passes taps through
       // to the map.
-      style={[
+      style={({ pressed }) => [
         styles.wrap,
         { left: x - 16, top: y - 16, transform: [{ rotate: `${rotation}deg` }] },
+        pressed && pressedDim,
       ]}
     >
       <View

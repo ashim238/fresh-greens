@@ -31,6 +31,7 @@ import { gradientSegments } from '../lib/daylight';
 import { formatDistance, formatDuration } from '../lib/format';
 import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -347,7 +348,7 @@ export default function EnRoute() {
           </View>
 
           <Pressable
-            style={styles.micBtn}
+            style={({ pressed }) => [styles.micBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Voice control (not yet supported)"
           >
@@ -388,21 +389,21 @@ export default function EnRoute() {
             reads as a uniform stack.
           */}
           <Pressable
-            style={styles.sideBtn}
+            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Toggle volume (coming soon)"
           >
             <Ionicons name="volume-high" size={32} color={colors.labelSecondary} />
           </Pressable>
           <Pressable
-            style={styles.sideBtn}
+            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Help (coming soon)"
           >
             <Ionicons name="medical" size={32} color={colors.red} />
           </Pressable>
           <Pressable
-            style={styles.sideBtn}
+            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             onPress={() => router.push('/safety')}
             accessibilityRole="button"
             accessibilityLabel="Open safety menu"
@@ -410,7 +411,7 @@ export default function EnRoute() {
             <Shield size={32} color={colors.navy} weight="duotone" />
           </Pressable>
           <Pressable
-            style={styles.sideBtn}
+            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             onPress={() => router.push('/report')}
             accessibilityRole="button"
             accessibilityLabel="Report something"
@@ -418,7 +419,7 @@ export default function EnRoute() {
             <Ionicons name="alert-circle" size={32} color={colors.orange} />
           </Pressable>
           <Pressable
-            style={styles.sideBtn}
+            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
             onPress={handleRecenter}
             accessibilityRole="button"
             accessibilityLabel="Recenter map on your location"
@@ -456,7 +457,10 @@ export default function EnRoute() {
           <View style={styles.etaRow}>
             <View style={styles.leftSlot}>
               <Pressable
-                style={styles.utilityBtn}
+                style={({ pressed }) => [
+                  styles.utilityBtn,
+                  pressed && pressedDim,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Search along route (coming soon)"
                 hitSlop={12}
@@ -492,7 +496,10 @@ export default function EnRoute() {
 
             <View style={styles.rightSlot}>
               <Pressable
-                style={styles.utilityBtn}
+                style={({ pressed }) => [
+                  styles.utilityBtn,
+                  pressed && pressedDim,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Show alternate paths (coming soon)"
                 hitSlop={12}
@@ -524,7 +531,7 @@ export default function EnRoute() {
             the explicit primary action is a labeled button).
           */}
           <Pressable
-            style={styles.endTripBtn}
+            style={({ pressed }) => [styles.endTripBtn, pressed && pressedDim]}
             onPress={handleEndTrip}
             accessibilityRole="button"
             accessibilityLabel="End trip"

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import {
@@ -47,6 +48,7 @@ import {
 } from '../lib/edge-indicators';
 import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 // Zone-overlay rendering is now a real user preference (toggled from
@@ -258,6 +260,11 @@ export default function Home() {
   // overwrite a real saved home.
   function handleLongPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
     const { latitude, longitude } = e.nativeEvent.coordinate;
+    // Light impact when the long-press fires — confirms the gesture
+    // registered before the Alert appears, same way iOS Maps thumps
+    // when you long-press to drop a pin. Without it, the gesture
+    // feels uncertain (did the press hold long enough?).
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     Alert.alert(
       'Save as home',
       'Add this location to your saved places? Your home appears on the map and as an off-screen indicator when you pan away.',
@@ -546,7 +553,7 @@ export default function Home() {
             shield in the en-route side-button column.
           */}
           <Pressable
-            style={styles.menuButton}
+            style={({ pressed }) => [styles.menuButton, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Menu"
             onPress={() => router.push('/menu')}
@@ -568,7 +575,7 @@ export default function Home() {
             match the trusted-friend pin's iconography.
           */}
           <Pressable
-            style={styles.avatarButton}
+            style={({ pressed }) => [styles.avatarButton, pressed && pressedDim]}
             onPress={() => router.push('/menu')}
             accessibilityRole="button"
             accessibilityLabel={
@@ -677,7 +684,7 @@ export default function Home() {
             copy: "Schedule for 7:38 AM".
           */}
           <Pressable
-            style={styles.scheduleBtn}
+            style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Schedule trip for later when daylight is better"
           >
@@ -685,7 +692,7 @@ export default function Home() {
           </Pressable>
 
           <Pressable
-            style={styles.goBtn}
+            style={({ pressed }) => [styles.goBtn, pressed && pressedDim]}
             onPress={() =>
               router.push({
                 pathname: '/en-route',
@@ -716,7 +723,11 @@ export default function Home() {
       */}
       {bottomSheetHeight > 0 && (
         <Pressable
-          style={[styles.reportBtn, { bottom: bottomSheetHeight + 24 }]}
+          style={({ pressed }) => [
+            styles.reportBtn,
+            { bottom: bottomSheetHeight + 24 },
+            pressed && pressedDim,
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Report something — opens reporting flow"
           onPress={() => router.push('/report')}

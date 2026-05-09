@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -112,7 +113,7 @@ export default function SafetyModal() {
           {TABS.map((tab) => (
             <Pressable
               key={tab.id}
-              style={styles.tab}
+              style={({ pressed }) => [styles.tab, pressed && pressedDim]}
               onPress={() => handleTabPress(tab)}
               accessibilityRole="button"
               accessibilityLabel={tab.label}
