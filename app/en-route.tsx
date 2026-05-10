@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import {
   useFocusEffect,
@@ -8,7 +9,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polygon, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
@@ -34,7 +35,9 @@ import {
   zoneColors,
   zoneDashPattern,
 } from '../lib/api/zones';
+import { clusterPointZones } from '../lib/clustering';
 import { gradientSegments } from '../lib/daylight';
+import { type Region } from '../lib/edge-indicators';
 import { formatDistance, formatDuration } from '../lib/format';
 import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
@@ -78,6 +81,13 @@ export default function EnRoute() {
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  // Region + viewport size for marker clustering. Without these, dense
+  // pin neighborhoods stack on top of the user-location dot at the
+  // default zoom — same problem /home solved by clustering.
+  const [mapRegion, setMapRegion] = useState<Region | null>(null);
+  const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   // Live GPS for the custom UserLocationMarker — same pattern /home
   // uses to keep the dot above LandmarkMarker pins via zIndex.
   const [userLocation, setUserLocation] = useState<{
@@ -94,6 +104,15 @@ export default function EnRoute() {
     () => [...osmZones, ...reportZones],
     [osmZones, reportZones],
   );
+
+  // Mirrors /home: collapse nearby community reports into a single
+  // count badge when they'd overlap on screen. Empty until the first
+  // region/size measurement settles, which keeps the map clean during
+  // the initial transition into /en-route.
+  const clusteredReports = useMemo(() => {
+    if (!mapRegion || !mapSize) return [];
+    return clusterPointZones(reportZones, mapRegion, mapSize.width, mapSize.height);
+  }, [reportZones, mapRegion, mapSize]);
 
   const routes = useMemo(
     () => pickWinner(rawRoutes, allZones),
@@ -269,6 +288,13 @@ export default function EnRoute() {
           altitude: 1000,
         }}
         showsMyLocationButton={false}
+        onRegionChangeComplete={setMapRegion}
+        onLayout={(e) =>
+          setMapSize({
+            width: e.nativeEvent.layout.width,
+            height: e.nativeEvent.layout.height,
+          })
+        }
       >
         {/*
           Zone overlays — same render rules as /home. Rendered first
@@ -307,15 +333,48 @@ export default function EnRoute() {
             return null;
           })}
         {/*
-          Community-report points — LandmarkMarker (Figma's three-
-          state component: black-owned, local-business, report) keyed
-          on the report's category id. Same component /home uses, so
-          a submission reads identically on both surfaces.
+          Community-report points — clustered at low zoom so the
+          en-route default camera (zoom 17, 1000m altitude) doesn't
+          stack pins on top of the user-location dot. Singletons render
+          as the same LandmarkMarker /home uses; groups render as an
+          orange count badge that zooms to fit on tap.
         */}
-        {reportZones.map((zone) => {
-          if (zone.geometry !== 'point' || zone.coordinates.length === 0) {
-            return null;
+        {clusteredReports.map((item) => {
+          if (item.kind === 'cluster') {
+            const { cluster } = item;
+            return (
+              <Marker
+                key={cluster.id}
+                coordinate={cluster.center}
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
+                accessibilityLabel={`${cluster.count} community reports nearby — tap to zoom in`}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
+                  const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
+                  const minLat = Math.min(...lats);
+                  const maxLat = Math.max(...lats);
+                  const minLng = Math.min(...lngs);
+                  const maxLng = Math.max(...lngs);
+                  mapRef.current?.animateToRegion(
+                    {
+                      latitude: (minLat + maxLat) / 2,
+                      longitude: (minLng + maxLng) / 2,
+                      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.005),
+                      longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.005),
+                    },
+                    400,
+                  );
+                }}
+              >
+                <View style={styles.clusterMarker}>
+                  <Text style={styles.clusterCount}>{cluster.count}</Text>
+                </View>
+              </Marker>
+            );
           }
+          const { zone } = item;
           const point = zone.coordinates[0];
           return (
             <LandmarkMarker
@@ -844,5 +903,24 @@ const styles = StyleSheet.create({
   endTripText: {
     ...typography.subheadlineEmphasized,
     color: colors.wiltedgreen,
+  },
+  clusterMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.orange,
+    borderWidth: 2,
+    borderColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  clusterCount: {
+    ...typography.footnoteEmphasized,
+    color: colors.white,
   },
 });
