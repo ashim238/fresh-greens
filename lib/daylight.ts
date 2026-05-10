@@ -70,9 +70,10 @@ export function gradientSegments(
         segmentProgress * route.estimatedMinutes * 60_000,
     );
 
-    // Sunset is computed at the segment's geometric midpoint. Routes
-    // mostly stay in one general area, but for cross-region trips this
-    // matters — sunset varies by longitude (and by latitude in winter).
+    // Sunset + sunrise are computed at the segment's geometric midpoint.
+    // Routes mostly stay in one general area, but for cross-region trips
+    // this matters — solar times vary by longitude (and by latitude in
+    // winter).
     const midpoint = segmentCoords[Math.floor(segmentCoords.length / 2)];
     const sunTimes = SunCalc.getTimes(
       segmentTime,
@@ -80,8 +81,16 @@ export function gradientSegments(
       midpoint.longitude,
     );
 
-    const minutesToSunset =
-      (sunTimes.sunset.getTime() - segmentTime.getTime()) / 60_000;
+    // Pre-dawn departures must be treated as night, not as "many hours
+    // until today's sunset." SunCalc returns events for the calendar day
+    // passed in, so a 1 AM segment computes against today's 7:30 PM
+    // sunset and reports +1110 minutes — which the band table would
+    // mistakenly read as full daylight. Short-circuit: if we're before
+    // today's sunrise, the segment is night.
+    const isPreDawn = segmentTime.getTime() < sunTimes.sunrise.getTime();
+    const minutesToSunset = isPreDawn
+      ? -1
+      : (sunTimes.sunset.getTime() - segmentTime.getTime()) / 60_000;
 
     segments.push({
       coordinates: segmentCoords,

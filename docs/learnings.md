@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/en-route-defects (2026-05-10)
+
+Two real defects landed on /en-route that didn't get caught before because they only manifest at specific times of day or with seeded report density. Worth keeping the post-mortems together — both are about parity drift between /home and /en-route, where features added on /home don't automatically follow on /en-route.
+
+- **`SunCalc.getTimes(date, lat, lng)` returns events for the calendar day passed in, not the next sunrise/sunset.** A 1 AM segment computes against today's 7:30 PM sunset and reports +1110 minutes — which the band table reads as full daylight (orange/yellow), not night. `gradientSegments` had this bug since the daylight gradient shipped, but it only surfaces between midnight and sunrise — a window most testing doesn't hit unless you're explicitly trying. Fixed by checking `segmentTime < sunTimes.sunrise` and forcing `minutesToSunset = -1` when pre-dawn, which routes through the existing "negative → night" band. Worth keeping: solar-time math has a hidden assumption that "now" is during the daylight portion of the day passed in; pre-dawn and post-midnight are both edge cases that need explicit handling.
+- **Marker clustering on /home didn't auto-apply to /en-route.** /home got `clusterPointZones` + `mapRegion`/`mapSize` state in `feat/community-report-mechanic`; /en-route renders the same `reportZones` but never picked up the clustering wiring, so dense seed data in Mobile, AL stacked four LandmarkMarkers on top of the user-location dot at the default zoom (17 / 1000m altitude). The pure function in `lib/clustering.ts` is reusable; the wiring isn't. Worth keeping: when a feature ships on /home, audit /en-route for the same render path. The two screens share the data pipeline (zones, reports, scoring) but each owns its own render — features don't cascade. A "render-path parity" check belongs in the next Figma fidelity audit's checklist.
+
+---
+
 ## feat/schedule-for-am (2026-05-09)
 
 Replaced the static "Schedule for later" chip on /home with a real computation: `suggestedDepartureForDaylight(route, now)` in `lib/daylight.ts` returns a departure time only when leaving later genuinely buys more daylight, otherwise `null`. v1 rule: pre-sunrise departures get sunrise+15min (small buffer past the horizon — visually past the dim band, though still inside scoring.ts's dawn ±30-min wildlife window), capped to a 3-hour look-ahead with a 5-minute floor. The chip — and its rationale copy ("Heads up! You can leave in a bit…") — both gate on the suggestion existing, so mid-day departures hide instead of showing a meaningless time.
