@@ -40,8 +40,8 @@ import {
   zoneDashPattern,
 } from '../lib/api/zones';
 import { clusterPointZones } from '../lib/clustering';
-import { gradientSegments } from '../lib/daylight';
-import { formatDuration } from '../lib/format';
+import { gradientSegments, suggestedDepartureForDaylight } from '../lib/daylight';
+import { formatDuration, formatTimeOfDay } from '../lib/format';
 import {
   edgePositionForPoint,
   groupEdgeIndicators,
@@ -173,6 +173,18 @@ export default function Home() {
   // Recommended route is the one we explain in the bottom sheet. May be
   // undefined briefly on first render before the fetch completes.
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // Suggested departure for the "Schedule for X:XX AM" chip. Only set
+  // when leaving later actually buys more daylight (currently: pre-dawn
+  // departures). `null` hides the chip — see lib/daylight.ts for rules.
+  // v1 limitation: `now` is captured at first render, so a user who
+  // lingers across sunrise will see a stale chip until /home remounts
+  // (which happens on tab/route change). Acceptable for thesis demo;
+  // a minute-resolution tick would fix it cheaply if needed later.
+  const suggestedDeparture = useMemo(
+    () => (recommended ? suggestedDepartureForDaylight(recommended) : null),
+    [recommended],
+  );
 
   // Clustered report markers — groups nearby points at low zoom to
   // prevent overlapping pins in dense neighborhoods. Recomputes on
@@ -817,27 +829,28 @@ export default function Home() {
             </View>
           </View>
 
-          <View style={styles.tradeoffRow}>
-            <Text style={styles.tradeoffCopy}>
-              Heads up! You can leave in a bit and still make it on time with
-              some added daylight on your route.
-            </Text>
-          </View>
+          {suggestedDeparture && (
+            <View style={styles.tradeoffRow}>
+              <Text style={styles.tradeoffCopy}>
+                Heads up! You can leave in a bit and still make it on time with
+                some added daylight on your route.
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.actionsRow}>
-          {/*
-            TODO: compute the real schedule time via SunCalc + route
-            duration (suncalc + lib/daylight.ts already wired). Figma
-            copy: "Schedule for 7:38 AM".
-          */}
-          <Pressable
-            style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel="Schedule trip for later when daylight is better"
-          >
-            <Text style={styles.scheduleText}>Schedule for later</Text>
-          </Pressable>
+          {suggestedDeparture && (
+            <Pressable
+              style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
+              accessibilityRole="button"
+              accessibilityLabel={`Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
+            >
+              <Text style={styles.scheduleText}>
+                Schedule for {formatTimeOfDay(suggestedDeparture)}
+              </Text>
+            </Pressable>
+          )}
 
           <Pressable
             style={({ pressed }) => [styles.goBtn, pressed && pressedDim]}

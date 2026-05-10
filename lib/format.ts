@@ -30,3 +30,16 @@ export function formatDistance(miles: number): string {
   if (miles >= 1000) return `${Math.round(miles)} mi.`;
   return `${miles.toFixed(1)} mi.`;
 }
+
+/**
+ * Time of day in 12-hour `"7:38 AM"` form — matches Figma's
+ * "Schedule for X:XX AM" copy on /home and the iOS-native register
+ * users see in Maps and Calendar. Uses Intl rather than hand-rolling
+ * to inherit locale-correct AM/PM ordering and zero-padding.
+ */
+export function formatTimeOfDay(date: Date): string {
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
