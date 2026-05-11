@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, type ViewStyle, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, type ViewStyle, View } from 'react-native';
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -37,6 +37,13 @@ type CommonProps = {
   icon?: ReactNode;
   onPress?: () => void;
   disabled?: boolean;
+  /**
+   * When true, renders an ActivityIndicator in place of the
+   * icon+label. Implies `disabled`. Not a Figma variant — added as a
+   * code-only convenience for async CTAs (e.g. /trusted-contact-setup's
+   * Pick a contact button while the iOS picker spins up).
+   */
+  loading?: boolean;
   accessibilityLabel?: string;
   /** Container style override — most useful for `alignSelf: 'stretch'` in flex layouts. */
   style?: ViewStyle;
@@ -53,11 +60,13 @@ export function Button({
   icon,
   onPress,
   disabled,
+  loading,
   accessibilityLabel,
   style,
   type = 'primary',
   fill = 'fill',
 }: ButtonProps) {
+  const isDisabled = disabled || loading;
   const containerStyle = [
     styles.base,
     fill === 'fill' && (type === 'primary' ? styles.primaryFill : styles.secondaryFill),
@@ -76,20 +85,26 @@ export function Button({
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
+      disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? text}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         containerStyle,
         style,
-        (pressed || disabled) && pressedDim,
+        (pressed || isDisabled) && pressedDim,
       ]}
     >
-      {icon && <View style={styles.iconWrap}>{icon}</View>}
-      <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
-        {text}
-      </Text>
+      {loading ? (
+        <ActivityIndicator color={textColor} />
+      ) : (
+        <>
+          {icon && <View style={styles.iconWrap}>{icon}</View>}
+          <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+            {text}
+          </Text>
+        </>
+      )}
     </Pressable>
   );
 }
