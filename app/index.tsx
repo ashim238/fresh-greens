@@ -30,7 +30,7 @@ import WelcomeWindMed from '../assets/illustrations/welcome-wind-med.svg';
 import WelcomeWindSm from '../assets/illustrations/welcome-wind-sm.svg';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
+import { Button } from '../components/Button';
 import { typography } from '../theme/typography';
 
 /**
@@ -214,29 +214,21 @@ export default function Welcome() {
             </View>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              styles.buttonPrimary,
-              pressed && pressedDim,
-            ]}
-            accessibilityRole="button"
+          <Button
+            type="primary"
+            fill="fill"
+            text="Get started"
             onPress={() => router.push('/get-started')}
-          >
-            <Text style={styles.buttonText}>Get started</Text>
-          </Pressable>
+            style={styles.buttonStretch}
+          />
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              styles.buttonSecondary,
-              pressed && pressedDim,
-            ]}
-            accessibilityRole="button"
+          <Button
+            type="secondary"
+            fill="fill"
+            text="Have an account? Log in"
             onPress={() => router.push('/login')}
-          >
-            <Text style={styles.buttonText}>Have an account? Log in</Text>
-          </Pressable>
+            style={styles.buttonStretch}
+          />
         </View>
       </SafeAreaView>
     </View>
@@ -428,26 +420,7 @@ const styles = StyleSheet.create({
     color: colors.freshgreen,
     textDecorationLine: 'underline',
   },
-  button: {
+  buttonStretch: {
     alignSelf: 'stretch',
-    height: 44,
-    borderRadius: 1000,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  buttonPrimary: {
-    backgroundColor: colors.freshgreen,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.wiltedgreen,
-  },
-  buttonText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
   },
 });

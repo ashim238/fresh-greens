@@ -1,0 +1,143 @@
+import { type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, type ViewStyle, View } from 'react-native';
+
+import { colors } from '../theme/colors';
+import { pressedDim } from '../theme/interaction';
+import { typography } from '../theme/typography';
+
+/**
+ * Unified Button — replaces the ad-hoc button styles previously
+ * scattered across screens (`scheduleBtn`, `goBtn`, `ctaPrimary`,
+ * etc.) with one component matching Figma `1133:12988`.
+ *
+ * Variant matrix (10 total per Figma):
+ *
+ *   Type=Primary   × Fill=Fill         freshgreen bg, white text, M3/Elevation/1
+ *                  × Fill=Outline      freshgreen border, freshgreen text
+ *                  × Fill=Transparent  no bg/border, freshgreen text — for use on dark surfaces
+ *   Type=Secondary × Fill=Fill         wiltedgreen bg, white text, M3/Elevation/1
+ *                  × Fill=Outline      wiltedgreen border, wiltedgreen text
+ *
+ * Pressed state is handled automatically via the universal
+ * `pressedDim` (opacity 0.7) — no separate Pressed prop needed in
+ * code, since React Native's `Pressable` provides the `pressed`
+ * boolean. Figma encodes Pressed as a separate variant for
+ * documentation; in code it's a runtime state.
+ *
+ * `Type=Secondary, Fill=Transparent` is intentionally not a Figma
+ * variant (would be too low-emphasis on most surfaces). Type
+ * narrowing below enforces the same constraint at the type level.
+ */
+
+type FillVariant = 'fill' | 'outline' | 'transparent';
+
+type CommonProps = {
+  text: string;
+  /** Optional 24pt icon rendered to the left of the label with 8pt gap. */
+  icon?: ReactNode;
+  onPress?: () => void;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  /** Container style override — most useful for `alignSelf: 'stretch'` in flex layouts. */
+  style?: ViewStyle;
+};
+
+type ButtonProps = CommonProps &
+  (
+    | { type?: 'primary'; fill?: FillVariant }
+    | { type: 'secondary'; fill?: 'fill' | 'outline' }
+  );
+
+export function Button({
+  text,
+  icon,
+  onPress,
+  disabled,
+  accessibilityLabel,
+  style,
+  type = 'primary',
+  fill = 'fill',
+}: ButtonProps) {
+  const containerStyle = [
+    styles.base,
+    fill === 'fill' && (type === 'primary' ? styles.primaryFill : styles.secondaryFill),
+    fill === 'outline' && (type === 'primary' ? styles.primaryOutline : styles.secondaryOutline),
+    // Transparent has no fill/border — just renders the text. Type
+    // narrowing above ensures only Primary reaches here.
+  ];
+
+  const textColor =
+    fill === 'fill'
+      ? colors.white
+      : type === 'primary'
+        ? colors.freshgreen
+        : colors.wiltedgreen;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? text}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [
+        containerStyle,
+        style,
+        (pressed || disabled) && pressedDim,
+      ]}
+    >
+      {icon && <View style={styles.iconWrap}>{icon}</View>}
+      <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+        {text}
+      </Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  base: {
+    height: 44,
+    borderRadius: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  iconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: {
+    ...typography.subheadlineEmphasized,
+  },
+  // M3/Elevation/1 approximation. Figma specs two drop shadows
+  // (0,1,3,1 @ 15% + 0,1,2,0 @ 30%); RN renders only one per view, so
+  // we use the bigger soft layer that carries the visible elevation.
+  primaryFill: {
+    backgroundColor: colors.freshgreen,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  secondaryFill: {
+    backgroundColor: colors.wiltedgreen,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  primaryOutline: {
+    borderWidth: 1,
+    borderColor: colors.freshgreen,
+  },
+  secondaryOutline: {
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
+  },
+});

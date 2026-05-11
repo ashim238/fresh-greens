@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/design-system-v2-phase1 (2026-05-11)
+
+First PR of the design-system-v2 port. Adds a unified `Button` component matching Figma `1133:12988` (10 variants: Type × State × Fill) and migrates Welcome's two CTAs to use it. Foundational — every subsequent screen port consumes this component.
+
+- **Figma "Pressed" variants are documentation, not code shape.** The Figma component encodes 5 design variants × 2 states (Default/Pressed) = 10 cells, but in React Native, "Pressed" is a runtime boolean from `Pressable`'s render-prop, not a separate component variant. Modeling Pressed as a code prop would have created an awkward API (consumers would have to manage the press state themselves) and duplicated what the platform already provides. The Button component takes only `type` + `fill`; the universal `pressedDim` (opacity 0.7) handles the Pressed visual automatically. Worth keeping: when a design system encodes interaction state as variants, treat that as documentation of what the state should *look like*, not as a literal code-shape requirement.
+- **Figma's M3/Elevation/1 is two drop shadows; React Native renders one.** Spec is `(0, 1, 3, 1) @ 15%` + `(0, 1, 2, 0) @ 30%` — the first is a soft halo, the second is a sharp contact shadow. RN's `shadowOffset/Opacity/Radius` only supports one shadow per view. The pre-existing Welcome buttons used the soft-halo values (15%/radius-3); kept that approximation in `Button` rather than the sharper layer because the soft halo carries more of the visible elevation. A future RN version with `boxShadow` support would let us layer both. Worth keeping: RN's single-shadow limit means matching Figma elevation tokens is always a "pick the dominant layer" decision; document which one you picked so the next person doesn't second-guess.
+- **Type narrowing enforces design constraints that comments forget.** Figma has 5 fill variants for Primary (Fill, Outline, Transparent) and only 2 for Secondary (Fill, Outline) — Secondary+Transparent isn't a designed cell, presumably because it would be too low-emphasis. Encoded this as a TypeScript discriminated union: `type ButtonProps = { type?: 'primary'; fill?: FillVariant } | { type: 'secondary'; fill?: 'fill' | 'outline' }`. A consumer who tries `<Button type="secondary" fill="transparent" />` gets a compile error, not a silent design violation. Worth keeping: when a design system has "intentionally missing" combinations, the type system can carry that intent forward — comments rot, types don't.
+
+---
+
 ## fix/en-route-defects (2026-05-10)
 
 Two real defects landed on /en-route that didn't get caught before because they only manifest at specific times of day or with seeded report density. Worth keeping the post-mortems together — both are about parity drift between /home and /en-route, where features added on /home don't automatically follow on /en-route.
