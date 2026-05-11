@@ -286,11 +286,11 @@ export default function Menu() {
 
         {/*
           Sign out — preserved from v1 even though Figma `1120:7079`
-          doesn't show it. The new /sign-out screen handles the
-          confirmation + "Log back in" flow; this trigger routes there
-          after clearing identity state. When the menu's second page
-          ships (Page Control suggests one is planned), sign-out may
-          relocate.
+          doesn't show it. (The Page Control dots above belong to the
+          quick-tile carousel, not to a 2nd menu page — bottom-pinned
+          is the intended location.) Routes to /sign-out for the
+          confirmation + "Log back in" flow after clearing identity
+          state in the handler above.
         */}
         <View style={styles.signOutWrap}>
           <Pressable
