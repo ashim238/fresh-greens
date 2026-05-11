@@ -5,36 +5,32 @@ import { StatusBar } from 'expo-status-bar';
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
 import { Calendar } from 'phosphor-react-native/src/icons/Calendar';
-import { CircleHalf } from 'phosphor-react-native/src/icons/CircleHalf';
+import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { GearSix } from 'phosphor-react-native/src/icons/GearSix';
-import { MapTrifold } from 'phosphor-react-native/src/icons/MapTrifold';
+import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
+import { PaintRoller } from 'phosphor-react-native/src/icons/PaintRoller';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+import { User } from 'phosphor-react-native/src/icons/User';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  LayoutAnimation,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  UIManager,
   useWindowDimensions,
   View,
 } from 'react-native';
-
-// SVG asset imports. react-native-svg-transformer (configured in
-// metro.config.js) turns each .svg file into a real RN component
-// backed by react-native-svg, so they scale cleanly at any render
-// size. TypeScript types come from types/svg.d.ts.
-import FuelIcon from '../assets/illustrations/fuel.svg';
-import NotificationIcon from '../assets/illustrations/notification.svg';
-import UserCar from '../assets/illustrations/user-car.svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// SVG asset imports — fuel.svg already exists; calendar tile uses the
+// Phosphor Calendar duotone for v1 (queue a custom illustrated SVG
+// for a future bulk-export pass to match the Fuel tile's register).
+import FuelIcon from '../assets/illustrations/fuel.svg';
 
 import { PageControl } from '../components/PageControl';
 import { usePreferences } from '../hooks/usePreferences';
@@ -45,69 +41,64 @@ import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
-// LayoutAnimation needs explicit opt-in on Android. iOS supports it
-// out of the box. Without this guard, the accordion expand/collapse
-// renders as a hard cut on Android.
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 /**
- * Settings — pushed from /home's avatar (car) button.
+ * Menu Page — pushed from /home's avatar (car) button.
  *
- * Layout (Waze-flavored: profile carries page identity, uniform row
- * register, inline accordion for Zone Settings, quiet sign out):
+ * Major v2 redesign per Figma `1120:7079`. Register flip from the
+ * previous wiltedgreen-on-dark Waze-flavored layout to a white
+ * background, freshgreen-accented light layout.
  *
- *   ‹                              ← back chevron only (no page title;
- *                                    profile row identifies the page)
+ * Layout:
  *
- *   [Car]  Hey {firstName}         ← profile row, inert (opacity 0.5,
- *          {email}                   no chevron) until /profile ships
+ *   ‹                              ← back chevron only (no page title)
  *
- *   ─── divider on dark ───────────
+ *   ⬤  Hey there,                  ← 80pt freshgreen avatar +
+ *       First name, Last name        Title3 greeting + Title2 name
  *
- *   [Map] Zone Settings         ›  ← row pattern; tap toggles ▾
- *     ↳ Show zones overlay [⊙]    ← accordion-revealed toggle
+ *   ─────────── divider ───────────
  *
- *   [Shield] Safety            ›  ← real route → /safety-settings
- *   [Gear] Settings            ›  ← inert (TODO) — opacity 0.5, no chevron
- *   [Calendar] Schedule a drive › ← inert (TODO)
- *   [Theme] Theme              ›  ← inert (TODO)
+ *   📍 Zone Preferences         ⌄  ← inline-expanded dropdown
+ *      👁 Show zones overlay   [⊙]    (toggle always visible, not
+ *                                     hidden behind a tap)
  *
- *           Sign out               ← centered, quiet, no pill
+ *   🛡  Safety                   ›
+ *   ⚙  Settings                  ›  inert (TODO)
+ *   📅 Schedule a drive          ›  inert (TODO)
+ *   🎨 Theme                     ›  inert (TODO)
  *
- * Design notes informed by user feedback after first pass:
- *  - "Settings" page title removed — felt redundant against the
- *    profile-row "Hey {firstName}" hierarchy. Profile is the page
- *    identifier (Waze pattern).
- *  - Zone Settings now matches the other rows visually — same icon /
- *    label / chevron register — and uses an accordion to reveal the
- *    actual toggle. Avoids the "weirdo row that doesn't match" feel
- *    of an inline toggle next to non-toggle rows.
- *  - Spacing reassessed: 20pt gap inside rows (was 16), generous
- *    vertical padding on each row (16pt vs 12pt), divider has 16pt
- *    breathing room top + bottom.
- *  - "Safety Settings" → "Safety" — shorter label, less repetitive
- *    when sitting next to Settings / Theme / etc.
+ *   ┌──── Fuel ────┐ ┌── Calendar ──┐    ← carousel, page-control dots
  *
- * Inert rows (Settings / Schedule a drive / Theme) render at 50%
- * opacity with no chevron and no onPress — communicates "planned but
- * not active." When each ships, opacity returns to 1, chevron returns,
- * onPress wires up.
+ *           Sign out                ← bottom-pinned (Figma redesign
+ *                                    didn't show this; preserved
+ *                                    until the auth flow re-anchors
+ *                                    sign-out elsewhere)
+ *
+ * Notable design changes from v1:
+ *  - Background flip from wiltedgreen → white. All text colors flip
+ *    accordingly. Status bar style flips from light → dark.
+ *  - Profile avatar grows from 48pt burntgreen → 80pt freshgreen,
+ *    becoming the visual anchor of the page.
+ *  - Settings rows drop the white-circle icon tile — icon is now
+ *    inline at 24pt without a wrapper. Closer to native iOS Settings
+ *    than the Waze-style chip register of v1.
+ *  - Zone Preferences (renamed from "Zone Settings") moves from an
+ *    accordion-on-tap to an inline-expanded layout — toggle is always
+ *    visible. Removes a hidden-affordance discoverability concern.
+ *  - Quick-tile carousel: Notifications tile retired, Connect calendar
+ *    added. Tile visual register changes from "white card with shadow"
+ *    to "white card with wiltedgreen border" — quieter elevation.
+ *
+ * Avatar illustration: Figma uses a custom illustrated person/face on
+ * the freshgreen circle. Until that SVG is exported, we render a
+ * Phosphor `User` duotone glyph as a placeholder (queued for the
+ * next bulk-SVG export pass).
+ *
+ * Inert rows still render at 50% opacity with no chevron — same
+ * "planned but not active" affordance as v1.
  *
  * Route: /menu
  */
-// Quick-settings carousel data. Tiles are inert placeholders in v1 —
-// each represents a preference that ships in its own future PR.
-//
-// Subtitle copy follows the descriptive register the Search Landing
-// frame established for the Fuel section in Figma (node 825:4996):
-// "Add your car's model and fuel for refuel reminders." Subtitles
-// describe what the feature *will do* once configured, inviting
-// action without implying a default state.
+
 type QuickTile = {
   id: string;
   label: string;
@@ -119,67 +110,50 @@ const QUICK_TILES: QuickTile[] = [
   {
     id: 'fuel',
     label: 'Fuel',
-    // Verbatim from Figma Search Landing (node 825:5001).
-    subtitle: "Add your car's model and fuel for refuel reminders",
-    renderIcon: () => <FuelIcon width={36} height={36} />,
+    // Verbatim from Figma 1120:7079 carousel tile copy.
+    subtitle: 'Add your fuel level for refuel reminders.',
+    renderIcon: () => <FuelIcon width={32} height={32} />,
   },
   {
-    id: 'notifications',
-    label: 'Notifications',
-    // Mirrors the Fuel subtitle's "what this does" register.
-    subtitle: 'Get alerts for your trips and safety events',
-    renderIcon: () => <NotificationIcon width={36} height={36} />,
+    id: 'calendar',
+    label: 'Connect calendar',
+    // Verbatim from Figma 1120:7079.
+    subtitle: 'Get to events safely and on time.',
+    renderIcon: () => (
+      <Calendar size={32} color={colors.wiltedgreen} weight="duotone" />
+    ),
   },
 ];
 
 export default function Menu() {
   const router = useRouter();
   const { user, signOut } = useUser();
-  const { contact, clearContact } = useTrustedContact();
+  const { clearContact } = useTrustedContact();
   const { clearAll: clearSavedPlaces } = useSavedPlaces();
   const { preferences, setShowZones } = usePreferences();
   const { width: screenWidth } = useWindowDimensions();
   const [signingOut, setSigningOut] = useState(false);
-  const [zoneExpanded, setZoneExpanded] = useState(false);
   const [activeQuickIndex, setActiveQuickIndex] = useState(0);
 
-  // Carousel sizing — Waze-flavored peek pattern: each tile takes
-  // most of the screen width, with the next tile peeking ~50pt at
-  // the right edge so the user knows there's another tile to swipe
-  // to. Snap interval = tile width + gap so each swipe moves one
-  // tile.
-  //
-  //   |‹─ 32 ─›|‹───── TILE_WIDTH ─────›|‹─ GAP ─›|‹─ peek ─›|
-  //   first tile starts 32pt from screen edge.
+  // Carousel sizing — same pattern as v1 (each tile ~80% of screen
+  // width, peek of next tile at the right edge).
   const TILE_GAP = 16;
-  const TILE_WIDTH = screenWidth - 96; // ~80% of screen, leaves peek
+  const TILE_WIDTH = screenWidth - 96;
   const SNAP_INTERVAL = TILE_WIDTH + TILE_GAP;
 
-  // First name only for the greeting — matches Waze's "Hey {first}"
-  // register. Falls back to "there" when displayName is missing
-  // (returning Apple Sign In with no cached name).
-  const firstName = user?.displayName?.split(/\s+/)[0] ?? 'there';
+  // Greeting copy — Figma shows "Hey there," + "First name, Last name"
+  // as a two-line stack. When the user has a real displayName, render
+  // that as the second line; otherwise fall back to the Figma
+  // placeholder so the page still reads as identity-anchored.
+  const displayName = user?.displayName ?? 'First name, Last name';
 
-  // Carousel snap handler — fires when a swipe settles. Page index
-  // is content-offset divided by SNAP_INTERVAL (one tile + gap).
-  function handleQuickScrollEnd(
-    e: NativeSyntheticEvent<NativeScrollEvent>,
-  ) {
+  function handleQuickScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const index = Math.round(e.nativeEvent.contentOffset.x / SNAP_INTERVAL);
     setActiveQuickIndex(index);
   }
 
   function handleBack() {
     router.back();
-  }
-
-  function handleZoneSettingsToggle() {
-    // LayoutAnimation.configureNext schedules the next layout pass
-    // to animate. easeInEaseOut is the standard "expand smoothly"
-    // preset. Has to be called BEFORE the state change that causes
-    // the layout shift, not after.
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setZoneExpanded((prev) => !prev);
   }
 
   function handleSafety() {
@@ -190,11 +164,10 @@ export default function Menu() {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      // Clear all identity-attached state on sign-out so the next
-      // sign-in (potentially a different Apple ID) doesn't inherit the
-      // previous user's trusted contact, saved home, or other places.
+      // Clear identity-attached state before the sign-out confirmation
+      // screen takes over — same hygiene as v1.
       await Promise.all([signOut(), clearContact(), clearSavedPlaces()]);
-      router.replace('/');
+      router.replace('/sign-out');
     } finally {
       setSigningOut(false);
     }
@@ -202,7 +175,7 @@ export default function Menu() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
@@ -216,11 +189,7 @@ export default function Menu() {
               pressed && pressedDim,
             ]}
           >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={colors.white}
-            />
+            <Ionicons name="chevron-back" size={28} color={colors.black} />
           </Pressable>
         </View>
 
@@ -229,129 +198,61 @@ export default function Menu() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* --- Profile row (page identifier) ---
-              Inert until /profile ships. Per audit-7: matches the
-              Settings/Schedule/Theme rows' inert pattern (opacity 0.5,
-              no chevron, no tap) so "future destination" reads
-              consistently across the menu. */}
+          {/* Profile row + divider */}
           <View
-            style={[styles.profileRow, styles.profileRowInert]}
+            style={styles.profileRow}
             accessible
             accessibilityRole="text"
-            accessibilityLabel={`Hey ${firstName}${user?.email ? `, ${user.email}` : ''}`}
+            accessibilityLabel={`Hey there, ${displayName}`}
           >
             <View style={styles.profileAvatar}>
-              <UserCar width={28} height={28} />
+              {/* TODO: swap Phosphor User for the custom 80pt
+                  illustrated avatar from Figma 1120:7476 once exported
+                  as SVG. See bulk-SVG export queue in CLAUDE.md. */}
+              <User size={48} color={colors.black} weight="duotone" />
             </View>
             <View style={styles.profileTextStack}>
-              <Text style={styles.profileGreeting}>Hey {firstName}</Text>
-              {user?.email && (
-                <Text style={styles.profileEmail}>{user.email}</Text>
-              )}
+              <Text style={styles.profileGreeting}>Hey there,</Text>
+              <Text style={styles.profileName}>{displayName}</Text>
             </View>
           </View>
 
-          {/* Divider line — separates profile from settings list */}
           <View style={styles.divider} />
 
-          {/* --- Settings rows --- */}
+          {/* Settings rows */}
           <View style={styles.rowList}>
-            {/* Zone Settings: accordion — same visual register as the
-                other rows, but tap toggles an inline reveal of the
-                Show-zones-overlay switch instead of pushing a route. */}
-            <SettingsRow
-              icon={
-                <MapTrifold
-                  size={24}
-                  color={colors.wiltedgreen}
-                  weight="duotone"
-                />
-              }
-              label="Zone Settings"
-              onPress={handleZoneSettingsToggle}
-              chevronDirection={zoneExpanded ? 'down' : 'forward'}
+            <ZonePreferencesRow
+              showZones={preferences?.showZones ?? false}
+              onToggle={setShowZones}
             />
-            {zoneExpanded && (
-              <View style={styles.zoneAccordion}>
-                <Text style={styles.accordionLabel}>
-                  Show zones overlay
-                </Text>
-                <Switch
-                  value={preferences?.showZones ?? false}
-                  onValueChange={setShowZones}
-                  trackColor={{
-                    false: colors.cardBorderSubtle,
-                    true: colors.freshgreen,
-                  }}
-                  thumbColor={colors.white}
-                  accessibilityLabel="Toggle zones overlay"
-                />
-              </View>
-            )}
 
             <SettingsRow
-              icon={
-                <Shield
-                  size={24}
-                  color={colors.wiltedgreen}
-                  weight="duotone"
-                />
-              }
+              icon={<Shield size={24} color={colors.black} weight="duotone" />}
               label="Safety"
               onPress={handleSafety}
             />
 
             <SettingsRow
-              icon={
-                <GearSix
-                  size={24}
-                  color={colors.wiltedgreen}
-                  weight="duotone"
-                />
-              }
+              icon={<GearSix size={24} color={colors.black} weight="duotone" />}
               label="Settings"
               inert
             />
 
             <SettingsRow
-              icon={
-                <Calendar
-                  size={24}
-                  color={colors.wiltedgreen}
-                  weight="duotone"
-                />
-              }
+              icon={<Calendar size={24} color={colors.black} weight="duotone" />}
               label="Schedule a drive"
               inert
             />
 
             <SettingsRow
-              icon={
-                <CircleHalf
-                  size={24}
-                  color={colors.wiltedgreen}
-                  weight="duotone"
-                />
-              }
+              icon={<PaintRoller size={24} color={colors.black} weight="duotone" />}
               label="Theme"
               inert
             />
           </View>
-
         </ScrollView>
 
-        {/*
-          Quick settings carousel — pinned outside the ScrollView so it
-          sits right above Sign out at the bottom of the screen,
-          regardless of how tall the row list above grows. Waze-style
-          rectangular tiles with peek of the next tile at the right
-          edge; inert in v1.
-
-          First tile offset 32pt from the screen edge via
-          contentContainerStyle, last tile gets matching 32pt right
-          padding for visual balance. Snap-to-interval moves one tile
-          per swipe.
-        */}
+        {/* Quick-settings carousel + page control */}
         <View style={styles.quickWrap}>
           <FlatList
             data={QUICK_TILES}
@@ -361,9 +262,7 @@ export default function Menu() {
             snapToInterval={SNAP_INTERVAL}
             snapToAlignment="start"
             contentContainerStyle={styles.quickContent}
-            ItemSeparatorComponent={() => (
-              <View style={{ width: TILE_GAP }} />
-            )}
+            ItemSeparatorComponent={() => <View style={{ width: TILE_GAP }} />}
             onMomentumScrollEnd={handleQuickScrollEnd}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
@@ -372,21 +271,10 @@ export default function Menu() {
                 accessibilityRole="button"
                 accessibilityLabel={`${item.label}. ${item.subtitle}`}
                 accessibilityHint="Coming soon"
-                // Visually inviting (no opacity dim) — the
-                // descriptive subtitle reads as "this will do
-                // something when configured." Tap is a no-op
-                // until each feature ships.
               >
                 <View style={styles.tileIcon}>{item.renderIcon()}</View>
-                <View style={styles.tileTextStack}>
-                  <Text style={styles.tileTitle}>{item.label}</Text>
-                  <Text
-                    style={styles.tileSubtitle}
-                    numberOfLines={2}
-                  >
-                    {item.subtitle}
-                  </Text>
-                </View>
+                <Text style={styles.tileTitle}>{item.label}</Text>
+                <Text style={styles.tileSubtitle}>{item.subtitle}</Text>
               </Pressable>
             )}
           />
@@ -397,14 +285,12 @@ export default function Menu() {
         </View>
 
         {/*
-          Sign out — pinned to the bottom of the SafeAreaView (outside
-          the ScrollView), so it sits at the bottom of the screen with
-          the bottom safe-area inset already factored in by the parent
-          SafeAreaView's `edges={['top', 'bottom']}`. Sitting below the
-          scroll means scrollable content above can grow freely without
-          pushing Sign out off-screen — the menu is short enough today
-          that the ScrollView won't actually scroll, but if Recordings
-          + Recent Trips fill the spine later, this stays correct.
+          Sign out — preserved from v1 even though Figma `1120:7079`
+          doesn't show it. The new /sign-out screen handles the
+          confirmation + "Log back in" flow; this trigger routes there
+          after clearing identity state. When the menu's second page
+          ships (Page Control suggests one is planned), sign-out may
+          relocate.
         */}
         <View style={styles.signOutWrap}>
           <Pressable
@@ -419,7 +305,7 @@ export default function Menu() {
             }
           >
             {signingOut ? (
-              <ActivityIndicator color={colors.fadedgreen} />
+              <ActivityIndicator color={colors.labelTertiary} />
             ) : (
               <Text style={styles.signOutText}>Sign out</Text>
             )}
@@ -433,29 +319,63 @@ export default function Menu() {
 // --- Sub-components ------------------------------------------------------
 
 /**
- * Single settings row: leading icon + label + chevron.
+ * Zone Preferences row — header + always-visible toggle.
  *
- *   chevronDirection — 'forward' (default, →) for push-to-route rows,
- *   'down' (▾) when this row is acting as an accordion in its
- *   expanded state. The Zone Settings row uses 'down' to signal the
- *   inline toggle below it.
+ * Differs from regular SettingsRow in that the toggle sits inline
+ * below the header, always visible. v1 hid this behind an
+ * accordion-on-tap; v2 surfaces it directly per Figma `1120:7357`.
+ * Header still shows a CaretDown to communicate that this is an
+ * expanded dropdown (vs the CaretRight used on push-to-route rows).
+ */
+function ZonePreferencesRow({
+  showZones,
+  onToggle,
+}: {
+  showZones: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  return (
+    <View style={styles.zoneRow}>
+      <View style={styles.row}>
+        <View style={styles.rowIconWrap}>
+          <MapPinArea size={24} color={colors.black} weight="duotone" />
+        </View>
+        <Text style={styles.rowLabel}>Zone Preferences</Text>
+        <CaretDown size={16} color={colors.labelTertiary} weight="bold" />
+      </View>
+      <View style={styles.zoneInner}>
+        <Text style={styles.zoneInnerLabel}>Show zones overlay</Text>
+        <Switch
+          value={showZones}
+          onValueChange={onToggle}
+          trackColor={{
+            false: colors.cardBorderSubtle,
+            true: colors.freshgreen,
+          }}
+          thumbColor={colors.white}
+          accessibilityLabel="Toggle zones overlay"
+        />
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Single push-to-route settings row.
  *
- *   inert — "planned but not yet built" state. Drops opacity to 0.5,
- *   removes the chevron entirely, no-ops on tap. Communicates "this
- *   exists in the future" without hiding the row.
+ *   inert — "planned but not yet built." Drops opacity to 0.5,
+ *   removes chevron, no-ops on tap. Same v1 affordance.
  */
 function SettingsRow({
   icon,
   label,
   onPress,
   inert = false,
-  chevronDirection = 'forward',
 }: {
   icon: React.ReactNode;
   label: string;
   onPress?: () => void;
   inert?: boolean;
-  chevronDirection?: 'forward' | 'down';
 }) {
   return (
     <Pressable
@@ -468,16 +388,16 @@ function SettingsRow({
       ]}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled: inert, expanded: chevronDirection === 'down' }}
+      accessibilityState={{ disabled: inert }}
       accessibilityHint={inert ? 'Coming soon' : undefined}
     >
       <View style={styles.rowIconWrap}>{icon}</View>
       <Text style={styles.rowLabel}>{label}</Text>
       {!inert && (
         <Ionicons
-          name={chevronDirection === 'down' ? 'chevron-down' : 'chevron-forward'}
-          size={22}
-          color={colors.fadedgreen}
+          name="chevron-forward"
+          size={16}
+          color={colors.labelTertiary}
         />
       )}
     </Pressable>
@@ -489,15 +409,13 @@ function SettingsRow({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.wiltedgreen,
+    backgroundColor: colors.white,
   },
   safe: {
     flex: 1,
   },
-
-  // --- Header (back chevron only) ---
   header: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     paddingVertical: 8,
   },
   headerBackBtn: {
@@ -506,195 +424,137 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // --- Scroll body ---
-  // flex: 1 on the ScrollView itself fills the space between the
-  // header and the pinned Sign out below — that's what pushes Sign
-  // out to the bottom of the SafeAreaView. Without flex: 1, ScrollView
-  // would size to its content and Sign out would sit right under the
-  // last visible row regardless of screen height.
   scroll: {
     flex: 1,
   },
-  // 32pt horizontal matches /trusted-contact-setup, /permissions
-  // (static-content modal-padding rule). 16pt top sits the profile
-  // row a beat below the header without crowding it.
+  // 24pt horizontal matches Figma `1120:7341` (px-24 py-56). 32pt gap
+  // between profile + divider + rows is the per-Figma vertical rhythm.
   scrollContent: {
-    paddingHorizontal: 32,
-    paddingTop: 16,
+    paddingHorizontal: 24,
+    paddingTop: 24,
     paddingBottom: 24,
+    gap: 32,
   },
-
-  // --- Profile row ---
-  // Burntgreen avatar (vs the white-circle nav rows below) keeps
-  // identity a visual tier above navigation.
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16, // pulled back from 20 — felt too wide between glyph and type
-    paddingVertical: 16,
-    minHeight: 64, // profile carries page identity, give it weight
-  },
-  profileRowInert: {
-    // Audit-7 consistency rule: the menu's "future destination" affordance
-    // is opacity 0.5 + no chevron, applied uniformly to Settings/Schedule/
-    // Theme. Profile row inherits the same treatment until /profile ships.
-    opacity: 0.5,
+    gap: 16,
   },
   profileAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.burntgreen,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileTextStack: {
     flex: 1,
-    gap: 2,
+    gap: 8,
   },
   profileGreeting: {
-    // Bumped from title3Emphasized (20pt) to title2Emphasized (22pt).
-    // First-pass felt small for a page-anchoring greeting; t2 gives
-    // it more weight without going as heavy as title1 (28pt would
-    // compete with the in-modal user-prompt register).
+    ...typography.title3Emphasized,
+    color: colors.black,
+  },
+  profileName: {
     ...typography.title2Emphasized,
-    color: colors.white,
+    color: colors.black,
   },
-  profileEmail: {
-    ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
-  },
-
-  // --- Divider on dark ---
-  // 16pt above + below — generous breathing room so the divider feels
-  // like a deliberate separation rather than an accidental hairline.
   divider: {
     height: 1,
-    backgroundColor: colors.dividerOnDark,
-    marginVertical: 16,
+    backgroundColor: colors.separatorSubtle,
   },
-
-  // --- Settings rows list ---
   rowList: {
-    // No gap between rows — the row's own paddingVertical creates
-    // the visual separation. A gap on top of paddingVertical doubles
-    // the apparent space and makes rows feel disconnected.
+    gap: 16,
   },
+  // Inline icon (no white-circle wrapper) + label + chevron. Generous
+  // 24pt gap-between-icon-and-label matches Figma. py-4 + py-12 paddings
+  // come from Figma's `px-12 py-4` Dropdown frame container.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16, // pulled back from 20 — type-to-icon felt too wide
-    paddingVertical: 16, // generous touch register, ~52-56pt total
-    minHeight: 56,
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    minHeight: 44, // HIG tap target
   },
   rowInert: {
     opacity: 0.5,
   },
-  // White-circle icon tile — gives each row a tactile anchor against
-  // the wiltedgreen background. Brand-faithful (matches the app's
-  // illustrative warmth) and reads as "tappable / discrete" vs a
-  // muted duotone-on-color icon. 36pt is large enough to host a 24pt
-  // glyph with breathing room.
   rowIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.white,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowLabel: {
-    ...typography.bodyEmphasized,
-    color: colors.white,
+    ...typography.subheadlineEmphasized,
+    color: colors.black,
     flex: 1,
   },
-
-  // --- Zone Settings accordion content ---
-  // Sits below the Zone Settings row when expanded. Indented 52pt
-  // (32 icon + 20 gap) so the content aligns with the row's text
-  // column — visually clear that the toggle belongs to that row.
-  zoneAccordion: {
+  // Zone Preferences container — wraps the header row + the inline
+  // toggle in one vertical stack so they read as one component.
+  zoneRow: {
+    paddingVertical: 4,
+    gap: 4,
+  },
+  // Inline toggle row — indented to align with the header's text
+  // column (24pt icon + 12pt gap = 36pt indent), matching Figma's
+  // `px-8` inner inset.
+  zoneInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 52,
-    paddingRight: 4,
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingLeft: 36 + 12,
+    paddingRight: 12,
+    paddingVertical: 4,
   },
-  accordionLabel: {
-    ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
+  zoneInnerLabel: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
     flex: 1,
   },
-
-  // --- Quick-settings carousel ---
-  // Sits as a sibling of the ScrollView (outside it), pinned to the
-  // bottom right above Sign out. No marginHorizontal: -32 hack needed
-  // — the wrapper spans the SafeAreaView width directly. Vertical
-  // padding gives the carousel air between the scrollable rows above
-  // and the Sign out below.
+  // Carousel — pinned outside the ScrollView, sits above Sign out.
   quickWrap: {
     paddingTop: 16,
     paddingBottom: 8,
   },
-  // FlatList contentContainer — 32pt left padding offsets the first
-  // tile from the screen edge, 32pt right padding gives the last
-  // tile matching breathing room when fully snapped into view.
   quickContent: {
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
-  // Rectangular Waze-style tile: icon on the left, title + subtitle
-  // stacked on the right. ~80% of screen width (TILE_WIDTH), wider
-  // than tall, with the next tile peeking ~50pt at the right edge
-  // when fully snapped.
+  // Per Figma 1121:6590 / 1121:6602: white bg + 1pt wiltedgreen border
+  // + 12pt rounded corners + 16pt padding. NO shadow (the border
+  // carries the elevation visually, vs v1's shadow approach).
   tileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    gap: 8,
+    padding: 16,
+    borderRadius: 12,
     backgroundColor: colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
   },
-  // No background fill — icon sits naked on the white card. The 36pt
-  // square wrap reserves layout space; the SVG inside renders at
-  // whatever width/height it was passed (36 in QUICK_TILES).
   tileIcon: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tileTextStack: {
-    flex: 1,
-    gap: 4,
   },
   tileTitle: {
     ...typography.subheadlineEmphasized,
     color: colors.black,
   },
   tileSubtitle: {
-    ...typography.footnoteRegular,
-    // Wiltedgreen mirrors the Figma Search Landing's subtitle color
-    // (#326936) — same descriptive-copy register on a white card.
+    ...typography.footnoteEmphasized,
     color: colors.wiltedgreen,
+    textDecorationLine: 'underline',
   },
-
-  // --- Sign out (centered, quiet) ---
   signOutWrap: {
     alignItems: 'center',
-    paddingTop: 32,
+    paddingTop: 16,
     paddingBottom: 8,
   },
   signOutText: {
     ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
+    color: colors.labelTertiary,
   },
 });
