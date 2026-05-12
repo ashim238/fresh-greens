@@ -13,6 +13,16 @@ Adds the Selected variant of the /search Quick Tool tile per Figma `1133:13314`.
 
 ---
 
+## chore/design-token-discipline-pass (2026-05-12)
+
+Bundled four audit-queued items into a single discipline pass: distance ≥1000 mi now grouped with a thousands separator (`"1,203 mi."`), the dormant `local-business` LandmarkMarker variant + its three SVG assets deleted, `caption2Regular` informational uses migrated to `caption1Regular` (12pt floor per WCAG 1.4.4), and `caption2Regular` lineHeight bumped 13 → 15 for low-vision/stress-state readability. One commit, no behavior changes for in-spec content.
+
+- **Token-level doc-comments are how design rules survive the team's memory.** The caption2Regular comment now records *when to use* it (ornamental: legal fine print, timestamps, copyright lines) and *when not to* (informational — use caption1Regular instead). Future readers find the rule at the use site, not in a Notion page or audit doc. Worth keeping: when a design-system decision constrains usage (not just metrics), encode it as a comment on the token itself.
+- **Deleting a variant from a discriminated union is the cheapest readability win available.** Removing `local-business` from `Variant` made TypeScript do the audit — every consuming `Record<Variant, ...>` got a compile-error nudge to drop its entry, and the JSX `variant === 'local-business'` branches surfaced naturally in the diff. Worth keeping: when removing an option, prefer narrowing the type before deleting the code — the compiler enumerates the consumers for free.
+- **`toLocaleString` is the lowest-friction comma formatter that doesn't ship locale bugs.** Could have hand-rolled a regex (`/\B(?=(\d{3})+(?!\d))/g` is the classic), but `toLocaleString('en-US')` is a one-liner with explicit locale pinning — no surprise European grouping for users whose device locale is fr-FR. Worth keeping: for number-display formatting, prefer Intl APIs with an explicit locale over regex; the locale tag is the documentation.
+
+---
+
 ## feat/en-route-bottom-sheet-and-zone-pill (2026-05-12)
 
 Two design-system-v2 pieces in one bundled PR: (1) /en-route's bottom sheet rewritten to match Figma `1133:13328` (Collapsed) — FAB + 34pt freshgreen ETA + FAB, with Body/Emphasized 17pt secondary; (2) new `EnRouteZone` component matching Figma `1133:13297` (Default + Extended states) wired into the map so caution/avoid OSM zones surface as on-map hazard markers that swap to a "For X mi." pill when the user enters the zone. Earns the rule-of-three for `Hazard` — turn-card row was use 1, this PR delivers uses 2 and 3 (Default badge + Extended pill).

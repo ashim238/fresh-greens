@@ -21,13 +21,14 @@ export function formatDuration(minutes: number): string {
 
 /**
  * Trip distance in miles. < 1000 mi shows one decimal (`"12.4 mi."`).
- * ≥ 1000 mi rounds to the nearest mile and drops the decimal
- * (`"1203 mi."`) — caps the readable distance at four digits before
- * the unit label.
+ * ≥ 1000 mi rounds to the nearest mile, drops the decimal, and adds
+ * a thousands separator (`"1,203 mi."`) — caps the readable distance
+ * at four digits before the unit label and matches Apple/Google Maps
+ * grouping for long trips.
  */
 export function formatDistance(miles: number): string {
   if (!Number.isFinite(miles) || miles < 0) return '—';
-  if (miles >= 1000) return `${Math.round(miles)} mi.`;
+  if (miles >= 1000) return `${Math.round(miles).toLocaleString('en-US')} mi.`;
   return `${miles.toFixed(1)} mi.`;
 }
 

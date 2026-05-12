@@ -21,7 +21,6 @@ import { type Variant, variantForCategoryId } from './LandmarkMarker';
 const BG_FOR_VARIANT: Record<Variant, typeof BgReport> = {
   'black-owned': BgBlackOwned,
   positive: BgPositive,
-  'local-business': BgReport,
   report: BgReport,
 };
 

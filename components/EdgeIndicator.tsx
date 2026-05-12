@@ -2,7 +2,6 @@ import { type ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
-import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
@@ -15,7 +14,6 @@ import { type Variant } from './LandmarkMarker';
 const PIN_SVGS: Record<Variant, typeof PinReport> = {
   'black-owned': PinBlackOwned,
   positive: PinPositive,
-  'local-business': PinLocalBusiness,
   report: PinReport,
 };
 
@@ -127,10 +125,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   badgeText: {
-    ...typography.caption2Regular,
+    // caption1Regular (12pt) rather than caption2Regular (11pt) — the
+    // cluster count is informational (a reader who misreads "3" as "8"
+    // loses meaning), so it sits above WCAG 1.4.4's 12pt floor.
+    ...typography.caption1Regular,
     color: colors.burntgreen,
     fontWeight: '700',
-    lineHeight: 14,
   },
   pill: {
     width: 32,

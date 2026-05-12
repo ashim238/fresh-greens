@@ -9,7 +9,6 @@ import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
 import BgBlackOwned from '../assets/illustrations/mapmarker-bg-blackowned.svg';
-import BgLocalBusiness from '../assets/illustrations/mapmarker-bg-localbusiness.svg';
 import BgPositive from '../assets/illustrations/mapmarker-bg-positive.svg';
 import BgReport from '../assets/illustrations/mapmarker-bg-report.svg';
 import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-black-owned.svg';
@@ -19,25 +18,28 @@ import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
-import GlyphLocalBusiness from '../assets/illustrations/mapmarker-glyph-localbusiness.svg';
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
-import PinLocalBusiness from '../assets/illustrations/mapmarker-pin-localbusiness.svg';
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
 import { colors } from '../theme/colors';
 
 /**
- * Map landmark marker — the four-state component from Figma
- * `1044:2667` (Draft tab). Renders a 48×48 teardrop pin with an
- * inner Bg circle (24×24) and a 16×16 illustrated glyph centered
- * on the Bg.
+ * Map landmark marker — based on Figma `1044:2667` (Draft tab).
+ * Renders a 48×48 teardrop pin with an inner Bg circle (24×24) and
+ * a 16×16 illustrated glyph centered on the Bg.
  *
  * Variants (pin color carries sentiment):
- *   - 'black-owned'    — black pin (place identity)
- *   - 'positive'       — brand-green pin (welcoming sentiment)
- *   - 'local-business' — gray pin (neutral business; reserved for
- *                        future non-community-report data sources)
- *   - 'report'         — orange pin (caution / observation)
+ *   - 'black-owned' — black pin (place identity)
+ *   - 'positive'    — brand-green pin (welcoming sentiment)
+ *   - 'report'      — orange pin (caution / observation)
+ *
+ * The Figma component also defines a 4th "Local Business" gray
+ * variant; it was removed from code in `chore/design-token-discipline-pass`
+ * after `variantForCategoryId` stopped routing anything to it (home
+ * moved to `positive` for visual consistency with the otherwise
+ * vibrant black/green/orange system). Re-introduce by restoring the
+ * union member + asset imports if a non-community-report data source
+ * needs the neutral register.
  *
  * Inner glyph is per-category and matches the /report picker tile
  * for the same submission, so the picker tile and the resulting
@@ -52,7 +54,7 @@ import { colors } from '../theme/colors';
  * from re-rendering on every pan/zoom.
  */
 
-export type Variant = 'black-owned' | 'local-business' | 'positive' | 'report';
+export type Variant = 'black-owned' | 'positive' | 'report';
 
 /**
  * Maps a community-report category id to the marker variant.
@@ -154,7 +156,10 @@ export function GlyphForCategory({
     case 'hazard':
       return <GlyphHazard width={size} height={size} />;
     default:
-      return <GlyphLocalBusiness width={size} height={size} />;
+      // Defensive fallback for a categoryId we haven't seen — keeps the
+      // marker visible if a new id is added to community-reports.ts but
+      // forgotten here. Hazard reads as a sensible "generic report".
+      return <GlyphHazard width={size} height={size} />;
   }
 }
 
@@ -193,13 +198,11 @@ export function LandmarkMarker({
       <View style={styles.frame} accessibilityIgnoresInvertColors>
         {variant === 'black-owned' && <PinBlackOwned width={30} height={39} style={styles.pin} />}
         {variant === 'positive' && <PinPositive width={30} height={39} style={styles.pin} />}
-        {variant === 'local-business' && <PinLocalBusiness width={30} height={39} style={styles.pin} />}
         {variant === 'report' && <PinReport width={30} height={39} style={styles.pin} />}
 
         <View style={styles.bgWrap}>
           {variant === 'black-owned' && <BgBlackOwned width={24} height={24} />}
           {variant === 'positive' && <BgPositive width={24} height={24} />}
-          {variant === 'local-business' && <BgLocalBusiness width={24} height={24} />}
           {variant === 'report' && <BgReport width={24} height={24} />}
 
           <View style={styles.glyphWrap}>
