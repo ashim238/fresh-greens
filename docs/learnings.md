@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/search-redesign (2026-05-12)
+
+Ported /search to the v2 redesign per Figma `1103:6123` (Landing), `1105:6049` (Loading), `1133:13326` (Error via ErrorState). First real consumer of the new SearchBar + StateCard components from `feat/design-system-v2-phase1`.
+
+- **The states matter; the routes don't.** /search has four phases — landing, typing, loading, error — but only one route. Modeling them as separate Expo Router screens would have meant three navigation transitions for what feels like a single conversation between user and search. State machine inside one screen reads as one continuous experience; routes between phases would read as four. Worth keeping: not every Figma frame is a separate route. Some are states of the same screen with the same URL.
+- **The "typing" phase is empty by design.** Between landing (Quick Tools/Fuel/Recent visible) and loading (after submit), the user is typing — and the content area is intentionally blank. That can feel like a gap in the design, but it matches iOS native search behavior: the keyboard is up, the input is committed-to, and showing Quick Tools while typing would be visual noise. Worth keeping: an empty content area is a real state, not a missing state. Hiding stale affordances while the user types is part of the design.
+- **Reserved-color exception for category iconography.** Quick Tool icons use iOS system colors (pink bookmark, yellow medal, orange forkknife, etc.) per Figma — direct conflict with `.cursorrules`'s reserved-color rule that orange/red/yellow are safety signals. But these icons are decorative category indicators, not signals. Documented inline as an exception, same pattern as Welcome's orange splash bg and Officer/Trooper navy uniform. Worth keeping: the reserved-color rule is about *function* (signaling), not *appearance* — a category bookmark icon happening to be red doesn't make it an alert.
+- **v1 ships without a Results state because we don't have a POI backend.** Figma `1105:6462` shows multi-result lists with named places ("Locs of Soul, LLC", "CeCe's Braids and Locs..."). Apple's `Location.geocodeAsync` returns coordinates only — no business names. The state machine reserves a slot for `results` but doesn't render it; on geocode success, we route directly to /home. When MKLocalSearch (or a similar named-POI API) ships, adding the Results phase is a one-liner. Worth keeping: build state machines that anticipate phases even when v1 skips them — the cost is minimal and migrations are cheap.
+
+---
+
 ## feat/menu-redesign (2026-05-11)
 
 Major v2 redesign of /menu per Figma `1120:7079`. Register flip from wiltedgreen-on-dark Waze layout → white-on-light iOS-Settings layout. Plus a new `/sign-out` confirmation screen (Figma `1133:12894`) that replaces the immediate-sign-out pattern from v1. First Phase-3 screen port, sets the pattern for the next 8 screens.
