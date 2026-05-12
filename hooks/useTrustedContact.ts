@@ -1,4 +1,5 @@
 import * as Contacts from 'expo-contacts';
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -10,6 +11,57 @@ import {
   setTrustedContact,
   type TrustedContact,
 } from '../lib/api/trusted-contact';
+
+/**
+ * Tries to geocode the first postal address on a Contact. Requests
+ * Contacts read permission to re-fetch the contact with Addresses
+ * (the picker doesn't return addresses by default). All failure
+ * modes — permission denied, no address, geocode fail — degrade
+ * silently to "no location captured." The hook ships the contact
+ * either way.
+ */
+async function tryCaptureContactLocation(
+  contactId: string,
+): Promise<{ latitude: number; longitude: number; addressLabel?: string } | null> {
+  try {
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== Contacts.PermissionStatus.GRANTED) return null;
+
+    const detailed = await Contacts.getContactByIdAsync(contactId, [
+      Contacts.Fields.Addresses,
+    ]);
+    const address = detailed?.addresses?.[0];
+    if (!address) return null;
+
+    // Compose a single-line query out of whatever fields the contact has.
+    // expo-location's geocoder accepts free-form text so partials still
+    // resolve (a contact with only "City, State" geocodes to the city).
+    const query = [
+      address.street,
+      address.city,
+      address.region,
+      address.postalCode,
+      address.country,
+    ]
+      .map((part) => (part ?? '').trim())
+      .filter(Boolean)
+      .join(', ');
+    if (!query) return null;
+
+    const results = await Location.geocodeAsync(query);
+    const hit = results[0];
+    if (!hit) return null;
+
+    return {
+      latitude: hit.latitude,
+      longitude: hit.longitude,
+      addressLabel: address.label ?? undefined,
+    };
+  } catch (err) {
+    console.warn('tryCaptureContactLocation failed', err);
+    return null;
+  }
+}
 
 /**
  * Reactive wrapper around the trusted-contact adapter. Loads the stored
@@ -68,6 +120,12 @@ export function useTrustedContact() {
       phoneNumber,
     );
 
+    // Best-effort: try to capture the contact's home location for the
+    // Trusted Friend marker on /home. Runs after picking so we never
+    // block the picker UX on permission prompts. If it succeeds, lat/
+    // lng get persisted alongside the rest of the contact identity.
+    const location = await tryCaptureContactLocation(picked.id);
+
     const stored = await setTrustedContact({
       id: picked.id,
       name,
@@ -78,6 +136,9 @@ export function useTrustedContact() {
       ),
       phoneNumber,
       setAt: Date.now(),
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      addressLabel: location?.addressLabel,
     });
 
     setContact(stored);

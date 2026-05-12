@@ -1,5 +1,6 @@
 import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
 import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
+import { HeartStraight } from 'phosphor-react-native/src/icons/HeartStraight';
 import { House } from 'phosphor-react-native/src/icons/House';
 import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
 import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
@@ -67,6 +68,7 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
     case 'felt-welcome':
       return 'positive';
     case 'home':
+    case 'trusted-friend':
       return 'positive';
     case 'felt-unsafe':
     case 'incident':
@@ -143,6 +145,13 @@ export function GlyphForCategory({
   switch (categoryId) {
     case 'home':
       return <GlyphHome width={size} height={size} />;
+    case 'trusted-friend':
+      // Phosphor stand-in until Figma `1133:13245` (Trusted Friend
+      // marker) is exported. HeartStraight reads as "someone who
+      // cares about you" without bleeding into the romantic-heart
+      // register the filled Heart can imply. Sized + colored to
+      // sit cleanly inside the 24pt green Bg circle.
+      return <HeartStraight size={size} color={colors.white} weight="fill" />;
     case 'black-owned':
       return <GlyphBlackOwned width={size} height={size} />;
     case 'felt-welcome':

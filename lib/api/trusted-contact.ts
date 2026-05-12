@@ -27,6 +27,14 @@ const STORAGE_KEY = 'fresh-greens.trusted-contact.v1';
  * back to the source. `phoneNumber` is whatever the OS gave us — usually
  * formatted (`+1 (212) 555-0123`), which `tel:` and `sms:` URIs accept
  * either way.
+ *
+ * Location fields (latitude/longitude/addressLabel) are optional. They
+ * power the Trusted Friend marker on /home — encodes the thesis claim
+ * that the app respects the "people who care about you" graph, not just
+ * the road graph. Captured opportunistically when the user grants
+ * Contacts read permission AND the picked contact has a postal address
+ * we can geocode; absent otherwise, in which case the marker doesn't
+ * render.
  */
 export type TrustedContact = {
   id: string;
@@ -36,6 +44,12 @@ export type TrustedContact = {
   phoneNumber: string;
   /** ms timestamp of when the user picked / last updated this contact. */
   setAt: number;
+  /** Geocoded latitude of the contact's saved address, if available. */
+  latitude?: number;
+  /** Geocoded longitude of the contact's saved address, if available. */
+  longitude?: number;
+  /** Human-readable label of the captured address (e.g. "Home", "Work"). */
+  addressLabel?: string;
 };
 
 // --- Public surface ------------------------------------------------------
