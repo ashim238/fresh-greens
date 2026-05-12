@@ -853,6 +853,20 @@ export default function Home() {
           {suggestedDeparture && (
             <Pressable
               style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
+              onPress={() => {
+                // Schedule scaffolding for v1: confirm the user's intent
+                // and tell them what'll happen. Real reminder wiring
+                // (expo-notifications local reminder fired at the
+                // suggested time) is a follow-up PR — it needs the
+                // permission flow added to /permissions first.
+                Haptics.selectionAsync();
+                const timeLabel = formatTimeOfDay(suggestedDeparture);
+                Alert.alert(
+                  `Scheduled for ${timeLabel}`,
+                  `We'll remind you when it's time to leave. For now, open the app at ${timeLabel} to start your trip with the extra daylight along your route.`,
+                  [{ text: 'Got it' }],
+                );
+              }}
               accessibilityRole="button"
               accessibilityLabel={`Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
             >
