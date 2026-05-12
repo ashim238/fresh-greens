@@ -204,6 +204,39 @@ All four thesis factors (light, police, wildlife, road conditions) are now cover
 - **`caption2Regular` readability pass** queued for the next Figma fidelity audit. The token sits at 11pt, which is below WCAG 1.4.4's effective 12pt floor for content text — fine for ornamental use (Apple uses it for timestamps and copyright lines) but flagged when it carries information. Surfaced uses include `components/EdgeIndicator.tsx:132` (cluster-count badge). Audit decision: either (a) keep the token at 11pt and migrate every *informational* `caption2Regular` usage to `caption1Regular` (12pt) — preserves the iOS-native naming convention, surgical change; or (b) bump `caption2Regular`'s `fontSize` from 11 → 12 globally — one diff, but slightly drifts from iOS HIG's caption2 metric. Pre-audit drift scan from this session is the input for the migration list.
 - **Caption-tier line-height relaxation** queued for the next Figma fidelity audit. `caption2Regular`'s 1.18× line-height (11/13) is tight for any text used as a sentence rather than a label. The `relaxedLineHeight()` helper in `theme/dynamic-type.ts` already exists for stress-state copy on /pulled-over; audit should consider extending the same pattern to caption-tier text used in sentence form (vs. label form). Conservative bump: caption2Regular lineHeight 13 → 15 (1.36×) or 16 (1.45×). Visually invisible in normal use, meaningful for low-vision and stress-state reading. Pair with the readability pass above so both happen as one type-system tweak.
 
+### Design-system v2 — handoff snapshot (2026-05-12)
+
+A multi-PR redesign port from the v2 Figma file (`7DDh6c7tk7OKF4WiA7pEkp`, Components page `1133:12986` + Final flow page `1100:5549`). Shipped across 7 PRs (#74–#79). The app is in a coherent v2 state for everything except /home's bottom sheet, /en-route's bottom sheet, the safety modal flow, /pulled-over, and /report — those screens still render the v1 design and need their own dedicated ports.
+
+**Shipped in v2:**
+- Foundational components: `Button` (Type × Fill variants with type-narrowed Figma constraints), `SearchBar` (3 states), `StateCard` (EmptyState + LoadingState + ErrorState), `FloatingActionButton` (48/56), avatar PNG.
+- Screens redesigned: Welcome, /menu + /sign-out (new), /search (with Nominatim POI search + debounced autocomplete), /onboarding, /permissions, /trusted-contact-setup, /recordings.
+- Map: route polyline gradient stable across re-renders (memoized), Speed Limit sign on /en-route (GPS-fed current speed + hardcoded 25 mph limit), Trash icon swapped to Phosphor on /recordings.
+
+**Known limitation:** the white route halo from Figma is intentionally dropped — `react-native-maps`'s `Polyline` doesn't expose `zIndex`, and iOS MKMapView paint-order isn't reliably controllable across re-renders. Apple Maps takes the same approach (colored stroke alone, no halo). Revisit only if a custom native module or a different map library lands.
+
+**Components on the Figma Components page NOT yet ported, by thesis-defense impact:**
+
+High-impact (defense-critical, gated by data or thesis-feature work):
+- **Trusted Friend marker** (`1133:13245`) — encodes the "community-shaped data" claim. Blocked on adding lat/lng to `lib/api/trusted-contact.ts` first; one-feature follow-up.
+- **Hazard icons** — 4 variants Light/Road/Deer/Eye (`1133:13397`) — powers the en-route hazard notice on turn cards. Already queued under "En-route open follow-ups" above.
+- **Turn Sign** (`1133:13396`) — partially inline on /en-route; needs the hazard-icon row + the redesigned typography per the v2 frame `1109:3527`.
+- **Safety modal icons** (`1133:13935`) — 4 custom illustrations (Pulled-over / Car troubles / Lost / Share location) replacing the current Ionicons stand-ins on /safety.
+- **Map Marker on-tap state** — newer Figma variants on the existing 4-variant Map Marker (`1133:13418`) showing the marker in a "tapped/expanded" state. /home's `ReportDetailCard` partially covers this functionally but doesn't match the v2 marker styling.
+
+Medium (bottom-sheet rewrites — substantial, need their own PRs):
+- **Bottom Sheet / Home Full + Collapsed** (`1133:13690`) — /home's bottom-sheet redesign. New layout adds a destination-with-caption header ("Jordan's Local Recs 💃🏾"), a weather + driving-conditions card on the right, a "Things to Do: Black Owned" recommendation card section. Needs a weather data adapter and a POI/recommendation data source neither of which exist yet — likely a multi-PR effort.
+- **Bottom Sheet / En-route / Collapsed + Full** (`1133:13328` + `:13329`) — /en-route bottom-sheet redesign. New layout has a 34pt ETA badge in freshgreen with bracketing FABs, plus a different expanded state. Less data-dependent than /home's; the Speed Limit sign already landed.
+- **Bottom Sheet (Marker)** (`1133:13853`) — tap a community-report marker → bottom sheet appears with details. Today the inline `ReportDetailCard` component covers this functionally; the redesign would consolidate it into the unified bottom-sheet system.
+- **Tile carousel** (`1133:13854`) — the /menu Fuel + Calendar tile pattern. Could be shared with /search if extracted.
+- **Dropdown + Expanded** (`1133:13859` + `:13956`) — inline in /menu's Zone Preferences; the redesigned variants might be cleaner to consume as a shared `<Dropdown>` component.
+
+Lower priority / deferred:
+- **Quick Tool Selected state** (`1133:13314`) — no "selected" state currently implemented on /search's Quick Tool tiles. Picking one would visually indicate "filter active."
+- **Logo** (`1133:13122`) — Apple/Google/Mail SVGs for /login + /get-started, currently Ionicons.
+- **Search Results map+sheet** (full Figma `1133:11400`) — requires Status, ReviewIcon, DropdownPill, ListEntry, and MapMarker-Shop components first. Deferred to its own track.
+- **En-Route Zone** (`1133:13297`), **Trusted Contact Footer** (`1133:13945`) — use sites unclear; pull from Figma when the consuming screen ships.
+
 ### Out-of-scope for thesis (defer)
 
 - Real auth backend. Apple Sign In + AsyncStorage user object ships in `feat/auth-apple-signin`; identity is local-only. A real backend (Supabase / Firestore / custom) would slot in by replacing `lib/api/user.ts`'s read/write internals — the public surface and `User` type stay stable, so consumers (`useUser`, screens that read user state) don't change.
