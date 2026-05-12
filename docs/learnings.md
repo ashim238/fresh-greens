@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/state-aware-firearm-guidance (2026-05-12)
+
+Closes the "State-aware firearm guidance (V2)" thesis-defense item from CLAUDE.md's "Safety flow — open follow-ups." Adds `lib/api/gun-laws.ts` (every US state + DC mapped to one of three `DisclosureDuty` variants) and `useDisclosureDuty` (one-shot reverse-geocode on mount, defaults to `duty-to-inform` while loading and on failure). `/pulled-over` now reads the firearm bullet on the guidance phase and the firearm `sayBullets` on the What-to-Say review sub-view from one shared `FIREARM_GUIDANCE` record, so the two surfaces can't drift.
+
+- **Asymmetric error cost picks the safer default.** When the user's state is unknown (no permission, no fix, geocoder miss), the adapter falls through to `duty-to-inform`. Reasoning: in a no-duty state, following duty-to-inform copy is unnecessary but legal; in a duty-to-inform state, following no-duty copy is unlawful and can result in a separate charge. Same shape as "default to the safer waveform-rendering path when mic permission is denied" — when both error directions exist, pick the one whose worst case is recoverable. Worth keeping: identify which error direction is asymmetric BEFORE picking a default; the safer default isn't always the one that "feels neutral."
+- **`Record<USStateCode, DisclosureDuty>` beats a switch for exhaustiveness.** The user's pair-review rubric called for a `never` check on the duty branch. A `Record<DisclosureDuty, FirearmGuidance>` literal already enforces exhaustiveness at compile time: add a new variant to the union, the record literal fails to compile until it's keyed. Same pattern for the state-code coverage map. Worth keeping: when the dispatch is "one value per case, no conditionals," a typed Record literal is a cleaner compile-time-exhaustive switch than the imperative version — no body to misread, no `default: never` branch to keep in sync.
+- **Adapter-shape parallel speeds the third adapter.** `lib/api/gun-laws.ts` is the third "static lookup with an async edge" adapter (the others: `community-reports`'s `getCategory` + `getCommunityReportsAsZones`, `trusted-contact`'s helpers + `setTrustedContact`). The shape was effectively pre-decided — pure helpers for the lookups, async only where I/O actually happens, narrow types at the public surface, internal types kept module-local. Earned the rule-of-three: the adapter pattern has been replicated enough now that it reads as a project idiom, not a one-off. Worth keeping: when the third instance of a pattern is being written, it's worth a once-over to make sure the *project* convention is being followed (not just personal preferences leaking through) — a third example concretizes the convention for any future fourth.
+
+---
+
 ## feat/quick-tool-selected-state (2026-05-12)
 
 Adds the Selected variant of the /search Quick Tool tile per Figma `1133:13314`. Visual-only for v1 — tapping a tile flips its bg from white → `fillsTertiary` (iOS system fill, the same neutral surface tint our gray search-bar uses), tapping the selected tile deselects, and the selection is mutually exclusive. No filter behavior wired yet; the tools are still "coming soon".
