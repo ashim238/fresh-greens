@@ -10,11 +10,11 @@ import { GearSix } from 'phosphor-react-native/src/icons/GearSix';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { PaintRoller } from 'phosphor-react-native/src/icons/PaintRoller';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
-import { User } from 'phosphor-react-native/src/icons/User';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -30,6 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // SVG asset imports — fuel.svg already exists; calendar tile uses the
 // Phosphor Calendar duotone for v1 (queue a custom illustrated SVG
 // for a future bulk-export pass to match the Fuel tile's register).
+import AvatarPng from '../assets/illustrations/avatar.png';
 import FuelIcon from '../assets/illustrations/fuel.svg';
 
 import { PageControl } from '../components/PageControl';
@@ -205,12 +206,11 @@ export default function Menu() {
             accessibilityRole="text"
             accessibilityLabel={`Hey there, ${displayName}`}
           >
-            <View style={styles.profileAvatar}>
-              {/* TODO: swap Phosphor User for the custom 80pt
-                  illustrated avatar from Figma 1120:7476 once exported
-                  as SVG. See bulk-SVG export queue in CLAUDE.md. */}
-              <User size={48} color={colors.black} weight="duotone" />
-            </View>
+            <Image
+              source={AvatarPng}
+              style={styles.profileAvatar}
+              accessibilityIgnoresInvertColors
+            />
             <View style={styles.profileTextStack}>
               <Text style={styles.profileGreeting}>Hey there,</Text>
               <Text style={styles.profileName}>{displayName}</Text>
@@ -441,12 +441,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   profileAvatar: {
+    // The avatar SVG carries its own 80pt freshgreen circle bg per
+    // Figma 1120:7476 — wrapper is just a layout slot, no fill/radius
+    // needed here. (Was a circle wrapper around the Phosphor User
+    // placeholder before the real SVG was exported.)
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.freshgreen,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   profileTextStack: {
     flex: 1,

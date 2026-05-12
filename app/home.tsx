@@ -175,6 +175,42 @@ export default function Home() {
   // undefined briefly on first render before the fetch completes.
   const recommended = routes.find((route) => route.type === 'recommended');
 
+  // Route polylines memoized so unrelated re-renders don't rebuild
+  // them on the native side. Same pattern in /en-route.
+  //
+  // Halo retired: react-native-maps' Polyline doesn't expose zIndex,
+  // and iOS MKMapView paints overlays in an order we can't reliably
+  // control across re-renders — the wider white halo kept winning
+  // paint-order and hiding the colored stroke after the first
+  // re-render. Apple Maps' own route polylines have no halo for the
+  // same reason; the colored stroke alone reads fine against street
+  // geometry. Bumped strokeWidth slightly so the route still claims
+  // the map without the border.
+  const routePolylines = useMemo(
+    () =>
+      routes.flatMap((route) => {
+        if (route.type === 'recommended') {
+          return gradientSegments(route).map((segment, idx) => (
+            <Polyline
+              key={`${route.id}-seg-${idx}`}
+              coordinates={segment.coordinates}
+              strokeColor={segment.color}
+              strokeWidth={routeColors.recommended.width}
+            />
+          ));
+        }
+        return [
+          <Polyline
+            key={route.id}
+            coordinates={route.coordinates}
+            strokeColor={routeColors[route.type].stroke}
+            strokeWidth={routeColors[route.type].width}
+          />,
+        ];
+      }),
+    [routes],
+  );
+
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
   // when leaving later actually buys more daylight (currently: pre-dawn
   // departures). `null` hides the chip — see lib/daylight.ts for rules.
@@ -543,48 +579,7 @@ export default function Home() {
           gradient polyline; alternates render in muted gray. Always
           on the map's native overlay layer.
         */}
-        {routes.flatMap((route) => {
-          // Each route renders as a white halo polyline first (slightly
-          // wider) + the colored stroke on top. The halo gives the
-          // route a 1–2pt white border per Figma, helping it stand out
-          // against the underlying street geometry.
-          const isRecommended = route.type === 'recommended';
-          const baseWidth = isRecommended
-            ? routeColors.recommended.width
-            : routeColors.alternate.width;
-          const elements: React.ReactElement[] = [
-            <Polyline
-              key={`${route.id}-halo`}
-              coordinates={route.coordinates}
-              strokeColor={colors.white}
-              strokeWidth={baseWidth + 3}
-            />,
-          ];
-          // Recommended route: daylight-gradient segments on top of the halo.
-          if (isRecommended) {
-            elements.push(
-              ...gradientSegments(route).map((segment, idx) => (
-                <Polyline
-                  key={`${route.id}-seg-${idx}`}
-                  coordinates={segment.coordinates}
-                  strokeColor={segment.color}
-                  strokeWidth={routeColors.recommended.width}
-                />
-              )),
-            );
-          } else {
-            // Alternate routes: single muted polyline on top of the halo.
-            elements.push(
-              <Polyline
-                key={route.id}
-                coordinates={route.coordinates}
-                strokeColor={routeColors[route.type].stroke}
-                strokeWidth={routeColors[route.type].width}
-              />,
-            );
-          }
-          return elements;
-        })}
+        {routePolylines}
 
         {/*
           Custom user-location dot — replaces showsUserLocation so it

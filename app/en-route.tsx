@@ -95,6 +95,11 @@ export default function EnRoute() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  // Current speed in mph, captured from the live GPS watch. Null until
+  // the first position fix with a real speed value (iOS reports -1 or
+  // null before motion is detected). Feeds the SpeedLimit sign's top
+  // pill — when null, the pill renders a dash.
+  const [speedMph, setSpeedMph] = useState<number | null>(null);
   // Bottom-sheet height drives where the side button column floats. Same
   // pattern /home uses for the Report button: measure on layout, anchor
   // children relative to the measured value, conditionally render so we
@@ -121,6 +126,36 @@ export default function EnRoute() {
   );
 
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // Route polylines memoized so live-GPS re-renders don't rebuild the
+  // overlay on the native side. Halo retired — see longer note in
+  // /home; RN-Maps Polyline lacks zIndex and iOS paint-order can't be
+  // controlled reliably across re-renders, so the colored stroke
+  // alone is the v1 design.
+  const routePolylines = useMemo(
+    () =>
+      routes.flatMap((route) => {
+        if (route.type === 'recommended') {
+          return gradientSegments(route).map((segment, idx) => (
+            <Polyline
+              key={`${route.id}-seg-${idx}`}
+              coordinates={segment.coordinates}
+              strokeColor={segment.color}
+              strokeWidth={routeColors.recommended.width}
+            />
+          ));
+        }
+        return [
+          <Polyline
+            key={route.id}
+            coordinates={route.coordinates}
+            strokeColor={routeColors[route.type].stroke}
+            strokeWidth={routeColors[route.type].width}
+          />,
+        ];
+      }),
+    [routes],
+  );
 
   // Arrival clock time (now + remaining minutes), formatted as "8:30".
   // Figma shows the arrival time as `h:MM` with a sun/moon glyph
@@ -235,6 +270,12 @@ export default function EnRoute() {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
           });
+          // pos.coords.speed is in m/s. iOS returns -1 before motion
+          // is detected; treat anything <0 as "not yet known."
+          const ms = pos.coords.speed;
+          if (typeof ms === 'number' && ms >= 0) {
+            setSpeedMph(Math.round(ms * 2.237));
+          }
         },
       );
     })();
@@ -388,46 +429,7 @@ export default function EnRoute() {
             />
           );
         })}
-        {routes.flatMap((route) => {
-          // White halo polyline first (slightly wider) + colored stroke
-          // on top — same pattern as /home, gives the route a 1–2pt
-          // white border per Figma so it stands out against street
-          // geometry. See the longer note on home.tsx.
-          const isRecommended = route.type === 'recommended';
-          const baseWidth = isRecommended
-            ? routeColors.recommended.width
-            : routeColors.alternate.width;
-          const elements: React.ReactElement[] = [
-            <Polyline
-              key={`${route.id}-halo`}
-              coordinates={route.coordinates}
-              strokeColor={colors.white}
-              strokeWidth={baseWidth + 3}
-            />,
-          ];
-          if (isRecommended) {
-            elements.push(
-              ...gradientSegments(route).map((segment, idx) => (
-                <Polyline
-                  key={`${route.id}-seg-${idx}`}
-                  coordinates={segment.coordinates}
-                  strokeColor={segment.color}
-                  strokeWidth={routeColors.recommended.width}
-                />
-              )),
-            );
-          } else {
-            elements.push(
-              <Polyline
-                key={route.id}
-                coordinates={route.coordinates}
-                strokeColor={routeColors[route.type].stroke}
-                strokeWidth={routeColors[route.type].width}
-              />,
-            );
-          }
-          return elements;
-        })}
+        {routePolylines}
 
         {userLocation && (
           <UserLocationMarker
@@ -516,6 +518,37 @@ export default function EnRoute() {
         already adds visual gap below the lowest button). Hidden until
         layout pass to avoid a one-frame flash at the wrong y.
       */}
+      {/*
+        Speed Limit sign — Waze/Apple-Maps style. Anchored bottom-left,
+        mirrors the side-button column on the right. Top pill shows
+        current speed from the GPS watch; bottom yellow card shows
+        the speed limit. SF Pro Bold is a stand-in for the canonical
+        Overpass Bold (the standard US speed-limit-sign typeface) —
+        queued for the next bulk font/asset import pass.
+        v1 limitation: speed limit is hardcoded to 25 mph (urban
+        default) since OSM `maxspeed` tags aren't wired through the
+        zones adapter yet.
+      */}
+      {bottomSheetHeight > 0 && (
+        <View
+          style={[styles.speedLimitWrap, { bottom: bottomSheetHeight + 24 }]}
+          pointerEvents="box-none"
+        >
+          <View style={styles.speedLimitCurrentPill}>
+            <Text style={styles.speedLimitCurrentNumber} numberOfLines={1}>
+              {speedMph ?? '—'}
+            </Text>
+          </View>
+          <View style={styles.speedLimitSign}>
+            <Text style={styles.speedLimitNumber} numberOfLines={1}>
+              25
+            </Text>
+            <Text style={styles.speedLimitUnit} numberOfLines={1}>
+              mph
+            </Text>
+          </View>
+        </View>
+      )}
       {bottomSheetHeight > 0 && (
         <View
           style={[
@@ -787,6 +820,76 @@ const styles = StyleSheet.create({
   },
   // sideBtn style block retired — the 5 side-column buttons consume
   // the FloatingActionButton component now (size="56").
+
+  // --- Speed Limit sign (Figma 364:3239) ---
+  // Mirrors the sideButtons column on the right edge of the screen.
+  // Two stacked elements: white pill on top (current speed), yellow
+  // card below (speed limit). Real-world speed-limit-sign proportions.
+  // Width bumped from Figma's 71pt → 88pt to give the 32pt-bold "25"
+  // numerals room to render on one line. Figma's tight 71 worked in
+  // Figma's text engine but RN with the 4pt borders + 8pt padding
+  // squeezed each digit into its own line. The visual proportion is
+  // still that of a US speed-limit sign.
+  speedLimitWrap: {
+    position: 'absolute',
+    left: 16,
+    width: 88,
+    alignItems: 'stretch',
+  },
+  speedLimitCurrentPill: {
+    backgroundColor: colors.white,
+    borderWidth: 4,
+    borderColor: colors.cardBorderSubtle,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 46,
+    // Overlap with the yellow sign below per Figma — `mb-[-12px]` in
+    // the source mocks. Gives the appearance of a unified stack.
+    marginBottom: -12,
+  },
+  speedLimitCurrentNumber: {
+    // SF Pro Bold stand-in for Overpass Bold (the canonical US speed-
+    // limit-sign typeface). Visually close; swap when Overpass loads.
+    fontWeight: '700',
+    fontSize: 24,
+    lineHeight: 28,
+    color: colors.black,
+    textAlign: 'center',
+    letterSpacing: -0.26,
+  },
+  speedLimitSign: {
+    backgroundColor: colors.yellow,
+    borderWidth: 4,
+    borderColor: colors.cardBorderSubtle,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 24,
+    alignItems: 'center',
+    // M3 Elevation 1 — subtle drop shadow so the sign reads as a
+    // physical object on the map.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  speedLimitNumber: {
+    fontWeight: '700',
+    fontSize: 32,
+    lineHeight: 36,
+    color: colors.black,
+    textAlign: 'center',
+    letterSpacing: -0.26,
+  },
+  speedLimitUnit: {
+    ...typography.subheadlineRegular,
+    color: colors.black,
+    textAlign: 'center',
+  },
 
   // --- Bottom sheet ---
   bottomSheet: {
