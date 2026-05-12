@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
+import MenuHome from '../assets/illustrations/menu-home.svg';
 import UserCar from '../assets/illustrations/user-car.svg';
 
 import { DragHandle } from '../components/DragHandle';
@@ -790,7 +791,7 @@ export default function Home() {
             accessibilityLabel="Menu"
             onPress={() => router.push('/menu')}
           >
-            <Ionicons name="menu" size={28} color={colors.labelSecondary} />
+            <MenuHome width={28} height={28} />
           </FloatingActionButton>
 
           {/*

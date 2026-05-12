@@ -44,6 +44,16 @@ Completes the /en-route bottom-sheet redesign by porting the Full/expanded state
 
 ---
 
+## feat/figma-svg-export-batch (2026-05-12)
+
+Bulk-replaces every Phosphor/Ionicons stand-in across the app with its canonical Figma SVG export. Covers Hazard glyphs (4 variants), Trusted Friend marker glyph, /safety modal icons (4), /en-route turn-sign + turn-mic + side-button column (Volume/Help/Recenter/Report) + bottom-sheet FABs (Search/Path), /search Quick Tools (Saved/Trending/Food/Gas/Parking), /login + /get-started Apple/Google/Mail logos, and /home's hamburger menu. ~20 components touched, ~14 new SVG assets wired.
+
+- **When the exported SVG carries its own background, drop the scaffolded wrapper.** The Hazard SVGs are full 24×24 yellow diamonds (background fill + black stroke + glyph), not just the inner glyph. Removed the 32pt yellow rounded-rect wrapper on `EnRouteZone.DefaultMarker` and the 68pt rotated-square wrapper on /en-route Full's hazard panel — both were placeholder scaffolding around Phosphor glyphs, and double-counting the diamond once the real SVG landed would have looked obviously wrong. Worth keeping: when a Figma export's bounding box matches the visual you wanted to render, that's a signal the wrapping container the placeholder needed is now redundant.
+- **Dropped `color` from `Hazard`'s public API.** The SVG fills are baked into the export; the prop became vestigial. Keeping it would have been a soft lie ("you can recolor" — no, you can't, the stroke and fill are in the path data). Removing it now makes the breakage explicit at call sites and forced me to verify each one didn't need recoloring. Worth keeping: don't preserve API surface area for backward compatibility on a tiny internal component when the prop no longer does what it advertised — the type-system breakage IS the migration.
+- **Discriminated-component lists for icon-per-row UI scale better than icon-name lists.** Refactored `safety.tsx` and `search.tsx` to store `Icon: ComponentType<SvgProps>` per row instead of `iconName: string`. Render becomes `<tab.Icon width={48} height={48} />` — no Ionicons name lookup, no string-typo risk, no font-shipping. Same diff scope as a name-string update, type-safer. Worth keeping: when an icon-set lives in `assets/illustrations/` (not a font), prefer component references in the data shape over name strings; treeshakers and TypeScript both prefer it.
+
+---
+
 ## fix/schedule-for-am-tap-action (2026-05-12)
 
 The "Schedule for X:XX AM" chip on /home shipped without an `onPress`. Tapping did nothing — found during a thesis-demo walkthrough. Adds a v1-honest action: tap → `Haptics.selectionAsync()` + an `Alert` that confirms the schedule and tells the user to reopen at the suggested time. Real reminder wiring via `expo-notifications` is queued as a follow-up since it needs the permission flow added to /permissions first.

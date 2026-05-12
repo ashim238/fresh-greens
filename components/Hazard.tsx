@@ -1,38 +1,43 @@
-import { Eye } from 'phosphor-react-native/src/icons/Eye';
-import { Lightbulb } from 'phosphor-react-native/src/icons/Lightbulb';
-import { PawPrint } from 'phosphor-react-native/src/icons/PawPrint';
-import { Warning } from 'phosphor-react-native/src/icons/Warning';
+import HazardCommunityAlert from '../assets/illustrations/hazard-community-alert.svg';
+import HazardLighting from '../assets/illustrations/hazard-lighting.svg';
+import HazardRoadCondition from '../assets/illustrations/hazard-road-conditions.svg';
+import HazardWildlife from '../assets/illustrations/hazard-wildlife.svg';
 
 import type { HazardCategory } from '../lib/scoring';
-import { colors } from '../theme/colors';
 
 /**
- * Hazard glyph — 4 variants matching Figma `1133:13397`. Surfaces on
- * /en-route's turn card to communicate "this turn is on your safe
- * route, but be aware" without breaking the route recommendation
- * itself. See `hazardsNearTurn` in `lib/scoring.ts` for the trigger.
+ * Hazard glyph — 4 variants matching Figma `1133:13397` / `1133:13297`.
+ * Each variant is the full visual (yellow diamond + black glyph), not
+ * just the inner glyph — the SVG carries its own background fill and
+ * stroke. Callers should NOT wrap this in an additional yellow
+ * container; that double-counts the diamond.
  *
- * Phosphor stand-ins for v1; canonical custom SVGs queued under
- * CLAUDE.md's bulk-SVG export item. Yellow tint matches Figma's
- * "caution" register — distinct from the orange Report-button alert.
+ * Surfaces:
+ *   - /en-route turn-card hazard row (small, inline)
+ *   - EnRouteZone Default badge on the map (32pt)
+ *   - EnRouteZone Extended pill (24pt, inside the pill chrome)
+ *   - /en-route Full bottom-sheet hazard panel (96pt)
+ *
+ * `color` is intentionally not a prop — the SVG's fill is baked in
+ * (yellow body + black stroke + black glyph). If a future tinted
+ * variant is needed, do it via a separate component, not by trying
+ * to recolor the SVG at runtime.
  */
 export function Hazard({
   category,
   size = 24,
-  color = colors.yellow,
 }: {
   category: HazardCategory;
   size?: number;
-  color?: string;
 }) {
   switch (category) {
     case 'lighting':
-      return <Lightbulb size={size} color={color} weight="duotone" />;
+      return <HazardLighting width={size} height={size} />;
     case 'road-condition':
-      return <Warning size={size} color={color} weight="duotone" />;
+      return <HazardRoadCondition width={size} height={size} />;
     case 'wildlife':
-      return <PawPrint size={size} color={color} weight="duotone" />;
+      return <HazardWildlife width={size} height={size} />;
     case 'community-alert':
-      return <Eye size={size} color={color} weight="duotone" />;
+      return <HazardCommunityAlert width={size} height={size} />;
   }
 }

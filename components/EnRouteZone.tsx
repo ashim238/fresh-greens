@@ -67,11 +67,12 @@ export function EnRouteZone({
 }
 
 function DefaultMarker({ category }: { category: HazardCategory }) {
+  // 32pt Hazard SVG inside a 72pt invisible tap region. The SVG
+  // already carries the yellow diamond + black stroke — no inner
+  // badge wrapper needed.
   return (
     <View style={styles.defaultMarker} accessibilityIgnoresInvertColors>
-      <View style={styles.defaultBadge}>
-        <Hazard category={category} size={24} color={colors.black} />
-      </View>
+      <Hazard category={category} size={32} />
     </View>
   );
 }
@@ -85,7 +86,7 @@ function ExtendedPill({
 }) {
   return (
     <View style={styles.extendedPill} accessibilityIgnoresInvertColors>
-      <Hazard category={category} size={24} color={colors.black} />
+      <Hazard category={category} size={24} />
       <Text style={styles.extendedText} numberOfLines={1}>
         For {formatMiles(lengthMiles)}
       </Text>
@@ -117,33 +118,13 @@ function formatMiles(miles: number): string {
 }
 
 const styles = StyleSheet.create({
-  // Default marker — 72pt outer drop area with a 32pt inner yellow
-  // rounded rect carrying the hazard glyph. The proportions echo the
-  // Figma frame's nested rectangle (Bg = 32pt, container = 72pt).
-  // Outer is transparent — extra tap-region padding around the badge.
+  // Default marker — 72pt outer drop area as the marker's tap region;
+  // the inner 32pt Hazard SVG carries its own yellow diamond + stroke.
   defaultMarker: {
     width: 72,
     height: 72,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  defaultBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.yellow,
-    borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // M3 Elevation 1 — same drop as Speed Limit + Extended pill so
-    // every yellow caution-register element reads as a physical
-    // object on the map.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
   },
   // Extended pill — 150×42 yellow rounded pill per Figma 1133:13305.
   // 24pt hazard icon on the left, copy on the right. 4pt gap between.

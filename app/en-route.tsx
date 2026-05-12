@@ -14,8 +14,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
-import { ArrowBendUpLeft } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+
+import EnRoutePath from '../assets/illustrations/enroute-path.svg';
+import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
+import SidebtnHelp from '../assets/illustrations/sidebtn-help.svg';
+import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
+import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
+import SidebtnVolume from '../assets/illustrations/sidebtn-volume.svg';
+import TurnMic from '../assets/illustrations/turn-mic.svg';
+import TurnSign from '../assets/illustrations/turn-sign.svg';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
 // (node 825:3647) so the symbol means the same thing on both
@@ -652,19 +660,10 @@ export default function EnRoute() {
             accessibilityLabel="Turn left in 0.5 miles"
           >
             {/*
-              Turn maneuver glyph — informational, not a button. Phosphor's
-              ArrowBendUpLeft duotone reads as a real turn-sign curve
-              (the Ionicons arrow-back-outline used previously read as
-              "back chevron," not "turn left"). Duotone weight gives the
-              arrow visual mass against the wiltedgreen header without
-              going filled — matches the rest of the app's nav icon
-              register (Shield, House, Megaphone all duotone).
+              Turn maneuver glyph — informational, not a button.
+              Canonical Figma turn-sign SVG.
             */}
-            <ArrowBendUpLeft
-              size={56}
-              color={colors.white}
-              weight="regular"
-            />
+            <TurnSign width={56} height={56} />
             <Text style={styles.turnDistance}>
               0.5{' '}
               <Text style={styles.turnDistanceUnit}>mi</Text>
@@ -704,7 +703,7 @@ export default function EnRoute() {
               (inner Frame size-[32px] centered in size-[48px] pill =
               8pt margin each side).
             */}
-            <Ionicons name="mic" size={32} color={colors.labelSecondary} />
+            <TurnMic width={32} height={32} />
           </Pressable>
         </View>
 
@@ -769,23 +768,16 @@ export default function EnRoute() {
             Volume sits at the top of the column — set-once auxiliary,
             so it goes furthest from the thumb-resting Center button at
             the bottom. Same 56pt pill as the other four so the column
-            reads as a uniform stack.
-          */}
-          {/*
-            Side-button glyphs use Ionicons as a temporary stand-in.
-            The Figma design uses custom illustrated glyphs (one per
-            button — Volume, Help, Shield, Report, Center) that aren't
-            yet exported as SVG. When those drop into
-            assets/illustrations/, swap each Ionicon below for the
-            matching SVG component. Shield is already Phosphor (the
-            documented canonical safety-affordance) and Report uses
-            the documented orange alert-circle exception — those stay.
+            reads as a uniform stack. All glyphs are canonical Figma
+            SVGs from `assets/illustrations/sidebtn-*.svg`. Shield is
+            still Phosphor — the documented canonical safety-affordance
+            (navy duotone) and matches /menu's Safety row register.
           */}
           <FloatingActionButton size="56" accessibilityLabel="Toggle volume (coming soon)">
-            <Ionicons name="volume-high" size={32} color={colors.labelSecondary} />
+            <SidebtnVolume width={32} height={32} />
           </FloatingActionButton>
           <FloatingActionButton size="56" accessibilityLabel="Help (coming soon)">
-            <Ionicons name="medical" size={32} color={colors.red} />
+            <SidebtnHelp width={32} height={32} />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"
@@ -799,14 +791,14 @@ export default function EnRoute() {
             onPress={() => router.push('/report')}
             accessibilityLabel="Report something"
           >
-            <Ionicons name="alert-circle" size={32} color={colors.orange} />
+            <SidebtnReport width={32} height={32} />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"
             onPress={handleRecenter}
             accessibilityLabel="Recenter map on your location"
           >
-            <Ionicons name="locate" size={32} color={colors.labelSecondary} />
+            <SidebtnRecenter width={32} height={32} />
           </FloatingActionButton>
         </View>
       )}
@@ -860,11 +852,7 @@ export default function EnRoute() {
               size="48"
               accessibilityLabel="Search along route (coming soon)"
             >
-              <Ionicons
-                name="search"
-                size={24}
-                color={colors.labelSecondary}
-              />
+              <EnRouteSearch width={24} height={24} />
             </FloatingActionButton>
 
             <View style={styles.etaCluster}>
@@ -889,11 +877,7 @@ export default function EnRoute() {
               size="48"
               accessibilityLabel="Show alternate paths (coming soon)"
             >
-              <Ionicons
-                name="git-branch"
-                size={24}
-                color={colors.labelSecondary}
-              />
+              <EnRoutePath width={24} height={24} />
             </FloatingActionButton>
           </View>
 
@@ -913,17 +897,15 @@ export default function EnRoute() {
               accessibilityRole="text"
               accessibilityLabel={`Heads up: ${hazardFullCopy(displayedHazardCategory)}`}
             >
-              <View style={styles.hazardDiamondWrap} accessibilityIgnoresInvertColors>
-                <View style={styles.hazardDiamond}>
-                  <View style={styles.hazardDiamondIcon}>
-                    <Hazard
-                      category={displayedHazardCategory}
-                      size={48}
-                      color={colors.black}
-                    />
-                  </View>
-                </View>
-              </View>
+              {/*
+                Hazard SVG renders the full visual (yellow diamond +
+                black glyph + stroke) at 96pt. No outer rotated-square
+                container needed — the SVG IS the diamond. Earlier
+                version built a 68pt rotated square as a placeholder
+                container around a Phosphor glyph; with the canonical
+                Figma SVGs landed, that scaffolding comes out.
+              */}
+              <Hazard category={displayedHazardCategory} size={96} />
               <Text style={styles.hazardCopy}>
                 {hazardFullCopy(displayedHazardCategory)}
               </Text>
@@ -1184,44 +1166,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // Hazard panel (Full state) — yellow diamond hazard marker on the
-  // left, sentence-form hazard copy on the right. Wrapper is 96pt
-  // tall to match the Figma; the inscribed yellow square is 68pt
-  // (≈ 96/√2) rotated 45° so its diagonal fills the 96pt frame.
+  // left, sentence-form hazard copy on the right. The Hazard SVG
+  // ships at 96pt and carries its own yellow diamond + stroke —
+  // earlier scaffolding (a 68pt rotated square wrapper with a
+  // Phosphor glyph inside) is retired now that the canonical SVG
+  // is in place.
   hazardPanel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     paddingHorizontal: 16,
     paddingTop: 8,
-  },
-  hazardDiamondWrap: {
-    width: 96,
-    height: 96,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hazardDiamond: {
-    width: 68,
-    height: 68,
-    backgroundColor: colors.yellow,
-    borderWidth: 4,
-    borderColor: colors.cardBorderSubtle,
-    transform: [{ rotate: '45deg' }],
-    alignItems: 'center',
-    justifyContent: 'center',
-    // M3 Elevation 1 — same drop as Speed Limit + EnRouteZone so the
-    // entire yellow-caution-register family reads as physical
-    // objects.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  // Counter-rotate the icon so it stays upright inside the rotated
-  // diamond. Without this the Hazard glyph would render at 45°.
-  hazardDiamondIcon: {
-    transform: [{ rotate: '-45deg' }],
   },
   hazardCopy: {
     ...typography.title3Emphasized,
