@@ -231,11 +231,14 @@ Medium (bottom-sheet rewrites — substantial, need their own PRs):
 - **Tile carousel** (`1133:13854`) — the /menu Fuel + Calendar tile pattern. Could be shared with /search if extracted.
 - **Dropdown + Expanded** (`1133:13859` + `:13956`) — inline in /menu's Zone Preferences; the redesigned variants might be cleaner to consume as a shared `<Dropdown>` component.
 
+**En-Route Zone — new on-zone-entry pill** (`1133:13297`): two-variant component used on /en-route. Default (72×72) is the static hazard marker that already lives on the map. Extended (150×42) is a NEW pill — "[hazard icon] For 0.5 mi." in Subheadline/Emphasized black — that pops out when the driver enters the zone, communicating how long the hazard zone extends. Real new feature (distance-to-end-of-zone), not just styling. Implementation needs: a "is user inside this zone right now?" check (point-in-polygon against the user's location, run on each `watchPositionAsync` tick) and a transition between Default and Extended states. Worth pairing with the en-route hazard notice queued elsewhere — both consume the same hazard data.
+
+**Trusted Contact Footer is already shipped** (`1133:13945`) — the existing `components/TrustedContactStatus.tsx` is functionally identical to the v2 spec (footnote-regular muted text + pulsing freshgreen dot). Only diff from v2: copy capitalization ("Your **Trusted Contact** is being notified" per Figma vs current "Your trusted contact is being notified"). Trivial one-line fix.
+
 Lower priority / deferred:
 - **Quick Tool Selected state** (`1133:13314`) — no "selected" state currently implemented on /search's Quick Tool tiles. Picking one would visually indicate "filter active."
 - **Logo** (`1133:13122`) — Apple/Google/Mail SVGs for /login + /get-started, currently Ionicons.
 - **Search Results map+sheet** (full Figma `1133:11400`) — requires Status, ReviewIcon, DropdownPill, ListEntry, and MapMarker-Shop components first. Deferred to its own track.
-- **En-Route Zone** (`1133:13297`), **Trusted Contact Footer** (`1133:13945`) — use sites unclear; pull from Figma when the consuming screen ships.
 
 ### Out-of-scope for thesis (defer)
 
