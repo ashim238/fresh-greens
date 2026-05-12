@@ -90,6 +90,23 @@ function humanReadableHazard(category: HazardCategory): string {
   }
 }
 
+// Sentence-form hazard copy for the Full bottom-sheet hazard panel
+// (Figma 1133:13329). `humanReadableHazard` returns labels for
+// VoiceOver interpolation; this returns the full-sentence variant
+// the driver reads on the panel itself.
+function hazardFullCopy(category: HazardCategory): string {
+  switch (category) {
+    case 'lighting':
+      return 'Low lighting on this stretch';
+    case 'road-condition':
+      return 'Rough road ahead';
+    case 'wildlife':
+      return 'Wildlife crossing ahead';
+    case 'community-alert':
+      return 'Recent community alert ahead';
+  }
+}
+
 export default function EnRoute() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
@@ -132,6 +149,13 @@ export default function EnRoute() {
   // children relative to the measured value, conditionally render so we
   // never paint at the wrong position.
   const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
+  // Bottom sheet Collapsed ↔ Full per Figma 1133:13328 (Collapsed)
+  // and 1133:13329 (Full). Tap the drag handle to toggle. Full
+  // surfaces a hazard notice panel below the ETA when at least one
+  // category crosses threshold near the upcoming turn — the on-map
+  // EnRouteZone markers are passive; this panel is the user's
+  // explicit "show me what's ahead" affordance.
+  const [sheetExpanded, setSheetExpanded] = useState(false);
 
   const allZones = useMemo(
     () => [...osmZones, ...reportZones],
@@ -739,7 +763,25 @@ export default function EnRoute() {
         edges={['bottom']}
         onLayout={(e) => setBottomSheetHeight(e.nativeEvent.layout.height)}
       >
-        <DragHandle />
+        {/*
+          Tap the drag-handle row to toggle Collapsed ↔ Full. The
+          Pressable wraps a generously padded area around the
+          drag handle itself so the tap target meets HIG 44pt
+          while the visible handle bar stays small (32×4).
+        */}
+        <Pressable
+          style={styles.dragHandleTapTarget}
+          onPress={() => setSheetExpanded((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            sheetExpanded
+              ? 'Collapse bottom sheet'
+              : 'Expand bottom sheet for hazard details'
+          }
+          accessibilityState={{ expanded: sheetExpanded }}
+        >
+          <DragHandle />
+        </Pressable>
 
         <View style={styles.sheetContent}>
           {/*
@@ -792,6 +834,37 @@ export default function EnRoute() {
             </FloatingActionButton>
           </View>
 
+          {/*
+            Hazard panel — Full state (Figma 1133:13329). Renders the
+            top-severity hazard from `turnHazards` (already worst-first
+            from `hazardsNearTurn`). 96pt yellow diamond on the left
+            (inscribed 68pt square rotated 45°), Title3/Emphasized
+            copy on the right. Only shows when the user has expanded
+            AND a hazard exists — collapsed = compact ETA only.
+          */}
+          {sheetExpanded && turnHazards.length > 0 && (
+            <View
+              style={styles.hazardPanel}
+              accessibilityRole="text"
+              accessibilityLabel={`Heads up: ${hazardFullCopy(turnHazards[0])}`}
+            >
+              <View style={styles.hazardDiamondWrap} accessibilityIgnoresInvertColors>
+                <View style={styles.hazardDiamond}>
+                  <View style={styles.hazardDiamondIcon}>
+                    <Hazard
+                      category={turnHazards[0]}
+                      size={48}
+                      color={colors.black}
+                    />
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.hazardCopy}>
+                {hazardFullCopy(turnHazards[0])}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.secondaryRow}>
             <Text style={styles.secondaryDistance}>
               {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
@@ -803,13 +876,13 @@ export default function EnRoute() {
           </View>
 
           {/*
-            End trip — preserved from v1 even though Figma's collapsed
-            frame doesn't show it. The Full/expanded variant of the
-            bottom sheet (Figma 1133:13329, not yet ported) is where
-            it lives in the v2 design. Until that ships, keeping End
-            trip on the collapsed state ensures the driver can always
-            exit the trip with one tap on a labeled button — a driver
-            under stress shouldn't have to find or interpret an X icon.
+            End trip — always visible on both Collapsed and Full,
+            even though the Figma frames don't show it explicitly.
+            A driver under stress shouldn't have to find or
+            interpret an X icon to exit a trip. The Figma's Full
+            (1133:13329) crops above this row but the design intent
+            is consistent: End trip remains an always-available
+            primary exit affordance.
           */}
           <Pressable
             style={({ pressed }) => [styles.endTripBtn, pressed && pressedDim]}
@@ -1020,7 +1093,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 16,
+    // Top padding lives on `dragHandleTapTarget` now (the first
+    // child) so the tap region extends to the sheet's top edge.
+    // Without that move, the top 16pt of the sheet was visual
+    // dead-space outside the Pressable.
     gap: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -1031,6 +1107,61 @@ const styles = StyleSheet.create({
   sheetContent: {
     gap: 8,
     paddingBottom: 8,
+  },
+  // Drag handle tap target — 32×4 visible bar inside a generously
+  // padded touchable area so the iOS HIG 44pt floor is met even
+  // though the bar itself is tiny. 20+4+20 = 44pt vertical region.
+  // Same pattern Apple Maps and Waze use for their drag handles.
+  dragHandleTapTarget: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  // Hazard panel (Full state) — yellow diamond hazard marker on the
+  // left, sentence-form hazard copy on the right. Wrapper is 96pt
+  // tall to match the Figma; the inscribed yellow square is 68pt
+  // (≈ 96/√2) rotated 45° so its diagonal fills the 96pt frame.
+  hazardPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  hazardDiamondWrap: {
+    width: 96,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hazardDiamond: {
+    width: 68,
+    height: 68,
+    backgroundColor: colors.yellow,
+    borderWidth: 4,
+    borderColor: colors.cardBorderSubtle,
+    transform: [{ rotate: '45deg' }],
+    alignItems: 'center',
+    justifyContent: 'center',
+    // M3 Elevation 1 — same drop as Speed Limit + EnRouteZone so the
+    // entire yellow-caution-register family reads as physical
+    // objects.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  // Counter-rotate the icon so it stays upright inside the rotated
+  // diamond. Without this the Hazard glyph would render at 45°.
+  hazardDiamondIcon: {
+    transform: [{ rotate: '-45deg' }],
+  },
+  hazardCopy: {
+    ...typography.title3Emphasized,
+    color: colors.black,
+    flex: 1,
   },
   // v2 layout — FAB + ETA + FAB with the ETA wrapped in a flex:1
   // column that takes the remaining width. FABs are intrinsic-sized,

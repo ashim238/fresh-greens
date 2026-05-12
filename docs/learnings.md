@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/en-route-bottom-sheet-full (2026-05-12)
+
+Completes the /en-route bottom-sheet redesign by porting the Full/expanded state per Figma `1133:13329`. Tap the drag handle to toggle Collapsed ↔ Full. When expanded AND at least one hazard crosses threshold near the upcoming turn, the sheet surfaces a 96pt yellow diamond hazard marker + Title3/Emphasized sentence-form copy ("Recent community alert ahead", "Wildlife crossing ahead", etc.). The on-map EnRouteZone markers are passive — this panel is the driver's explicit "show me what's ahead" affordance.
+
+- **Diamond shapes in RN are a rotated square trick.** The 96pt yellow diamond is actually a 68pt square (≈ 96/√2 — the inscribed square whose diagonal fills the 96pt frame) rotated 45°. Counter-rotate the inner icon by -45° so the hazard glyph stays upright. Worth keeping: when Figma shows a diamond/rhombus, reach for `transform: [{ rotate: '45deg' }]` on a sized square rather than building an SVG polygon — it composes with backgroundColor/shadow naturally.
+- **Tap targets on tiny chrome elements absorb the parent's padding, not add to it.** First instinct on wrapping a 4pt drag-handle bar in a Pressable was to add `paddingTop: 16` (matching iOS HIG 44pt). But the SafeAreaView parent already had `paddingTop: 16`, so the sheet's top 16pt was visual-dead-space outside the Pressable. Fix: drop the SafeAreaView's paddingTop entirely; let the Pressable's paddingTop carry that spacing so the tap region extends to the sheet's top edge. Worth keeping: when expanding a tap target into surrounding chrome, move the parent's spacing INTO the Pressable, don't stack them.
+- **Two helpers for two consumers is fine when their intents differ.** `humanReadableHazard` returns lowercase noun phrases ("low lighting") for VoiceOver interpolation; `hazardFullCopy` returns sentence-form copy ("Low lighting on this stretch") for the visual panel. Tempted to consolidate ("just one mapping with sentence-cased strings") but the a11y label uses the noun phrase as a fragment inside larger interpolated strings — sentence form would read awkwardly there. Worth keeping: the test for "should these be one function?" is whether their CONSUMERS need the same shape, not whether their INPUTS happen to be the same enum.
+
+---
+
 ## fix/schedule-for-am-tap-action (2026-05-12)
 
 The "Schedule for X:XX AM" chip on /home shipped without an `onPress`. Tapping did nothing — found during a thesis-demo walkthrough. Adds a v1-honest action: tap → `Haptics.selectionAsync()` + an `Alert` that confirms the schedule and tells the user to reopen at the suggested time. Real reminder wiring via `expo-notifications` is queued as a follow-up since it needs the permission flow added to /permissions first.
