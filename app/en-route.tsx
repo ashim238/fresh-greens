@@ -558,6 +558,7 @@ export default function EnRoute() {
         edges={['top']}
         pointerEvents="box-none"
       >
+        <View style={styles.headerCard}>
         <View style={styles.turnSign}>
           <View
             style={styles.turnDirection}
@@ -628,6 +629,7 @@ export default function EnRoute() {
             size={20}
             color={colors.fadedgreen}
           />
+        </View>
         </View>
       </SafeAreaView>
 
@@ -839,13 +841,23 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    // No bg + no shadow on the wrap. Shadow moved to `thenFooter` —
-    // iOS derives `shadowPath` from the layer's bounds (ignoring
-    // `borderRadius`) when no `backgroundColor` is set, so a shadow
-    // on the wrap painted a rectangle that poked past thenFooter's
-    // 28pt rounded curve. Putting the shadow on thenFooter (which
-    // has its own bg) makes the shadow follow the actual rounded
-    // shape.
+    // No bg on the SafeAreaView — its job is only to absorb the
+    // top safe-area inset above the actual card. The card itself
+    // (`headerCard`) handles the rounded bottom + clipping.
+  },
+  // Single outer container that owns the rounded-bottom shape and
+  // clips both children (turnSign + thenFooter) to it. Putting the
+  // radius + `overflow: hidden` on the panel that has *both* greens
+  // as children kills any sub-pixel bleed at the wiltedgreen/
+  // burntgreen seam — earlier attempts that put the radius only on
+  // thenFooter left a thin wiltedgreen sliver visible past the
+  // curve at the bottom corners (turnSign painted the full rect
+  // up to the panel edge, including past where thenFooter's curve
+  // started cutting in).
+  headerCard: {
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
   turnSign: {
     backgroundColor: colors.wiltedgreen,
@@ -919,18 +931,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    // iOS will paint the background to the layer's rectangular
-    // bounds (ignoring `borderBottom*` radii) unless we explicitly
-    // clip — the visible bug was burntgreen rectangle corners
-    // poking past the rounded curve. `overflow: 'hidden'` forces
-    // the layer to clip everything (including its own bg) to the
-    // rounded shape. No shadow on this view: iOS's `shadowPath`
-    // auto-derivation needs a uniform `borderRadius` to follow
-    // a rounded shape, and the bottom sheet carries its own
-    // shadow where depth actually matters.
-    overflow: 'hidden',
+    // Rounded bottom + clipping lives on the parent `headerCard`,
+    // not here — see the comment there for why.
   },
   thenText: {
     ...typography.title3Regular,
