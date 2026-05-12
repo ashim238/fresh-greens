@@ -38,9 +38,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
+import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { FIREARM_GUIDANCE, type DisclosureDuty } from '../lib/api/gun-laws';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -174,6 +176,13 @@ export default function PulledOver() {
   );
 
   const { addRecording } = useRecordings();
+  // State-aware firearm guidance — variant resolved from the device's
+  // current state via reverse-geocoding. Defaults to 'duty-to-inform'
+  // while loading or on any failure path; see `useDisclosureDuty`
+  // for the safer-default rationale. The downstream views render
+  // duty-to-inform copy while `loading === true`, so the brief delay
+  // between mount and state-resolution is invisible to the user.
+  const { duty: disclosureDuty } = useDisclosureDuty();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Tracks whether we've already kicked off the recorder. The lifecycle
   // effect below is keyed on `phase` (so it can fire once we leave
@@ -454,6 +463,7 @@ export default function PulledOver() {
           {phase === 'guidance' && (
             <GuidanceView
               showFirearmGuidance={showFirearmGuidance}
+              disclosureDuty={disclosureDuty}
               elapsed={elapsed}
               meteringHistory={meteringHistory}
               onContinue={handleContinueToContact}
@@ -466,6 +476,7 @@ export default function PulledOver() {
             <ReviewView
               index={reviewIndex}
               showFirearmGuidance={showFirearmGuidance}
+              disclosureDuty={disclosureDuty}
               onNext={handleReviewNext}
               onBack={handleReviewBack}
               // "Close" on review now returns to the contact phase
@@ -616,11 +627,13 @@ function GuidanceBullet({ children }: { children: ReactNode }) {
 
 function GuidanceView({
   showFirearmGuidance,
+  disclosureDuty,
   elapsed,
   meteringHistory,
   onContinue,
 }: {
   showFirearmGuidance: boolean;
+  disclosureDuty: DisclosureDuty;
   elapsed: number;
   meteringHistory: number[];
   onContinue: () => void;
@@ -628,17 +641,22 @@ function GuidanceView({
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   // useMemo: bullet list shouldn't be rebuilt every render — the
-  // showFirearmGuidance value is stable for the life of the modal.
+  // showFirearmGuidance + disclosureDuty values are stable for the
+  // life of the modal once the location has resolved. The firearm
+  // bullet's copy comes from `FIREARM_GUIDANCE` (gun-laws adapter),
+  // keyed on the user's state's disclosure duty — duty-to-inform,
+  // no-duty, or asked-only. Same record is consumed by the What-to-
+  // Say review sub-view below so the two surfaces never drift.
   const bulletLines = useMemo<string[]>(
     () => [
       'Pull over safely in a well lit place',
       ...(showFirearmGuidance
-        ? ["Inform the officer of your firearm's location"]
+        ? [FIREARM_GUIDANCE[disclosureDuty].guidanceBullet]
         : []),
       'Provide all necessary documentation',
       "You don't have to consent to a search",
     ],
-    [showFirearmGuidance],
+    [showFirearmGuidance, disclosureDuty],
   );
 
   const handleReadAloud = useCallback(() => {
@@ -972,12 +990,14 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
 function ReviewView({
   index,
   showFirearmGuidance,
+  disclosureDuty,
   onNext,
   onBack,
   onClose,
 }: {
   index: number;
   showFirearmGuidance: boolean;
+  disclosureDuty: DisclosureDuty;
   onNext: () => void;
   onBack: () => void;
   onClose: () => void;
@@ -988,7 +1008,12 @@ function ReviewView({
         {index === 0 && <OfficerTrooperView />}
         {index === 1 && <WhatToDoView />}
         {index === 2 && <WhatToHaveView />}
-        {index === 3 && <WhatToSayView showFirearm={showFirearmGuidance} />}
+        {index === 3 && (
+          <WhatToSayView
+            showFirearm={showFirearmGuidance}
+            disclosureDuty={disclosureDuty}
+          />
+        )}
         {index === 4 && <WhatToKnowView />}
       </View>
 
@@ -1227,28 +1252,31 @@ function WhatToHaveView() {
   );
 }
 
-function WhatToSayView({ showFirearm }: { showFirearm: boolean }) {
+function WhatToSayView({
+  showFirearm,
+  disclosureDuty,
+}: {
+  showFirearm: boolean;
+  disclosureDuty: DisclosureDuty;
+}) {
   const bullets: ReactNode[] = [];
 
   if (showFirearm) {
-    // Split into two bullets — a clean, quotable script, and a separate
-    // non-quoted instruction about disclosing the location. The earlier
-    // single bullet had a "[location of firearm]" placeholder that
-    // read like an unrendered template variable on a stressful screen.
-    bullets.push(
-      <Bullet key="firearm-quote">
-        "Officer,{' '}
-        <Strong>
-          I have a valid concealed carry permit and am currently carrying a
-          firearm
-        </Strong>
-        ."
-      </Bullet>,
-      <Bullet key="firearm-location">
-        <Strong>Tell the officer exactly where the firearm is</Strong>{' '}
-        before reaching for anything
-      </Bullet>,
-    );
+    // Firearm copy is pulled from the gun-laws adapter (single source
+    // of truth — the guidance phase reads from the same record). Two-
+    // bullet shape preserved from v1: the first bullet is the
+    // primary script/instruction, the second is the paired action.
+    // Per-duty:
+    //   - duty-to-inform: a quotable script + the location-disclosure
+    //     follow-up (Alabama-style proactive disclosure).
+    //   - no-duty:        "you're not required to volunteer" + "if
+    //     asked, answer honestly" (CA/NY/IL register).
+    //   - asked-only:     "hands visible" + "if asked, answer
+    //     honestly" (most permit-only states).
+    const sayBullets = FIREARM_GUIDANCE[disclosureDuty].sayBullets;
+    sayBullets.forEach((line, i) => {
+      bullets.push(<Bullet key={`firearm-${i}`}>{line}</Bullet>);
+    });
   }
 
   bullets.push(
