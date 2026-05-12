@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/search-tier-3-punctuation-fallback (2026-05-12)
+
+Follow-up to `fix/search-rural-bounds` — the punctuation-normalization tier-3 fallback didn't survive the squash-merge conflict resolution earlier. Re-adds it cleanly as its own PR. Adds a `normalizeQuery` helper (strips diacritics + apostrophes + hyphens via NFD decompose) and wires it as a third-tier retry, fires only when both viewbox tiers returned empty AND the normalized form differs from the original.
+
+- **Punctuation normalization belongs in a fallback tier, not the primary path.** Stripping apostrophes from every query risks breaking cases where the index has the apostrophe and the user typed it correctly. Tier-3 retry catches the long tail (user types "Lindustrie" expecting "L'industrie", or "cafe" expecting "café") without disturbing the common path. Worth keeping: when normalization could help OR hurt depending on the index state, run it as a conditional retry on empty rather than as a primary transform.
+- **Soft-reset + stash pop is a foot-gun when the working tree's been juggling branches.** I made changes accidentally on `main`, did `git reset --soft HEAD~1 && git stash && git checkout <branch> && git stash pop`. The pop produced conflicts. I resolved them — but the resolution silently dropped the tier-3 additions because they overlapped a region the upstream branch had already edited differently. The squashed PR shipped without the tier-3 work; I noticed only after `gh pr merge` had landed it on main. Worth keeping: when a stash pop produces conflicts, do `git diff HEAD` AFTER resolution and verify the new content is what you intended — don't trust the conflict resolution alone, especially in a chain where the working tree has been moved across branches.
+
+---
+
 ## fix/search-rural-bounds (2026-05-12)
 
 Three improvements to /search bundled: (1) tiered viewbox so rural users still get results; (2) category-alias preprocessing so user-friendly terms like "salon" trigger Nominatim's OSM-category matching; (3) limit 10 → 20 to surface more category-aware matches.

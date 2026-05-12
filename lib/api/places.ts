@@ -115,6 +115,24 @@ function aliasQuery(raw: string): string {
   return CATEGORY_ALIASES[key] ?? raw;
 }
 
+/**
+ * Strips punctuation and diacritics from a query so a user typing
+ * "Lindustrie" can still find a place named "L'industrie" (and the
+ * reverse), and "cafe" can find "café". Used as the tier-3 fallback
+ * when the original-form search has returned empty in both viewbox
+ * sizes — Nominatim's tokenizer normally handles these cases, but
+ * the index occasionally preserves the punctuation in ways that
+ * trip up unpunctuated queries.
+ */
+function normalizeQuery(raw: string): string {
+  return raw
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // combining diacritical marks
+    .replace(/['‘’\-]/g, '') // straight + curly apostrophes, hyphen
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export async function searchPlaces(
   query: string,
   userLocation: { latitude: number; longitude: number },
@@ -135,9 +153,19 @@ export async function searchPlaces(
 
   // Tier 2: ~140mi fallback. Rural users (where the nearest match for
   // a niche query might genuinely be 80mi away) get a usable answer
-  // instead of an empty list. The cost is one extra request, fired
-  // only when the first one came back empty.
-  return fetchPlaces(queryToSend, userLocation, WIDE_VIEWBOX_DEGREES);
+  // instead of an empty list.
+  const wide = await fetchPlaces(queryToSend, userLocation, WIDE_VIEWBOX_DEGREES);
+  if (wide.length > 0) return wide;
+
+  // Tier 3: punctuation-normalized retry. Fires only when both prior
+  // tiers returned empty AND the normalized form actually differs.
+  // Helps for "Lindustrie" → "L'industrie" (and reverse), or "cafe"
+  // → "café". One extra request only in the long tail.
+  const normalized = normalizeQuery(queryToSend);
+  if (normalized && normalized !== queryToSend) {
+    return fetchPlaces(normalized, userLocation, WIDE_VIEWBOX_DEGREES);
+  }
+  return [];
 }
 
 /**
