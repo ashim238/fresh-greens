@@ -8,16 +8,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Pause } from 'phosphor-react-native/src/icons/Pause';
 import { Play } from 'phosphor-react-native/src/icons/Play';
+import { Trash } from 'phosphor-react-native/src/icons/Trash';
 import { useEffect, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '../components/Button';
+import { EmptyState as EmptyStateCard } from '../components/StateCard';
 import { useRecordings } from '../hooks/useRecordings';
 import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
@@ -27,21 +24,14 @@ import { typography } from '../theme/typography';
 /**
  * Recordings — the audio captures from /pulled-over's safety flow.
  *
- * Pushed from /menu's Recordings row. Lists every saved recording
- * newest-first, with inline playback (single shared expo-audio
- * player; tapping play on a different row swaps the source). Each
- * row also has a trash affordance to delete the recording (file +
- * metadata).
+ * v2 redesign per Figma `1133:12323`: register flips from wiltedgreen-
+ * on-dark to white-on-light to match /menu's redesigned register.
+ * Recording rows use a light gray card (Backgrounds/Secondary) with
+ * a freshgreen circular play button and a Trash affordance on the
+ * right. "Delete all recordings" Primary Button at the bottom.
  *
- * Empty state when nothing's stored yet — communicates that
- * recordings come from the safety flow, not from a "record now"
- * button on this screen. The /pulled-over flow is where capture
- * happens; this screen is the library.
- *
- * Visual register matches /menu and the rest of the wiltedgreen
- * onboarding/account flow. Recording cards use the burntgreen fill
- * established by /trusted-contact-setup's preview state and
- * /menu's contact card.
+ * Empty state uses the StateCard EmptyState component (the same
+ * Default variant used on /trusted-contact-setup).
  *
  * Route: /recordings
  */
@@ -50,16 +40,9 @@ export default function Recordings() {
   const { recordings, loading, removeRecording } = useRecordings();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
-  // Single shared player. Source starts empty; we call player.replace()
-  // when the user picks a different recording. Cheaper than spinning
-  // up N players (one per row) and avoids the multiple-players-can-
-  // play-at-once bug.
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
 
-  // When playingId changes to a real recording, swap the player's
-  // source and start playback. Wrapped in useEffect so the imperative
-  // calls happen after the state commit, not during render.
   useEffect(() => {
     if (!playingId) return;
     const target = recordings.find((r) => r.id === playingId);
@@ -71,13 +54,9 @@ export default function Recordings() {
       console.warn('Failed to play recording', target.id, err);
       setPlayingId(null);
     }
-    // recordings + player identities are stable; the trigger here is
-    // the active id change. No state-related deps needed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playingId]);
 
-  // Reset playingId when playback finishes naturally so the play
-  // button on the row resets from "Pause" back to "Play."
   useEffect(() => {
     if (status?.didJustFinish) {
       setPlayingId(null);
@@ -90,12 +69,9 @@ export default function Recordings() {
 
   function handleTogglePlay(id: string) {
     if (playingId !== id) {
-      // Different recording — switching sources will trigger
-      // play() via the effect above.
       setPlayingId(id);
       return;
     }
-    // Same recording — toggle pause/resume.
     if (status?.playing) {
       player.pause();
     } else {
@@ -115,11 +91,23 @@ export default function Recordings() {
     await removeRecording(id);
   }
 
+  async function handleDeleteAll() {
+    if (playingId) {
+      try {
+        player.pause();
+      } catch {
+        /* noop */
+      }
+      setPlayingId(null);
+    }
+    await Promise.all(recordings.map((r) => removeRecording(r.id)));
+  }
+
   const showEmptyState = !loading && recordings.length === 0;
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
@@ -133,22 +121,28 @@ export default function Recordings() {
               pressed && pressedDim,
             ]}
           >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={colors.white}
-            />
+            <Ionicons name="chevron-back" size={28} color={colors.black} />
           </Pressable>
         </View>
 
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.pageTitle}>Recordings</Text>
+          <View style={styles.titleRow}>
+            <Microphone size={48} color={colors.black} weight="duotone" />
+            <Text style={styles.pageTitle}>Recordings</Text>
+          </View>
 
           {showEmptyState ? (
-            <EmptyState />
+            <EmptyStateCard
+              icon={
+                <Microphone size={56} color={colors.freshgreen} weight="duotone" />
+              }
+              headline="No recordings yet"
+              text="Audio captures from your safety flow appear here."
+            />
           ) : (
             <View style={styles.recordingsList}>
               {recordings.map((recording) => {
@@ -168,29 +162,20 @@ export default function Recordings() {
             </View>
           )}
         </ScrollView>
+
+        {!showEmptyState && (
+          <View style={styles.deleteAllWrap}>
+            <Button
+              type="primary"
+              fill="fill"
+              text="Delete all recordings"
+              onPress={handleDeleteAll}
+              accessibilityLabel="Delete all recordings"
+              style={styles.deleteAllBtn}
+            />
+          </View>
+        )}
       </SafeAreaView>
-    </View>
-  );
-}
-
-// --- Sub-components ------------------------------------------------------
-
-function EmptyState() {
-  return (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconWrap}>
-        <Microphone
-          size={56}
-          color={colors.fadedgreen}
-          weight="duotone"
-        />
-      </View>
-      <Text style={styles.emptyTitle}>No recordings yet</Text>
-      <Text style={styles.emptyBody}>
-        Audio captures from your safety flow appear here. Recordings
-        start automatically when you open the Pulled Over guide and
-        save when you exit.
-      </Text>
     </View>
   );
 }
@@ -216,16 +201,14 @@ function RecordingCard({
         style={({ pressed }) => [styles.playButton, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel={
-          isPlaying ? `Pause ${formatTimestamp(recording.createdAt)}` : `Play ${formatTimestamp(recording.createdAt)}`
+          isPlaying
+            ? `Pause ${formatTimestamp(recording.createdAt)}`
+            : `Play ${formatTimestamp(recording.createdAt)}`
         }
         accessibilityState={{ selected: isActive }}
         hitSlop={8}
       >
-        <PlayPauseIcon
-          size={22}
-          color={colors.wiltedgreen}
-          weight="fill"
-        />
+        <PlayPauseIcon size={24} color={colors.white} weight="fill" />
       </Pressable>
 
       <View style={styles.cardTextStack}>
@@ -246,11 +229,7 @@ function RecordingCard({
         accessibilityLabel={`Delete recording from ${formatTimestamp(recording.createdAt)}`}
         hitSlop={12}
       >
-        <Ionicons
-          name="trash-outline"
-          size={22}
-          color={colors.fadedgreen}
-        />
+        <Trash size={24} color={colors.labelTertiary} weight="regular" />
       </Pressable>
     </View>
   );
@@ -258,11 +237,6 @@ function RecordingCard({
 
 // --- Helpers -------------------------------------------------------------
 
-/**
- * "May 6 · 3:42 PM" — month/day with no comma, separator, time. Year
- * appears only when the recording is from a different year, so the
- * usual case stays compact.
- */
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
   const sameYear = d.getFullYear() === new Date().getFullYear();
@@ -298,20 +272,16 @@ function formatArmed(armed: ArmedAnswer | null): string {
   }
 }
 
-// --- Styles --------------------------------------------------------------
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.wiltedgreen,
+    backgroundColor: colors.white,
   },
   safe: {
     flex: 1,
   },
-
-  // --- Header ---
   header: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     paddingVertical: 8,
   },
   headerBackBtn: {
@@ -320,59 +290,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // --- Scroll body ---
+  scroll: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingHorizontal: 32,
-    paddingBottom: 32,
-    gap: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    gap: 32,
+  },
+  // Title row — Microphone icon + "Recordings" title on one line per
+  // Figma 1133:12468. Replaces v1's standalone pageTitle.
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   pageTitle: {
-    ...typography.title1Emphasized,
-    color: colors.white,
+    ...typography.title2Emphasized,
+    color: colors.black,
   },
-
-  // --- Recordings list ---
   recordingsList: {
     gap: 12,
   },
-
-  // --- Card (matches /trusted-contact-setup preview + /menu contact card) ---
+  // Recording card per Figma 1133:12483 — light gray Backgrounds/
+  // Secondary fill with a subtle border. Inner content is the row
+  // pattern from the EmptyState component (icon + text + icon).
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 16,
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderRadius: 16,
-    backgroundColor: colors.burntgreen,
+    backgroundColor: colors.systemGroupedBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorderSubtle,
   },
   cardActive: {
-    // Subtle highlight when this is the active recording. Keeps the
-    // burntgreen base; just thickens the border to mark "this one is
-    // playing" without screaming.
-    borderWidth: 1,
-    borderColor: colors.fadedgreen,
-    padding: 15, // compensate for borderWidth so total size unchanged
+    // Highlight when this is the active recording — freshgreen border
+    // signals "playing now" against the otherwise neutral row.
+    borderColor: colors.freshgreen,
   },
+  // Freshgreen circular play button per Figma 1133:12506. White icon
+  // on the green fill (matches the "primary action" register from the
+  // Button component).
   playButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.white,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardTextStack: {
     flex: 1,
-    gap: 2,
+    gap: 8,
   },
   cardTimestamp: {
     ...typography.bodyEmphasized,
-    color: colors.white,
+    color: colors.black,
   },
   cardSecondary: {
     ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
+    color: colors.labelTertiary,
   },
   deleteButton: {
     width: 32,
@@ -380,27 +361,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // --- Empty state ---
-  emptyState: {
-    alignItems: 'center',
-    gap: 16,
-    padding: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.fadedgreen,
+  // Delete-all bar pinned at the bottom of the SafeArea — outside the
+  // ScrollView so the button stays reachable regardless of list length.
+  deleteAllWrap: {
+    paddingHorizontal: 32,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  emptyIconWrap: {
-    paddingVertical: 8,
-  },
-  emptyTitle: {
-    ...typography.title3Emphasized,
-    color: colors.white,
-    textAlign: 'center',
-  },
-  emptyBody: {
-    ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
-    textAlign: 'center',
+  deleteAllBtn: {
+    alignSelf: 'center',
+    width: 326,
   },
 });

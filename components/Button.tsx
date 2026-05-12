@@ -75,8 +75,12 @@ export function Button({
     // narrowing above ensures only Primary reaches here.
   ];
 
+  // Transparent renders white text per Figma — designed for use on
+  // dark/colored backgrounds (onboarding, /trusted-contact-setup),
+  // never on white. On a white page the text would be invisible;
+  // that constraint is documented but not type-enforced.
   const textColor =
-    fill === 'fill'
+    fill === 'fill' || fill === 'transparent'
       ? colors.white
       : type === 'primary'
         ? colors.freshgreen
@@ -100,7 +104,19 @@ export function Button({
       ) : (
         <>
           {icon && <View style={styles.iconWrap}>{icon}</View>}
-          <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.label,
+              { color: textColor },
+              // Transparent variant has no bg or border — without a
+              // container, the text needs an affordance to read as
+              // tappable. Underline is the canonical link signal.
+              // Fill and Outline have visible containers that carry
+              // that affordance themselves, so they stay un-underlined.
+              fill === 'transparent' && styles.labelUnderlined,
+            ]}
+            numberOfLines={1}
+          >
             {text}
           </Text>
         </>
@@ -127,6 +143,9 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.subheadlineEmphasized,
+  },
+  labelUnderlined: {
+    textDecorationLine: 'underline',
   },
   // M3/Elevation/1 approximation. Figma specs two drop shadows
   // (0,1,3,1 @ 15% + 0,1,2,0 @ 30%); RN renders only one per view, so

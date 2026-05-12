@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PermissionsCar from '../assets/illustrations/permissions-car.svg';
 import PermissionsLocation from '../assets/illustrations/permissions-location.svg';
+import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -198,14 +199,14 @@ export default function Permissions() {
             </View>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [styles.cta, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel="Continue and grant permissions"
+          <Button
+            type="primary"
+            fill="fill"
+            text="Continue"
             onPress={handleContinuePress}
-          >
-            <Text style={styles.ctaText}>Continue</Text>
-          </Pressable>
+            accessibilityLabel="Continue and grant permissions"
+            style={styles.cta}
+          />
 
           {/*
             Recovery affordance for the "previously declined" state.
@@ -316,23 +317,10 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   cta: {
+    // Width per Figma 1100:8115 — 163pt Container that wraps the
+    // button. Left-aligned with the rest of the content.
     alignSelf: 'flex-start',
-    backgroundColor: colors.freshgreen,
     width: 163,
-    height: 44,
-    borderRadius: 1000,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Approximates Figma M3 Elevation Light/1 (the larger of two layers).
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  ctaText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
   },
   // Recovery-affordance row — same inline-link pattern as Get Started's
   // "Already have an account? Log in" (footnoteRegular white prompt +
