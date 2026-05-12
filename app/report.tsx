@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -27,6 +28,7 @@ import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 
+import { Button } from '../components/Button';
 import {
   addCommunityReport,
   CATEGORIES,
@@ -305,11 +307,18 @@ function PickerView({
           accessibilityLabel="Close"
           hitSlop={12}
         >
-          <Ionicons name="close-circle-outline" size={20} color={colors.labelTertiary} />
+          <X size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
       </View>
 
       <View style={styles.titleBlock}>
+        {/*
+          Orange alert-circle is the documented exception to the
+          reserved-color rule (see .cursorrules rule #4 — "Report flow
+          identity icon"). Keep as Ionicons; this glyph is the modal's
+          identity mark, intentionally consistent across the project's
+          report entry points.
+        */}
         <View style={styles.identityIcon}>
           <Ionicons name="alert-circle" size={32} color={colors.orange} />
         </View>
@@ -398,7 +407,7 @@ function DetailView({
           accessibilityLabel="Close"
           hitSlop={12}
         >
-          <Ionicons name="close-circle-outline" size={20} color={colors.labelTertiary} />
+          <X size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
       </View>
 
@@ -490,21 +499,21 @@ function DetailView({
         )}
       </View>
 
-      <Pressable
-        style={({ pressed }) => [
-          styles.submitBtn,
-          (!locationKnown || submitting) && styles.submitBtnDisabled,
-          pressed && locationKnown && !submitting && pressedDim,
-        ]}
+      {/*
+        Submit CTA — v2 `Button` primary/fill matches the previous
+        bespoke styles exactly (44pt pill, freshgreen, white text, M3
+        Elevation/1). `loading` swaps the label for an ActivityIndicator
+        while the submission is in flight; `disabled` covers the
+        no-location case.
+      */}
+      <Button
+        text={submitting ? 'Submitting…' : category.cta}
         onPress={onSubmit}
-        disabled={!locationKnown || submitting}
-        accessibilityRole="button"
+        disabled={!locationKnown}
+        loading={submitting}
         accessibilityLabel={category.cta}
-      >
-        <Text style={styles.submitBtnText}>
-          {submitting ? 'Submitting…' : category.cta}
-        </Text>
-      </Pressable>
+        style={styles.ctaStretch}
+      />
     </>
   );
 }
@@ -538,14 +547,12 @@ function ThankYouView({
         </Text>
       </View>
 
-      <Pressable
-        style={styles.thankYouCloseBtn}
+      <Button
+        text="Close"
         onPress={onClose}
-        accessibilityRole="button"
         accessibilityLabel="Close"
-      >
-        <Text style={styles.thankYouCloseBtnText}>Close</Text>
-      </Pressable>
+        style={styles.ctaStretch}
+      />
     </>
   );
 }
@@ -725,25 +732,12 @@ const styles = StyleSheet.create({
     ...typography.subheadlineEmphasized,
     color: colors.white,
   },
-  submitBtn: {
-    height: 44,
-    borderRadius: 100,
-    backgroundColor: colors.freshgreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Approximates Figma M3 Elevation Light/1.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  submitBtnDisabled: {
-    opacity: 0.5,
-  },
-  submitBtnText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
+  // Stretches the v2 `Button` across the popup's content width. Without
+  // this, the unified Button picks up its natural width from its label
+  // — fine on screens that center it, wrong here where the modal expects
+  // a full-width primary CTA at the bottom of the form.
+  ctaStretch: {
+    alignSelf: 'stretch',
   },
 
   // --- Thank-You title block ---
@@ -766,24 +760,6 @@ const styles = StyleSheet.create({
     ...typography.subheadlineRegular,
     color: colors.labelTertiary,
     textAlign: 'center',
-  },
-
-  // --- Thank-You close button ---
-  thankYouCloseBtn: {
-    height: 44,
-    borderRadius: 100,
-    backgroundColor: colors.freshgreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  thankYouCloseBtnText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
   },
 
   // iOS InputAccessoryView toolbar — small bar that sits directly
