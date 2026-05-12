@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -122,6 +122,12 @@ export default function Search() {
     longitude: number;
   } | null>(null);
   const [resultsCity, setResultsCity] = useState<string>('your area');
+  // Tracks the most-recently-issued autocomplete query so stale
+  // responses from earlier keystrokes can be discarded when they
+  // resolve out of order. Apple Maps does the same — without this,
+  // typing "Mc" then "Mcd" can result in "Mc"'s slower response
+  // overwriting "Mcd"'s faster one.
+  const lastQueryRef = useRef<string>('');
 
   // Acquire user location once on mount. Permission was granted during
   // onboarding (/permissions); a failure here is non-fatal — the search
@@ -158,38 +164,70 @@ export default function Search() {
 
   const searchBarState = phase === 'landing' ? 'on-tap' : 'typing';
 
-  async function runSearch(searchQuery: string) {
+  // Debounced autocomplete: fire a search 300ms after the user stops
+  // typing. Silent — failures don't show ErrorState (Apple Maps
+  // pattern). Explicit submit (Return key / Recent tap) still shows
+  // proper Loading + Error states via runSearch(query, true).
+  useEffect(() => {
+    if (query.trim().length === 0) return;
+    if (!userLocation) return;
+    const timer = setTimeout(() => {
+      runSearch(query, false);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, userLocation]);
+
+  async function runSearch(searchQuery: string, isExplicit: boolean) {
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
     if (!userLocation) {
-      setPhase('error');
-      setErrorMessage(
-        'Waiting for your location… try again in a moment.',
-      );
+      if (isExplicit) {
+        setPhase('error');
+        setErrorMessage('Waiting for your location… try again in a moment.');
+      }
       return;
     }
 
-    setPhase('loading');
-    setErrorMessage(null);
-    setResults([]);
+    if (isExplicit) {
+      setPhase('loading');
+      setErrorMessage(null);
+      setResults([]);
+    }
+
+    lastQueryRef.current = trimmed;
 
     try {
       const places = await searchPlaces(trimmed, userLocation);
+      // Stale-response guard — drop if the user has typed past this query.
+      if (lastQueryRef.current !== trimmed) return;
+
       if (!places.length) {
-        setPhase('error');
-        setErrorMessage(
-          `No results for "${trimmed}". Try a more specific name or address.`,
-        );
+        if (isExplicit) {
+          setPhase('error');
+          setErrorMessage(
+            `No results for "${trimmed}". Try a more specific name or address.`,
+          );
+        } else {
+          // Silent autocomplete miss — clear stale results, return
+          // to typing so the user keeps seeing Recent.
+          setPhase('typing');
+          setResults([]);
+        }
         return;
       }
       setResults(places);
       setPhase('results');
     } catch (err) {
+      if (lastQueryRef.current !== trimmed) return;
       console.warn('[search] places search failed:', err);
-      setPhase('error');
-      setErrorMessage(
-        "We're having trouble connecting to the internet right now.",
-      );
+      if (isExplicit) {
+        setPhase('error');
+        setErrorMessage(
+          "We're having trouble connecting to the internet right now.",
+        );
+      }
+      // Silent autocomplete error — leave UI alone, user can keep typing.
     }
   }
 
@@ -227,7 +265,7 @@ export default function Search() {
             state={searchBarState}
             value={query}
             onChangeText={handleQueryChange}
-            onSubmit={() => runSearch(query)}
+            onSubmit={() => runSearch(query, true)}
             onBackPress={() => router.back()}
             onClearPress={() => {
               setQuery('');
@@ -306,7 +344,7 @@ export default function Search() {
                   ]}
                   onPress={() => {
                     setQuery(recent.label);
-                    runSearch(recent.label);
+                    runSearch(recent.label, true);
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={`Search again for ${recent.label}`}
