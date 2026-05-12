@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/hazard-panel-zone-length (2026-05-12)
+
+The /en-route hazard panel was showing only the sentence-form copy ("Low lighting on this stretch") with no indication of how long the affected zone actually lasts. Drivers entering a zone want to know whether they're in a 0.3-mile patch or a 4-mile stretch — that changes whether they slow down, stay alert, or both. Refactors `displayedHazardCategory` (just a category) into `displayedHazard` ({category, lengthMiles}), and surfaces the length as a "For X mi." secondary line under the sentence when the hazard is tied to a real zone.
+
+- **Pair informational copy with the actionable scale.** "Low lighting on this stretch" tells the driver *what*; "For 0.4 mi." tells them *how long they need to care*. Both are required for the panel to drive a real behavior change. Worth keeping: when ship-text is a heads-up notice, decompose it into "the thing" + "the scope" — the scope is what tells the user how to weight the warning. Apple Maps does this for speed cameras ("speed camera in 0.5 mi"); Waze does this for hazards ("for 1.2 mi"). Both work because of the second number.
+- **Same `formatHazardMiles` rule as the on-map Extended pill — one voice.** The on-map EnRouteZone Extended pill already says "For 0.4 mi." with the same formatter (1 decimal under 10mi, rounded whole otherwise). Inlined the formatter again in /en-route rather than extract because this is only the second consumer. When a third surface needs the same "For X mi." pattern (likely the on-map marker tap-to-detail flow eventually), that earns the move to `lib/format.ts`. Worth keeping: defer extraction until rule-of-three even when the duplication is one line — a one-line duplicate is cheaper than a one-line shared helper with two import paths.
+- **Discriminated state shape > "extend the existing return then conditionally render".** Initial draft kept `displayedHazardCategory` returning just `HazardCategory | null` and threaded `lengthMiles` separately through a parallel memo. That's two values that must stay in sync. Better: bundle them into one structured return — `{ category, lengthMiles: number | null } | null`. The consumer destructures once; "did we find an entered zone?" is one boolean check on the returned object, not a tuple. Worth keeping: when a memo returns multiple related values, prefer a single structured shape over parallel returns — it makes the "this came from the same source" guarantee structural.
+
+---
+
 ## chore/pulled-over-bulk-svg-swap (2026-05-12)
 
 Audit-flagged bulk swap of Ionicons stand-ins in `/pulled-over` to canonical assets. Findings on inspection: `assets/illustrations/` has no exports yet for any of the small affordances or the 120pt review hero illustrations — the prior bulk-SVG batch (#94) hadn't covered this screen's icons. Only one swap had clear in-project precedent: the Read-aloud `volume-high-outline` / `stop-circle-outline` pair → Phosphor `SpeakerHigh` / `Stop`, matching `/recordings`'s Phosphor Play/Pause/Microphone register for the same audio-recording data. Everything else (Call/Text button glyphs, Continue + review-nav chevrons, 4× 120pt review hero illustrations) stays Ionicons until the canonical SVGs are exported — punch-listed in the PR + CLAUDE.md.
