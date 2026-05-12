@@ -146,21 +146,18 @@ export default function Search() {
 
   const searchBarState = phase === 'landing' ? 'on-tap' : 'typing';
 
-  // Debounced autocomplete: fire a search 600ms after the user stops
-  // typing. Bumped from 300ms because Nominatim's public-instance
-  // rate limit (1 req/sec) couldn't keep up with our tiered search
-  // (up to 3 requests per query) at the faster cadence — rapid
-  // typing was hitting 429s. 600ms keeps reactivity acceptable while
-  // staying within the rate envelope for typical typing speed.
-  // Silent — failures don't show ErrorState (Apple Maps pattern).
-  // Explicit submit (Return key / Recent tap) still shows proper
-  // Loading + Error states via runSearch(query, true).
+  // Debounced autocomplete: fire a search 300ms after the user stops
+  // typing. Backend is Mapbox (10 req/sec free-tier envelope), so
+  // 300ms reactivity is well within budget — no 429 storm risk like
+  // the Nominatim era. Silent — failures don't show ErrorState
+  // (Apple Maps pattern). Explicit submit (Return key / Recent tap)
+  // still shows proper Loading + Error states via runSearch(query, true).
   useEffect(() => {
     if (query.trim().length === 0) return;
     if (!userLocation) return;
     const timer = setTimeout(() => {
       runSearch(query, false);
-    }, 600);
+    }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, userLocation]);
