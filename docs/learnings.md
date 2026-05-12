@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/quick-tool-selected-state (2026-05-12)
+
+Adds the Selected variant of the /search Quick Tool tile per Figma `1133:13314`. Visual-only for v1 — tapping a tile flips its bg from white → `fillsTertiary` (iOS system fill, the same neutral surface tint our gray search-bar uses), tapping the selected tile deselects, and the selection is mutually exclusive. No filter behavior wired yet; the tools are still "coming soon".
+
+- **Selection state belongs on the screen, not the component.** `QuickTool` isn't an extracted component yet — the five tiles render inline in /search. Putting `selectedToolId` on the screen (vs. a local `useState` per tile) keeps the mutual-exclusion rule trivial (one source of truth) and means when filter logic eventually lands, the screen already has the active filter id. Worth keeping: when several siblings need to coordinate (one active at a time, only-one-can-X), lift state to the common ancestor even if it's the only consumer — don't push it down per-child for "encapsulation" and then need to lift it back later.
+- **`accessibilityState={{ selected }}` is the right hook for toggle-tiles, not a hint change.** First instinct was to change the hint copy ("Tap to filter" vs "Selected"). Better: VoiceOver natively announces "selected" when `accessibilityState.selected` is true, and the existing hint ("Filter coming soon") stays accurate either way. Worth keeping: prefer the structured a11y props (`accessibilityState`, `accessibilityRole`) over hand-rolled copy changes — screen readers already know how to phrase "selected, button, Saved".
+
+---
+
 ## feat/en-route-bottom-sheet-and-zone-pill (2026-05-12)
 
 Two design-system-v2 pieces in one bundled PR: (1) /en-route's bottom sheet rewritten to match Figma `1133:13328` (Collapsed) — FAB + 34pt freshgreen ETA + FAB, with Body/Emphasized 17pt secondary; (2) new `EnRouteZone` component matching Figma `1133:13297` (Default + Extended states) wired into the map so caution/avoid OSM zones surface as on-map hazard markers that swap to a "For X mi." pill when the user enters the zone. Earns the rule-of-three for `Hazard` — turn-card row was use 1, this PR delivers uses 2 and 3 (Default badge + Extended pill).
