@@ -414,16 +414,32 @@ export default function EnRoute() {
               longitude: center.longitude + 0.01,
             };
 
-      const routePromise = getRoutesBetween(center, destination);
-      const zonePromise = getZonesForRegion(center);
-
-      const fetchedRoutes = await routePromise;
+      // Parallel + atomic state update. Earlier version awaited
+      // routes first, then zones — setRawRoutes fired ~2s in, then
+      // setOsmZones fired up to 12s later (when Overpass timed out
+      // and fell back to mock). That second state update made the
+      // `routes` memo recompute → new Polyline JSX → MapView native
+      // re-render → iOS MapKit briefly removed and re-added every
+      // overlay, including the rotating car marker. Visible as a
+      // flicker right at the "Overpass fetch failed, falling back
+      // to mock" moment.
+      //
+      // Fix: Promise.allSettled so both states get set in the same
+      // React batch. Single re-render. Trade-off: nothing renders
+      // until both promises settle (worst case = full Overpass
+      // 12s timeout on a network failure), but eliminates the
+      // mid-display flicker which was the more disruptive UX.
+      const [routesResult, zonesResult] = await Promise.allSettled([
+        getRoutesBetween(center, destination),
+        getZonesForRegion(center),
+      ]);
       if (cancelled) return;
-      setRawRoutes(fetchedRoutes);
-
-      const fetchedZones = await zonePromise;
-      if (cancelled) return;
-      setOsmZones(fetchedZones);
+      if (routesResult.status === 'fulfilled') {
+        setRawRoutes(routesResult.value);
+      }
+      if (zonesResult.status === 'fulfilled') {
+        setOsmZones(zonesResult.value);
+      }
     }
 
     fetchAndCenterOnUser();
