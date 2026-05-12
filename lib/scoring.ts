@@ -106,8 +106,7 @@ export function scoreRoute(
   let total = 0;
   for (const point of route.coordinates) {
     for (const zone of zones) {
-      const hit = isWaypointInZone(point, zone);
-      if (hit) {
+      if (isPointInZone(point, zone)) {
         const multiplier = categoryMultiplier(
           zone.category,
           point,
@@ -121,12 +120,14 @@ export function scoreRoute(
 }
 
 /**
- * Geometry-dispatch for scoring. Each zone-geometry kind has its own
- * primitive; this picks the right one. Extracted from `scoreRoute`'s
- * inner loop because three branches on zone.geometry inside a nested
- * loop reads worse than one named function.
+ * Whether a point (user location, route waypoint, etc.) falls inside
+ * or near enough to a zone to count as "in" it. Geometry-dispatch:
+ * polygon → ray-casting; polyline → near-line proximity; point →
+ * point-to-point distance. Shared between `scoreRoute`'s per-waypoint
+ * scoring loop and /en-route's live zone-entry detection (driving the
+ * En-Route Zone extended-pill).
  */
-function isWaypointInZone(point: Coordinate, zone: Zone): boolean {
+export function isPointInZone(point: Coordinate, zone: Zone): boolean {
   switch (zone.geometry) {
     case 'polygon':
       return isPointInPolygon(point, zone.coordinates);
@@ -144,6 +145,81 @@ function isWaypointInZone(point: Coordinate, zone: Zone): boolean {
         pointToPointDistanceMeters(point, zone.coordinates[0]) <
         POINT_PROXIMITY_METERS
       );
+  }
+}
+
+/**
+ * Approximate the on-the-ground length of a zone, in miles. Used by
+ * the En-Route Zone extended-pill to surface "For X mi." copy.
+ *
+ *   polyline → sum of segment distances (true polyline length).
+ *   polygon  → bounding-box diagonal. A rough proxy — a long thin
+ *              polygon over-estimates, a square under-estimates —
+ *              but the pill's purpose is order-of-magnitude
+ *              reassurance ("this is a long zone vs. a short one"),
+ *              not survey-grade measurement.
+ *   point    → 0. Single-point zones don't have a length; callers
+ *              should not render them as En-Route Zone markers.
+ */
+export function zoneLengthMiles(zone: Zone): number {
+  switch (zone.geometry) {
+    case 'polyline': {
+      let totalMeters = 0;
+      for (let i = 1; i < zone.coordinates.length; i++) {
+        totalMeters += pointToPointDistanceMeters(
+          zone.coordinates[i - 1],
+          zone.coordinates[i],
+        );
+      }
+      return totalMeters / 1609.344;
+    }
+    case 'polygon': {
+      if (zone.coordinates.length === 0) return 0;
+      let minLat = Infinity;
+      let maxLat = -Infinity;
+      let minLng = Infinity;
+      let maxLng = -Infinity;
+      for (const p of zone.coordinates) {
+        minLat = Math.min(minLat, p.latitude);
+        maxLat = Math.max(maxLat, p.latitude);
+        minLng = Math.min(minLng, p.longitude);
+        maxLng = Math.max(maxLng, p.longitude);
+      }
+      const diagonalMeters = pointToPointDistanceMeters(
+        { latitude: minLat, longitude: minLng },
+        { latitude: maxLat, longitude: maxLng },
+      );
+      return diagonalMeters / 1609.344;
+    }
+    case 'point':
+      return 0;
+  }
+}
+
+/**
+ * Coordinate at the visual "middle" of a zone — where an En-Route
+ * Zone marker should anchor. Polyline midpoint by index, polygon
+ * centroid by mean coordinates, point as-is.
+ */
+export function zoneAnchor(zone: Zone): Coordinate | null {
+  if (zone.coordinates.length === 0) return null;
+  switch (zone.geometry) {
+    case 'polyline':
+      return zone.coordinates[Math.floor(zone.coordinates.length / 2)];
+    case 'polygon': {
+      let sumLat = 0;
+      let sumLng = 0;
+      for (const p of zone.coordinates) {
+        sumLat += p.latitude;
+        sumLng += p.longitude;
+      }
+      return {
+        latitude: sumLat / zone.coordinates.length,
+        longitude: sumLng / zone.coordinates.length,
+      };
+    }
+    case 'point':
+      return zone.coordinates[0];
   }
 }
 
@@ -268,7 +344,7 @@ function isWaypointInProximity(turn: Coordinate, zone: Zone): boolean {
  * subcategories into the single `community-alert` bucket; the more
  * granular distinction belongs on the map markers, not on the turn card.
  */
-function zoneToHazardCategory(zone: Zone): HazardCategory | null {
+export function zoneToHazardCategory(zone: Zone): HazardCategory | null {
   switch (zone.category) {
     case 'lighting':
       return 'lighting';

@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/en-route-bottom-sheet-and-zone-pill (2026-05-12)
+
+Two design-system-v2 pieces in one bundled PR: (1) /en-route's bottom sheet rewritten to match Figma `1133:13328` (Collapsed) — FAB + 34pt freshgreen ETA + FAB, with Body/Emphasized 17pt secondary; (2) new `EnRouteZone` component matching Figma `1133:13297` (Default + Extended states) wired into the map so caution/avoid OSM zones surface as on-map hazard markers that swap to a "For X mi." pill when the user enters the zone. Earns the rule-of-three for `Hazard` — turn-card row was use 1, this PR delivers uses 2 and 3 (Default badge + Extended pill).
+
+- **`tracksViewChanges` + in-place child swap = stale snapshot on iOS.** First instinct on the Default→Extended state swap was `tracksViewChanges={state === 'extended'}` — track only when the pill is up. But MapKit caches the marker's snapshot once tracking settles to `false`, so an in-place child swap can leave the stale snapshot painted even after props change. Real fix: embed the state in the Marker's `key` (`hazard-${id}-${state}`) so the native view *remounts* on transition, with `tracksViewChanges={false}` in both states. Worth keeping: when you'd otherwise toggle `tracksViewChanges` to force a repaint, remount via key instead — cleaner contract, no transitional tracking-on window where children render at the wrong y.
+- **Public-surface promotions are reversible; private helpers are not.** The new `EnRouteZone` consumer needs the same `isPointInZone`/`zoneAnchor`/`zoneLengthMiles` derivations the scoring layer already does internally. Making them public exports of `lib/scoring.ts` was a one-line change (delete `function`, add `export function`). Worth keeping: the cost of exposing more of `lib/scoring.ts`'s API surface is small; the cost of duplicating its in-polygon / near-polyline math in a UI layer is large. Surface a pure helper at the seam where consumers genuinely need it, but only after the second consumer is real — don't pre-export speculatively.
+- **Polyline midpoint and polygon centroid are not the same kind of anchor.** For Default markers we need a *single point* to anchor the badge. A polyline zone's anchor is its midpoint (the most informative single point — the badge sits halfway along the affected street segment). A polygon's anchor is its centroid (geometric middle of the region). The instinct is to "just pick the first coordinate" — fast, wrong: polygons return a corner, polylines return the start (which the user may already be past). Worth keeping: anchor-point selection is geometry-dependent and worth a tiny dispatch, not a one-liner.
+
+---
+
 ## feat/en-route-hazard-system (2026-05-12)
 
 Closes a thesis-defense item from CLAUDE.md's "What's NOT shipped": the hazard notice on /en-route's turn card. Adds the `hazardsNearTurn` helper in `lib/scoring.ts` and a `Hazard` component matching Figma `1133:13397` (4 variants: Light/Road/Deer/Eye). Rides along with a copy-only fix to `TrustedContactStatus`. First PR to exercise the expanded Pattern 3 pair-review rubric from PR #81 — caught 3 defects + 2 readability notes beyond what I'd seen.
