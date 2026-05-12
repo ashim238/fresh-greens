@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/gradient-polish-and-address-trim (2026-05-12)
+
+Two small visible polish items: (1) daylight gradient on the route polyline goes 5 → 15 segments for noticeably smoother color transitions; (2) search-results address line strips the 5-digit ZIP code + the trailing ", United States" for cleaner display.
+
+- **Stepped gradients on RN-Maps Polyline scale linearly with segment count, cheaply.** RN-Maps Polyline accepts a single stroke color per overlay, so a "gradient" is N adjacent same-coordinate-overlapping Polylines with different colors. 5 segments left visible color jumps; 15 makes each step ~1/3 the size, which the eye reads as smooth at typical map zoom. Cost is 3× the native overlay count per route, but iOS MapKit handles dozens of overlays without measurable lag for our use case. Worth keeping: when a "smooth gradient" UX requires N stepped approximations on a platform that doesn't support true linear-gradient strokes, the right N is the smallest value where the steps become visually indistinguishable — typically 15-20 for color transitions across a screen-width line.
+- **Display-address noise reduction is one regex away.** Mapbox's `place_formatted` is "123 Main St, Brooklyn, New York 11211, United States" — the ZIP + country are display noise for a one-line address row when the user already knows they're in the US. A two-line regex strips both. Worth keeping: when a geocoder's display field is one level too verbose for your row, prefer surgical regex trimming over re-composing from the structured address parts — the structured parts are often inconsistent across result types (POIs vs. addresses), but the noise-trimming is reliable.
+
+---
+
 ## feat/quick-tools-filter-search (2026-05-12)
 
 Wired three of /search's Quick Tool tiles (Food / Gas / Parking) to actually fire category-aware searches. Earlier work shipped the Selected-state visual (#84) but the tiles were tap-toggles with no behavior. Now: tapping Food → fills the search bar with "restaurant" → the existing autocomplete debounce fires a Mapbox v6 category-aware query → results appear. Saved + Trending stay visual-only since they need data we don't have (a bookmarks adapter, a trending-analytics source).
