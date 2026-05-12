@@ -115,9 +115,16 @@ export const typography = {
     fontWeight: '400',
     letterSpacing: 0,
   },
+  // caption2 sits at 11pt — below WCAG 1.4.4's 12pt floor for
+  // informational content. Reserved for ornamental use (legal fine
+  // print, timestamps, copyright lines). Informational content
+  // (anything a reader could miss and lose meaning from) should use
+  // caption1Regular at 12pt instead. lineHeight was bumped 13 → 15
+  // (1.36×) in `chore/design-token-discipline-pass` for low-vision
+  // and stress-state readability — visually invisible in normal use.
   caption2Regular: {
     fontSize: 11,
-    lineHeight: 13,
+    lineHeight: 15,
     fontWeight: '400',
     letterSpacing: 0.06,
   },
