@@ -142,8 +142,9 @@ export default function EnRoute() {
   const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(
     null,
   );
-  // Live GPS for the custom UserLocationMarker — same pattern /home
-  // uses to keep the dot above LandmarkMarker pins via zIndex.
+  // Live GPS for the EnRouteCarMarker — /home uses UserLocationMarker
+  // (blue dot), /en-route swaps to the rotating car glyph during
+  // active navigation. Same upstream `watchPositionAsync` plumbing.
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -448,8 +449,9 @@ export default function EnRoute() {
     };
   }, [params.destLat, params.destLng]);
 
-  // Subscribe to live GPS for the UserLocationMarker. Same setup as
-  // /home — high accuracy, 1s/5m thresholds, cleanup on unmount.
+  // Subscribe to live GPS for the EnRouteCarMarker (heading-driven
+  // car glyph). Same setup as /home — high accuracy, 1s/5m thresholds,
+  // cleanup on unmount.
   useEffect(() => {
     let subscription: Location.LocationSubscription | undefined;
     (async () => {
