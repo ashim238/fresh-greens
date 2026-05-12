@@ -921,14 +921,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-    // Shadow lives here (not on `headerWrap`) so iOS derives the
-    // shadow path from this view's rounded bottom shape instead of
-    // the wrap's rectangular bounds.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    // No shadow. iOS won't auto-derive a rounded `shadowPath` when
+    // only `borderBottom*` radii are set (vs. a uniform
+    // `borderRadius`) — it falls back to the bounding rect, so a
+    // shadow on this view paints rectangular corners that stick
+    // out past the curve. The wiltedgreen-vs-map contrast already
+    // separates the header visually; the bottom sheet carries its
+    // own shadow where depth actually matters.
   },
   thenText: {
     ...typography.title3Regular,
