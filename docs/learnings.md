@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/bottom-sheet-marker-consolidation (2026-05-12)
+
+Ports `ReportDetailCard` from a v1 centered floating card to the v2 Bottom Sheet (Marker) chrome per Figma `1133:13853` — slides up from the bottom edge, drag handle, symmetric FAB header row (Share / category copy / Close), rounded top corners + M3 Elevation 3 shadow that matches /home and /en-route's bottom sheets. The Figma's "8 min / Move" CTA pair is omitted: community reports are informational, not navigable destinations. The Share FAB renders for chrome fidelity but stays a no-op until a real share path lands.
+
+- **Figma templates aren't literal locks when content type differs.** The Figma shows a generic location marker (address title + drive CTAs). Community reports have a different intent — surfacing what the report SAYS, not navigating there. I kept the v2 chrome (drag handle, FAB header, sheet shape) and dropped the CTA buttons rather than inventing fake "Drive there" semantics that don't apply. Worth keeping: when porting a v2 component to an existing v1 consumer with different intent, treat the Figma as the visual register and the content semantics as the gate — match shape, not text.
+- **`onStartShouldSetResponder` + interactive children: child Pressables still win the responder race.** The sheet uses `onStartShouldSetResponder={() => true}` on its container to stop taps from bubbling to the dismissing scrim. Inside the sheet, the Close FAB is a Pressable that needs its own onPress to fire. The responder system handles this naturally: in the start phase, children get first dibs via the bubble path, so the FAB's Pressable claims the responder before the parent View. Worth keeping: don't reach for `Modal` or capture-phase props for the standard "scrim dismisses, content area doesn't" pattern — the start-phase bubble handles it.
+- **Quarantine v2 chrome to the consumer until rule-of-three earns a `BottomSheet` component.** Tempted to extract a `BottomSheetMarker` component while writing this; resisted. Right now it has one consumer (community-report tap). When saved-place tap and OSM-POI tap surfaces land, that's the third site — extract then. Worth keeping: chrome consistency lives in shared tokens (drag handle dimensions, corner radius, elevation shadow) and per-screen reimplementation is fine until the shape stabilizes across 3 callers.
+
+---
+
 ## feat/state-aware-firearm-guidance (2026-05-12)
 
 Closes the "State-aware firearm guidance (V2)" thesis-defense item from CLAUDE.md's "Safety flow — open follow-ups." Adds `lib/api/gun-laws.ts` (every US state + DC mapped to one of three `DisclosureDuty` variants) and `useDisclosureDuty` (one-shot reverse-geocode on mount, defaults to `duty-to-inform` while loading and on failure). `/pulled-over` now reads the firearm bullet on the guidance phase and the firearm `sayBullets` on the What-to-Say review sub-view from one shared `FIREARM_GUIDANCE` record, so the two surfaces can't drift.
