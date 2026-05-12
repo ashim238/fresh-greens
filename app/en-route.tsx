@@ -839,22 +839,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    // No bg on the wrap — both children paint their own (turnSign =
-    // wiltedgreen, thenFooter = burntgreen with rounded bottom). A
-    // wrap-level wiltedgreen poked past thenFooter's 28pt rounded
-    // bottom corners, painting sharp wiltedgreen rectangles under
-    // the curve.
-    // Matching rounded bottom corners so the drop shadow follows
-    // thenFooter's curve instead of painting a rectangle whose
-    // corners stick out past the curve. Top stays sharp — the wrap
-    // hugs the status bar inset, no curve needed up there.
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    // No bg + no shadow on the wrap. Shadow moved to `thenFooter` —
+    // iOS derives `shadowPath` from the layer's bounds (ignoring
+    // `borderRadius`) when no `backgroundColor` is set, so a shadow
+    // on the wrap painted a rectangle that poked past thenFooter's
+    // 28pt rounded curve. Putting the shadow on thenFooter (which
+    // has its own bg) makes the shadow follow the actual rounded
+    // shape.
   },
   turnSign: {
     backgroundColor: colors.wiltedgreen,
@@ -930,6 +921,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+    // Shadow lives here (not on `headerWrap`) so iOS derives the
+    // shadow path from this view's rounded bottom shape instead of
+    // the wrap's rectangular bounds.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
   },
   thenText: {
     ...typography.title3Regular,
