@@ -1,22 +1,24 @@
 // Fresh Greens — places (POI) search adapter.
 //
-// Free-text POI search against OpenStreetMap's Nominatim service.
-// Free, no API key, fits the existing OSM/OSRM/Overpass adapter pattern.
-// Required to power /search's Results state with real business names —
-// Apple's `Location.geocodeAsync` only returns coordinates (no names).
+// Free-text POI search against Mapbox Geocoding. Was Nominatim
+// originally, swapped for rate limit (Mapbox free tier is 10 req/sec
+// vs. Nominatim's 1 req/sec) and POI-search quality (Mapbox
+// understands category-like queries natively where Nominatim's `q=`
+// only matches place names).
 //
-// Nominatim usage policy: max 1 req/sec, must set a User-Agent, must
-// not bulk-scrape. See https://operations.osmfoundation.org/policies/nominatim/.
-// For thesis-demo traffic this is comfortably below the rate limit.
+// Mapbox usage policy: free tier is 100K requests/month, 600/min.
+// Comfortably above thesis-demo traffic. Token loaded from
+// `process.env.EXPO_PUBLIC_MAPBOX_TOKEN` (set in `.env.local`,
+// gitignored).
 //
 // The adapter returns Place[] with name + address + lat/lng + distance
 // from the user's current location. Same shape any future provider
 // (MKLocalSearch, Google Places, Foursquare) would slot into.
 
 export type Place = {
-  /** Stable identifier from Nominatim. */
+  /** Stable identifier from the geocoder. */
   id: string;
-  /** Concise business name (e.g., "Locs of Soul LLC"). */
+  /** Concise business name (e.g., "L'industrie Pizzeria"). */
   name: string;
   /** Single-line address for display under the name. */
   address: string;
@@ -27,112 +29,40 @@ export type Place = {
   distanceMiles: number;
 };
 
-type NominatimResult = {
-  place_id: number;
-  display_name: string;
-  name?: string;
-  lat: string;
-  lon: string;
-  address?: {
-    house_number?: string;
-    road?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    suburb?: string;
-    state?: string;
-    postcode?: string;
-  };
+type MapboxFeature = {
+  id: string;
+  type: 'Feature';
+  /** Full comma-separated label, e.g. "L'industrie, 254 South 2nd St, Brooklyn, NY 11211, USA" */
+  place_name: string;
+  /** Concise name, e.g. "L'industrie Pizzeria" */
+  text: string;
+  /** [longitude, latitude] in WGS84 */
+  center: [number, number];
 };
 
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-const USER_AGENT = 'FreshGreens/1.0 (thesis-demo)';
+type MapboxResponse = {
+  features?: MapboxFeature[];
+};
+
+const MAPBOX_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
+
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+
+// Bounding box half-width in degrees. ~2.0° ≈ 140 miles at mid-
+// latitudes — generous so rural users still get results. Mapbox's
+// `proximity` parameter biases toward user location, so closer
+// matches naturally surface first; the bbox just enforces a hard
+// upper bound on how far results can drift.
+const BBOX_DEGREES = 2.0;
 
 /**
  * Search for named POIs matching the query, biased toward the user's
- * current location. Returns up to 10 results sorted by Nominatim's
- * relevance score with distance from the user appended.
+ * current location. Returns up to 10 results sorted by distance from
+ * the user ascending.
  *
- * `userLocation` is required — the adapter sorts by distance and
- * biases search results toward the local viewbox. Passing the user's
- * location from the screen is cheaper than calling
- * Location.getCurrentPositionAsync inside the adapter (which would
- * trigger permission prompts in code that's supposed to be I/O-only).
+ * `userLocation` is required — feeds Mapbox's `proximity` parameter
+ * (the closer-results-first hint) and the client-side distance sort.
  */
-// Viewbox half-widths in degrees. ~0.7° ≈ 48 miles at mid-latitudes;
-// ~2.0° ≈ 140 miles. Tiered search: tight viewbox first (urban users
-// get clean "near me" results), wider viewbox fallback when nothing
-// matches locally (rural users still get something).
-const NARROW_VIEWBOX_DEGREES = 0.7;
-const WIDE_VIEWBOX_DEGREES = 2.0;
-
-/**
- * Maps common user-friendly category terms to the OSM tag keywords
- * Nominatim recognizes for category-aware search.
- *
- * Nominatim's default `q=` does name-search — it only matches places
- * whose NAME contains the query. Typing "salon" in NYC returns one
- * place literally named "Angela Salon" because no actual hair salons
- * are named the word "salon"; they're "Curl Up & Dye" etc. But if we
- * query "hairdresser" (the OSM `shop` tag value), Nominatim returns
- * 10 properly-categorized hair salons.
- *
- * This map is a thin pre-processor: if the user's query (trimmed,
- * lowercased) matches a key, we substitute the OSM keyword before
- * the request. Everything else passes through unchanged. The values
- * are OSM tag values from the standard `amenity` / `shop` / `tourism`
- * schemas — not invented.
- */
-const CATEGORY_ALIASES: Record<string, string> = {
-  salon: 'hairdresser',
-  'hair salon': 'hairdresser',
-  hair: 'hairdresser',
-  barber: 'hairdresser',
-  'beauty salon': 'beauty',
-  beauty: 'beauty',
-  nails: 'beauty',
-  'nail salon': 'beauty',
-  spa: 'beauty',
-  coffee: 'cafe',
-  'coffee shop': 'cafe',
-  food: 'restaurant',
-  gas: 'fuel',
-  'gas station': 'fuel',
-  parking: 'parking',
-  atm: 'atm',
-  bank: 'bank',
-  pharmacy: 'pharmacy',
-  grocery: 'supermarket',
-  groceries: 'supermarket',
-  pizza: 'restaurant',
-  bar: 'bar',
-  gym: 'gym',
-  fitness: 'gym',
-};
-
-function aliasQuery(raw: string): string {
-  const key = raw.trim().toLowerCase();
-  return CATEGORY_ALIASES[key] ?? raw;
-}
-
-/**
- * Strips punctuation and diacritics from a query so a user typing
- * "Lindustrie" can still find a place named "L'industrie" (and the
- * reverse), and "cafe" can find "café". Used as the tier-3 fallback
- * when the original-form search has returned empty in both viewbox
- * sizes — Nominatim's tokenizer normally handles these cases, but
- * the index occasionally preserves the punctuation in ways that
- * trip up unpunctuated queries.
- */
-function normalizeQuery(raw: string): string {
-  return raw
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // combining diacritical marks
-    .replace(/['‘’\-]/g, '') // straight + curly apostrophes, hyphen
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 export async function searchPlaces(
   query: string,
   userLocation: { latitude: number; longitude: number },
@@ -140,107 +70,64 @@ export async function searchPlaces(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // Translate common category terms (e.g. "salon" → "hairdresser")
-  // into the OSM tag keywords Nominatim recognizes for category
-  // search. Without this, name-only matching makes generic queries
-  // useless ("salon" returns ~1 result in dense urban areas).
-  const queryToSend = aliasQuery(trimmed);
-
-  // Tier 1: tight ~50mi viewbox. Best UX for urban / suburban users —
-  // results stay close enough that "near me" is a faithful read.
-  const narrow = await fetchPlaces(queryToSend, userLocation, NARROW_VIEWBOX_DEGREES);
-  if (narrow.length > 0) return narrow;
-
-  // Tier 2: ~140mi fallback. Rural users (where the nearest match for
-  // a niche query might genuinely be 80mi away) get a usable answer
-  // instead of an empty list.
-  const wide = await fetchPlaces(queryToSend, userLocation, WIDE_VIEWBOX_DEGREES);
-  if (wide.length > 0) return wide;
-
-  // Tier 3: punctuation-normalized retry. Fires only when both prior
-  // tiers returned empty AND the normalized form actually differs.
-  // Helps for "Lindustrie" → "L'industrie" (and reverse), or "cafe"
-  // → "café". One extra request only in the long tail.
-  const normalized = normalizeQuery(queryToSend);
-  if (normalized && normalized !== queryToSend) {
-    return fetchPlaces(normalized, userLocation, WIDE_VIEWBOX_DEGREES);
+  if (!MAPBOX_TOKEN) {
+    console.warn(
+      '[places] EXPO_PUBLIC_MAPBOX_TOKEN not set — search returns empty.',
+    );
+    return [];
   }
-  return [];
-}
 
-/**
- * Single Nominatim request with a sized viewbox. Hard-restrict to the
- * box (bounded: '1') so a soft bias can't surface globally-famous
- * results from outside the area. Returns sorted by distance ascending.
- */
-async function fetchPlaces(
-  query: string,
-  userLocation: { latitude: number; longitude: number },
-  viewboxDegrees: number,
-): Promise<Place[]> {
-  const lat = userLocation.latitude;
-  const lng = userLocation.longitude;
-  const viewbox = [
-    lng - viewboxDegrees,
-    lat + viewboxDegrees,
-    lng + viewboxDegrees,
-    lat - viewboxDegrees,
+  const { latitude: lat, longitude: lng } = userLocation;
+  const bbox = [
+    lng - BBOX_DEGREES,
+    lat - BBOX_DEGREES,
+    lng + BBOX_DEGREES,
+    lat + BBOX_DEGREES,
   ].join(',');
 
   const params = new URLSearchParams({
-    q: query,
-    format: 'json',
-    // 20 (was 10) — category-aware queries can match many POIs and
-    // the user should be able to scroll a meaningful list. Distance
-    // sort still puts the closest match on top.
-    limit: '20',
-    addressdetails: '1',
-    countrycodes: 'us',
-    viewbox,
-    bounded: '1', // hard restrict — soft bias lets famous global results through
+    access_token: MAPBOX_TOKEN,
+    proximity: `${lng},${lat}`,
+    bbox,
+    country: 'us',
+    types: 'poi,address',
+    limit: '10',
   });
 
-  const url = `${NOMINATIM_URL}?${params.toString()}`;
+  const url = `${MAPBOX_URL}/${encodeURIComponent(trimmed)}.json?${params.toString()}`;
 
-  const response = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (err) {
+    console.warn('[places] Mapbox fetch failed:', err);
+    return [];
+  }
 
   if (response.status === 429) {
-    // Nominatim's public instance is 1 req/sec; the tiered approach
-    // + autocomplete debounce can spike past that during rapid typing.
-    // Treat as a graceful empty result instead of throwing — the
-    // /search UI then shows its empty-results state, which reads as
-    // "no matches" rather than as an error. The user can retry by
-    // typing again, by which point the rate window has reset.
-    console.warn('[places] Nominatim rate-limited (429); returning empty');
+    // Mapbox's free tier is 600/min — well above typical typing
+    // cadence. If we hit this it's still a transient cap; treat as
+    // empty (calm UI) and let the user retry.
+    console.warn('[places] Mapbox rate-limited (429); returning empty');
     return [];
   }
   if (!response.ok) {
-    throw new Error(`Nominatim returned ${response.status}`);
+    throw new Error(`Mapbox returned ${response.status}`);
   }
 
-  const json: NominatimResult[] = await response.json();
+  const json = (await response.json()) as MapboxResponse;
+  const features = json.features ?? [];
 
-  // Sort by distance ascending. Nominatim's default ordering inside a
-  // viewbox is relevance-based — for navigation intent ("find me X
-  // near me"), distance is the right primary sort.
-  return json
-    .map((r) => {
-      const placeLat = parseFloat(r.lat);
-      const placeLng = parseFloat(r.lon);
+  return features
+    .map((f) => {
+      const [placeLng, placeLat] = f.center;
       return {
-        id: String(r.place_id),
-        name: r.name ?? extractName(r.display_name),
-        address: formatAddress(r),
+        id: f.id,
+        name: f.text,
+        address: formatAddress(f),
         latitude: placeLat,
         longitude: placeLng,
-        distanceMiles: distanceMiles(
-          userLocation.latitude,
-          userLocation.longitude,
-          placeLat,
-          placeLng,
-        ),
+        distanceMiles: distanceMiles(lat, lng, placeLat, placeLng),
       };
     })
     .sort((a, b) => a.distanceMiles - b.distanceMiles);
@@ -249,42 +136,23 @@ async function fetchPlaces(
 // --- Helpers --------------------------------------------------------------
 
 /**
- * Nominatim's `display_name` is comma-separated: "Foo Salon, 123 Main
- * St, Mobile, AL, 36601, USA". When `name` is missing on the response,
- * fall back to the first segment (the business name itself).
+ * Mapbox's `place_name` is comma-separated: "Name, Street, City, ST
+ * ZIP, USA". The first segment is `text` (the name); we want the next
+ * two segments (street + city) as the address line.
  */
-function extractName(displayName: string): string {
-  const first = displayName.split(',')[0];
-  return first.trim();
-}
-
-/**
- * Compose a brief address line from Nominatim's `address` object.
- * Pattern: "{house_number} {road}, {city}" — falls back to truncated
- * display_name if structured fields are missing.
- */
-function formatAddress(r: NominatimResult): string {
-  const a = r.address;
-  if (!a) {
-    return truncate(r.display_name, 40);
-  }
-  const street = [a.house_number, a.road].filter(Boolean).join(' ');
-  const city = a.city ?? a.town ?? a.village ?? a.suburb ?? '';
-  if (street && city) return `${street}, ${city}`;
-  if (street) return street;
-  if (city) return city;
-  return truncate(r.display_name, 40);
-}
-
-function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+function formatAddress(f: MapboxFeature): string {
+  const parts = f.place_name.split(',').map((s) => s.trim());
+  // Skip the first segment (name) and the trailing country.
+  const middle = parts.slice(1, -1);
+  if (middle.length === 0) return parts.join(', ');
+  // Street + city is the most useful 2 segments for display.
+  return middle.slice(0, 2).join(', ');
 }
 
 /**
  * Haversine distance in miles. Same formula scoring.ts and edge-
  * indicators.ts would use if they needed it; small enough to inline
- * here rather than extract to a shared util — current rule-of-three
- * count is still 1.
+ * here rather than extract to a shared util.
  */
 function distanceMiles(
   lat1: number,

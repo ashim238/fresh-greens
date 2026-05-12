@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/mapbox-geocoding-swap (2026-05-12)
+
+Swapped /search's geocoder backend from Nominatim (1 req/sec, name-only matching) to Mapbox Geocoding (10 req/sec free tier, native POI/category understanding). The adapter pattern earned its keep: only `lib/api/places.ts` internals changed; the rest of the app sees the same `Place[]` shape and doesn't care which service answered. Token loaded from `EXPO_PUBLIC_MAPBOX_TOKEN` in `.env.local` (gitignored). `.env.example` added (committed) so onboarding is documented.
+
+Tonight's earlier work to compensate for Nominatim's limits — CATEGORY_ALIASES, three-tier viewbox fallback, tier-3 punctuation normalization — was retired wholesale. Mapbox handles all three natively: category queries ("salon" matches actual salons, no alias map needed), proximity bias built into the API, fuzzy / partial / diacritic-tolerant matching is the default.
+
+- **Adapter swap as the load-bearing pattern earned its keep tonight.** Five PRs of compounding compensation (rural fallback, category aliases, punctuation normalization, 429 handling, debounce tuning) became one PR replacing the backend. The screens / hooks / scoring layers didn't change a single line because they only consume `Place[]`. Worth keeping: when piling workarounds for a service's limits, the calculus eventually flips — at some point the swap is cheaper than the next workaround. Track the layered compensations; when they outnumber the original adapter's lines of code, swap.
+- **Free-tier rate limits are a hidden axis of design.** Nominatim's 1 req/sec drove the 600ms debounce, the tiered fallback, the 429 handling — features that LOOKED like UX work but were rate-limit accommodations. Mapbox's 10 req/sec lets the UX revert to "fast and obvious" (300ms debounce, single-call per query). Worth keeping: when a backend constraint forces UX compromises, document the trade-off as a *rate-limit symptom*, not a *design decision* — they look the same in the diff but mean different things if the backend changes.
+- **`.env.local` for secrets, `.env.example` for onboarding.** The token lives only in the gitignored `.env.local`; the repo carries `.env.example` (committed, value blank) so a fresh clone documents which env var is needed. Worth keeping: when adding any third-party service that needs a token, ship the example file in the same PR — the alternative (Slack thread tribal knowledge) loses the value within a week.
+
+---
+
 ## fix/search-rate-limit-handling (2026-05-12)
 
 Real-device test surfaced 429s from Nominatim. Two compounding causes: (1) the tiered search fires up to 3 requests per query (tier-1 narrow viewbox → tier-2 wide → tier-3 normalized); (2) autocomplete was debounced at only 300ms, meaning a fast typist would dispatch a 3-request burst per word. Public Nominatim's policy is 1 req/sec. Fixes: catch 429 → treat as graceful empty result (don't crash); bump debounce 300ms → 600ms (fewer queries per typing burst).
