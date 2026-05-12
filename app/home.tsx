@@ -17,6 +17,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import MenuHome from '../assets/illustrations/menu-home.svg';
+import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
@@ -965,18 +966,18 @@ export default function Home() {
         /report with those coords.
       */}
       {bottomSheetHeight > 0 && !placingReport && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.reportBtn,
-            { bottom: bottomSheetHeight + 24 },
-            pressed && pressedDim,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Report something — place a pin on the map"
+        <FloatingActionButton
+          size="56"
           onPress={handleReportButtonPress}
+          accessibilityLabel="Report something — place a pin on the map"
+          style={{
+            position: 'absolute',
+            right: 16,
+            bottom: bottomSheetHeight + 24,
+          }}
         >
-          <Ionicons name="alert-circle" size={32} color={colors.orange} />
-        </Pressable>
+          <SidebtnReport width={32} height={32} />
+        </FloatingActionButton>
       )}
 
       {/* Placement mode controls — confirm / cancel bar at the bottom. */}
@@ -1182,21 +1183,6 @@ const styles = StyleSheet.create({
   goText: {
     ...typography.subheadlineEmphasized,
     color: colors.white,
-  },
-  reportBtn: {
-    position: 'absolute',
-    right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 100,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
   },
   // --- Cluster marker ---
   clusterMarker: {

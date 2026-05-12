@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
@@ -19,12 +20,17 @@ import EnRouteCurrentLocation from '../assets/illustrations/enroute-current-loca
  * this over falling back to a blue dot since the car is the active
  * driving indicator regardless of motion state.
  *
- * Anchored at center (the GPS coord sits at the car's middle). The
- * Marker uses `tracksViewChanges={false}` after the heading prop is
- * known so rotation re-renders aren't snapshotted away by MapKit's
- * caching — the consumer drives re-rendering by changing the marker
- * `key` when heading changes meaningfully (handled at the screen
- * level via `Math.round(heading)` keying).
+ * Anchored at center (the GPS coord sits at the car's middle).
+ *
+ * **`tracksViewChanges` lifecycle.** MapKit caches the marker as a
+ * bitmap after first paint. Mounting with `tracksViewChanges={false}`
+ * caused the SVG to snapshot empty (the `react-native-svg` subtree
+ * hadn't resolved yet), leaving an invisible marker. Fix: start
+ * `true` so the marker re-renders while the SVG paints, then flip to
+ * `false` on the next frame so subsequent rotation re-renders aren't
+ * paid for. The consumer also re-mounts the marker via a heading-
+ * derived `key` (Math.round(heading)) when heading changes
+ * meaningfully — that path stays the same.
  */
 export function EnRouteCarMarker({
   latitude,
@@ -37,12 +43,20 @@ export function EnRouteCarMarker({
   heading: number | null;
 }) {
   const rotation = heading ?? 0;
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    // One-shot flip after first paint. Using rAF via setTimeout(0) is
+    // enough — by the next tick, the SVG subtree has painted and
+    // MapKit's snapshot will pick it up.
+    const id = setTimeout(() => setTracking(false), 0);
+    return () => clearTimeout(id);
+  }, []);
   return (
     <Marker
       coordinate={{ latitude, longitude }}
       anchor={{ x: 0.5, y: 0.5 }}
       zIndex={1000}
-      tracksViewChanges={false}
+      tracksViewChanges={tracking}
     >
       <View
         style={[styles.frame, { transform: [{ rotate: `${rotation}deg` }] }]}
