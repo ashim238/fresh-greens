@@ -59,6 +59,62 @@ const USER_AGENT = 'FreshGreens/1.0 (thesis-demo)';
  * Location.getCurrentPositionAsync inside the adapter (which would
  * trigger permission prompts in code that's supposed to be I/O-only).
  */
+// Viewbox half-widths in degrees. ~0.7° ≈ 48 miles at mid-latitudes;
+// ~2.0° ≈ 140 miles. Tiered search: tight viewbox first (urban users
+// get clean "near me" results), wider viewbox fallback when nothing
+// matches locally (rural users still get something).
+const NARROW_VIEWBOX_DEGREES = 0.7;
+const WIDE_VIEWBOX_DEGREES = 2.0;
+
+/**
+ * Maps common user-friendly category terms to the OSM tag keywords
+ * Nominatim recognizes for category-aware search.
+ *
+ * Nominatim's default `q=` does name-search — it only matches places
+ * whose NAME contains the query. Typing "salon" in NYC returns one
+ * place literally named "Angela Salon" because no actual hair salons
+ * are named the word "salon"; they're "Curl Up & Dye" etc. But if we
+ * query "hairdresser" (the OSM `shop` tag value), Nominatim returns
+ * 10 properly-categorized hair salons.
+ *
+ * This map is a thin pre-processor: if the user's query (trimmed,
+ * lowercased) matches a key, we substitute the OSM keyword before
+ * the request. Everything else passes through unchanged. The values
+ * are OSM tag values from the standard `amenity` / `shop` / `tourism`
+ * schemas — not invented.
+ */
+const CATEGORY_ALIASES: Record<string, string> = {
+  salon: 'hairdresser',
+  'hair salon': 'hairdresser',
+  hair: 'hairdresser',
+  barber: 'hairdresser',
+  'beauty salon': 'beauty',
+  beauty: 'beauty',
+  nails: 'beauty',
+  'nail salon': 'beauty',
+  spa: 'beauty',
+  coffee: 'cafe',
+  'coffee shop': 'cafe',
+  food: 'restaurant',
+  gas: 'fuel',
+  'gas station': 'fuel',
+  parking: 'parking',
+  atm: 'atm',
+  bank: 'bank',
+  pharmacy: 'pharmacy',
+  grocery: 'supermarket',
+  groceries: 'supermarket',
+  pizza: 'restaurant',
+  bar: 'bar',
+  gym: 'gym',
+  fitness: 'gym',
+};
+
+function aliasQuery(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  return CATEGORY_ALIASES[key] ?? raw;
+}
+
 export async function searchPlaces(
   query: string,
   userLocation: { latitude: number; longitude: number },
@@ -66,26 +122,54 @@ export async function searchPlaces(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // Hard-restrict the search to a ~50mi viewbox around the user's
-  // location. 0.7° ≈ 48 miles at mid-latitudes; close enough for
-  // thesis demo. Earlier version used `bounded: '0'` (soft bias)
-  // which let Nominatim's global relevance ranking surface results
-  // thousands of miles away when the query had a well-known global
-  // match — e.g. searching "Salon" in NY would return a famous
-  // salon on the west coast above any local salons. `bounded: '1'`
-  // makes the viewbox a hard limit.
+  // Translate common category terms (e.g. "salon" → "hairdresser")
+  // into the OSM tag keywords Nominatim recognizes for category
+  // search. Without this, name-only matching makes generic queries
+  // useless ("salon" returns ~1 result in dense urban areas).
+  const queryToSend = aliasQuery(trimmed);
+
+  // Tier 1: tight ~50mi viewbox. Best UX for urban / suburban users —
+  // results stay close enough that "near me" is a faithful read.
+  const narrow = await fetchPlaces(queryToSend, userLocation, NARROW_VIEWBOX_DEGREES);
+  if (narrow.length > 0) return narrow;
+
+  // Tier 2: ~140mi fallback. Rural users (where the nearest match for
+  // a niche query might genuinely be 80mi away) get a usable answer
+  // instead of an empty list. The cost is one extra request, fired
+  // only when the first one came back empty.
+  return fetchPlaces(queryToSend, userLocation, WIDE_VIEWBOX_DEGREES);
+}
+
+/**
+ * Single Nominatim request with a sized viewbox. Hard-restrict to the
+ * box (bounded: '1') so a soft bias can't surface globally-famous
+ * results from outside the area. Returns sorted by distance ascending.
+ */
+async function fetchPlaces(
+  query: string,
+  userLocation: { latitude: number; longitude: number },
+  viewboxDegrees: number,
+): Promise<Place[]> {
   const lat = userLocation.latitude;
   const lng = userLocation.longitude;
-  const viewbox = [lng - 0.7, lat + 0.7, lng + 0.7, lat - 0.7].join(',');
+  const viewbox = [
+    lng - viewboxDegrees,
+    lat + viewboxDegrees,
+    lng + viewboxDegrees,
+    lat - viewboxDegrees,
+  ].join(',');
 
   const params = new URLSearchParams({
-    q: trimmed,
+    q: query,
     format: 'json',
-    limit: '10',
+    // 20 (was 10) — category-aware queries can match many POIs and
+    // the user should be able to scroll a meaningful list. Distance
+    // sort still puts the closest match on top.
+    limit: '20',
     addressdetails: '1',
     countrycodes: 'us',
     viewbox,
-    bounded: '1', // hard restrict to viewbox — see comment above
+    bounded: '1', // hard restrict — soft bias lets famous global results through
   });
 
   const url = `${NOMINATIM_URL}?${params.toString()}`;
@@ -100,11 +184,9 @@ export async function searchPlaces(
 
   const json: NominatimResult[] = await response.json();
 
-  // Sort by distance ascending so the closest match is always first.
-  // Nominatim's default ordering inside a viewbox is relevance-based,
-  // which can put a famous-but-farther result above a closer obvious
-  // match. For "find me X near me" intent, distance is the right
-  // primary sort.
+  // Sort by distance ascending. Nominatim's default ordering inside a
+  // viewbox is relevance-based — for navigation intent ("find me X
+  // near me"), distance is the right primary sort.
   return json
     .map((r) => {
       const placeLat = parseFloat(r.lat);
