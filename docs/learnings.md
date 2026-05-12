@@ -32,6 +32,15 @@ The gray alternate polylines on `/home` and `/en-route` were visibly cutting thr
 
 ---
 
+## feat/destination-marker (2026-05-12)
+
+Added a destination pin at the route endpoint on `/home` and `/en-route`. Phosphor `MapPin` weight="fill" in wiltedgreen, anchored bottom-center, `tracksViewChanges={false}` after first paint. The recommended-route polyline alone didn't anchor "where this trip ends" — especially on /en-route, where the line runs off-screen as the car advances and the endpoint disappears from view entirely.
+
+- **The route polyline is not a destination affordance.** It encodes the *path*; the endpoint is implicit and disappears when the user pans or the camera follows the car. The destination needs its own marker because "where am I going?" is a different question from "what path will I take?" — and the answer to the first is a fixed point, not a line that scrolls off-screen. Worth keeping: when a screen depends on a piece of geometry having visible endpoints, the endpoint deserves its own pin — don't lean on the line to do double duty.
+- **Color choice is information, even when it isn't signaling.** Picked wiltedgreen (the project's deeper brand green) over freshgreen (the lighter green used for trusted-friend and saved-home pins) so the destination reads as a *different kind* of important place — a one-trip endpoint vs. a persistent location. Both are brand-aligned, neither collides with the reserved orange/red/yellow signaling palette. The reserved-color rule disciplines what colors mean; within the safe colors, the choice still carries meaning (this-trip vs. always-yours). Worth keeping: even when reserved colors block the obvious "look at me" red, the *available* palette has its own internal semantic distinctions to honor.
+
+---
+
 <<<<<<< HEAD
 ## chore/pulled-over-chrome-polish (2026-05-12)
 

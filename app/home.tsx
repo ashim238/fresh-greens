@@ -19,6 +19,7 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import MenuHome from '../assets/illustrations/menu-home.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
+import { DestinationMarker } from '../components/DestinationMarker';
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
@@ -630,6 +631,19 @@ export default function Home() {
               accessibilityLabel={`${trustedContact.name}'s ${trustedContact.addressLabel ?? 'home'} (trusted contact)`}
             />
           )}
+        {/*
+          Destination pin — drops at the route endpoint when a
+          destination is set via URL params. The route polyline alone
+          doesn't visually anchor the trip's end; the pin reads as
+          "this is where we're going" against busy map content.
+        */}
+        {params.destLat && params.destLng && (
+          <DestinationMarker
+            latitude={parseFloat(params.destLat)}
+            longitude={parseFloat(params.destLng)}
+            name={params.destName}
+          />
+        )}
         {/*
           OSRM-derived routes. Recommended renders as a daylight-
           gradient polyline; alternates render in muted gray. Always
