@@ -264,6 +264,14 @@ Per `docs/workflow.md`. Summary:
 7. **Open a PR**, even solo. Self-review the diff on GitHub (different mode of reading than Cursor; catches things).
 8. **Add a learnings entry** to `docs/learnings.md` per PR. One-liner per non-obvious takeaway. Newest at top.
 9. **Every ~5 PRs (or after any heavy structural one), run a Figma fidelity audit.** Branch `chore/figma-fidelity-audit-N`, diff every shipped screen against its Figma node, fix drift in one PR. See `docs/workflow.md` step 12 for the checklist. Audits reset the baseline — without them, every feature builds on a slowly eroding fidelity floor.
+10. **Every ~5 PRs (same cadence as the fidelity audit), run an architecture audit.** Branch `chore/architecture-audit-N`. Counterpart to the visual audit — that one catches Figma drift; this one catches code-architecture drift. Checklist:
+    - Adapter pattern compliance — `lib/api/*` files stay async, typed, with try/catch + mock fallback. No synchronous helpers sneaking in.
+    - Scoring purity — `lib/scoring.ts` has zero I/O, zero `await`, deterministic.
+    - Orphan exports — run a Pattern 2 dead-code sweep with a public-API filter (`app/` + `components/` only, since `lib/`/`hooks/`/`theme/` are deliberate public surfaces).
+    - Theme-token discipline — no hardcoded colors or typography outside `.cursorrules`'s documented exceptions.
+    - Hook usage — no hooks defined with only one consumer unless explicitly future-facing.
+    Result is a punch list that either becomes its own cleanup PR or feeds into the next feature PR.
+11. **Quarterly (or every ~20 PRs), consolidate `docs/learnings.md`.** The file is append-only by design — per-PR practice — but it grows unbounded. Consolidation merges redundant entries about the same lesson, retires entries where the underlying decision was overturned, and *promotes stable patterns* from learnings → CLAUDE.md body so they're seen on every session boot. Best run as a Pattern 1 agent task (instruct it to consolidate without losing the *why* context). Keep entries that captured the reason a decision was made, even when the decision is now obvious.
 
 ---
 
@@ -275,7 +283,12 @@ These have been earned through iteration; preserve them.
 - **Push back when I'm about to do something inconsistent.** If I propose a change that violates the design system or contradicts a documented learning, say so before implementing.
 - **Anchor to Figma — except where iOS HIG says otherwise.** "Lands but feels off" feedback is usually signal that a structural pattern was missed (typically `flex-1 + justify-*` for "fill remaining space"). Match the hierarchy, not just the gap values. **But:** when Figma conflicts with iOS HIG (most often on tap targets), HIG wins. The design source of truth is the *intent*, and the platform constraint is part of the intent. A 36pt button at 44pt is still the design — visually faithful, behaviorally correct.
 - **Diligent on widths and devices.** Hardcoded widths (`width: 374`) fail on wider iPhones. Default to `alignSelf: 'stretch' + marginHorizontal: <n>` for responsive sizing.
-- **Don't extract before the third use.** Rule of three. Inline twice; extract on the third.
+- **Rule of three.** Don't extract a helper, hook, or component for the second use site. Inline duplication is cheaper than a wrong abstraction. Extract on the third use when the shape has stabilized. Pair-review agents check for this — premature extraction is a flagged defect.
+- **Write code a senior engineer could pick up cold in 6 months.** This is the readability bar — *above* the design rules in `.cursorrules`. Specifics:
+  - Comments explain WHY (a hidden constraint, a workaround, a thesis-claim link). Don't restate what well-named code already says.
+  - Public surface minimization. Only `export` what at least one other file imports today. `lib/`/`hooks/`/`theme/` are deliberate exceptions (they document a contract); `app/` and `components/` aren't.
+  - Stale-comment hygiene — when a referenced file/symbol is deleted or renamed, the comments that named it get fixed too.
+  - Narrow types > comments. If a constraint can be encoded in the type system (e.g., the Button's `Secondary + Transparent` exclusion), it should be — types don't rot.
 - **Pair scoring weights / data shape decisions to thesis claims.** When adding a new data source or category, walk through how it maps to the existing `Zone` / `ZoneType` model before designing the screens.
 
 ---
