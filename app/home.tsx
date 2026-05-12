@@ -17,7 +17,6 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import MenuHome from '../assets/illustrations/menu-home.svg';
-import UserCar from '../assets/illustrations/user-car.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
@@ -29,7 +28,6 @@ import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
-import { useUser } from '../hooks/useUser';
 import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
@@ -73,7 +71,6 @@ import { typography } from '../theme/typography';
  */
 export default function Home() {
   const router = useRouter();
-  const { user } = useUser();
   const { preferences } = usePreferences();
   const { home, addSavedPlace } = useSavedPlaces();
   // Trusted Friend marker — renders only when the trusted contact has a
@@ -806,28 +803,12 @@ export default function Home() {
           </Pressable>
 
           {/*
-            Avatar button — opens /menu (Settings hub). Uses the same
-            car-icon glyph as /menu's hero header, so the user's
-            identity reads as a "car-in-the-system" everywhere it
-            appears. Fadedgreen color matches /menu's hero (the
-            trusted-friend pin gets freshgreen — different role).
-            48pt white circular surface mirrors menuButton's elevation.
-            useUser is read for accessibility label only (announces
-            the user's name to VoiceOver) — visual is icon-only.
-            Renders the custom user-car SVG (the user's identity glyph,
-            paired with /menu's profile row).
+            Avatar button retired — it was redundant with the
+            hamburger to its left (both opened /menu). The hamburger
+            stays as the single Settings entry. The user's identity
+            glyph (UserCar) lives on /menu's profile row, which is
+            the surface where identity actually belongs.
           */}
-          <FloatingActionButton
-            size="48"
-            onPress={() => router.push('/menu')}
-            accessibilityLabel={
-              user?.displayName
-                ? `Open Settings (signed in as ${user.displayName})`
-                : 'Open Settings'
-            }
-          >
-            <UserCar width={28} height={28} />
-          </FloatingActionButton>
         </View>
       </SafeAreaView>
 

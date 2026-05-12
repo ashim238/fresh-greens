@@ -36,7 +36,7 @@ import { EnRouteZone } from '../components/EnRouteZone';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
-import { UserLocationMarker } from '../components/UserLocationMarker';
+import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
@@ -152,6 +152,13 @@ export default function EnRoute() {
   // null before motion is detected). Feeds the SpeedLimit sign's top
   // pill — when null, the pill renders a dash.
   const [speedMph, setSpeedMph] = useState<number | null>(null);
+  // GPS heading (degrees, 0=north) — feeds the EnRouteCarMarker's
+  // rotation so the car icon points in the direction of travel.
+  // Null while iOS hasn't computed a heading yet (stationary), in
+  // which case the car points north as a safe default. Sticky once
+  // resolved so brief stationary moments don't snap the car back
+  // to north.
+  const [heading, setHeading] = useState<number | null>(null);
   // Bottom-sheet height drives where the side button column floats. Same
   // pattern /home uses for the Report button: measure on layout, anchor
   // children relative to the measured value, conditionally render so we
@@ -448,6 +455,15 @@ export default function EnRoute() {
           if (typeof ms === 'number' && ms >= 0) {
             setSpeedMph(Math.round(ms * 2.237));
           }
+          // pos.coords.heading is in degrees (0=north). iOS returns
+          // -1 when the device hasn't detected motion. Same gate as
+          // speed — only update when we have a real heading, so the
+          // car doesn't snap back to north every time the driver
+          // stops at a red light.
+          const hdg = pos.coords.heading;
+          if (typeof hdg === 'number' && hdg >= 0) {
+            setHeading(hdg);
+          }
         },
       );
     })();
@@ -635,9 +651,17 @@ export default function EnRoute() {
         })}
 
         {userLocation && (
-          <UserLocationMarker
+          <EnRouteCarMarker
+            // Embed heading in the key so each meaningful rotation
+            // remounts the native Marker — iOS MapKit caches the
+            // marker snapshot when `tracksViewChanges` is false, so
+            // an in-place transform update wouldn't repaint. Rounding
+            // to whole degrees gates updates to ~360 per full turn,
+            // not one per GPS tick.
+            key={`car-${heading != null ? Math.round(heading) : 'n'}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
+            heading={heading}
           />
         )}
       </MapView>
