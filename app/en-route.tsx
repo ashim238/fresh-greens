@@ -921,13 +921,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-    // No shadow. iOS won't auto-derive a rounded `shadowPath` when
-    // only `borderBottom*` radii are set (vs. a uniform
-    // `borderRadius`) — it falls back to the bounding rect, so a
-    // shadow on this view paints rectangular corners that stick
-    // out past the curve. The wiltedgreen-vs-map contrast already
-    // separates the header visually; the bottom sheet carries its
-    // own shadow where depth actually matters.
+    // iOS will paint the background to the layer's rectangular
+    // bounds (ignoring `borderBottom*` radii) unless we explicitly
+    // clip — the visible bug was burntgreen rectangle corners
+    // poking past the rounded curve. `overflow: 'hidden'` forces
+    // the layer to clip everything (including its own bg) to the
+    // rounded shape. No shadow on this view: iOS's `shadowPath`
+    // auto-derivation needs a uniform `borderRadius` to follow
+    // a rounded shape, and the bottom sheet carries its own
+    // shadow where depth actually matters.
+    overflow: 'hidden',
   },
   thenText: {
     ...typography.title3Regular,
