@@ -127,6 +127,51 @@ export default function EnRoute() {
 
   const recommended = routes.find((route) => route.type === 'recommended');
 
+  // Route polylines memoized so live-GPS re-renders don't rebuild the
+  // overlay on the native side — RN-Maps on iOS loses Polyline paint
+  // order between re-renders and the colored stroke disappears under
+  // the halo. Same pattern as /home.
+  const routePolylines = useMemo(
+    () =>
+      routes.flatMap((route) => {
+        const isRecommended = route.type === 'recommended';
+        const baseWidth = isRecommended
+          ? routeColors.recommended.width
+          : routeColors.alternate.width;
+        const elements: React.ReactElement[] = [
+          <Polyline
+            key={`${route.id}-halo`}
+            coordinates={route.coordinates}
+            strokeColor={colors.white}
+            strokeWidth={baseWidth + 3}
+          />,
+        ];
+        if (isRecommended) {
+          elements.push(
+            ...gradientSegments(route).map((segment, idx) => (
+              <Polyline
+                key={`${route.id}-seg-${idx}`}
+                coordinates={segment.coordinates}
+                strokeColor={segment.color}
+                strokeWidth={routeColors.recommended.width}
+              />
+            )),
+          );
+        } else {
+          elements.push(
+            <Polyline
+              key={route.id}
+              coordinates={route.coordinates}
+              strokeColor={routeColors[route.type].stroke}
+              strokeWidth={routeColors[route.type].width}
+            />,
+          );
+        }
+        return elements;
+      }),
+    [routes],
+  );
+
   // Arrival clock time (now + remaining minutes), formatted as "8:30".
   // Figma shows the arrival time as `h:MM` with a sun/moon glyph
   // beside it (not "8:30 PM") — the time stays compact (no wrap on
@@ -399,50 +444,7 @@ export default function EnRoute() {
             />
           );
         })}
-        {routes.flatMap((route) => {
-          // White halo polyline first (slightly wider) + colored stroke
-          // on top — same pattern as /home, gives the route a 1–2pt
-          // white border per Figma so it stands out against street
-          // geometry. See the longer note on home.tsx.
-          const isRecommended = route.type === 'recommended';
-          const baseWidth = isRecommended
-            ? routeColors.recommended.width
-            : routeColors.alternate.width;
-          const elements: React.ReactElement[] = [
-            <Polyline
-              key={`${route.id}-halo`}
-              coordinates={route.coordinates}
-              strokeColor={colors.white}
-              strokeWidth={baseWidth + 3}
-            />,
-          ];
-          // zIndex={1} forces the colored stroke above the halo — RN-Maps
-          // doesn't strictly respect Polyline array order for paint depth.
-          if (isRecommended) {
-            elements.push(
-              ...gradientSegments(route).map((segment, idx) => (
-                <Polyline
-                  key={`${route.id}-seg-${idx}`}
-                  coordinates={segment.coordinates}
-                  strokeColor={segment.color}
-                  strokeWidth={routeColors.recommended.width}
-                  zIndex={1}
-                />
-              )),
-            );
-          } else {
-            elements.push(
-              <Polyline
-                key={route.id}
-                coordinates={route.coordinates}
-                strokeColor={routeColors[route.type].stroke}
-                strokeWidth={routeColors[route.type].width}
-                zIndex={1}
-              />,
-            );
-          }
-          return elements;
-        })}
+        {routePolylines}
 
         {userLocation && (
           <UserLocationMarker
@@ -880,7 +882,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorderSubtle,
     borderRadius: 12,
     paddingHorizontal: 8,
-    paddingVertical: 16,
+    paddingVertical: 24,
     alignItems: 'center',
     // M3 Elevation 1 — subtle drop shadow so the sign reads as a
     // physical object on the map.

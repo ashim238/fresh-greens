@@ -175,6 +175,56 @@ export default function Home() {
   // undefined briefly on first render before the fetch completes.
   const recommended = routes.find((route) => route.type === 'recommended');
 
+  // Route polylines memoized so unrelated re-renders (live GPS, etc.)
+  // don't rebuild + re-mount them on the native side. Without this,
+  // react-native-maps on iOS loses Polyline paint-order between
+  // re-renders and the colored stroke disappears under the halo.
+  // Same pattern applies in /en-route.
+  const routePolylines = useMemo(
+    () =>
+      routes.flatMap((route) => {
+        // Each route renders as a white halo polyline first (slightly
+        // wider) + the colored stroke on top. The halo gives the route
+        // a 1–2pt white border per Figma so it stands out against the
+        // underlying street geometry.
+        const isRecommended = route.type === 'recommended';
+        const baseWidth = isRecommended
+          ? routeColors.recommended.width
+          : routeColors.alternate.width;
+        const elements: React.ReactElement[] = [
+          <Polyline
+            key={`${route.id}-halo`}
+            coordinates={route.coordinates}
+            strokeColor={colors.white}
+            strokeWidth={baseWidth + 3}
+          />,
+        ];
+        if (isRecommended) {
+          elements.push(
+            ...gradientSegments(route).map((segment, idx) => (
+              <Polyline
+                key={`${route.id}-seg-${idx}`}
+                coordinates={segment.coordinates}
+                strokeColor={segment.color}
+                strokeWidth={routeColors.recommended.width}
+              />
+            )),
+          );
+        } else {
+          elements.push(
+            <Polyline
+              key={route.id}
+              coordinates={route.coordinates}
+              strokeColor={routeColors[route.type].stroke}
+              strokeWidth={routeColors[route.type].width}
+            />,
+          );
+        }
+        return elements;
+      }),
+    [routes],
+  );
+
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
   // when leaving later actually buys more daylight (currently: pre-dawn
   // departures). `null` hides the chip — see lib/daylight.ts for rules.
@@ -543,52 +593,7 @@ export default function Home() {
           gradient polyline; alternates render in muted gray. Always
           on the map's native overlay layer.
         */}
-        {routes.flatMap((route) => {
-          // Each route renders as a white halo polyline first (slightly
-          // wider) + the colored stroke on top. The halo gives the
-          // route a 1–2pt white border per Figma, helping it stand out
-          // against the underlying street geometry.
-          const isRecommended = route.type === 'recommended';
-          const baseWidth = isRecommended
-            ? routeColors.recommended.width
-            : routeColors.alternate.width;
-          const elements: React.ReactElement[] = [
-            <Polyline
-              key={`${route.id}-halo`}
-              coordinates={route.coordinates}
-              strokeColor={colors.white}
-              strokeWidth={baseWidth + 3}
-            />,
-          ];
-          // Recommended route: daylight-gradient segments on top of the halo.
-          // zIndex={1} forces these to paint above the halo — RN-Maps
-          // doesn't strictly respect array order for Polyline paint depth,
-          // so the halo wins without an explicit z-order.
-          if (isRecommended) {
-            elements.push(
-              ...gradientSegments(route).map((segment, idx) => (
-                <Polyline
-                  key={`${route.id}-seg-${idx}`}
-                  coordinates={segment.coordinates}
-                  strokeColor={segment.color}
-                  strokeWidth={routeColors.recommended.width}
-                  zIndex={1}
-                />
-              )),
-            );
-          } else {
-            elements.push(
-              <Polyline
-                key={route.id}
-                coordinates={route.coordinates}
-                strokeColor={routeColors[route.type].stroke}
-                strokeWidth={routeColors[route.type].width}
-                zIndex={1}
-              />,
-            );
-          }
-          return elements;
-        })}
+        {routePolylines}
 
         {/*
           Custom user-location dot — replaces showsUserLocation so it
