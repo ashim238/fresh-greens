@@ -42,7 +42,11 @@ import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
-import { FIREARM_GUIDANCE, type DisclosureDuty } from '../lib/api/gun-laws';
+import {
+  FIREARM_GUIDANCE,
+  type DisclosureDuty,
+  type SayBullet,
+} from '../lib/api/gun-laws';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -1196,6 +1200,21 @@ function Bullet({ children }: { children: ReactNode }) {
   );
 }
 
+// Renders a SayBullet either as a plain string or as
+// `lead + <Strong>emphasized</Strong> + trail` — used by the firearm
+// review section to bold the literal spoken script while keeping the
+// surrounding instruction regular weight.
+function renderSayBullet(bullet: SayBullet): ReactNode {
+  if (typeof bullet === 'string') return bullet;
+  return (
+    <>
+      {bullet.lead}
+      <Strong>{bullet.emphasized}</Strong>
+      {bullet.trail}
+    </>
+  );
+}
+
 function Strong({ children }: { children: ReactNode }) {
   // Strong inherits its size from the surrounding Bullet's scaled
   // style via React Native's nested-Text inheritance. Apply scaling
@@ -1275,7 +1294,9 @@ function WhatToSayView({
     //     honestly" (most permit-only states).
     const sayBullets = FIREARM_GUIDANCE[disclosureDuty].sayBullets;
     sayBullets.forEach((line, i) => {
-      bullets.push(<Bullet key={`firearm-${i}`}>{line}</Bullet>);
+      bullets.push(
+        <Bullet key={`firearm-${i}`}>{renderSayBullet(line)}</Bullet>,
+      );
     });
   }
 

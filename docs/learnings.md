@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/firearm-emphasis-and-auto-expand-flag (2026-05-12)
+
+Two small follow-ups bundled: (1) bolds the literal spoken phrase in the duty-to-inform firearm sayBullet on /pulled-over so the driver's eye catches the script-line under stress; (2) adds a CLAUDE.md note that the `feat/en-route-zone-entry-auto-expand` behavior needs a real drive (or Simulator "Freeway Drive") to verify since it's gated on `watchPositionAsync`'s 5m-movement threshold.
+
+- **Discriminated-union data shape, inline-text rendering.** Extended `SayBullet` from `string` to `string | { lead?: string; emphasized: string; trail?: string }`. Only the duty-to-inform variant uses the structured shape today; the other six sayBullets stay plain. Worth keeping: when one out of N variants of a record needs richer text formatting, widen the *element* type with a discriminator (object-literal vs. string) instead of bumping all callers — the renderer dispatches once on `typeof bullet === 'string'`, and the other variants stay readable as plain strings in the source.
+- **Reuse `Strong` for inline emphasis, don't roll a one-off `fontWeight: '600'`.** `/pulled-over` already had a `Strong` helper that scales with dynamic-type + relaxed line-height. Reusing it for the new render path means the bold fragment inherits the same stress-state typography pipeline as every other bolded word on the screen. Worth keeping: when reaching for inline `style={{ fontWeight: ... }}`, check whether a co-located inline-text helper already encodes the project's emphasis register — bypassing it splits the design contract.
+- **Audit-queue notes are cheaper than calendar reminders.** The zone-entry auto-expand can't be verified without driving; pushing a "Verify tomorrow" calendar reminder would land outside the codebase. Adding it as an audit-queue bullet in CLAUDE.md ties it to the next `chore/architecture-audit-N`/figma-fidelity-audit pass, which is the documented cadence for "things we owe but couldn't verify today." Worth keeping: when test verification is gated on something out of session, encode the verification step where future contributors look — the codebase, not a calendar.
+
+---
+
 ## feat/trusted-contact-location (2026-05-12)
 
 Opens the door for the Trusted Friend marker (Figma `1133:13245`, blocked-on-asset). Extends `TrustedContact` with optional `latitude` / `longitude` / `addressLabel` fields, captures them opportunistically during the `pickContact` flow (re-fetch the picked contact with Addresses field → geocode → persist), and renders a green `LandmarkMarker` with a Phosphor `HeartStraight` stand-in on /home + an off-viewport `EdgeIndicator`. Marker only renders when a real lat/lng exists — no fake placement when geocoding fails.
