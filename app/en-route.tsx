@@ -558,7 +558,6 @@ export default function EnRoute() {
         edges={['top']}
         pointerEvents="box-none"
       >
-        <View style={styles.headerCard}>
         <View style={styles.turnSign}>
           <View
             style={styles.turnDirection}
@@ -629,7 +628,6 @@ export default function EnRoute() {
             size={20}
             color={colors.fadedgreen}
           />
-        </View>
         </View>
       </SafeAreaView>
 
@@ -836,25 +834,19 @@ const styles = StyleSheet.create({
   },
 
   // --- Turn-sign header ---
+  // Single SafeAreaView that owns:
+  //   - wiltedgreen bg, so the status-bar inset area (added as top
+  //     padding by `edges={['top']}`) is wiltedgreen too — the panel
+  //     reads as starting from the very top of the screen.
+  //   - rounded bottom + `overflow: 'hidden'`, so both children
+  //     (turnSign wiltedgreen + thenFooter burntgreen) are clipped
+  //     to the rounded shape as a unit. No bleed at the seam.
   headerWrap: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    // No bg on the SafeAreaView — its job is only to absorb the
-    // top safe-area inset above the actual card. The card itself
-    // (`headerCard`) handles the rounded bottom + clipping.
-  },
-  // Single outer container that owns the rounded-bottom shape and
-  // clips both children (turnSign + thenFooter) to it. Putting the
-  // radius + `overflow: hidden` on the panel that has *both* greens
-  // as children kills any sub-pixel bleed at the wiltedgreen/
-  // burntgreen seam — earlier attempts that put the radius only on
-  // thenFooter left a thin wiltedgreen sliver visible past the
-  // curve at the bottom corners (turnSign painted the full rect
-  // up to the panel edge, including past where thenFooter's curve
-  // started cutting in).
-  headerCard: {
+    backgroundColor: colors.wiltedgreen,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
     overflow: 'hidden',
