@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/home-base-route-halo (2026-05-12)
+
+Two infrastructure-y changes ahead of the bigger Home redesign: (1) white halo around route polylines per Figma so the route reads against street geometry, (2) FAB consolidation that retires 7 ad-hoc 48pt/56pt circular-button blocks across /home + /en-route in favor of the FloatingActionButton component built in `feat/design-system-v2-phase1`.
+
+- **react-native-maps Polyline has no border, but Z-order works.** Wanted a 1–2pt white border around the colored route stroke. RN's Polyline only takes one color + width per element — no borderColor/borderWidth. Standard trick: render a white polyline first (slightly wider), then the colored stroke on top. Z-order in RN-Maps is just declaration order — earlier polylines render under later ones. For the recommended route (which is N gradient segments), one continuous halo polyline using the route's full coordinates sits under all N colored segments. That gives a continuous white border instead of N overlapping halos with seam artifacts. Worth keeping: when a render API doesn't support borders, layer two of the thing — and prefer one wide outer over N nested ones to avoid seams.
+- **`flatMap` is the cleanest pattern when each item produces multiple elements.** The route loop produces 1 halo + N polylines per route (where N = 1 for alternates, 5 for recommended's gradient segments). `routes.map` would have returned a nested array structure that React would still render but is awkward to extend. `routes.flatMap` flattens cleanly and reads as "each route → list of polyline elements." Worth keeping: when a `.map` callback wants to return more than one element, reach for `flatMap` before reaching for fragments.
+- **Component consolidation has hidden cost-savings beyond DRY.** Replacing 7 ad-hoc Pressable+style-block FAB usages (2 in /home, 5 in /en-route) with the shared FloatingActionButton dropped ~85 lines of duplicate styles AND fixed a subtle inconsistency I hadn't noticed: /home's `menuButton` had `borderRadius: 8` (square-ish) instead of `100` (circle). Visually wrong, easy to miss in code review, fixed implicitly by the consolidation. Worth keeping: design-system consolidation isn't just about reducing diff — it surfaces drift the original copy-paste hid.
+
+---
+
 ## feat/onboarding-permissions-contact-recordings (2026-05-12)
 
 Big bundled batch — four screen ports in one PR (onboarding panels + /permissions + /trusted-contact-setup + /recordings). All consume the Button + StateCard + PageControl components from the design-system-v2 foundation. /recordings flips register white-on-light to match /menu's redesign. Also fixes a real bug in the Button component's Transparent variant.

@@ -24,6 +24,7 @@ import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
+import { FloatingActionButton } from '../components/FloatingActionButton';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
@@ -387,25 +388,45 @@ export default function EnRoute() {
             />
           );
         })}
-        {routes.map((route) => {
-          if (route.type === 'recommended') {
-            return gradientSegments(route).map((segment, idx) => (
-              <Polyline
-                key={`${route.id}-seg-${idx}`}
-                coordinates={segment.coordinates}
-                strokeColor={segment.color}
-                strokeWidth={routeColors.recommended.width}
-              />
-            ));
-          }
-          return (
+        {routes.flatMap((route) => {
+          // White halo polyline first (slightly wider) + colored stroke
+          // on top — same pattern as /home, gives the route a 1–2pt
+          // white border per Figma so it stands out against street
+          // geometry. See the longer note on home.tsx.
+          const isRecommended = route.type === 'recommended';
+          const baseWidth = isRecommended
+            ? routeColors.recommended.width
+            : routeColors.alternate.width;
+          const elements: React.ReactElement[] = [
             <Polyline
-              key={route.id}
+              key={`${route.id}-halo`}
               coordinates={route.coordinates}
-              strokeColor={routeColors[route.type].stroke}
-              strokeWidth={routeColors[route.type].width}
-            />
-          );
+              strokeColor={colors.white}
+              strokeWidth={baseWidth + 3}
+            />,
+          ];
+          if (isRecommended) {
+            elements.push(
+              ...gradientSegments(route).map((segment, idx) => (
+                <Polyline
+                  key={`${route.id}-seg-${idx}`}
+                  coordinates={segment.coordinates}
+                  strokeColor={segment.color}
+                  strokeWidth={routeColors.recommended.width}
+                />
+              )),
+            );
+          } else {
+            elements.push(
+              <Polyline
+                key={route.id}
+                coordinates={route.coordinates}
+                strokeColor={routeColors[route.type].stroke}
+                strokeWidth={routeColors[route.type].width}
+              />,
+            );
+          }
+          return elements;
         })}
 
         {userLocation && (
@@ -519,44 +540,33 @@ export default function EnRoute() {
             documented canonical safety-affordance) and Report uses
             the documented orange alert-circle exception — those stay.
           */}
-          <Pressable
-            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel="Toggle volume (coming soon)"
-          >
+          <FloatingActionButton size="56" accessibilityLabel="Toggle volume (coming soon)">
             <Ionicons name="volume-high" size={32} color={colors.labelSecondary} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel="Help (coming soon)"
-          >
+          </FloatingActionButton>
+          <FloatingActionButton size="56" accessibilityLabel="Help (coming soon)">
             <Ionicons name="medical" size={32} color={colors.red} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
+          </FloatingActionButton>
+          <FloatingActionButton
+            size="56"
             onPress={() => router.push('/safety')}
-            accessibilityRole="button"
             accessibilityLabel="Open safety menu"
           >
             <Shield size={32} color={colors.navy} weight="duotone" />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
+          </FloatingActionButton>
+          <FloatingActionButton
+            size="56"
             onPress={() => router.push('/report')}
-            accessibilityRole="button"
             accessibilityLabel="Report something"
           >
             <Ionicons name="alert-circle" size={32} color={colors.orange} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.sideBtn, pressed && pressedDim]}
+          </FloatingActionButton>
+          <FloatingActionButton
+            size="56"
             onPress={handleRecenter}
-            accessibilityRole="button"
             accessibilityLabel="Recenter map on your location"
           >
             <Ionicons name="locate" size={32} color={colors.labelSecondary} />
-          </Pressable>
+          </FloatingActionButton>
         </View>
       )}
 
@@ -775,19 +785,8 @@ const styles = StyleSheet.create({
     // `bottom` set inline from measured sheet height + 16 offset.
     gap: 16,
   },
-  sideBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 100,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
+  // sideBtn style block retired — the 5 side-column buttons consume
+  // the FloatingActionButton component now (size="56").
 
   // --- Bottom sheet ---
   bottomSheet: {
