@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
+import { ArrowBendUpLeft } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
+import { ArrowBendUpRight } from 'phosphor-react-native/src/icons/ArrowBendUpRight';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
@@ -23,7 +25,6 @@ import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 import SidebtnVolume from '../assets/illustrations/sidebtn-volume.svg';
 import TurnMic from '../assets/illustrations/turn-mic.svg';
-import TurnSign from '../assets/illustrations/turn-sign.svg';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
 // (node 825:3647) so the symbol means the same thing on both
@@ -685,9 +686,17 @@ export default function EnRoute() {
           >
             {/*
               Turn maneuver glyph — informational, not a button.
-              Canonical Figma turn-sign SVG.
+              Phosphor duotone per Figma `825:3754`'s Turn Icon
+              register. The earlier `turn-sign.svg` SVG was the
+              wrong export for this surface (kept available in
+              `assets/illustrations/` if a future custom variant
+              is needed).
             */}
-            <TurnSign width={56} height={56} />
+            <ArrowBendUpLeft
+              size={56}
+              color={colors.white}
+              weight="duotone"
+            />
             <Text style={styles.turnDistance}>
               0.5{' '}
               <Text style={styles.turnDistanceUnit}>mi</Text>
@@ -733,10 +742,17 @@ export default function EnRoute() {
 
         <View style={styles.thenFooter}>
           <Text style={styles.thenText}>Then</Text>
-          <Ionicons
-            name="arrow-forward"
+          {/*
+            "Then" footer arrow — same duotone Phosphor register as
+            the main turn-card arrow above. ArrowBendUpRight reads
+            as "next-turn direction" (curving right-and-up) without
+            committing to a specific direction since the next-next
+            turn isn't known yet.
+          */}
+          <ArrowBendUpRight
             size={20}
             color={colors.fadedgreen}
+            weight="duotone"
           />
         </View>
       </SafeAreaView>
@@ -1016,12 +1032,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  // Direction column per Figma 825:3754 — turn arrow at top, distance
+  // at bottom, stretched to the turnSign row's full content height
+  // (matched by the Text column on the right). `justifyContent:
+  // space-between` puts the arrow at the top and the distance at the
+  // bottom; `alignItems: center` centers the distance horizontally
+  // below the arrow (vs. flex-end, which right-aligned them
+  // inconsistently). `alignSelf: stretch` is what gives us a height
+  // to space-between against.
   turnDirection: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-    alignItems: 'flex-end',
   },
+  // Distance "0.5" in Title3/Emphasized per Figma 364:2853 — bumped
+  // from Title3/Regular so the number reads with the prominence the
+  // driver needs to glance at it under stress.
   turnDistance: {
-    ...typography.title3Regular,
+    ...typography.title3Emphasized,
     color: colors.white,
   },
   turnDistanceUnit: {

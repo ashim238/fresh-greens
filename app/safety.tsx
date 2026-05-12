@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import type { ComponentType } from 'react';
 import type { SvgProps } from 'react-native-svg';
 
@@ -6,6 +5,7 @@ import SafetyCarTroubles from '../assets/illustrations/safety-car-troubles.svg';
 import SafetyLost from '../assets/illustrations/safety-lost.svg';
 import SafetyPulledOver from '../assets/illustrations/safety-pulled-over.svg';
 import SafetyShareLocation from '../assets/illustrations/safety-share-location.svg';
+import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -101,14 +101,15 @@ export default function SafetyModal() {
             56x56 state-layer wrapper around the shield icon. Matches
             Figma's structure — the wrapper's internal padding provides
             the visual gap between icon and title block below.
+
+            Uses the canonical navy duotone shield from
+            `sidebtn-safety.svg` — the same glyph that lives on
+            /en-route's safety FAB and the /menu Safety row. Same
+            iconography across surfaces signals "safety affordance"
+            consistently per `.cursorrules` reserved-color rule #6.
           */}
           <View style={styles.iconBox}>
-            <Ionicons
-              name="shield-checkmark"
-              size={32}
-              color={colors.wiltedgreen}
-              accessible={false}
-            />
+            <SidebtnSafety width={32} height={32} accessible={false} />
           </View>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>Safety</Text>
