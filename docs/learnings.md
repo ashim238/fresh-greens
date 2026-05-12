@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit-4 (2026-05-12)
+
+Fourth Figma fidelity audit. Ran in parallel with `chore/architecture-audit-1`, both worktree-isolated. The two flagged user issues (car marker first-paint, /home Report button parity) were independently shipped by the architecture audit (#96); this PR's unique fidelity fix is the /safety modal header shield swap to `sidebtn-safety.svg` (navy duotone).
+
+- **Reserved-color rule #6 (navy = safety-affordance blue) gives Safety modal's header glyph a clear answer.** The /safety modal's header shield was Ionicons `shield-checkmark` with `color={colors.wiltedgreen}` — the v1 fallback before the canonical SVGs landed in #94. The Figma renders the navy duotone shield (`sidebtn-safety.svg`), matching /en-route's safety FAB and /menu's Safety row. Three surfaces, one glyph, one navy color → "this opens the safety affordance" reads instantly. Worth keeping: when a reserved-color exception names what the color means (here: navy = safety affordance), the rule pre-decides every glyph choice across the surfaces it applies to. Drift is just "the lookup hadn't been done yet."
+- **Two parallel agents on the same worktree-isolated branches will independently fix the same user-flagged bug.** Both this audit and the architecture audit got the same two flagged items (car marker, Report parity) in their prompts. Both shipped fixes. The architecture audit landed first; this one rebased to drop duplicates and keep only the unique Safety shield fix. Worth keeping: when running parallel audit agents and pre-flagging issues for both, the duplication cost is one rebase per overlapping fix — usually less costly than the alternative (skipping the flag on one agent and missing the fix entirely if the other agent doesn't notice).
+
+---
+
 ## chore/architecture-audit-1 (2026-05-12)
 
 First architecture audit pass. Three small fixes shipped, the rest are a punch list for follow-up. Findings: scoring stays pure, adapters all conform to the async + try/catch + typed-shape contract (one outlier in `places.ts` whose consumer wraps the call), theme tokens are disciplined (every `#000` is a `shadowColor` RN convention, every `fontSize:` outside theme has a comment explaining why). Two real defects: an orphan export in `LandmarkMarker.tsx` and the `EnRouteCarMarker` empty-frame bug.
