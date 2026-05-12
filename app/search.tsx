@@ -74,14 +74,26 @@ type QuickTool = {
    * to thread tint through anymore.
    */
   Icon: React.ComponentType<{ width: number; height: number }>;
+  /**
+   * Search-text the tile fires when tapped. Tiles with a `query`
+   * populate the search bar via `setQuery` and let the autocomplete
+   * pipeline handle the rest — Mapbox v6 Search Box understands
+   * each of these as a category and returns matching POIs.
+   *
+   * Tiles WITHOUT a `query` (Saved, Trending) need data we don't
+   * have yet (a bookmarks adapter, a trending-analytics source).
+   * They stay visual-only with a "Coming soon" a11y hint until
+   * those land.
+   */
+  query?: string;
 };
 
 const QUICK_TOOLS: QuickTool[] = [
   { id: 'saved', label: 'Saved', Icon: QuickToolSaved },
   { id: 'trending', label: 'Trending', Icon: QuickToolTrending },
-  { id: 'food', label: 'Food', Icon: QuickToolFood },
-  { id: 'gas', label: 'Gas', Icon: QuickToolGas },
-  { id: 'parking', label: 'Parking', Icon: QuickToolParking },
+  { id: 'food', label: 'Food', Icon: QuickToolFood, query: 'restaurant' },
+  { id: 'gas', label: 'Gas', Icon: QuickToolGas, query: 'gas station' },
+  { id: 'parking', label: 'Parking', Icon: QuickToolParking, query: 'parking' },
 ];
 
 // TODO: real recent searches from a persistence layer.
@@ -280,6 +292,7 @@ export default function Search() {
                 >
                   {QUICK_TOOLS.map((tool) => {
                     const isSelected = selectedToolId === tool.id;
+                    const isWired = tool.query != null;
                     return (
                       <Pressable
                         key={tool.id}
@@ -288,15 +301,32 @@ export default function Search() {
                           isSelected && styles.quickToolSelected,
                           pressed && pressedDim,
                         ]}
-                        onPress={() =>
+                        onPress={() => {
+                          // Two paths:
+                          //   1. Tile has a `query` → set it as the
+                          //      search text. The debounced
+                          //      autocomplete effect fires the actual
+                          //      Mapbox call. The selected-state
+                          //      visual stays as confirmation.
+                          //   2. Tile has no `query` (Saved /
+                          //      Trending) → just toggle the visual
+                          //      selected state. No search fires.
+                          //      Honest about the v1 limitation.
                           setSelectedToolId((prev) =>
                             prev === tool.id ? null : tool.id,
-                          )
-                        }
+                          );
+                          if (tool.query) {
+                            setQuery(tool.query);
+                          }
+                        }}
                         accessibilityRole="button"
                         accessibilityLabel={tool.label}
                         accessibilityState={{ selected: isSelected }}
-                        accessibilityHint="Filter coming soon"
+                        accessibilityHint={
+                          isWired
+                            ? `Search for ${tool.label.toLowerCase()} nearby`
+                            : 'Coming soon'
+                        }
                       >
                         <tool.Icon width={24} height={24} />
                         <Text style={styles.quickToolLabel}>{tool.label}</Text>

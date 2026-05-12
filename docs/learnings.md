@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/quick-tools-filter-search (2026-05-12)
+
+Wired three of /search's Quick Tool tiles (Food / Gas / Parking) to actually fire category-aware searches. Earlier work shipped the Selected-state visual (#84) but the tiles were tap-toggles with no behavior. Now: tapping Food → fills the search bar with "restaurant" → the existing autocomplete debounce fires a Mapbox v6 category-aware query → results appear. Saved + Trending stay visual-only since they need data we don't have (a bookmarks adapter, a trending-analytics source).
+
+- **Two-tier interactivity via an optional field is cleaner than a separate "disabled" flag.** Added `query?: string` to the `QuickTool` type. Tiles with a query are interactive (fill the search bar on tap); tiles without are visual-only (toggle their selected state, accessibility hint reads "Coming soon"). The TypeScript optional makes "is this wired?" a single boolean (`tool.query != null`); no parallel `disabled` flag to keep in sync, no separate component variant. Worth keeping: when some entries in a list have behavior and others don't, an optional field with `?` is a sharper signal than a sibling boolean — the absence of the field IS the disabled state, and TypeScript's narrowing keeps the consumer honest.
+- **Reuse the existing autocomplete pipeline rather than adding a parallel "category-search" path.** First instinct was to wire `onPress` directly to `runSearch(tool.query, true)` — bypass the debounce, jump straight to results. Better: `setQuery(tool.query)`. The existing `useEffect` watching `query` debounces the search 300ms, handles stale-response guards, handles the loading state. Going through the same pipeline means tap-a-tile feels identical to typing the term manually — same visible transitions, same edge-case behavior. Worth keeping: when a new entry-point produces the same data flow as an existing one, route through the existing pipeline — parallel paths drift over time.
+
+---
+
 ## fix/mapbox-search-box-v6 (2026-05-12)
 
 Same-day follow-up to the Mapbox swap: v5 Geocoding's `/places/{q}` does substring matching, so "gas station" surfaced anything with "station" in its name (police stations, train stations, fire stations). Switched to Mapbox **Search Box API v6** `/forward` — same auth token, but the endpoint is POI-category-aware and routes natural-language queries to the right OSM categories.
