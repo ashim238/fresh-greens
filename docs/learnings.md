@@ -4,7 +4,13 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
-## feat/home-base-route-halo (2026-05-12)
+## feat/avatar-speed-limit (2026-05-12)
+
+Scoped follow-up to the design-system-v2 redesign focused on the two highest-impact visible changes that don't require new component scaffolding: the avatar illustration on /menu and the Speed Limit sign on /en-route. The bigger Home + En-Route bottom-sheet rewrites and the report-flow states need new patterns (weather card, "Things to Do" recommendation cards, BottomSheet variants) and got deferred to dedicated PRs.
+
+- **Avatar SVG carries its own circle bg — don't double-wrap.** First instinct was to keep /menu's `profileAvatar` wrapper as a 80pt freshgreen circle (matching what the Phosphor User placeholder needed) and drop the SVG inside. Then noticed the SVG's first path: `<path d="M0 40C0 17.9086 17.9086 0 40 0..." fill="#41AD49"/>` — it IS the freshgreen circle. Double-wrapping would have made a green circle inside a green circle (invisible visually but wasteful structurally). Stripped the wrapper's bg + radius; it's now just a layout slot. Worth keeping: when porting Figma assets, check the SVG's first elements before deciding on the wrapper. Exporting "Profile w/ inset" gave us both layers in one file, which is what we want.
+- **The Speed Limit sign is iconic but stylistically jarring without Overpass Bold.** US speed-limit signs use Overpass Bold (a specific FHWA-spec typeface). Using SF Pro Bold gets ~90% of the visual feel but isn't quite right — the numbers read slightly less authoritative. Queued for the next font/asset import pass: ship Overpass Bold via `expo-font`, swap the two `fontFamily: 'SF Pro'` references in the SpeedLimit styles. Worth keeping: type substitutions in safety/regulatory UI elements (speed limits, emergency text, warning signs) are visually more conspicuous than substitutions in general body copy — the eye knows what those signs SHOULD look like.
+- **`pos.coords.speed` from expo-location is m/s, returns -1 before motion is detected on iOS.** Wired up the GPS-fed current-speed display on the SpeedLimit. iOS reports `speed = -1` when the device hasn't detected motion yet (sitting still, just-launched app); some other platforms return `null`. Guard with `typeof ms === 'number' && ms >= 0`. The pill renders `—` when speed is null. Worth keeping: position-fix data has sentinel values across platforms — never assume `speed` is a real measurement until you've validated it's non-negative.
 
 Two infrastructure-y changes ahead of the bigger Home redesign: (1) white halo around route polylines per Figma so the route reads against street geometry, (2) FAB consolidation that retires 7 ad-hoc 48pt/56pt circular-button blocks across /home + /en-route in favor of the FloatingActionButton component built in `feat/design-system-v2-phase1`.
 
