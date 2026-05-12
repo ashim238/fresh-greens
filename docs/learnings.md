@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/search-rural-bounds (2026-05-12)
+
+Three improvements to /search bundled: (1) tiered viewbox so rural users still get results; (2) category-alias preprocessing so user-friendly terms like "salon" trigger Nominatim's OSM-category matching; (3) limit 10 → 20 to surface more category-aware matches.
+
+- **Nominatim's `q=` is name-search by default, not category-search.** Typing "salon" in NYC returned exactly ONE result — a single place named "Angela Salon." Most actual hair salons are named things like "Curl Up & Dye"; the word "salon" never appears in their POI name. But Nominatim DOES do category-aware search for specific OSM tag keywords: querying `q=hairdresser` (an OSM `shop` tag value) returned 10 properly-categorized hair salons in the same viewbox. Added a `CATEGORY_ALIASES` map that translates common user terms (salon → hairdresser, gas → fuel, coffee → cafe, etc.) before the request. Worth keeping: when a search API behaves badly on "obvious" user terms, the bug isn't usually in the API — it's the impedance mismatch between user vocabulary and the API's matching surface. Build a thin alias layer that speaks the API's vocabulary; let users keep speaking theirs.
+- **Tiered fallback beats a single permissive radius.** Two simpler alternatives existed: (a) just bump the viewbox to ~100mi for everyone, (b) keep it at ~50mi and accept rural users see empty lists. Tiered gives both populations the right experience — urban users get tight "near me" results, rural users get something usable, and neither has to think about which mode they're in. Worth keeping: when "right size" depends on the user's environment (urban vs rural, dense vs sparse, latency vs reach), let the system try the narrow case first and widen only on empty — it's cheaper UX-wise than forcing one global setting that's wrong for half the audience.
+- **Extract the request function once a second caller exists.** The original `searchPlaces` inlined the entire request flow. Adding the tiered approach gave it a second caller (narrow then wide), so I extracted `fetchPlaces(query, userLocation, viewboxDegrees)` — both tiers reuse it with different bounds. Rule-of-three says wait until the third use; rule-of-two says extract when the duplication would happen now. The tiered fallback IS the second use; inlining the entire fetch twice would have made the file unreadable. Worth keeping: rule-of-three is a default, not a law — when the second use is happening *right now* in the same diff, extract.
+
+---
+
 ## fix/search-localization (2026-05-12)
 
 User-reported bug: typing "Salon" on /search from NY surfaced results thousands of miles away, AND the divider insets on the results list didn't match Figma `1105:6462`. Root cause of the search bug was Nominatim's `bounded: '0'` (soft viewbox bias). Divider insets had two issues: the divider above the results was full-width (no horizontal inset), and the between-row separators used an iOS list-style left-only inset (`left: 48, right: 0`) rather than Figma's symmetric 12pt both sides.
