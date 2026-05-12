@@ -376,7 +376,14 @@ export default function Search() {
                 "{query}" results in {resultsCity}
               </Text>
             </View>
-            <View style={styles.divider} />
+            {/*
+              Horizontal/Inset divider per Figma 1105:6502 — 12pt
+              inset on both sides. Matches the row-separator inset
+              below so the dividers read as a consistent stack.
+              Shared `divider` style stays full-width for the
+              landing screen's section breaks.
+            */}
+            <View style={styles.resultsInsetDivider} />
             {results.map((place, idx) => (
               <Pressable
                 key={place.id}
@@ -462,6 +469,13 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.separatorSubtle,
   },
+  // Inset variant used above the results list. Wraps the 1pt rule in
+  // a 12pt left/right padding to match Figma 1105:6502.
+  resultsInsetDivider: {
+    height: 1,
+    marginHorizontal: 12,
+    backgroundColor: colors.separatorSubtle,
+  },
   fuelSection: {
     paddingHorizontal: 24,
     gap: 8,
@@ -544,11 +558,16 @@ const styles = StyleSheet.create({
     minWidth: 72,
     textAlign: 'right',
   },
+  // Symmetric 12pt inset per Figma `1105:6502` (Horizontal/Inset
+  // divider). Earlier value (left: 48, right: 0) matched iOS list-
+  // style separators where the inset aligns with content text, but
+  // the v2 Figma uses a balanced 12pt inset on both sides. Same
+  // value as `resultsInsetDivider` above for register parity.
   resultSeparator: {
     position: 'absolute',
     bottom: 0,
-    left: 48,
-    right: 0,
+    left: 12,
+    right: 12,
     height: 1,
     backgroundColor: colors.separatorSubtle,
   },

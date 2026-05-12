@@ -66,8 +66,14 @@ export async function searchPlaces(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // Bias the search to a ~50mi viewbox around the user's location.
-  // 0.7° ≈ 48 miles at mid-latitudes; close enough for thesis demo.
+  // Hard-restrict the search to a ~50mi viewbox around the user's
+  // location. 0.7° ≈ 48 miles at mid-latitudes; close enough for
+  // thesis demo. Earlier version used `bounded: '0'` (soft bias)
+  // which let Nominatim's global relevance ranking surface results
+  // thousands of miles away when the query had a well-known global
+  // match — e.g. searching "Salon" in NY would return a famous
+  // salon on the west coast above any local salons. `bounded: '1'`
+  // makes the viewbox a hard limit.
   const lat = userLocation.latitude;
   const lng = userLocation.longitude;
   const viewbox = [lng - 0.7, lat + 0.7, lng + 0.7, lat - 0.7].join(',');
@@ -79,7 +85,7 @@ export async function searchPlaces(
     addressdetails: '1',
     countrycodes: 'us',
     viewbox,
-    bounded: '0', // soft bias, not a hard limit
+    bounded: '1', // hard restrict to viewbox — see comment above
   });
 
   const url = `${NOMINATIM_URL}?${params.toString()}`;
@@ -94,23 +100,30 @@ export async function searchPlaces(
 
   const json: NominatimResult[] = await response.json();
 
-  return json.map((r) => {
-    const placeLat = parseFloat(r.lat);
-    const placeLng = parseFloat(r.lon);
-    return {
-      id: String(r.place_id),
-      name: r.name ?? extractName(r.display_name),
-      address: formatAddress(r),
-      latitude: placeLat,
-      longitude: placeLng,
-      distanceMiles: distanceMiles(
-        userLocation.latitude,
-        userLocation.longitude,
-        placeLat,
-        placeLng,
-      ),
-    };
-  });
+  // Sort by distance ascending so the closest match is always first.
+  // Nominatim's default ordering inside a viewbox is relevance-based,
+  // which can put a famous-but-farther result above a closer obvious
+  // match. For "find me X near me" intent, distance is the right
+  // primary sort.
+  return json
+    .map((r) => {
+      const placeLat = parseFloat(r.lat);
+      const placeLng = parseFloat(r.lon);
+      return {
+        id: String(r.place_id),
+        name: r.name ?? extractName(r.display_name),
+        address: formatAddress(r),
+        latitude: placeLat,
+        longitude: placeLng,
+        distanceMiles: distanceMiles(
+          userLocation.latitude,
+          userLocation.longitude,
+          placeLat,
+          placeLng,
+        ),
+      };
+    })
+    .sort((a, b) => a.distanceMiles - b.distanceMiles);
 }
 
 // --- Helpers --------------------------------------------------------------
