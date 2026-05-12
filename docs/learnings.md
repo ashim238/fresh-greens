@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/search-rate-limit-handling (2026-05-12)
+
+Real-device test surfaced 429s from Nominatim. Two compounding causes: (1) the tiered search fires up to 3 requests per query (tier-1 narrow viewbox → tier-2 wide → tier-3 normalized); (2) autocomplete was debounced at only 300ms, meaning a fast typist would dispatch a 3-request burst per word. Public Nominatim's policy is 1 req/sec. Fixes: catch 429 → treat as graceful empty result (don't crash); bump debounce 300ms → 600ms (fewer queries per typing burst).
+
+- **Match your rate envelope to the slowest dependency, not the fastest.** Apple/Google Places allow ~10 req/sec; Nominatim allows 1. The 300ms debounce was tuned for the faster envelope, but the actual backend is the slow one. Always pace the debounce against the actual provider's policy — when the backend swaps, retune. Worth keeping: when borrowing UX patterns from apps backed by enterprise APIs, the timing constants don't transfer; budget your debounce against your provider's documented rate limit.
+- **Treat 429 as an empty-result, not an error.** The user's mental model of "no results" doesn't distinguish between "the API said nothing matched" and "the API throttled us." From the screen's perspective both render the same empty state. Catching 429 and returning `[]` keeps the UI calm; throwing would show an ErrorState card which feels like a bug. Worth keeping: when a transient backend failure is recoverable on the user's next attempt (rate-limit windows reset within seconds), surface it as an empty state rather than an error — the user's "type again" is the right recovery action, and we don't need a banner explaining it.
+
+---
+
 ## fix/search-tier-3-punctuation-fallback (2026-05-12)
 
 Follow-up to `fix/search-rural-bounds` — the punctuation-normalization tier-3 fallback didn't survive the squash-merge conflict resolution earlier. Re-adds it cleanly as its own PR. Adds a `normalizeQuery` helper (strips diacritics + apostrophes + hyphens via NFD decompose) and wires it as a third-tier retry, fires only when both viewbox tiers returned empty AND the normalized form differs from the original.

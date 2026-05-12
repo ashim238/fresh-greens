@@ -206,6 +206,16 @@ async function fetchPlaces(
     headers: { 'User-Agent': USER_AGENT },
   });
 
+  if (response.status === 429) {
+    // Nominatim's public instance is 1 req/sec; the tiered approach
+    // + autocomplete debounce can spike past that during rapid typing.
+    // Treat as a graceful empty result instead of throwing — the
+    // /search UI then shows its empty-results state, which reads as
+    // "no matches" rather than as an error. The user can retry by
+    // typing again, by which point the rate window has reset.
+    console.warn('[places] Nominatim rate-limited (429); returning empty');
+    return [];
+  }
   if (!response.ok) {
     throw new Error(`Nominatim returned ${response.status}`);
   }
