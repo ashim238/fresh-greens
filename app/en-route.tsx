@@ -25,6 +25,7 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { FloatingActionButton } from '../components/FloatingActionButton';
+import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
@@ -40,7 +41,7 @@ import { clusterPointZones } from '../lib/clustering';
 import { gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
 import { formatDistance, formatDuration } from '../lib/format';
-import { pickWinner } from '../lib/scoring';
+import { hazardsNearTurn, pickWinner, type HazardCategory } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
@@ -63,6 +64,23 @@ import { typography } from '../theme/typography';
  * Directions, Google Directions) would slot in later. The placeholder
  * communicates the design intent without faking instruction data.
  */
+// Hazard ids carry hyphens (e.g. "road-condition") which screen
+// readers literalize — VoiceOver says "road dash condition." Maps to
+// human-readable strings for `accessibilityLabel` interpolation only;
+// the on-screen icon component still takes the typed id.
+function humanReadableHazard(category: HazardCategory): string {
+  switch (category) {
+    case 'lighting':
+      return 'low lighting';
+    case 'road-condition':
+      return 'road condition';
+    case 'wildlife':
+      return 'wildlife';
+    case 'community-alert':
+      return 'community alert';
+  }
+}
+
 export default function EnRoute() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
@@ -126,6 +144,22 @@ export default function EnRoute() {
   );
 
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // Hazards crossing threshold near the next turn — surfaces up to 2
+  // glyphs on the turn card, worst-first. v1 uses the route's first
+  // coordinate as the "next turn" stand-in because OSRM gives geometry
+  // but not turn-by-turn instructions; the static "Turn left onto
+  // South Cedar Street" copy is also a placeholder for the same
+  // reason. The hazards rendered are honestly "near the start of this
+  // route" — which is also where the upcoming turn would be at trip
+  // start, so the demo reads correctly for the most common driver
+  // case (just-departed). A real navigation engine would pass the
+  // actual next-turn coordinate here. Capped at 2 — three glyphs
+  // degrade into noise faster than a driver can parse mid-drive.
+  const turnHazards = useMemo(() => {
+    if (!recommended || recommended.coordinates.length === 0) return [];
+    return hazardsNearTurn(recommended.coordinates[0], allZones).slice(0, 2);
+  }, [recommended, allZones]);
 
   // Route polylines memoized so live-GPS re-renders don't rebuild the
   // overlay on the native side. Halo retired — see longer note in
@@ -481,6 +515,19 @@ export default function EnRoute() {
               Turn left onto{'\n'}
               <Text style={styles.turnStreet}>South Cedar Street</Text>
             </Text>
+            {turnHazards.length > 0 && (
+              <View
+                style={styles.hazardRow}
+                accessibilityRole="text"
+                accessibilityLabel={`Heads up: ${turnHazards
+                  .map(humanReadableHazard)
+                  .join(', ')} near this turn`}
+              >
+                {turnHazards.map((category) => (
+                  <Hazard key={category} category={category} size={24} />
+                ))}
+              </View>
+            )}
           </View>
 
           <Pressable
@@ -775,6 +822,14 @@ const styles = StyleSheet.create({
   },
   turnStreet: {
     color: colors.fadedgreen,
+  },
+  // Hazard row — up to 2 glyphs from `hazardsNearTurn`. 8pt gap per
+  // Figma `1109:3527/364:2860`. Only renders when at least one hazard
+  // crosses threshold (parent conditional in the JSX).
+  hazardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   micBtn: {
     // 56pt pill (Figma specs 48pt as Material 3 icon-button, but the

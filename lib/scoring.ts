@@ -173,6 +173,122 @@ export function pickWinner(
   }));
 }
 
+/**
+ * Hazard categories surfaced on /en-route's turn card. Subset of zone
+ * categories — police is intentionally excluded (it's a stationary
+ * caution marker, not a "watch out, this is on your route" symbol).
+ * Community reports collapse into a single 'community-alert' bucket
+ * since the icon distinction (felt-unsafe vs incident) doesn't read
+ * mid-drive at 24pt.
+ */
+export type HazardCategory =
+  | 'lighting'
+  | 'road-condition'
+  | 'wildlife'
+  | 'community-alert';
+
+/**
+ * Per-category severity for ordering when more hazards cross threshold
+ * than a turn card can show. Higher = worse = wins the slot. All four
+ * categories have distinct values — ties would resolve by zone-
+ * iteration order, which is data-dependent and non-deterministic from
+ * the user's perspective.
+ */
+const HAZARD_SEVERITY: Record<HazardCategory, number> = {
+  'community-alert': 4, // people-reported, most immediate
+  'wildlife': 3,        // time-sensitive at dawn/dusk
+  'road-condition': 2,  // surface damage / construction; chronic but specific
+  'lighting': 1,        // chronic, contextual
+};
+
+const HAZARD_PROXIMITY_METERS = 200;
+
+/**
+ * Which hazard categories cluster near a given turn point, sorted
+ * worst-first. Used by /en-route's turn card to surface up to two
+ * hazard glyphs when the next turn passes through (or near) flagged
+ * zones — a heads-up that "this turn is on your safe route, but be
+ * aware."
+ *
+ * v1 trigger: any zone of caution/avoid type within
+ * `HAZARD_PROXIMITY_METERS` of the turn surfaces its category. Future
+ * refinement (per CLAUDE.md): a saturation threshold (≥N zones, not
+ * just one) so a single distant marker doesn't trigger the symbol.
+ *
+ * Caller is responsible for capping the returned list — the turn card
+ * shows at most 2 (three icons degrades into noise mid-drive). The
+ * sort here puts the worst category first, so `result.slice(0, 2)`
+ * does the right thing.
+ */
+export function hazardsNearTurn(turn: Coordinate, zones: Zone[]): HazardCategory[] {
+  const present = new Set<HazardCategory>();
+
+  for (const zone of zones) {
+    if (zone.type === 'safe') continue; // only caution/avoid surface
+    if (!isWaypointInProximity(turn, zone)) continue;
+    const category = zoneToHazardCategory(zone);
+    if (category) present.add(category);
+  }
+
+  return Array.from(present).sort(
+    (a, b) => HAZARD_SEVERITY[b] - HAZARD_SEVERITY[a],
+  );
+}
+
+/**
+ * Looser version of `isWaypointInZone` — same dispatch, but the
+ * point/polyline thresholds expand to `HAZARD_PROXIMITY_METERS`. The
+ * scoring threshold (30m for points, 20m for polylines) asks "is this
+ * waypoint *on* the zone?"; the hazard threshold asks "is the zone
+ * *near* this turn?" — a wider window.
+ */
+function isWaypointInProximity(turn: Coordinate, zone: Zone): boolean {
+  switch (zone.geometry) {
+    case 'polygon':
+      return isPointInPolygon(turn, zone.coordinates);
+    case 'polyline':
+      return isPointNearPolyline(
+        turn,
+        zone.coordinates,
+        HAZARD_PROXIMITY_METERS,
+      );
+    case 'point':
+      if (zone.coordinates.length === 0) return false;
+      return (
+        pointToPointDistanceMeters(turn, zone.coordinates[0]) <
+        HAZARD_PROXIMITY_METERS
+      );
+  }
+}
+
+/**
+ * Map a zone's category → hazard category, or null if the zone doesn't
+ * surface as a hazard glyph (police, landuse, park, safe community
+ * reports). Community reports collapse `felt-unsafe` and `incident`
+ * subcategories into the single `community-alert` bucket; the more
+ * granular distinction belongs on the map markers, not on the turn card.
+ */
+function zoneToHazardCategory(zone: Zone): HazardCategory | null {
+  switch (zone.category) {
+    case 'lighting':
+      return 'lighting';
+    case 'road-condition':
+      return 'road-condition';
+    case 'wildlife':
+      return 'wildlife';
+    case 'community-report':
+      if (
+        zone.reportCategoryId === 'felt-unsafe' ||
+        zone.reportCategoryId === 'incident'
+      ) {
+        return 'community-alert';
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
 // --- Geometry helpers -------------------------------------------------------
 
 /**

@@ -24,7 +24,7 @@ export function TrustedContactStatus() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Your trusted contact is being notified</Text>
+      <Text style={styles.text}>Your Trusted Contact is being notified</Text>
       <Animated.View style={[styles.dot, { opacity: pulse }]} />
     </View>
   );
