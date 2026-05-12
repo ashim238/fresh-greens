@@ -20,6 +20,7 @@ import UserCar from '../assets/illustrations/user-car.svg';
 
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
+import { FloatingActionButton } from '../components/FloatingActionButton';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { SearchBar } from '../components/SearchBar';
@@ -542,30 +543,47 @@ export default function Home() {
           gradient polyline; alternates render in muted gray. Always
           on the map's native overlay layer.
         */}
-        {routes.map((route) => {
-          // Recommended route renders as multiple polyline segments with
-          // a daylight gradient (green → orange → red) representing how
-          // daylight availability fades across the route's duration.
-          // Alternate routes stay muted gray — their daylight isn't
-          // relevant since they aren't the chosen path.
-          if (route.type === 'recommended') {
-            return gradientSegments(route).map((segment, idx) => (
-              <Polyline
-                key={`${route.id}-seg-${idx}`}
-                coordinates={segment.coordinates}
-                strokeColor={segment.color}
-                strokeWidth={routeColors.recommended.width}
-              />
-            ));
-          }
-          return (
+        {routes.flatMap((route) => {
+          // Each route renders as a white halo polyline first (slightly
+          // wider) + the colored stroke on top. The halo gives the
+          // route a 1–2pt white border per Figma, helping it stand out
+          // against the underlying street geometry.
+          const isRecommended = route.type === 'recommended';
+          const baseWidth = isRecommended
+            ? routeColors.recommended.width
+            : routeColors.alternate.width;
+          const elements: React.ReactElement[] = [
             <Polyline
-              key={route.id}
+              key={`${route.id}-halo`}
               coordinates={route.coordinates}
-              strokeColor={routeColors[route.type].stroke}
-              strokeWidth={routeColors[route.type].width}
-            />
-          );
+              strokeColor={colors.white}
+              strokeWidth={baseWidth + 3}
+            />,
+          ];
+          // Recommended route: daylight-gradient segments on top of the halo.
+          if (isRecommended) {
+            elements.push(
+              ...gradientSegments(route).map((segment, idx) => (
+                <Polyline
+                  key={`${route.id}-seg-${idx}`}
+                  coordinates={segment.coordinates}
+                  strokeColor={segment.color}
+                  strokeWidth={routeColors.recommended.width}
+                />
+              )),
+            );
+          } else {
+            // Alternate routes: single muted polyline on top of the halo.
+            elements.push(
+              <Polyline
+                key={route.id}
+                coordinates={route.coordinates}
+                strokeColor={routeColors[route.type].stroke}
+                strokeWidth={routeColors[route.type].width}
+              />,
+            );
+          }
+          return elements;
         })}
 
         {/*
@@ -704,14 +722,13 @@ export default function Home() {
             so neither feels broken. /safety reaches the user via the
             shield in the en-route side-button column.
           */}
-          <Pressable
-            style={({ pressed }) => [styles.menuButton, pressed && pressedDim]}
-            accessibilityRole="button"
+          <FloatingActionButton
+            size="48"
             accessibilityLabel="Menu"
             onPress={() => router.push('/menu')}
           >
-            <Ionicons name="menu" size={32} color={colors.labelSecondary} />
-          </Pressable>
+            <Ionicons name="menu" size={28} color={colors.labelSecondary} />
+          </FloatingActionButton>
 
           {/*
             Avatar button — opens /menu (Settings hub). Uses the same
@@ -725,19 +742,17 @@ export default function Home() {
             Renders the custom user-car SVG (the user's identity glyph,
             paired with /menu's profile row).
           */}
-          <Pressable
-            style={({ pressed }) => [styles.avatarButton, pressed && pressedDim]}
+          <FloatingActionButton
+            size="48"
             onPress={() => router.push('/menu')}
-            accessibilityRole="button"
             accessibilityLabel={
               user?.displayName
                 ? `Open Settings (signed in as ${user.displayName})`
                 : 'Open Settings'
             }
-            hitSlop={8}
           >
             <UserCar width={28} height={28} />
-          </Pressable>
+          </FloatingActionButton>
         </View>
       </SafeAreaView>
 
@@ -987,36 +1002,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  menuButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Approximates Figma M3 Elevation Light/2.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  // Avatar button — top-right of /home. 48pt circular surface that
-  // matches menuButton's elevation but reads as "identity / Settings"
-  // rather than "menu icon." Holds the user-car SVG glyph.
-  avatarButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: colors.white,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
+  // menuButton + avatarButton style blocks retired — both consume
+  // the FloatingActionButton component now (size="48").
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
