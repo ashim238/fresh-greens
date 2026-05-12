@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/schedule-for-am-tap-action (2026-05-12)
+
+The "Schedule for X:XX AM" chip on /home shipped without an `onPress`. Tapping did nothing — found during a thesis-demo walkthrough. Adds a v1-honest action: tap → `Haptics.selectionAsync()` + an `Alert` that confirms the schedule and tells the user to reopen at the suggested time. Real reminder wiring via `expo-notifications` is queued as a follow-up since it needs the permission flow added to /permissions first.
+
+- **A visible affordance with no handler reads as broken, not "coming soon".** First instinct on shipping a feature ahead of its complete backend is to gate the affordance entirely. But the chip is conditional on `suggestedDepartureForDaylight` returning non-null — it only appears when the time advice is real. Hiding it would hide the most thesis-defending part of the daylight pipeline (we computed a meaningful suggestion). Better: ship the chip with a handler that does the v1-honest thing (confirm intent + tell user what'll happen), and queue the reminder backend as its own concern. Worth keeping: when a UI surface communicates a thesis claim, ship it visible with an honest handler — even an Alert is better than a tap that no-ops.
+
+---
+
 ## feat/bottom-sheet-marker-consolidation (2026-05-12)
 
 Ports `ReportDetailCard` from a v1 centered floating card to the v2 Bottom Sheet (Marker) chrome per Figma `1133:13853` — slides up from the bottom edge, drag handle, symmetric FAB header row (Share / category copy / Close), rounded top corners + M3 Elevation 3 shadow that matches /home and /en-route's bottom sheets. The Figma's "8 min / Move" CTA pair is omitted: community reports are informational, not navigable destinations. The Share FAB renders for chrome fidelity but stays a no-op until a real share path lands.
