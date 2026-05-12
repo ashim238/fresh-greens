@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/pulled-over-bulk-svg-swap (2026-05-12)
+
+Audit-flagged bulk swap of Ionicons stand-ins in `/pulled-over` to canonical assets. Findings on inspection: `assets/illustrations/` has no exports yet for any of the small affordances or the 120pt review hero illustrations — the prior bulk-SVG batch (#94) hadn't covered this screen's icons. Only one swap had clear in-project precedent: the Read-aloud `volume-high-outline` / `stop-circle-outline` pair → Phosphor `SpeakerHigh` / `Stop`, matching `/recordings`'s Phosphor Play/Pause/Microphone register for the same audio-recording data. Everything else (Call/Text button glyphs, Continue + review-nav chevrons, 4× 120pt review hero illustrations) stays Ionicons until the canonical SVGs are exported — punch-listed in the PR + CLAUDE.md.
+
+- **"No canonical asset + no documented Phosphor register" is a punch-list outcome, not a forced swap.** The temptation on a chrome-pass is to swap something — but swapping Ionicons → Phosphor without project precedent just trades one stand-in for another. The right read on /pulled-over was: one swap with precedent (audio controls), one paragraph in the PR listing six still-missing exports. Worth keeping: a focused chrome PR's value is sometimes its punch list, not its diff.
+- **Same-data screens should share an icon register.** /recordings and /pulled-over read/write the same `Recording` objects through `useRecordings`. /recordings already uses Phosphor for the audio affordances (Play, Pause, Microphone, Trash). /pulled-over's Read-aloud was Ionicons. Even if it works visually, the inconsistency signals "two different teams built these" to anyone reading the code. Worth keeping: pick the icon register at the *data-domain* level, not the screen level — recordings-related affordances are Phosphor everywhere.
+- **The 120pt Review hero illustrations are the highest-leverage punch-list item.** Officer/Trooper got their custom PNGs in `feat/illustrations`; the other four Review sub-views (What to Do/Have/Say/Know) still render Ionicons `car-outline` / `card-outline` / `chatbubble-ellipses-outline` / `library-outline` at size 120 — the largest icons on the screen and the most visible fidelity gap. Documented in CLAUDE.md's Polish list. Worth keeping: hero-sized stand-ins degrade fidelity disproportionately; punch-list these first when scoping the next custom-export batch.
+
+---
+
 ## chore/single-caller-component-pass (2026-05-12)
 
 Follow-up to the architecture audit's flagged punch list. Reviewed every single-caller component in `components/` (`EdgeIndicator`, `EnRouteCarMarker`, `EnRouteZone`, `ReportDetailCard`, `UserLocationMarker`) and decided to **keep all five** as future-facing / domain-meaningful. Only structural change: two stale comments in `app/en-route.tsx` that referenced `UserLocationMarker` were actually describing the GPS plumbing that feeds `EnRouteCarMarker`; updated for accuracy.

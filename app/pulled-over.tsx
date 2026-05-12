@@ -1,7 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { usePreventRemove } from '@react-navigation/native';
-// Phosphor deep-import — see app/trusted-contact-setup.tsx for the
-// longer note on why we bypass the package's barrel index.
+// Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
+// longer note on why we bypass the package's barrel index. SpeakerHigh
+// + Stop align this screen's audio-control register with /recordings
+// (which uses Phosphor Play/Pause/Microphone for the same recording
+// data); UserPlus is the canonical "add a person" affordance per
+// CLAUDE.md (contact phase) and matches /trusted-contact-setup.
+import { SpeakerHigh } from 'phosphor-react-native/src/icons/SpeakerHigh';
+import { Stop } from 'phosphor-react-native/src/icons/Stop';
 import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';
 import {
   RecordingPresets,
@@ -723,11 +729,11 @@ function GuidanceView({
         accessibilityLabel={isSpeaking ? 'Stop reading aloud' : 'Read aloud'}
         hitSlop={12}
       >
-        <Ionicons
-          name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
-          size={32}
-          color={colors.mutedTertiary}
-        />
+        {isSpeaking ? (
+          <Stop size={32} color={colors.mutedTertiary} />
+        ) : (
+          <SpeakerHigh size={32} color={colors.mutedTertiary} />
+        )}
         <Text style={guidanceStyles.readAloudText}>
           {isSpeaking ? 'Stop' : 'Read aloud'}
         </Text>
