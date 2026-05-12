@@ -843,8 +843,13 @@ const styles = StyleSheet.create({
     // wiltedgreen, thenFooter = burntgreen with rounded bottom). A
     // wrap-level wiltedgreen poked past thenFooter's 28pt rounded
     // bottom corners, painting sharp wiltedgreen rectangles under
-    // the curve. The shadow stays on the wrap so the whole stack
-    // casts one drop instead of two.
+    // the curve.
+    // Matching rounded bottom corners so the drop shadow follows
+    // thenFooter's curve instead of painting a rectangle whose
+    // corners stick out past the curve. Top stays sharp — the wrap
+    // hugs the status bar inset, no curve needed up there.
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
