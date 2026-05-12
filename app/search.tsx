@@ -405,7 +405,7 @@ export default function Search() {
                   </Text>
                 </View>
                 <Text style={styles.resultDistance} numberOfLines={1}>
-                  {place.distanceMiles} mi
+                  {place.distanceMiles.toLocaleString('en-US')} mi
                 </Text>
                 {idx < results.length - 1 && (
                   <View style={styles.resultSeparator} />
@@ -536,11 +536,11 @@ const styles = StyleSheet.create({
   resultDistance: {
     ...typography.subheadlineRegular,
     color: colors.black,
-    // 56pt fits up to "50.0 mi" (7 chars × ~7pt at SF Pro 15) on a
-    // single line. The Figma `w-42` was too tight — "5.7 mi" wrapped
-    // to two lines. Address `numberOfLines={1}` ellipsizes correctly
-    // since resultText is `flex: 1` and shrinks to fit the row.
-    minWidth: 56,
+    // 72pt fits up to "9,999.9 mi" (10 chars × ~7pt at SF Pro 15)
+    // — accommodates comma-separated values when Nominatim returns
+    // a far-away match. Address `numberOfLines={1}` ellipsizes
+    // correctly since resultText is `flex: 1` and shrinks to fit.
+    minWidth: 72,
     textAlign: 'right',
   },
   resultSeparator: {
