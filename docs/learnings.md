@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/en-route-spacing-speed-limit-menu-icon (2026-05-12)
+
+Three visual bug fixes surfaced by the post-SVG-batch eyeball pass: (1) ~24pt of dead space above the /en-route ETA from drag-handle padding stacking with the sheet's gap; (2) the bottom of round digits in the Speed Limit current-speed pill being clipped by the yellow sign's top overlap; (3) /home hamburger button rendering as a pill-inside-a-pill because the canonical menu SVG carries its own chrome.
+
+- **`hitSlop` instead of paint padding when the visible chrome should be tight.** The drag-handle Pressable had 20+4+20=44pt of *painted* vertical padding to meet HIG. That painted padding stacked with the sheet's `gap: 16` to leave 60pt of dead space above the ETA. Refactored to 8pt paint padding + `hitSlop={{ top: 12, bottom: 12 }}` — 20pt visible, 44pt touchable. Worth keeping: HIG 44pt is a *tap-target* floor, not a *visible-region* floor; reach for `hitSlop` whenever the painted padding around a small affordance would dominate adjacent layout.
+- **Overlapping rounded containers need height headroom for descenders.** The Speed Limit current-speed pill (46pt with `marginBottom: -12` overlapping the yellow sign) gave the 28pt-line digit only 24pt of visible space above the yellow band. Round digits like `0` and `8` have curves that extend toward the bottom of their cap height — those got clipped. Bumped pill height 46→56 so the digit has 8pt of headroom above the overlap. Worth keeping: when laying out an overlapping stack (negative margin), compute the visible content area as `containerHeight - overlap` and verify it exceeds the inner text's `lineHeight + padding`.
+- **A "Button" SVG export is different from a "Glyph" SVG export.** `menu-home.svg` was exported from Figma node `1133:13222` (the full Button component: 56pt white pill + M3 shadow + inner 24pt hamburger). Wrapping it inside `FloatingActionButton` (which is also a white pill + shadow) double-counted the chrome. For now: drop the FAB wrapper and render the SVG directly in a Pressable. Audit-queued: re-export from node `1102:4155` (the inner Icon, 24pt viewBox) so it can slot back into a FAB for register parity with the avatar button. Worth keeping: when a Figma SVG export looks "off" inside a wrapper, check whether the SVG already includes the wrapper's chrome — Figma's export defaults often include the container layer unless you select the inner glyph specifically.
+
+---
+
 ## feat/firearm-emphasis-and-auto-expand-flag (2026-05-12)
 
 Two small follow-ups bundled: (1) bolds the literal spoken phrase in the duty-to-inform firearm sayBullet on /pulled-over so the driver's eye catches the script-line under stress; (2) adds a CLAUDE.md note that the `feat/en-route-zone-entry-auto-expand` behavior needs a real drive (or Simulator "Freeway Drive") to verify since it's gated on `watchPositionAsync`'s 5m-movement threshold.

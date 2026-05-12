@@ -826,6 +826,13 @@ export default function EnRoute() {
         */}
         <Pressable
           style={styles.dragHandleTapTarget}
+          // hitSlop extends the touchable area without painting
+          // padding — keeps the visual gap tight (8 + 4 + 8 = 20pt)
+          // while the touch hit region meets HIG 44pt (12 + 8 + 4 +
+          // 8 + 12 = 44pt vertical). Earlier version painted 20pt
+          // of vertical padding which stacked with the sheet's
+          // gap: 16 to leave ~60pt of dead space above the ETA.
+          hitSlop={{ top: 12, bottom: 12, left: 24, right: 24 }}
           onPress={handleDragHandleToggle}
           accessibilityRole="button"
           accessibilityLabel={
@@ -1086,7 +1093,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    height: 46,
+    // 56pt (was 46) — the 24pt/28pt-line number needs 38pt of
+    // content room (10pt top padding + 28pt line); the -12pt
+    // overlap with the yellow sign below clipped the bottom of
+    // round digits ("0", "8") into the yellow band. 56pt gives
+    // 8pt of headroom above the overlap.
+    height: 56,
     // Overlap with the yellow sign below per Figma — `mb-[-12px]` in
     // the source mocks. Gives the appearance of a unified stack.
     marginBottom: -12,
@@ -1155,14 +1167,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 8,
   },
-  // Drag handle tap target — 32×4 visible bar inside a generously
-  // padded touchable area so the iOS HIG 44pt floor is met even
-  // though the bar itself is tiny. 20+4+20 = 44pt vertical region.
-  // Same pattern Apple Maps and Waze use for their drag handles.
+  // Drag handle tap target — 8+4+8=20pt of vertical paint; the
+  // remaining HIG 44pt floor comes from `hitSlop` on the Pressable.
+  // Painting the full 44pt of padding left too much dead space
+  // above the ETA row.
   dragHandleTapTarget: {
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 8,
     alignItems: 'center',
   },
   // Hazard panel (Full state) — yellow diamond hazard marker on the

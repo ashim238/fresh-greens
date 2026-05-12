@@ -786,13 +786,24 @@ export default function Home() {
             so neither feels broken. /safety reaches the user via the
             shield in the en-route side-button column.
           */}
-          <FloatingActionButton
-            size="48"
-            accessibilityLabel="Menu"
+          {/*
+            MenuHome SVG ships with its own pill + shadow chrome
+            (Figma 1133:13222 exports the full Button component).
+            Render it directly in a Pressable rather than wrapping in
+            FloatingActionButton — double-chrome reads as a pill
+            inside a pill. Future cleanup: re-export the inner glyph
+            (Figma node 1102:4155) at 24×24 viewBox and slot back
+            into a FAB to match the avatar pill's register.
+          */}
+          <Pressable
             onPress={() => router.push('/menu')}
+            accessibilityRole="button"
+            accessibilityLabel="Menu"
+            style={({ pressed }) => pressed && pressedDim}
+            hitSlop={8}
           >
-            <MenuHome width={28} height={28} />
-          </FloatingActionButton>
+            <MenuHome width={48} height={48} />
+          </Pressable>
 
           {/*
             Avatar button — opens /menu (Settings hub). Uses the same
