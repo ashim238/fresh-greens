@@ -99,6 +99,16 @@ function humanReadableHazard(category: HazardCategory): string {
   }
 }
 
+// Zone-length formatter for the hazard panel's "For X mi." line.
+// Same rule as `EnRouteZone`'s Extended pill (1 decimal under 10mi,
+// rounded whole otherwise). Inlined here as the second consumer of
+// the pattern; rule-of-three earns extraction to lib/format.ts when
+// a third surface needs it.
+function formatHazardMiles(miles: number): string {
+  if (miles < 10) return `${miles.toFixed(1)} mi.`;
+  return `${Math.round(miles)} mi.`;
+}
+
 // Sentence-form hazard copy for the Full bottom-sheet hazard panel
 // (Figma 1133:13329). `humanReadableHazard` returns labels for
 // VoiceOver interpolation; this returns the full-sentence variant
@@ -250,11 +260,25 @@ export default function EnRoute() {
   // crosses INTO a zone, that's the live context, more relevant than
   // "something is near your next turn." Falls back to turnHazards
   // when not in a zone. Returns null when neither has anything.
-  const displayedHazardCategory = useMemo<HazardCategory | null>(() => {
-    for (const { zone, category } of enRouteZones) {
-      if (enteredZoneIds.has(zone.id)) return category;
+  //
+  // `lengthMiles` carries the zone's on-the-ground length when this is
+  // an entered-zone hazard; null for the turn-hazard fallback (turn
+  // hazards aren't tied to a single zone, so length isn't meaningful).
+  // The panel surfaces this as a "For X mi." secondary line — same
+  // pattern as the EnRouteZone Extended pill, so the bottom sheet
+  // and the on-map pill speak with one voice when the user enters
+  // a zone.
+  const displayedHazard = useMemo<{
+    category: HazardCategory;
+    lengthMiles: number | null;
+  } | null>(() => {
+    for (const { zone, category, lengthMiles } of enRouteZones) {
+      if (enteredZoneIds.has(zone.id)) return { category, lengthMiles };
     }
-    return turnHazards[0] ?? null;
+    if (turnHazards[0] != null) {
+      return { category: turnHazards[0], lengthMiles: null };
+    }
+    return null;
   }, [enRouteZones, enteredZoneIds, turnHazards]);
 
   // Auto-expand on zone entry. Compares enteredZoneIds across renders
@@ -948,32 +972,40 @@ export default function EnRoute() {
 
           {/*
             Hazard panel — Full state (Figma 1133:13329). Renders the
-            `displayedHazardCategory` — which prefers entered-zone
-            hazards over next-turn hazards, so the panel reflects the
-            live driving context when the auto-expand fires on zone
-            entry. 96pt yellow diamond on the left (inscribed 68pt
-            square rotated 45°), Title3/Emphasized copy on the right.
+            entered-zone hazard (preferred) or the next-turn hazard
+            (fallback). 96pt yellow diamond on the left, Title3/
+            Emphasized sentence on the right; when the hazard is tied
+            to a real zone (lengthMiles known), a secondary "For X mi."
+            line below matches the EnRouteZone Extended-pill register.
             Only shows when the user (or the auto-expand) has expanded
             AND a hazard exists — collapsed = compact ETA only.
           */}
-          {sheetExpanded && displayedHazardCategory && (
+          {sheetExpanded && displayedHazard && (
             <View
               style={styles.hazardPanel}
               accessibilityRole="text"
-              accessibilityLabel={`Heads up: ${hazardFullCopy(displayedHazardCategory)}`}
+              accessibilityLabel={
+                displayedHazard.lengthMiles != null
+                  ? `Heads up: ${hazardFullCopy(displayedHazard.category)} for ${formatHazardMiles(displayedHazard.lengthMiles)}`
+                  : `Heads up: ${hazardFullCopy(displayedHazard.category)}`
+              }
             >
               {/*
                 Hazard SVG renders the full visual (yellow diamond +
-                black glyph + stroke) at 96pt. No outer rotated-square
-                container needed — the SVG IS the diamond. Earlier
-                version built a 68pt rotated square as a placeholder
-                container around a Phosphor glyph; with the canonical
-                Figma SVGs landed, that scaffolding comes out.
+                black glyph + stroke) at 96pt. The text column
+                takes the remaining width.
               */}
-              <Hazard category={displayedHazardCategory} size={96} />
-              <Text style={styles.hazardCopy}>
-                {hazardFullCopy(displayedHazardCategory)}
-              </Text>
+              <Hazard category={displayedHazard.category} size={96} />
+              <View style={styles.hazardCopyColumn}>
+                <Text style={styles.hazardCopy}>
+                  {hazardFullCopy(displayedHazard.category)}
+                </Text>
+                {displayedHazard.lengthMiles != null && (
+                  <Text style={styles.hazardLengthCopy}>
+                    For {formatHazardMiles(displayedHazard.lengthMiles)}
+                  </Text>
+                )}
+              </View>
             </View>
           )}
 
@@ -1260,10 +1292,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  // Text column inside the hazard panel. Stacks the Title3/Emphasized
+  // sentence above an optional Subheadline/Regular "For X mi." line.
+  hazardCopyColumn: {
+    flex: 1,
+    gap: 4,
+  },
   hazardCopy: {
     ...typography.title3Emphasized,
     color: colors.black,
-    flex: 1,
+  },
+  hazardLengthCopy: {
+    ...typography.subheadlineRegular,
+    color: colors.mutedSecondary,
   },
   // v2 layout — FAB + ETA + FAB with the ETA wrapped in a flex:1
   // column that takes the remaining width. FABs are intrinsic-sized,
