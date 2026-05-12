@@ -1,5 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+// Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
+// note on why we bypass the package's barrel index.
+import { Export } from 'phosphor-react-native/src/icons/Export';
+import { X } from 'phosphor-react-native/src/icons/X';
+
 import BgBlackOwned from '../assets/illustrations/mapmarker-bg-blackowned.svg';
 import BgPositive from '../assets/illustrations/mapmarker-bg-positive.svg';
 import BgReport from '../assets/illustrations/mapmarker-bg-report.svg';
@@ -16,7 +21,32 @@ import {
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
+import { DragHandle } from './DragHandle';
+import { FloatingActionButton } from './FloatingActionButton';
 import { type Variant, variantForCategoryId } from './LandmarkMarker';
+
+/**
+ * Community-report detail bottom sheet — appears when the user taps a
+ * report pin on /home. Adapts the v2 Bottom Sheet (Marker) chrome from
+ * Figma `1133:13853`:
+ *
+ *   - slides up from the bottom edge (vs. v1's centered card)
+ *   - drag handle + symmetric FAB header row (Share / center copy / Close)
+ *   - rounded top corners + M3 Elevation 3 drop shadow
+ *
+ * Differences from the Figma template, which depicts a generic location
+ * marker (address title + "Drive there" CTAs):
+ *   - The category icon stays as a central visual element above the
+ *     title. Community reports' core information is what kind of report
+ *     it is — losing the icon to match the icon-less Figma title row
+ *     would strip the most-important affordance.
+ *   - The "8 min / Move" CTA pair is omitted. Community reports are
+ *     informational, not navigable destinations — neither CTA maps to
+ *     a real action for a report-tap intent.
+ *   - The Share FAB is rendered for chrome fidelity but stays a no-op
+ *     until a real share path lands (queued under safety/community
+ *     follow-ups). The "Coming soon" hint is honest about that.
+ */
 
 const BG_FOR_VARIANT: Record<Variant, typeof BgReport> = {
   'black-owned': BgBlackOwned,
@@ -27,17 +57,17 @@ const BG_FOR_VARIANT: Record<Variant, typeof BgReport> = {
 function GlyphForCategory({ categoryId }: { categoryId: ReportCategoryId }) {
   switch (categoryId) {
     case 'black-owned':
-      return <GlyphBlackOwned width={16} height={16} />;
+      return <GlyphBlackOwned width={24} height={24} />;
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={16} height={16} />;
+      return <GlyphFeltWelcome width={24} height={24} />;
     case 'felt-unsafe':
-      return <GlyphFeltUnsafe width={16} height={16} />;
+      return <GlyphFeltUnsafe width={24} height={24} />;
     case 'incident':
-      return <GlyphIncident width={16} height={16} />;
+      return <GlyphIncident width={24} height={24} />;
     case 'lighting':
-      return <GlyphLighting width={16} height={16} />;
+      return <GlyphLighting width={24} height={24} />;
     case 'hazard':
-      return <GlyphHazard width={16} height={16} />;
+      return <GlyphHazard width={24} height={24} />;
     default:
       return null;
   }
@@ -77,6 +107,11 @@ export function ReportDetailCard({
   const variant = variantForCategoryId(categoryId);
   const BgSvg = BG_FOR_VARIANT[variant];
 
+  const subline =
+    subTag && subTag !== 'Other'
+      ? `${subTag} · ${relativeTime(timestamp)}`
+      : relativeTime(timestamp);
+
   return (
     <Pressable
       style={styles.scrim}
@@ -85,97 +120,132 @@ export function ReportDetailCard({
       accessibilityLabel="Dismiss report detail"
     >
       <View
-        style={styles.card}
+        style={styles.sheet}
         accessibilityViewIsModal
+        // Stop taps inside the sheet from bubbling to the scrim's
+        // dismiss handler. Without this, tapping anywhere on the
+        // sheet's contents would close it — Pressable on the scrim
+        // catches the press first if we don't intercept.
         onStartShouldSetResponder={() => true}
       >
-        {/* Header: icon + category label */}
-        <View style={styles.header}>
-          <View style={styles.iconWrap} accessibilityIgnoresInvertColors>
-            <BgSvg width={28} height={28} />
-            <View style={styles.iconGlyph}>
-              <GlyphForCategory categoryId={categoryId} />
-            </View>
-          </View>
-          <Text
-            style={styles.categoryLabel}
-            accessibilityRole="header"
+        <DragHandle />
+
+        {/*
+          Symmetric header per Figma 1133:13853 — Share FAB left,
+          centered category copy, Close FAB right. The category icon
+          sits above the title (vs. inline) so the row's left/right
+          weights stay balanced.
+        */}
+        <View style={styles.headerRow}>
+          <FloatingActionButton
+            size="48"
+            accessibilityLabel="Share this report (coming soon)"
           >
-            {category.label}
-          </Text>
+            <Export size={24} color={colors.labelSecondary} weight="regular" />
+          </FloatingActionButton>
+
+          <View style={styles.headerCenter}>
+            <View style={styles.iconWrap} accessibilityIgnoresInvertColors>
+              <BgSvg width={36} height={36} />
+              <View style={styles.iconGlyph}>
+                <GlyphForCategory categoryId={categoryId} />
+              </View>
+            </View>
+            <Text
+              style={styles.categoryLabel}
+              accessibilityRole="header"
+              numberOfLines={1}
+            >
+              {category.label}
+            </Text>
+            <Text style={styles.subline} numberOfLines={1}>
+              {subline}
+            </Text>
+          </View>
+
+          <FloatingActionButton
+            size="48"
+            onPress={onDismiss}
+            accessibilityLabel="Close report detail"
+          >
+            <X size={24} color={colors.labelSecondary} weight="regular" />
+          </FloatingActionButton>
         </View>
 
-        {/* Detail text (optional) */}
         {detail ? (
-          <Text style={styles.detail} numberOfLines={3}>
-            {detail}
-          </Text>
+          <View style={styles.detailWrap}>
+            <Text style={styles.detail}>{detail}</Text>
+          </View>
         ) : null}
-
-        {/* Footer: subTag + timestamp */}
-        <View style={styles.footer}>
-          {subTag && subTag !== 'Other' ? (
-            <Text style={styles.footerText}>{subTag}  ·  </Text>
-          ) : null}
-          <Text style={styles.footerText}>{relativeTime(timestamp)}</Text>
-        </View>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // Full-screen scrim — taps outside the sheet dismiss. No bg dim
+  // (the v2 marker sheet is meant to coexist with the map underneath,
+  // not modally block it). pointerEvents stay default so the scrim
+  // catches outside taps; the sheet stops propagation via its
+  // responder.
   scrim: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
   },
-  card: {
+  sheet: {
     backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 16,
+    paddingBottom: 24,
+    gap: 16,
+    // M3 Elevation 3 — matches /home and /en-route's bottom sheets so
+    // every bottom-anchored card in the app casts the same drop.
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
+    paddingHorizontal: 24,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
   },
   iconWrap: {
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconGlyph: {
     position: 'absolute',
-    width: 16,
-    height: 16,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   categoryLabel: {
-    ...typography.subheadlineEmphasized,
+    ...typography.title2Emphasized,
     color: colors.black,
-    flexShrink: 1,
+    textAlign: 'center',
   } as const,
+  subline: {
+    ...typography.footnoteRegular,
+    color: colors.mutedSecondary,
+    textAlign: 'center',
+  } as const,
+  detailWrap: {
+    paddingHorizontal: 24,
+  },
   detail: {
     ...typography.bodyRegular,
-    color: colors.mutedSecondary,
-    marginTop: 8,
-  } as const,
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  footerText: {
-    ...typography.caption1Regular,
     color: colors.mutedSecondary,
   } as const,
 });
