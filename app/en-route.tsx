@@ -679,6 +679,7 @@ export default function EnRoute() {
             latitude={parseFloat(params.destLat)}
             longitude={parseFloat(params.destLng)}
             name={params.destName}
+            variant="enroute"
           />
         )}
         {routePolylines}
