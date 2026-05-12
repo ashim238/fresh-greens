@@ -416,6 +416,8 @@ export default function EnRoute() {
               strokeWidth={baseWidth + 3}
             />,
           ];
+          // zIndex={1} forces the colored stroke above the halo — RN-Maps
+          // doesn't strictly respect Polyline array order for paint depth.
           if (isRecommended) {
             elements.push(
               ...gradientSegments(route).map((segment, idx) => (
@@ -424,6 +426,7 @@ export default function EnRoute() {
                   coordinates={segment.coordinates}
                   strokeColor={segment.color}
                   strokeWidth={routeColors.recommended.width}
+                  zIndex={1}
                 />
               )),
             );
@@ -434,6 +437,7 @@ export default function EnRoute() {
                 coordinates={route.coordinates}
                 strokeColor={routeColors[route.type].stroke}
                 strokeWidth={routeColors[route.type].width}
+                zIndex={1}
               />,
             );
           }
@@ -544,13 +548,17 @@ export default function EnRoute() {
           pointerEvents="box-none"
         >
           <View style={styles.speedLimitCurrentPill}>
-            <Text style={styles.speedLimitCurrentNumber}>
+            <Text style={styles.speedLimitCurrentNumber} numberOfLines={1}>
               {speedMph ?? '—'}
             </Text>
           </View>
           <View style={styles.speedLimitSign}>
-            <Text style={styles.speedLimitNumber}>25</Text>
-            <Text style={styles.speedLimitUnit}>mph</Text>
+            <Text style={styles.speedLimitNumber} numberOfLines={1}>
+              25
+            </Text>
+            <Text style={styles.speedLimitUnit} numberOfLines={1}>
+              mph
+            </Text>
           </View>
         </View>
       )}
@@ -830,10 +838,15 @@ const styles = StyleSheet.create({
   // Mirrors the sideButtons column on the right edge of the screen.
   // Two stacked elements: white pill on top (current speed), yellow
   // card below (speed limit). Real-world speed-limit-sign proportions.
+  // Width bumped from Figma's 71pt → 88pt to give the 32pt-bold "25"
+  // numerals room to render on one line. Figma's tight 71 worked in
+  // Figma's text engine but RN with the 4pt borders + 8pt padding
+  // squeezed each digit into its own line. The visual proportion is
+  // still that of a US speed-limit sign.
   speedLimitWrap: {
     position: 'absolute',
     left: 16,
-    width: 71,
+    width: 88,
     alignItems: 'stretch',
   },
   speedLimitCurrentPill: {
@@ -842,7 +855,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorderSubtle,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -854,10 +867,9 @@ const styles = StyleSheet.create({
   speedLimitCurrentNumber: {
     // SF Pro Bold stand-in for Overpass Bold (the canonical US speed-
     // limit-sign typeface). Visually close; swap when Overpass loads.
-    fontFamily: 'SF Pro',
     fontWeight: '700',
     fontSize: 24,
-    lineHeight: 24,
+    lineHeight: 28,
     color: colors.black,
     textAlign: 'center',
     letterSpacing: -0.26,
@@ -867,8 +879,8 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: colors.cardBorderSubtle,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 16,
     alignItems: 'center',
     // M3 Elevation 1 — subtle drop shadow so the sign reads as a
     // physical object on the map.
@@ -879,7 +891,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   speedLimitNumber: {
-    fontFamily: 'SF Pro',
     fontWeight: '700',
     fontSize: 32,
     lineHeight: 36,

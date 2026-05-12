@@ -561,6 +561,9 @@ export default function Home() {
             />,
           ];
           // Recommended route: daylight-gradient segments on top of the halo.
+          // zIndex={1} forces these to paint above the halo — RN-Maps
+          // doesn't strictly respect array order for Polyline paint depth,
+          // so the halo wins without an explicit z-order.
           if (isRecommended) {
             elements.push(
               ...gradientSegments(route).map((segment, idx) => (
@@ -569,17 +572,18 @@ export default function Home() {
                   coordinates={segment.coordinates}
                   strokeColor={segment.color}
                   strokeWidth={routeColors.recommended.width}
+                  zIndex={1}
                 />
               )),
             );
           } else {
-            // Alternate routes: single muted polyline on top of the halo.
             elements.push(
               <Polyline
                 key={route.id}
                 coordinates={route.coordinates}
                 strokeColor={routeColors[route.type].stroke}
                 strokeWidth={routeColors[route.type].width}
+                zIndex={1}
               />,
             );
           }
