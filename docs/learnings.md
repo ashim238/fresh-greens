@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/trusted-contact-location (2026-05-12)
+
+Opens the door for the Trusted Friend marker (Figma `1133:13245`, blocked-on-asset). Extends `TrustedContact` with optional `latitude` / `longitude` / `addressLabel` fields, captures them opportunistically during the `pickContact` flow (re-fetch the picked contact with Addresses field → geocode → persist), and renders a green `LandmarkMarker` with a Phosphor `HeartStraight` stand-in on /home + an off-viewport `EdgeIndicator`. Marker only renders when a real lat/lng exists — no fake placement when geocoding fails.
+
+- **Permission prompts after the user has already committed cost less than prompts that gate the picker.** First instinct on capturing the contact's address was to request Contacts read permission upfront. Better: let the picker (which is permission-less) succeed first, THEN ask for Contacts read permission to re-fetch with addresses. If the user denies, we still have name + phone from the picker; only the marker degrades. Worth keeping: order permission prompts so each one comes AFTER a user action that demonstrates intent, not before. The deny-rate on a prompt that follows "I just chose Mom" is way lower than one that opens before they've decided.
+- **Optional fields on persisted shapes are reversible; required fields aren't.** Made `latitude` / `longitude` / `addressLabel` optional on `TrustedContact` instead of bumping a version + migration. Existing stored contacts (pre-this-PR) just read back with undefined location fields and the marker doesn't render — graceful degradation, zero migration code. Worth keeping: when adding a field to a persisted shape, make it optional first; tighten to required only after every consumer demonstrably populates it.
+- **Phosphor stand-ins are a covenant, not a shortcut.** The `HeartStraight` glyph is explicitly flagged as a stand-in for Figma `1133:13245`'s canonical marker; the comment names the Figma node ID so the future export PR has a search target. Worth keeping: when you ship a placeholder, write the comment that tells the next contributor exactly what to replace it with — the placeholder is honest only if its replacement is discoverable.
+
+---
+
 ## feat/en-route-zone-entry-auto-expand (2026-05-12)
 
 Layered on top of `feat/en-route-bottom-sheet-full`: the sheet now auto-expands the moment the user crosses INTO a hazard zone, surfaces the entered zone's category in the panel (priority over next-turn hazards), fires a Warning notification haptic, and auto-collapses 5 seconds later. Manual drag-handle taps during the timer cancel the pending auto-collapse so the user's explicit choice always wins.

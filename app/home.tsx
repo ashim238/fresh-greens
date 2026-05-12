@@ -27,6 +27,7 @@ import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
+import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
 import {
   getCommunityReportsAsZones,
@@ -74,6 +75,14 @@ export default function Home() {
   const { user } = useUser();
   const { preferences } = usePreferences();
   const { home, addSavedPlace } = useSavedPlaces();
+  // Trusted Friend marker — renders only when the trusted contact has a
+  // geocoded lat/lng (captured opportunistically during the picker flow
+  // in /trusted-contact-setup). Encodes the thesis claim that the app
+  // respects the "people who care about you" graph alongside the road
+  // graph. Visual is a Phosphor HeartStraight stand-in inside the green
+  // LandmarkMarker; the canonical SVG comes from Figma 1133:13245 when
+  // it's exported.
+  const { contact: trustedContact } = useTrustedContact();
   // showZones is `false` while preferences are loading from AsyncStorage;
   // overlays just render on the next pass once the value resolves.
   const showZones = preferences?.showZones ?? false;
@@ -575,6 +584,30 @@ export default function Home() {
             />
           )}
         {/*
+          Trusted Friend marker — green pin with a heart glyph,
+          anchored to the contact's geocoded address (captured during
+          the picker flow in /trusted-contact-setup). Hidden until a
+          location is actually known; absent address = no marker, no
+          fake placement.
+        */}
+        {trustedContact?.latitude != null &&
+          trustedContact.longitude != null &&
+          (!mapRegion ||
+            isPointInRegion(
+              {
+                latitude: trustedContact.latitude,
+                longitude: trustedContact.longitude,
+              },
+              mapRegion,
+            )) && (
+            <LandmarkMarker
+              latitude={trustedContact.latitude}
+              longitude={trustedContact.longitude}
+              categoryId="trusted-friend"
+              accessibilityLabel={`${trustedContact.name}'s ${trustedContact.addressLabel ?? 'home'} (trusted contact)`}
+            />
+          )}
+        {/*
           OSRM-derived routes. Recommended renders as a daylight-
           gradient polyline; alternates render in muted gray. Always
           on the map's native overlay layer.
@@ -691,6 +724,41 @@ export default function Home() {
               );
             })()
           )}
+          {trustedContact?.latitude != null &&
+            trustedContact.longitude != null &&
+            !isPointInRegion(
+              {
+                latitude: trustedContact.latitude,
+                longitude: trustedContact.longitude,
+              },
+              mapRegion,
+            ) &&
+            (() => {
+              const point = {
+                latitude: trustedContact.latitude!,
+                longitude: trustedContact.longitude!,
+              };
+              const edge = edgePositionForPoint(point, mapRegion, mapSize);
+              return (
+                <EdgeIndicator
+                  x={edge.x}
+                  y={edge.y}
+                  rotation={edge.rotation}
+                  variant="positive"
+                  accessibilityLabel={`${trustedContact.name} (off-screen — tap to center)`}
+                  onPress={() =>
+                    mapRef.current?.animateToRegion(
+                      {
+                        ...point,
+                        latitudeDelta: mapRegion.latitudeDelta,
+                        longitudeDelta: mapRegion.longitudeDelta,
+                      },
+                      400,
+                    )
+                  }
+                />
+              );
+            })()}
         </View>
       )}
 
