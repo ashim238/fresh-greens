@@ -338,10 +338,13 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   body: {
-    // Figma v2 uses Body/Emphasized (Semibold 17/22) on the onboarding
-    // panels — gives the supporting copy more weight against the
-    // 34pt title. Was Body/Regular in v1.
-    ...typography.bodyEmphasized,
+    // Body/Regular per iOS HIG convention for onboarding supporting
+    // copy (Apple's own onboarding, Mail, Health all use Regular).
+    // Figma v2 specs Body/Emphasized but at 17pt on the colored bg
+    // with this much copy, Semibold reads dense and urgent when the
+    // text is informational — Regular lets the 34pt title carry the
+    // emphasis.
+    ...typography.bodyRegular,
     color: colors.white,
   },
   actions: {
