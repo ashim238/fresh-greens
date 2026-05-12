@@ -839,7 +839,12 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.wiltedgreen,
+    // No bg on the wrap — both children paint their own (turnSign =
+    // wiltedgreen, thenFooter = burntgreen with rounded bottom). A
+    // wrap-level wiltedgreen poked past thenFooter's 28pt rounded
+    // bottom corners, painting sharp wiltedgreen rectangles under
+    // the curve. The shadow stays on the wrap so the whole stack
+    // casts one drop instead of two.
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -1035,7 +1040,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    paddingHorizontal: 16,
+    // 20pt (not 16pt) so the right FAB's column center aligns with
+    // the side-button column above it. Side buttons are 56pt at
+    // right:16 → center at right:44. Bottom-sheet FABs are 48pt;
+    // center at right:44 puts the outer edge at right:20.
+    paddingHorizontal: 20,
   },
   etaCluster: {
     flex: 1,
