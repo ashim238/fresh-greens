@@ -1032,7 +1032,6 @@ function ReviewView({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Back to trusted contact"
-          hitSlop={12}
           style={({ pressed }) => [reviewStyles.closeBtn, pressed && pressedDim]}
         >
           <Text style={reviewStyles.closeText}>Back</Text>
@@ -1773,8 +1772,16 @@ const reviewStyles = StyleSheet.create({
     gap: 16,
     paddingBottom: 8,
   },
+  // 44pt visible tap target — paddingVertical:13 brings the ~18pt
+  // footnoteRegular "Back" link to a 44pt painted height per HIG.
+  // Earlier this leaned on hitSlop, but .cursorrules' tap-target rule
+  // is explicit: hitSlop is for the *genuinely constrained* case, not
+  // a workaround for sub-44pt visuals. The footer has room for the
+  // paint; promote the visual.
   closeBtn: {
     alignSelf: 'flex-end',
+    paddingVertical: 13,
+    paddingHorizontal: 4,
   },
   closeText: {
     ...typography.footnoteRegular,
