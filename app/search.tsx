@@ -122,6 +122,12 @@ export default function Search() {
     longitude: number;
   } | null>(null);
   const [resultsCity, setResultsCity] = useState<string>('your area');
+  // Quick Tool filter selection — visual-only for v1 (filter logic
+  // isn't wired yet, the tools are still "coming soon"). Tapping a
+  // tile selects it; tapping the selected tile deselects. Mutually
+  // exclusive — one filter at a time matches the Figma's "Selected"
+  // variant which has no multi-select treatment.
+  const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   // Tracks the most-recently-issued autocomplete query so stale
   // responses from earlier keystrokes can be discarded when they
   // resolve out of order. Apple Maps does the same — without this,
@@ -294,21 +300,31 @@ export default function Search() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.quickToolsRow}
                 >
-                  {QUICK_TOOLS.map((tool) => (
-                    <Pressable
-                      key={tool.id}
-                      style={({ pressed }) => [
-                        styles.quickTool,
-                        pressed && pressedDim,
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={tool.label}
-                      accessibilityHint="Coming soon"
-                    >
-                      {tool.renderIcon(tool.color)}
-                      <Text style={styles.quickToolLabel}>{tool.label}</Text>
-                    </Pressable>
-                  ))}
+                  {QUICK_TOOLS.map((tool) => {
+                    const isSelected = selectedToolId === tool.id;
+                    return (
+                      <Pressable
+                        key={tool.id}
+                        style={({ pressed }) => [
+                          styles.quickTool,
+                          isSelected && styles.quickToolSelected,
+                          pressed && pressedDim,
+                        ]}
+                        onPress={() =>
+                          setSelectedToolId((prev) =>
+                            prev === tool.id ? null : tool.id,
+                          )
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel={tool.label}
+                        accessibilityState={{ selected: isSelected }}
+                        accessibilityHint="Filter coming soon"
+                      >
+                        {tool.renderIcon(tool.color)}
+                        <Text style={styles.quickToolLabel}>{tool.label}</Text>
+                      </Pressable>
+                    );
+                  })}
                 </ScrollView>
 
                 <View style={styles.divider} />
@@ -452,6 +468,15 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 12,
     paddingHorizontal: 40,
+  },
+  // Selected state per Figma `1133:13314`. Same outline and shape;
+  // the bg flips from white → iOS system fillsTertiary so the
+  // tile reads as "active filter" without losing the icon/label
+  // contrast. fillsTertiary is the same neutral surface tint we
+  // already use on /search's gray search-bar — reuses an iOS-
+  // native register instead of inventing a new "selected" color.
+  quickToolSelected: {
+    backgroundColor: colors.fillsTertiary,
   },
   quickToolLabel: {
     ...typography.subheadlineEmphasized,
