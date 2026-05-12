@@ -1,28 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-// Deep import path (phosphor-react-native exposes ./src/icons/* via
-// its `exports` field). Bypasses the barrel index, which Metro chokes
-// on — the barrel re-exports ~9000 icons and any single resolution
-// failure (we hit ./icons/Bank) takes the whole bundle down. Direct
-// import = only this one icon gets pulled into the bundle.
-//
-// TypeScript resolves this path to the package's precompiled .d.ts
-// via the `paths` mapping in tsconfig.json (avoids type-checking
-// phosphor's strict-incompatible source TSX). Metro still uses the
-// .tsx source at runtime per phosphor's exports field.
 import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
+import { EmptyState } from '../components/StateCard';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -114,7 +100,7 @@ export default function TrustedContactSetup() {
 
         <View style={styles.content}>
           <View style={styles.copy}>
-            <Text style={styles.title}>Set your trusted contact</Text>
+            <Text style={styles.title}>Set your Trusted Contact</Text>
             <Text style={styles.body}>
               Fresh Greens alerts this person during emergencies and shares
               your location with them. They're who the Call and Text buttons
@@ -133,112 +119,64 @@ export default function TrustedContactSetup() {
               </View>
             </View>
           ) : (
-            // Empty state is itself a Pressable — the big icon is the
-            // most visible affordance on the screen, so tapping anywhere
-            // in the card fires the picker. The bottom CTA is a
-            // redundant tap target for users who don't realize the card
-            // is interactive.
+            // The whole EmptyState card is tappable — wraps the
+            // StateCard EmptyState component in a Pressable so the
+            // big icon is itself the primary affordance.
             <Pressable
-              style={({ pressed }) => [
-                styles.emptyState,
-                picking && styles.emptyStateBusy,
-                pressed && !picking && pressedDim,
-              ]}
               onPress={handlePickContact}
               disabled={picking}
               accessibilityRole="button"
               accessibilityLabel="Pick a contact"
               accessibilityHint="Opens the contact picker"
               accessibilityState={{ busy: picking, disabled: picking }}
+              style={({ pressed }) => [pressed && !picking && pressedDim]}
             >
-              <UserPlus
-                size={56}
-                color={colors.fadedgreen}
-                weight="duotone"
+              <EmptyState
+                icon={
+                  <UserPlus
+                    size={56}
+                    color={colors.freshgreen}
+                    weight="duotone"
+                  />
+                }
+                headline="No contact set yet."
+                text="Tap to add someone you trust."
               />
-              <Text style={styles.emptyText}>
-                No contact set yet. Tap to pick someone you trust.
-              </Text>
             </Pressable>
           )}
 
           {error && <Text style={styles.errorText}>{error}</Text>}
 
           {/*
-            Action hierarchy:
-            - Empty state: [Pick a contact] primary, [Skip] link
-            - Contact picked: [Continue] primary, [Change contact]
-              outlined, [Skip] link
-            Primary action is always freshgreen-filled per established
-            register (matches /permissions Continue button, /onboarding
-            Continue button). Outlined wiltedgreen variant is for the
-            "secondary, you-might-need-this" tier.
+            Action hierarchy per Figma 1100:8310:
+            - Continue: Primary Fill (proceeds with current state)
+            - Skip for now: Primary Transparent (text-only on the
+              wiltedgreen page bg)
+            When a contact is already set, Continue moves forward;
+            when not, the EmptyState card above is the primary
+            picker affordance and Continue still proceeds (empty
+            trusted-contact handled gracefully by /pulled-over).
           */}
           <View style={styles.actions}>
-            {contact ? (
-              <>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.cta,
-                    styles.ctaPrimary,
-                    pressed && pressedDim,
-                  ]}
-                  onPress={handleContinue}
-                  accessibilityRole="button"
-                  accessibilityLabel="Continue with this trusted contact"
-                >
-                  <Text style={styles.ctaText}>Continue</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.cta,
-                    picking && styles.ctaBusy,
-                    pressed && !picking && pressedDim,
-                  ]}
-                  onPress={handlePickContact}
-                  disabled={picking}
-                  accessibilityRole="button"
-                  accessibilityLabel="Change trusted contact"
-                  accessibilityState={{ busy: picking, disabled: picking }}
-                >
-                  {picking ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.ctaText}>Change contact</Text>
-                  )}
-                </Pressable>
-              </>
-            ) : (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cta,
-                  styles.ctaPrimary,
-                  picking && styles.ctaBusy,
-                  pressed && !picking && pressedDim,
-                ]}
-                onPress={handlePickContact}
-                disabled={picking}
-                accessibilityRole="button"
-                accessibilityLabel="Pick a contact"
-                accessibilityState={{ busy: picking, disabled: picking }}
-              >
-                {picking ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.ctaText}>Pick a contact</Text>
-                )}
-              </Pressable>
-            )}
-
-            <Pressable
+            <Button
+              type="primary"
+              fill="fill"
+              text="Continue"
+              onPress={handleContinue}
+              accessibilityLabel={
+                contact
+                  ? 'Continue with this trusted contact'
+                  : 'Continue without a trusted contact'
+              }
+              style={styles.btnStretch}
+            />
+            <Button
+              type="primary"
+              fill="transparent"
+              text="Skip for now"
               onPress={handleSkip}
-              style={({ pressed }) => [styles.skipBtn, pressed && pressedDim]}
-              accessibilityRole="button"
-              accessibilityLabel="Skip for now"
-              hitSlop={12}
-            >
-              <Text style={styles.skipText}>Skip for now</Text>
-            </Pressable>
+              style={styles.btnStretch}
+            />
           </View>
         </View>
       </SafeAreaView>
@@ -266,11 +204,15 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   title: {
-    ...typography.title1Emphasized,
+    // Large Title/Emphasized (34pt) per Figma v2 — gives the
+    // page-anchoring title weight equal to the onboarding panels.
+    ...typography.largeTitleEmphasized,
     color: colors.white,
   },
   body: {
-    ...typography.subheadlineRegular,
+    // Body/Emphasized (17pt Semibold) per Figma — matches the
+    // onboarding panels' body register.
+    ...typography.bodyEmphasized,
     color: colors.white,
   },
 
@@ -308,74 +250,17 @@ const styles = StyleSheet.create({
     color: colors.fadedgreen,
   },
 
-  // --- Empty state (no contact yet) ---
-  // The whole card is tappable — well above 44pt min on every axis.
-  // Uses fadedgreen border (vs preview's burntgreen fill) so the card
-  // reads as "empty / waiting for input" rather than "filled / done".
-  emptyState: {
-    alignItems: 'center',
-    gap: 12,
-    padding: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.fadedgreen,
-  },
-  emptyStateBusy: {
-    opacity: 0.7,
-  },
-  emptyText: {
-    ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
-    textAlign: 'center',
-  },
-
   errorText: {
     ...typography.footnoteRegular,
     color: colors.red,
     textAlign: 'center',
   },
 
-  // --- Actions ---
   actions: {
-    gap: 12,
+    gap: 16,
     paddingTop: 8,
   },
-  // Outlined wiltedgreen-bordered pill — secondary action register.
-  // Mirrors /pulled-over's Continue button (audit-4 quieter register).
-  cta: {
-    height: 48,
-    borderRadius: 1000,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.fadedgreen,
-  },
-  // Freshgreen-filled pill — primary action register. Matches
-  // /permissions Continue and /onboarding Continue.
-  ctaPrimary: {
-    backgroundColor: colors.freshgreen,
-    borderColor: colors.freshgreen,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  ctaBusy: {
-    opacity: 0.7,
-  },
-  ctaText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
-  },
-  skipBtn: {
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skipText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
-    textDecorationLine: 'underline',
+  btnStretch: {
+    alignSelf: 'stretch',
   },
 });

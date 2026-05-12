@@ -75,8 +75,12 @@ export function Button({
     // narrowing above ensures only Primary reaches here.
   ];
 
+  // Transparent renders white text per Figma — designed for use on
+  // dark/colored backgrounds (onboarding, /trusted-contact-setup),
+  // never on white. On a white page the text would be invisible;
+  // that constraint is documented but not type-enforced.
   const textColor =
-    fill === 'fill'
+    fill === 'fill' || fill === 'transparent'
       ? colors.white
       : type === 'primary'
         ? colors.freshgreen

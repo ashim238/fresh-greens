@@ -6,7 +6,6 @@ import {
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -19,9 +18,9 @@ import Onboarding1Visual from '../assets/illustrations/onboarding-1-visual.svg';
 import Onboarding2Hill from '../assets/illustrations/onboarding-2-hill.svg';
 import Onboarding2Visual from '../assets/illustrations/onboarding-2-visual.svg';
 import Onboarding3 from '../assets/illustrations/onboarding-3.svg';
+import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -109,7 +108,10 @@ const PANELS: Panel[] = [
   {
     id: 'drive',
     title: 'Drive like you know these roads',
-    body: 'No one should feel uncomfortable on the open road. Fresh Greens places the agency back in your hands by suggesting routes that maximize visibility and familiarity.',
+    // Copy shortened per Figma v2 redesign (1100:7553) — previous opener
+    // ("No one should feel uncomfortable on the open road.") was retired
+    // for a tighter "what the app does" framing.
+    body: 'Fresh Greens places the agency back in your hands by suggesting routes that maximize visibility and familiarity.',
     illustrationAspect: 390 / 475,
     renderIllustration: () => <PanelOneIllustration />,
     illustrationLabel:
@@ -118,7 +120,10 @@ const PANELS: Panel[] = [
   {
     id: 'community',
     title: 'For us, by us',
-    body: 'Fresh Greens relies on insights shared by travelers like you. Community contributions are vital in the mapping process, ensuring drivers have a full understanding of their surroundings, from road hazards to the treatment of Black visitors.',
+    // Per Figma 1100:7715 — tighter than v1, lands the core claim
+    // (community contributions cover road hazards + treatment) in one
+    // sentence rather than two.
+    body: 'Community contributions ensure drivers have a full understanding of their surroundings, from road hazards to the treatment of Black visitors.',
     illustrationAspect: 390 / 565,
     renderIllustration: () => <PanelTwoIllustration />,
     illustrationLabel:
@@ -127,8 +132,9 @@ const PANELS: Panel[] = [
   {
     id: 'unique',
     title: 'Your viewpoint is unique',
-    body:
-      "That gut feeling that tells you to turn onto a road you've been down before is valuable. Fresh Greens integrates your intuition into the navigation, creating a driving experience specific to you.",
+    // Per Figma 1100:7867 — drops the "gut feeling" preamble; same
+    // sentiment carried by the illustration's thought bubble.
+    body: 'Fresh Greens integrates your intuition into the navigation, creating a driving experience specific to you.',
     illustrationAspect: 390 / 475,
     renderIllustration: () => <PanelThreeIllustration />,
     illustrationLabel:
@@ -266,30 +272,26 @@ export default function Onboarding() {
         <PageControl total={5} activeIndex={pagerIndex} />
         <View style={styles.spacer} pointerEvents="none" />
         <View style={styles.actions} pointerEvents="auto">
-          <Pressable
-            style={({ pressed }) => [
-              styles.continueBtn,
-              pressed && pressedDim,
-            ]}
-            accessibilityRole="button"
+          <Button
+            type="primary"
+            fill="fill"
+            text="Continue"
+            onPress={handleContinue}
             accessibilityLabel={
               pagerIndex < PANELS.length - 1
                 ? 'Continue to next onboarding step'
                 : 'Continue to permissions'
             }
-            onPress={handleContinue}
-          >
-            <Text style={styles.continueText}>Continue</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.skipBtn, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel="Skip onboarding"
+            style={styles.btnStretch}
+          />
+          <Button
+            type="secondary"
+            fill="fill"
+            text="Skip"
             onPress={handleSkip}
-          >
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
+            accessibilityLabel="Skip onboarding"
+            style={styles.btnStretch}
+          />
         </View>
       </View>
     </View>
@@ -336,40 +338,19 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   body: {
-    ...typography.bodyRegular,
+    // Figma v2 uses Body/Emphasized (Semibold 17/22) on the onboarding
+    // panels — gives the supporting copy more weight against the
+    // 34pt title. Was Body/Regular in v1.
+    ...typography.bodyEmphasized,
     color: colors.white,
   },
   actions: {
     width: '100%',
     paddingHorizontal: 32,
+    gap: 16,
   },
-  continueBtn: {
-    backgroundColor: colors.freshgreen,
-    height: 44,
-    borderRadius: 1000,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    // Approximates Figma M3 Elevation Light/1 (the larger of two layers).
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  continueText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
-  },
-  skipBtn: {
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skipText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.white,
-    textDecorationLine: 'underline',
+  btnStretch: {
+    alignSelf: 'stretch',
   },
 });
 
