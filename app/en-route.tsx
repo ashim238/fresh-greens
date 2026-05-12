@@ -24,6 +24,7 @@ import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { DragHandle } from '../components/DragHandle';
+import { EnRouteZone } from '../components/EnRouteZone';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
@@ -41,7 +42,15 @@ import { clusterPointZones } from '../lib/clustering';
 import { gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
 import { formatDistance, formatDuration } from '../lib/format';
-import { hazardsNearTurn, pickWinner, type HazardCategory } from '../lib/scoring';
+import {
+  hazardsNearTurn,
+  isPointInZone,
+  pickWinner,
+  zoneAnchor,
+  zoneLengthMiles,
+  zoneToHazardCategory,
+  type HazardCategory,
+} from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
@@ -144,6 +153,40 @@ export default function EnRoute() {
   );
 
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // On-map caution/avoid zone markers — polygon/polyline OSM zones
+  // surface as En-Route Zone markers at the zone's anchor point
+  // (polyline midpoint or polygon centroid). Each marker has a
+  // Default state (compact 72pt badge) and an Extended state (150×42
+  // pill with "For X mi." copy) that swaps when the user enters the
+  // zone. Point zones already render as LandmarkMarker community-
+  // report pins — they don't get the En-Route Zone treatment.
+  const enRouteZones = useMemo(() => {
+    return osmZones.flatMap((zone) => {
+      if (zone.geometry === 'point') return [];
+      if (zone.type !== 'caution' && zone.type !== 'avoid') return [];
+      const category = zoneToHazardCategory(zone);
+      if (!category) return []; // police/landuse/park don't get hazard glyphs
+      const anchor = zoneAnchor(zone);
+      if (!anchor) return [];
+      return [{ zone, anchor, category, lengthMiles: zoneLengthMiles(zone) }];
+    });
+  }, [osmZones]);
+
+  // Which en-route zones the user is currently inside. Used to flip
+  // each marker to its Extended pill state. Recomputed on every
+  // userLocation update (one fix per ~second). `enRouteZones` is
+  // already filtered to caution/avoid OSM zones with a hazard
+  // category — typically a small set per Overpass region — so the
+  // per-fix scan is cheap.
+  const enteredZoneIds = useMemo(() => {
+    if (!userLocation) return new Set<string>();
+    const inside = new Set<string>();
+    for (const { zone } of enRouteZones) {
+      if (isPointInZone(userLocation, zone)) inside.add(zone.id);
+    }
+    return inside;
+  }, [enRouteZones, userLocation]);
 
   // Hazards crossing threshold near the next turn — surfaces up to 2
   // glyphs on the turn card, worst-first. v1 uses the route's first
@@ -465,6 +508,37 @@ export default function EnRoute() {
         })}
         {routePolylines}
 
+        {/*
+          En-Route Zone markers — Figma 1133:13297. One marker per
+          caution/avoid OSM polygon/polyline zone that maps to a
+          hazard category. Default state is a compact badge shown
+          ahead of the zone; Extended state swaps to a 150×42 pill
+          ("For X mi.") the moment the user crosses into the zone.
+          Independent of the data-layer `showZones` toggle — these
+          are driver-facing hazard notices, not the optional
+          overlay.
+        */}
+        {enRouteZones.map(({ zone, anchor, category, lengthMiles }) => {
+          const state = enteredZoneIds.has(zone.id) ? 'extended' : 'default';
+          // Embed state in the key so flipping default ↔ extended
+          // remounts the native Marker view rather than mutating its
+          // children in place. iOS MapKit caches the marker snapshot
+          // once `tracksViewChanges` settles to false, so an in-place
+          // child swap can leave the stale snapshot painted. A
+          // remount guarantees a fresh snapshot on every transition
+          // without keeping tracking enabled the whole session.
+          return (
+            <EnRouteZone
+              key={`hazard-${zone.id}-${state}`}
+              latitude={anchor.latitude}
+              longitude={anchor.longitude}
+              category={category}
+              state={state}
+              lengthMiles={lengthMiles}
+            />
+          );
+        })}
+
         {userLocation && (
           <UserLocationMarker
             latitude={userLocation.latitude}
@@ -669,69 +743,53 @@ export default function EnRoute() {
 
         <View style={styles.sheetContent}>
           {/*
-            3-slot layout — left/center/right each take equal flex:1
-            width. ETA centers in its slot so it's guaranteed to land at
-            screen center regardless of how many buttons sit on either
-            side. The asymmetry (1 button left, 2 right) lives inside
-            the slots, not across the row.
+            v2 layout per Figma `1133:13328` (BottomSheet/En-route/
+            Collapsed). Two 48pt FABs flank a 34pt Large Title/Emphasized
+            ETA in freshgreen. The ETA is wrapped in a flex:1 column
+            that takes the remaining width — the FABs are intrinsic-
+            sized, so the ETA centers between them regardless of which
+            iconography lands on each side.
           */}
           <View style={styles.etaRow}>
-            <View style={styles.leftSlot}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.utilityBtn,
-                  pressed && pressedDim,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Search along route (coming soon)"
-                hitSlop={12}
-              >
-                <Ionicons
-                  name="search"
-                  size={24}
-                  color={colors.labelSecondary}
-                />
-              </Pressable>
-            </View>
+            <FloatingActionButton
+              size="48"
+              accessibilityLabel="Search along route (coming soon)"
+            >
+              <Ionicons
+                name="search"
+                size={24}
+                color={colors.labelSecondary}
+              />
+            </FloatingActionButton>
 
-            <View style={styles.centerSlot}>
+            <View style={styles.etaCluster}>
               {/*
                 ETA cluster — `[16pt spacer] [time] [16pt sun/moon]`
-                per Figma. The left spacer balances the right glyph
-                so the time text stays optically centered. nowrap on
-                the time defends against any future locale-format
-                expansion.
+                per Figma 364:3116. The left spacer balances the right
+                glyph so the time text stays optically centered. nowrap
+                on the time defends against any locale-format expansion.
               */}
-              <View style={styles.etaCluster}>
-                <View style={styles.etaIconSpacer} />
-                <Text style={styles.eta} numberOfLines={1}>
-                  {arrivalDisplay.time}
-                </Text>
-                {arrivalDisplay.isNight ? (
-                  <DaylightMoon width={16} height={16} />
-                ) : (
-                  <DaylightSun width={16} height={16} />
-                )}
-              </View>
+              <View style={styles.etaIconSpacer} />
+              <Text style={styles.eta} numberOfLines={1}>
+                {arrivalDisplay.time}
+              </Text>
+              {arrivalDisplay.isNight ? (
+                <DaylightMoon width={16} height={16} />
+              ) : (
+                <DaylightSun width={16} height={16} />
+              )}
             </View>
 
-            <View style={styles.rightSlot}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.utilityBtn,
-                  pressed && pressedDim,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Show alternate paths (coming soon)"
-                hitSlop={12}
-              >
-                <Ionicons
-                  name="git-branch"
-                  size={24}
-                  color={colors.labelSecondary}
-                />
-              </Pressable>
-            </View>
+            <FloatingActionButton
+              size="48"
+              accessibilityLabel="Show alternate paths (coming soon)"
+            >
+              <Ionicons
+                name="git-branch"
+                size={24}
+                color={colors.labelSecondary}
+              />
+            </FloatingActionButton>
           </View>
 
           <View style={styles.secondaryRow}>
@@ -745,11 +803,13 @@ export default function EnRoute() {
           </View>
 
           {/*
-            End trip — lifted out of the icon row to its own labeled pill.
-            A driver under stress shouldn't have to interpret an X glyph;
-            "End trip" text is unambiguous, and the dedicated row resets
-            the visual hierarchy (utilities are icons, status is a number,
-            the explicit primary action is a labeled button).
+            End trip — preserved from v1 even though Figma's collapsed
+            frame doesn't show it. The Full/expanded variant of the
+            bottom sheet (Figma 1133:13329, not yet ported) is where
+            it lives in the v2 design. Until that ships, keeping End
+            trip on the collapsed state ensures the driver can always
+            exit the trip with one tap on a labeled button — a driver
+            under stress shouldn't have to find or interpret an X icon.
           */}
           <Pressable
             style={({ pressed }) => [styles.endTripBtn, pressed && pressedDim]}
@@ -774,17 +834,22 @@ const styles = StyleSheet.create({
   },
 
   // --- Turn-sign header ---
+  // Single SafeAreaView that owns:
+  //   - wiltedgreen bg, so the status-bar inset area (added as top
+  //     padding by `edges={['top']}`) is wiltedgreen too — the panel
+  //     reads as starting from the very top of the screen.
+  //   - rounded bottom + `overflow: 'hidden'`, so both children
+  //     (turnSign wiltedgreen + thenFooter burntgreen) are clipped
+  //     to the rounded shape as a unit. No bleed at the seam.
   headerWrap: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     backgroundColor: colors.wiltedgreen,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
   turnSign: {
     backgroundColor: colors.wiltedgreen,
@@ -858,8 +923,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    // Rounded bottom + clipping lives on the parent `headerCard`,
+    // not here — see the comment there for why.
   },
   thenText: {
     ...typography.title3Regular,
@@ -967,63 +1032,41 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 8,
   },
+  // v2 layout — FAB + ETA + FAB with the ETA wrapped in a flex:1
+  // column that takes the remaining width. FABs are intrinsic-sized,
+  // so the ETA centers between them. Replaces the v1 3-slot row that
+  // had separate flex:1 left/center/right slots.
   etaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  leftSlot: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  centerSlot: {
-    flex: 1,
-    alignItems: 'center',
+    gap: 16,
+    // 20pt (not 16pt) so the right FAB's column center aligns with
+    // the side-button column above it. Side buttons are 56pt at
+    // right:16 → center at right:44. Bottom-sheet FABs are 48pt;
+    // center at right:44 puts the outer edge at right:20.
+    paddingHorizontal: 20,
   },
   etaCluster: {
+    flex: 1,
     flexDirection: 'row',
-    // Matches Figma 825:3783 ETA's `items-start` + no inter-item gap.
-    // The 16pt sun/moon glyph sits at the top of the row alongside
-    // the 41pt-line-height "8:30" — visually subtitling the time as
-    // "this is morning" / "this is night" rather than centered to
-    // the time's mid-line (which read like a satellite dot floating
-    // beside the digits).
+    // Matches Figma 364:3116 ETA's `items-start`. The 16pt sun/moon
+    // glyph sits at the top of the row alongside the 41pt-line-height
+    // "8:30" — visually subtitling the time as "this is morning" or
+    // "this is night" rather than centered to the time's mid-line.
     alignItems: 'flex-start',
-    gap: 0,
+    justifyContent: 'center',
   },
   etaIconSpacer: {
     width: 16,
     height: 16,
   },
-  rightSlot: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 16,
-  },
-  utilityBtn: {
-    // 44x44 visual + 24pt icons. Earlier iteration ran 32pt icons but
-    // they crowded the 44pt frame (only 6pt of pill visible). 24pt icons
-    // give 10pt of breathing room on each side — the icon reads as
-    // sitting *inside* the pill, not filling it. Still legible at speed;
-    // hitSlop=12 keeps effective tap area at 68pt for one-handed use.
-    width: 44,
-    height: 44,
-    borderRadius: 1000,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // M3 Elevation 1
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
   eta: {
     ...typography.largeTitleEmphasized,
     color: colors.freshgreen,
   },
+  // Body/Emphasized 17pt per Figma 364:3133/3135 — bumped from v1's
+  // 15pt Subheadline. Distance + duration both emphasized; the "·"
+  // separator stays Subheadline/Regular gray for a quiet beat.
   secondaryRow: {
     flexDirection: 'row',
     gap: 4,
@@ -1031,7 +1074,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryDistance: {
-    ...typography.subheadlineEmphasized,
+    ...typography.bodyEmphasized,
     color: colors.black,
   },
   secondarySeparator: {
@@ -1039,7 +1082,7 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
   },
   secondaryDuration: {
-    ...typography.subheadlineRegular,
+    ...typography.bodyEmphasized,
     color: colors.black,
   },
 
