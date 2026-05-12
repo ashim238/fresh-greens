@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/search-localization (2026-05-12)
+
+User-reported bug: typing "Salon" on /search from NY surfaced results thousands of miles away, AND the divider insets on the results list didn't match Figma `1105:6462`. Root cause of the search bug was Nominatim's `bounded: '0'` (soft viewbox bias). Divider insets had two issues: the divider above the results was full-width (no horizontal inset), and the between-row separators used an iOS list-style left-only inset (`left: 48, right: 0`) rather than Figma's symmetric 12pt both sides.
+
+- **`bounded: '1'` is the right Nominatim setting when the user's intent is "find this near me".** The `'0'` setting just nudges; `'1'` is a hard viewbox restriction. For navigation-app search, "near me" is the default expectation — soft bias produces surprising results when the query has a famous match elsewhere. Worth keeping: when integrating a search API that has both soft-hint and hard-restrict modes for geographic bounding, default to the hard mode for "find X near me" intent; soft bias is the right choice for "browse globally with local preference," which isn't the dominant use case here.
+- **Sort by distance ascending even when the API claims to be bias-aware.** Even with `bounded: '1'`, Nominatim's default ordering inside the viewbox is its own relevance ranking — which can put a marginally-more-relevant result 30mi away above an obvious one 0.5mi away. For navigation intent, distance is the right primary sort. Worth keeping: never trust a search API's default ordering for "near me" queries — re-sort client-side by distance ascending. The API's ranking might be smart but it's not your user's mental model.
+- **Two divider styles, not one.** `divider` is shared across /search's landing screen for section breaks (full-width) and was also being used above the results list (also full-width). The Figma's results-list dividers are symmetric 12pt-inset per the Horizontal/Inset component. Rather than change the shared `divider` and ripple to the landing screen, I added a separate `resultsInsetDivider` for the results context. Similarly the row separators flipped from `left: 48, right: 0` (iOS list convention) to `left: 12, right: 12` (Figma symmetric inset). Worth keeping: when a shared style is used in two contexts with different design specs, fork rather than re-spec — the ripple cost of changing one shared style across N contexts almost always exceeds the cost of a second purpose-named style.
+
+---
+
+
 ## feat/hazard-panel-zone-length (2026-05-12)
 
 The /en-route hazard panel was showing only the sentence-form copy ("Low lighting on this stretch") with no indication of how long the affected zone actually lasts. Drivers entering a zone want to know whether they're in a 0.3-mile patch or a 4-mile stretch — that changes whether they slow down, stay alert, or both. Refactors `displayedHazardCategory` (just a category) into `displayedHazard` ({category, lengthMiles}), and surfaces the length as a "For X mi." secondary line under the sentence when the hazard is tied to a real zone.
