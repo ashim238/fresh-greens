@@ -14,12 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Phosphor deep-imports per the project's tsconfig paths mapping —
 // see app/trusted-contact-setup.tsx for the long note.
 import { BookmarkSimple } from 'phosphor-react-native/src/icons/BookmarkSimple';
+import { Car } from 'phosphor-react-native/src/icons/Car';
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
 import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
 import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
 import { MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
 import { Medal } from 'phosphor-react-native/src/icons/Medal';
-import { Parking } from 'phosphor-react-native/src/icons/Parking';
 
 import FuelIcon from '../assets/illustrations/fuel.svg';
 
@@ -101,7 +101,10 @@ const QUICK_TOOLS: QuickTool[] = [
     id: 'parking',
     label: 'Parking',
     color: '#0B57D0',
-    renderIcon: (color) => <Parking size={24} color={color} weight="fill" />,
+    // Phosphor doesn't ship a Parking icon — using Car as a stand-in
+    // until a custom "P" glyph is added during the bulk-SVG export
+    // pass (queued in CLAUDE.md).
+    renderIcon: (color) => <Car size={24} color={color} weight="fill" />,
   },
 ];
 
