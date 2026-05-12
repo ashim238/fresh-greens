@@ -227,6 +227,7 @@ export default function Search() {
             state={searchBarState}
             value={query}
             onChangeText={handleQueryChange}
+            onSubmit={() => runSearch(query)}
             onBackPress={() => router.back()}
             onClearPress={() => {
               setQuery('');

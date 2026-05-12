@@ -27,6 +27,8 @@ type Props = {
   placeholder?: string;
   value?: string;
   onChangeText?: (text: string) => void;
+  /** Fires when the user presses the keyboard's return/search key. */
+  onSubmit?: () => void;
   onPress?: () => void;
   onBackPress?: () => void;
   onClearPress?: () => void;
@@ -40,6 +42,7 @@ export function SearchBar({
   placeholder = 'Where are you headed?',
   value,
   onChangeText,
+  onSubmit,
   onPress,
   onBackPress,
   onClearPress,
@@ -81,6 +84,7 @@ export function SearchBar({
         placeholderTextColor={colors.mutedSecondary}
         value={value}
         onChangeText={onChangeText}
+        onSubmitEditing={onSubmit}
         autoFocus={autoFocus}
         returnKeyType="search"
         accessibilityLabel={placeholder}
