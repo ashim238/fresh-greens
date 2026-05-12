@@ -125,7 +125,7 @@ function phosphorForSubTag(subTag: string | undefined) {
  * category SVG glyph — the same illustration the picker tile
  * renders — so the marker stays legible without a typed icon.
  */
-export function GlyphForCategory({
+function GlyphForCategory({
   categoryId,
   subTag,
   variant,

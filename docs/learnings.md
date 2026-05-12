@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/architecture-audit-1 (2026-05-12)
+
+First architecture audit pass. Three small fixes shipped, the rest are a punch list for follow-up. Findings: scoring stays pure, adapters all conform to the async + try/catch + typed-shape contract (one outlier in `places.ts` whose consumer wraps the call), theme tokens are disciplined (every `#000` is a `shadowColor` RN convention, every `fontSize:` outside theme has a comment explaining why). Two real defects: an orphan export in `LandmarkMarker.tsx` and the `EnRouteCarMarker` empty-frame bug.
+
+- **`tracksViewChanges` is a snapshot-after-paint gate, not a "never re-render" knob.** `EnRouteCarMarker` mounted with `tracksViewChanges={false}`, which told MapKit to snapshot the marker bitmap immediately on mount — but the `react-native-svg` subtree hadn't painted yet, so the snapshot froze empty. Fix: start `tracking=true`, flip to `false` via a `setTimeout(0)` after first paint. Pairs cleanly with the heading-keyed remount strategy already in place (each remount restarts the cycle: paint → snapshot). Worth keeping: when MapKit shows an empty marker, the first hypothesis is "snapshot beat the paint," not "the SVG is broken."
+- **`export` is a contract; un-`export` what no other file imports.** `GlyphForCategory` was exported from `LandmarkMarker.tsx` but only consumed internally — and `ReportDetailCard` had defined its own local `GlyphForCategory` rather than reusing the exported one, so the public surface was actively misleading (suggested a shared helper that nobody shared). Dropped the `export` keyword. Worth keeping: when grepping for orphan exports, the most damaging ones are the ones with a local duplicate elsewhere — the export advertises a contract that consumers have stopped trusting.
+- **Visual parity between Report buttons across surfaces.** /en-route's side column uses `FloatingActionButton` + `sidebtn-report.svg`; /home's Report button rendered an Ionicons `alert-circle` inside a bespoke Pressable. The user reads "report something" as one affordance — different glyphs on two surfaces meant relearning. Swapped /home to the same FAB + SVG composition; deleted the orphaned `reportBtn` stylesheet entry. Worth keeping: when one affordance lives on two surfaces, the second surface should reach for the first surface's component, not roll a parallel implementation that drifts. The `FloatingActionButton`'s `style` prop exists precisely for this — pass positioning, inherit chrome.
+
+---
+
 ## fix/en-route-spacing-speed-limit-menu-icon (2026-05-12)
 
 Five fixes / polish items in one PR: (1) ~24pt of dead space above the /en-route ETA from drag-handle padding stacking with the sheet's gap; (2) the bottom of round digits in the Speed Limit current-speed pill being clipped by the yellow sign's top overlap; (3) /home hamburger button rendering as a pill-inside-a-pill because the canonical menu SVG carries its own chrome; (4) retire /home's avatar pill since both top-row buttons routed to /menu (identity glyph stays on /menu's profile row, which is where identity actually belongs); (5) new `EnRouteCarMarker` on /en-route that rotates a top-down car SVG by `pos.coords.heading`, replacing the generic blue dot during active driving.
