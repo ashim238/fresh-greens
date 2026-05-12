@@ -128,46 +128,31 @@ export default function EnRoute() {
   const recommended = routes.find((route) => route.type === 'recommended');
 
   // Route polylines memoized so live-GPS re-renders don't rebuild the
-  // overlay on the native side — RN-Maps on iOS loses Polyline paint
-  // order between re-renders and the colored stroke disappears under
-  // the halo. Same pattern as /home.
+  // overlay on the native side. Halo retired — see longer note in
+  // /home; RN-Maps Polyline lacks zIndex and iOS paint-order can't be
+  // controlled reliably across re-renders, so the colored stroke
+  // alone is the v1 design.
   const routePolylines = useMemo(
     () =>
       routes.flatMap((route) => {
-        const isRecommended = route.type === 'recommended';
-        const baseWidth = isRecommended
-          ? routeColors.recommended.width
-          : routeColors.alternate.width;
-        const elements: React.ReactElement[] = [
+        if (route.type === 'recommended') {
+          return gradientSegments(route).map((segment, idx) => (
+            <Polyline
+              key={`${route.id}-seg-${idx}`}
+              coordinates={segment.coordinates}
+              strokeColor={segment.color}
+              strokeWidth={routeColors.recommended.width}
+            />
+          ));
+        }
+        return [
           <Polyline
-            key={`${route.id}-halo`}
+            key={route.id}
             coordinates={route.coordinates}
-            strokeColor={colors.white}
-            strokeWidth={baseWidth + 3}
+            strokeColor={routeColors[route.type].stroke}
+            strokeWidth={routeColors[route.type].width}
           />,
         ];
-        if (isRecommended) {
-          elements.push(
-            ...gradientSegments(route).map((segment, idx) => (
-              <Polyline
-                key={`${route.id}-seg-${idx}`}
-                coordinates={segment.coordinates}
-                strokeColor={segment.color}
-                strokeWidth={routeColors.recommended.width}
-              />
-            )),
-          );
-        } else {
-          elements.push(
-            <Polyline
-              key={route.id}
-              coordinates={route.coordinates}
-              strokeColor={routeColors[route.type].stroke}
-              strokeWidth={routeColors[route.type].width}
-            />,
-          );
-        }
-        return elements;
       }),
     [routes],
   );
