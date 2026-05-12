@@ -14,6 +14,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -29,7 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // SVG asset imports — fuel.svg already exists; calendar tile uses the
 // Phosphor Calendar duotone for v1 (queue a custom illustrated SVG
 // for a future bulk-export pass to match the Fuel tile's register).
-import Avatar from '../assets/illustrations/avatar.svg';
+import AvatarPng from '../assets/illustrations/avatar.png';
 import FuelIcon from '../assets/illustrations/fuel.svg';
 
 import { PageControl } from '../components/PageControl';
@@ -205,9 +206,11 @@ export default function Menu() {
             accessibilityRole="text"
             accessibilityLabel={`Hey there, ${displayName}`}
           >
-            <View style={styles.profileAvatar}>
-              <Avatar width={80} height={80} />
-            </View>
+            <Image
+              source={AvatarPng}
+              style={styles.profileAvatar}
+              accessibilityIgnoresInvertColors
+            />
             <View style={styles.profileTextStack}>
               <Text style={styles.profileGreeting}>Hey there,</Text>
               <Text style={styles.profileName}>{displayName}</Text>
