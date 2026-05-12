@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/menu-redesign (2026-05-11)
+
+Major v2 redesign of /menu per Figma `1120:7079`. Register flip from wiltedgreen-on-dark Waze layout → white-on-light iOS-Settings layout. Plus a new `/sign-out` confirmation screen (Figma `1133:12894`) that replaces the immediate-sign-out pattern from v1. First Phase-3 screen port, sets the pattern for the next 8 screens.
+
+- **Register flips ripple.** Changing /menu's bg from wiltedgreen → white meant changing the StatusBar style (light → dark), every text color (white → black), every icon color (wiltedgreen → black), the divider color (dividerOnDark → separatorSubtle), the chevron color (fadedgreen → labelTertiary), and dropping the white-circle icon-tile wrapper that only made sense on a dark surface. Roughly 30+ small edits cascading from one design decision. Worth keeping: a "register flip" is rarely just a bg change — the ripple effects are 5–10× the apparent surface area, and any screen-port estimate that doesn't account for that is wrong.
+- **Inert rows survive a redesign because the affordance survives.** v1's inert pattern (opacity 0.5, no chevron, no tap, accessibilityHint "Coming soon") was preserved across the redesign even though everything else about the row changed. The pattern itself is product-meaningful — "this exists in the future" — and disconnected from the visual register. Worth keeping: when you redesign a screen, separate which decisions are visual (bg, type, color) from which are interaction-affordances (inert, accordion, dropdown). The visual ones flip; the interaction ones often don't.
+- **Sign-out flow gains a confirmation screen for emotional continuity, not for security.** v1 signed out immediately and routed to /. v2 routes to a new /sign-out screen ("You've been logged out. Thank you for stopping by!" + Log back in button) before returning to /login. The screen serves no functional purpose — clearing identity already happened in /menu's handler — but it gives the user a beat to register the goodbye. Trauma-informed UX continues outside the safety flow: when an action has finality (sign-out, deletion), an acknowledging screen is gentler than a silent state change. Worth keeping: confirmation screens aren't always about preventing accidents; sometimes they're about pacing.
+
+---
+
 ## feat/design-system-v2-phase1 (2026-05-11)
 
 Foundational batch of the design-system-v2 port. Adds four reusable components — `Button` (10 Figma variants → 5 code combinations), `SearchBar` (3 states: default / on-tap / typing), `StateCard` (EmptyState + LoadingState + ErrorState), `FloatingActionButton` (2 sizes) — plus migrates Welcome's two CTAs to use the new Button. Every subsequent screen port in this redesign consumes these components.
