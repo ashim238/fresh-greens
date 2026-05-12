@@ -230,6 +230,17 @@ export default function Search() {
   function handleQueryChange(text: string) {
     setQuery(text);
     setErrorMessage(null);
+    // If the new text doesn't match the currently-selected Quick
+    // Tool's query, that tile is no longer driving the search and
+    // should deselect. Covers the case where the user taps Food
+    // ("restaurant"), then types "pizza" — the Food tile would
+    // otherwise stay visually selected while the bar reads pizza.
+    if (selectedToolId) {
+      const selected = QUICK_TOOLS.find((t) => t.id === selectedToolId);
+      if (!selected || selected.query !== text) {
+        setSelectedToolId(null);
+      }
+    }
     if (text.length === 0) {
       setPhase('landing');
       setResults([]);
@@ -267,6 +278,13 @@ export default function Search() {
               setQuery('');
               setPhase('landing');
               setErrorMessage(null);
+              // Clear deselects any active Quick Tool filter too —
+              // the tile's selected state was confirming the filter
+              // applied to the now-cleared query. Without this, the
+              // tile stays visually selected after the user wipes
+              // the search bar, which reads as "filter still active"
+              // when nothing is filtering anything.
+              setSelectedToolId(null);
               setResults([]);
             }}
             onMicPress={() => {
