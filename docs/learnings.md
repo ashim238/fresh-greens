@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/pulled-over-chrome-polish (2026-05-12)
+
+Focused chrome pass on `/pulled-over` — paired with `chore/pulled-over-bulk-svg-swap` (#101) which had handled the audio-control register. This pass scoped narrower: a single tap-target promotion on the review-phase "Back" link, and a documented punch list for the remaining Ionicons stand-ins (Call/Text/chevrons + four 120pt review hero illustrations). No copy changes, no state-machine changes — the firearm guidance, gun-laws variants, and What-to-Say content are legally sensitive and stayed untouched.
+
+- **A focused chrome PR can ship one fix and still be valuable for its punch list.** Tempting to grab Phosphor stand-ins for the remaining Ionicons just to move the diff line count — but `chore/pulled-over-bulk-svg-swap` already made the case that "no canonical asset + no documented Phosphor register" is a punch-list outcome, not a forced swap. The Call/Text/chevron/hero-illustration gaps belong in the next custom-export batch; trading Ionicons for Phosphor without precedent would just swap one stand-in for another. Worth keeping: when a parallel PR has already drawn the line on what to swap-vs-defer for a given screen, follow-up passes inherit that line — don't re-litigate to pad the diff.
+- **Promote tap-target paint, don't lean on hitSlop, when there's room to grow.** The review-phase "Back" footer link was ~18pt footnoteRegular + hitSlop=12 (total 42pt — below HIG's 44pt floor by 2pt). Two ways to fix: bump hitSlop=14, or paint paddingVertical:13 to bring the visible region to 44pt. The `.cursorrules` tap-target rule is explicit that hitSlop is for the *genuinely constrained* case (small icon in a dense row, child target inside a compliant container), not papering over a sub-44pt visual. The footer had room for 13pt of padding without disrupting the chevron row's layout. Worth keeping: when audit-reviewing tap targets, the first question is "does the visual have room to grow?" — if yes, grow it; reach for hitSlop only when no.
+
+---
+
 ## feat/gradient-polish-and-address-trim (2026-05-12)
 
 Two small visible polish items: (1) daylight gradient on the route polyline goes 5 → 15 segments for noticeably smoother color transitions; (2) search-results address line strips the 5-digit ZIP code + the trailing ", United States" for cleaner display.
