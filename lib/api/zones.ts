@@ -52,10 +52,21 @@
 // signals can compound (e.g., a residential street that's also lit=yes
 // stacks safe+safe = strongly preferred).
 
-const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+// `kumi.systems` is a lighter-loaded public Overpass mirror than the
+// canonical `overpass-api.de`; identical query API. We use it as the
+// primary because `overpass-api.de` consistently 503s or times out
+// during thesis-demo windows. If kumi ever stops responding, the
+// canonical endpoint is the documented fallback below.
+const OVERPASS_ENDPOINT = 'https://overpass.kumi.systems/api/interpreter';
 
-/** Bail on the Overpass call if it doesn't respond within this window. */
-const OVERPASS_TIMEOUT_MS = 6000;
+/**
+ * Bail on the Overpass call if it doesn't respond within this window.
+ * 12s leaves room for a cold-start request (Overpass JIT-compiles the
+ * query on first hit) without making a real failure feel infinite.
+ * Was 6s — tripping AbortError mid-cold-start was the dominant cause
+ * of mock fallbacks on /home + /en-route.
+ */
+const OVERPASS_TIMEOUT_MS = 12000;
 
 /** How close (meters) a route waypoint must be to a polyline zone to count. */
 export const POLYLINE_PROXIMITY_METERS = 20;
