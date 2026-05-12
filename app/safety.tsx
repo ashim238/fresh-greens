@@ -1,4 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentType } from 'react';
+import type { SvgProps } from 'react-native-svg';
+
+import SafetyCarTroubles from '../assets/illustrations/safety-car-troubles.svg';
+import SafetyLost from '../assets/illustrations/safety-lost.svg';
+import SafetyPulledOver from '../assets/illustrations/safety-pulled-over.svg';
+import SafetyShareLocation from '../assets/illustrations/safety-share-location.svg';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -33,7 +40,7 @@ import { typography } from '../theme/typography';
 type SafetyTab = {
   id: string;
   label: string;
-  iconName: keyof typeof Ionicons.glyphMap;
+  Icon: ComponentType<SvgProps>;
   /** Future sub-flow route — null = unwired TODO for this PR */
   href: string | null;
 };
@@ -42,7 +49,7 @@ const TABS: SafetyTab[] = [
   {
     id: 'pulled-over',
     label: 'I was pulled over',
-    iconName: 'alert-circle',
+    Icon: SafetyPulledOver,
     // Routes to /pulled-over, a single consolidated modal that runs the
     // entire flow as an internal state machine: armed-or-not → recording
     // → contact → review-guidance. One swipe-down dismisses everything,
@@ -52,19 +59,19 @@ const TABS: SafetyTab[] = [
   {
     id: 'roadside',
     label: 'I need roadside assistance',
-    iconName: 'construct',
+    Icon: SafetyCarTroubles,
     href: null, // TODO: /roadside sub-flow
   },
   {
     id: 'unfamiliar',
     label: "I'm in an unfamiliar area",
-    iconName: 'compass',
+    Icon: SafetyLost,
     href: null, // TODO: /unfamiliar sub-flow
   },
   {
     id: 'share-location',
     label: 'I want to share my location',
-    iconName: 'share-social',
+    Icon: SafetyShareLocation,
     href: null, // TODO: /share-location sub-flow
   },
 ];
@@ -120,12 +127,7 @@ export default function SafetyModal() {
               accessibilityState={{ disabled: tab.href === null }}
             >
               <View style={styles.tabIcon}>
-                <Ionicons
-                  name={tab.iconName}
-                  size={48}
-                  color={colors.black}
-                  accessible={false}
-                />
+                <tab.Icon width={48} height={48} />
               </View>
               <Text style={styles.tabLabel}>{tab.label}</Text>
             </Pressable>

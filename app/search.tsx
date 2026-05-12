@@ -13,15 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports per the project's tsconfig paths mapping —
 // see app/trusted-contact-setup.tsx for the long note.
-import { BookmarkSimple } from 'phosphor-react-native/src/icons/BookmarkSimple';
-import { Car } from 'phosphor-react-native/src/icons/Car';
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
-import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
-import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
 import { MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
-import { Medal } from 'phosphor-react-native/src/icons/Medal';
 
 import FuelIcon from '../assets/illustrations/fuel.svg';
+import QuickToolSaved from '../assets/illustrations/quick-tools-saved.svg';
+import QuickToolTrending from '../assets/illustrations/quick-tools-trending.svg';
+import QuickToolFood from '../assets/illustrations/safety-tools-food.svg';
+import QuickToolGas from '../assets/illustrations/safety-tools-gas.svg';
+import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 
 import { SearchBar } from '../components/SearchBar';
 import { ErrorState, LoadingState } from '../components/StateCard';
@@ -68,44 +68,20 @@ type Phase = 'landing' | 'typing' | 'loading' | 'results' | 'error';
 type QuickTool = {
   id: string;
   label: string;
-  color: string;
-  renderIcon: (color: string) => React.ReactNode;
+  /**
+   * Canonical Figma SVG for this tile. Each carries its own fill
+   * color (per the iOS-system-color register from Figma) — no need
+   * to thread tint through anymore.
+   */
+  Icon: React.ComponentType<{ width: number; height: number }>;
 };
 
 const QUICK_TOOLS: QuickTool[] = [
-  {
-    id: 'saved',
-    label: 'Saved',
-    color: colors.pink,
-    renderIcon: (color) => <BookmarkSimple size={24} color={color} weight="fill" />,
-  },
-  {
-    id: 'trending',
-    label: 'Trending',
-    color: colors.yellow,
-    renderIcon: (color) => <Medal size={24} color={color} weight="fill" />,
-  },
-  {
-    id: 'food',
-    label: 'Food',
-    color: colors.orange,
-    renderIcon: (color) => <ForkKnife size={24} color={color} weight="fill" />,
-  },
-  {
-    id: 'gas',
-    label: 'Gas',
-    color: '#34C759',
-    renderIcon: (color) => <GasPump size={24} color={color} weight="fill" />,
-  },
-  {
-    id: 'parking',
-    label: 'Parking',
-    color: '#0B57D0',
-    // Phosphor doesn't ship a Parking icon — using Car as a stand-in
-    // until a custom "P" glyph is added during the bulk-SVG export
-    // pass (queued in CLAUDE.md).
-    renderIcon: (color) => <Car size={24} color={color} weight="fill" />,
-  },
+  { id: 'saved', label: 'Saved', Icon: QuickToolSaved },
+  { id: 'trending', label: 'Trending', Icon: QuickToolTrending },
+  { id: 'food', label: 'Food', Icon: QuickToolFood },
+  { id: 'gas', label: 'Gas', Icon: QuickToolGas },
+  { id: 'parking', label: 'Parking', Icon: QuickToolParking },
 ];
 
 // TODO: real recent searches from a persistence layer.
@@ -320,7 +296,7 @@ export default function Search() {
                         accessibilityState={{ selected: isSelected }}
                         accessibilityHint="Filter coming soon"
                       >
-                        {tool.renderIcon(tool.color)}
+                        <tool.Icon width={24} height={24} />
                         <Text style={styles.quickToolLabel}>{tool.label}</Text>
                       </Pressable>
                     );

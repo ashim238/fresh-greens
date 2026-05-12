@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import LogoApple from '../assets/illustrations/logo-apple.svg';
+import LogoGoogle from '../assets/illustrations/logo-google.svg';
+import LogoMail from '../assets/illustrations/logo-mail.svg';
 import { useUser } from '../hooks/useUser';
 import { getStoredUser } from '../lib/api/user';
 import { colors } from '../theme/colors';
@@ -131,7 +133,7 @@ export default function GetStarted() {
                 <ActivityIndicator color={colors.white} />
               ) : (
                 <>
-                  <Ionicons name="logo-apple" size={20} color={colors.white} />
+                  <LogoApple width={20} height={20} />
                   <Text style={styles.outlinedButtonText}>
                     Continue with Apple
                   </Text>
@@ -151,7 +153,7 @@ export default function GetStarted() {
               accessibilityLabel="Continue with Google (not yet supported)"
               disabled
             >
-              <Ionicons name="logo-google" size={20} color={colors.white} />
+              <LogoGoogle width={20} height={20} />
               <Text style={styles.outlinedButtonText}>Continue with Google</Text>
             </Pressable>
 
@@ -161,7 +163,7 @@ export default function GetStarted() {
               accessibilityLabel="Continue with Email (not yet supported)"
               disabled
             >
-              <Ionicons name="mail-outline" size={20} color={colors.white} />
+              <LogoMail width={20} height={20} />
               <Text style={styles.outlinedButtonText}>Continue with Email</Text>
             </Pressable>
 
