@@ -240,9 +240,21 @@ const STATE_NAME_TO_CODE: Record<string, USStateCode> = {
  *     instruction. Splitting into two bullets matches the existing
  *     "quote then instruction" shape the v1 What-to-Say view used.
  */
+/**
+ * A `sayBullet` is either a plain string or a structured segment with
+ * one emphasized fragment flanked by optional unstyled lead/trail
+ * text. The structured shape lets us bold the literal phrase the user
+ * should speak (e.g. the exact disclosure script) while keeping the
+ * surrounding context regular — single-fragment emphasis only, since
+ * multiple-bold within a stress-state bullet collapses to noise.
+ */
+export type SayBullet =
+  | string
+  | { lead?: string; emphasized: string; trail?: string };
+
 type FirearmGuidance = {
   guidanceBullet: string;
-  sayBullets: string[];
+  sayBullets: SayBullet[];
 };
 
 export const FIREARM_GUIDANCE: Record<DisclosureDuty, FirearmGuidance> = {
@@ -251,7 +263,15 @@ export const FIREARM_GUIDANCE: Record<DisclosureDuty, FirearmGuidance> = {
       "Keep both hands visible on the steering wheel. Tell the officer you have a firearm and where it is.",
     sayBullets: [
       'Keep both hands visible on the steering wheel.',
-      '"Officer, I have a valid concealed carry permit and am currently carrying a firearm." Tell the officer exactly where it is before reaching for anything.',
+      {
+        // Emphasizes the exact words the driver should say so the eye
+        // catches the script-line under stress; surrounding instruction
+        // stays regular. Single-emphasis only — see SayBullet docstring.
+        emphasized:
+          '"Officer, I have a valid concealed carry permit and am currently carrying a firearm."',
+        trail:
+          ' Tell the officer exactly where it is before reaching for anything.',
+      },
     ],
   },
   'no-duty': {
