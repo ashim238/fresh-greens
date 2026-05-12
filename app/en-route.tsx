@@ -36,7 +36,7 @@ import { EnRouteZone } from '../components/EnRouteZone';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
-import { UserLocationMarker } from '../components/UserLocationMarker';
+import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { getCommunityReportsAsZones } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
@@ -152,6 +152,13 @@ export default function EnRoute() {
   // null before motion is detected). Feeds the SpeedLimit sign's top
   // pill — when null, the pill renders a dash.
   const [speedMph, setSpeedMph] = useState<number | null>(null);
+  // GPS heading (degrees, 0=north) — feeds the EnRouteCarMarker's
+  // rotation so the car icon points in the direction of travel.
+  // Null while iOS hasn't computed a heading yet (stationary), in
+  // which case the car points north as a safe default. Sticky once
+  // resolved so brief stationary moments don't snap the car back
+  // to north.
+  const [heading, setHeading] = useState<number | null>(null);
   // Bottom-sheet height drives where the side button column floats. Same
   // pattern /home uses for the Report button: measure on layout, anchor
   // children relative to the measured value, conditionally render so we
@@ -448,6 +455,15 @@ export default function EnRoute() {
           if (typeof ms === 'number' && ms >= 0) {
             setSpeedMph(Math.round(ms * 2.237));
           }
+          // pos.coords.heading is in degrees (0=north). iOS returns
+          // -1 when the device hasn't detected motion. Same gate as
+          // speed — only update when we have a real heading, so the
+          // car doesn't snap back to north every time the driver
+          // stops at a red light.
+          const hdg = pos.coords.heading;
+          if (typeof hdg === 'number' && hdg >= 0) {
+            setHeading(hdg);
+          }
         },
       );
     })();
@@ -635,9 +651,17 @@ export default function EnRoute() {
         })}
 
         {userLocation && (
-          <UserLocationMarker
+          <EnRouteCarMarker
+            // Embed heading in the key so each meaningful rotation
+            // remounts the native Marker — iOS MapKit caches the
+            // marker snapshot when `tracksViewChanges` is false, so
+            // an in-place transform update wouldn't repaint. Rounding
+            // to whole degrees gates updates to ~360 per full turn,
+            // not one per GPS tick.
+            key={`car-${heading != null ? Math.round(heading) : 'n'}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
+            heading={heading}
           />
         )}
       </MapView>
@@ -826,6 +850,13 @@ export default function EnRoute() {
         */}
         <Pressable
           style={styles.dragHandleTapTarget}
+          // hitSlop extends the touchable area without painting
+          // padding — keeps the visual gap tight (8 + 4 + 8 = 20pt)
+          // while the touch hit region meets HIG 44pt (12 + 8 + 4 +
+          // 8 + 12 = 44pt vertical). Earlier version painted 20pt
+          // of vertical padding which stacked with the sheet's
+          // gap: 16 to leave ~60pt of dead space above the ETA.
+          hitSlop={{ top: 12, bottom: 12, left: 24, right: 24 }}
           onPress={handleDragHandleToggle}
           accessibilityRole="button"
           accessibilityLabel={
@@ -1086,7 +1117,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    height: 46,
+    // 56pt (was 46) — the 24pt/28pt-line number needs 38pt of
+    // content room (10pt top padding + 28pt line); the -12pt
+    // overlap with the yellow sign below clipped the bottom of
+    // round digits ("0", "8") into the yellow band. 56pt gives
+    // 8pt of headroom above the overlap.
+    height: 56,
     // Overlap with the yellow sign below per Figma — `mb-[-12px]` in
     // the source mocks. Gives the appearance of a unified stack.
     marginBottom: -12,
@@ -1155,14 +1191,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 8,
   },
-  // Drag handle tap target — 32×4 visible bar inside a generously
-  // padded touchable area so the iOS HIG 44pt floor is met even
-  // though the bar itself is tiny. 20+4+20 = 44pt vertical region.
-  // Same pattern Apple Maps and Waze use for their drag handles.
+  // Drag handle tap target — 8+4+8=20pt of vertical paint; the
+  // remaining HIG 44pt floor comes from `hitSlop` on the Pressable.
+  // Painting the full 44pt of padding left too much dead space
+  // above the ETA row.
   dragHandleTapTarget: {
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 8,
     alignItems: 'center',
   },
   // Hazard panel (Full state) — yellow diamond hazard marker on the
