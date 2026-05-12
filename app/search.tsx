@@ -1,99 +1,258 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Phosphor deep-imports per the project's tsconfig paths mapping —
+// see app/trusted-contact-setup.tsx for the long note.
+import { BookmarkSimple } from 'phosphor-react-native/src/icons/BookmarkSimple';
+import { Car } from 'phosphor-react-native/src/icons/Car';
+import { Clock } from 'phosphor-react-native/src/icons/Clock';
+import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
+import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
+import { MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
+import { Medal } from 'phosphor-react-native/src/icons/Medal';
+
+import FuelIcon from '../assets/illustrations/fuel.svg';
+
+import { SearchBar } from '../components/SearchBar';
+import { ErrorState, LoadingState } from '../components/StateCard';
+import { searchPlaces, type Place } from '../lib/api/places';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
- * Search — Landing variant.
+ * Search — state machine across the Figma redesign frames:
  *
- * Shown when the user taps the search bar on /home. Includes the gray
- * search field (per .cursorrules' contextual rule: gray when embedded
- * on a flat surface, white-elevated when floating over map/imagery),
- * Quick Tools shortcuts, a Fuel section CTA, and Recent searches.
+ *   `landing`  empty input. Shows SearchBar (on-tap) + Quick Tools row
+ *              + Fuel section + Recent searches. Figma `1103:6123`.
  *
- * Functional core: TextInput in the search field accepts a destination,
- * geocodes via Location.geocodeAsync, returns to /home with destination
- * lat/lng/name as URL params. The Quick Tools, Fuel, and Recent sections
- * are visual stubs for now (TODOs documented inline).
+ *   `typing`   has input, not yet submitted. Shows SearchBar (typing)
+ *              + Recent searches (keep something tappable visible).
+ *              Quick Tools/Fuel hide to reduce visual noise.
+ *
+ *   `loading`  geocoding in progress. Shows SearchBar (typing) +
+ *              LoadingState card. Figma `1105:6049`.
+ *
+ *   `results`  POI search returned named results. Shows SearchBar
+ *              (typing) + ""{query}" results in {area}" subhead +
+ *              list of named places with address + distance. Figma
+ *              `1105:6462`. Tap a result → route to /home.
+ *
+ *   `error`    search failed or returned no matches. Shows SearchBar
+ *              (typing) + ErrorState card. Uses the `1133:13326`
+ *              ErrorState component.
+ *
+ * POI search is powered by `lib/api/places.ts` (OpenStreetMap Nominatim).
+ * Distance from the user is computed in the adapter; user location is
+ * acquired once on mount via `Location.getCurrentPositionAsync`.
+ *
+ * Quick Tool icons use iOS system colors per Figma. Documented as a
+ * decorative-iconography exception to `.cursorrules`'s reserved-color
+ * rule (same exception clause as Welcome's orange splash bg).
  *
  * Route: /search
- * Figma node: 825:4987 (Search Landing)
- *
- * Future: 825:5017 (Search Typed) is a separate screen showing typing
- * suggestions. v1 collapses Landing + Typed into this single screen
- * since the TextInput handles both states implicitly.
  */
+
+type Phase = 'landing' | 'typing' | 'loading' | 'results' | 'error';
 
 type QuickTool = {
   id: string;
   label: string;
-  iconName: keyof typeof Ionicons.glyphMap;
+  color: string;
+  renderIcon: (color: string) => React.ReactNode;
 };
 
 const QUICK_TOOLS: QuickTool[] = [
-  { id: 'saved', label: 'Saved', iconName: 'bookmark' },
-  { id: 'trending', label: 'Trending', iconName: 'trophy' },
-  { id: 'food', label: 'Food', iconName: 'restaurant' },
-  { id: 'gas', label: 'Gas', iconName: 'speedometer' },
-  { id: 'parking', label: 'Parking', iconName: 'car' },
+  {
+    id: 'saved',
+    label: 'Saved',
+    color: colors.pink,
+    renderIcon: (color) => <BookmarkSimple size={24} color={color} weight="fill" />,
+  },
+  {
+    id: 'trending',
+    label: 'Trending',
+    color: colors.yellow,
+    renderIcon: (color) => <Medal size={24} color={color} weight="fill" />,
+  },
+  {
+    id: 'food',
+    label: 'Food',
+    color: colors.orange,
+    renderIcon: (color) => <ForkKnife size={24} color={color} weight="fill" />,
+  },
+  {
+    id: 'gas',
+    label: 'Gas',
+    color: '#34C759',
+    renderIcon: (color) => <GasPump size={24} color={color} weight="fill" />,
+  },
+  {
+    id: 'parking',
+    label: 'Parking',
+    color: '#0B57D0',
+    // Phosphor doesn't ship a Parking icon — using Car as a stand-in
+    // until a custom "P" glyph is added during the bulk-SVG export
+    // pass (queued in CLAUDE.md).
+    renderIcon: (color) => <Car size={24} color={color} weight="fill" />,
+  },
 ];
 
-// TODO: real recent searches from a persistence layer (AsyncStorage or
-// backend). Hardcoded mock for v1 so the section reads visually.
-const RECENT_SEARCHES = [
-  { id: 'recent-1', label: 'Jackson, MS' },
-];
+// TODO: real recent searches from a persistence layer.
+const RECENT_SEARCHES = [{ id: 'recent-1', label: 'Jackson, Mississippi' }];
 
 export default function Search() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
+  const [phase, setPhase] = useState<Phase>('landing');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [results, setResults] = useState<Place[]>([]);
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [resultsCity, setResultsCity] = useState<string>('your area');
+  // Tracks the most-recently-issued autocomplete query so stale
+  // responses from earlier keystrokes can be discarded when they
+  // resolve out of order. Apple Maps does the same — without this,
+  // typing "Mc" then "Mcd" can result in "Mc"'s slower response
+  // overwriting "Mcd"'s faster one.
+  const lastQueryRef = useRef<string>('');
 
-  async function handleSubmit() {
-    const trimmed = query.trim();
+  // Acquire user location once on mount. Permission was granted during
+  // onboarding (/permissions); a failure here is non-fatal — the search
+  // can still run with a default centerpoint, just with less-relevant
+  // distance ordering.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const position = await Location.getCurrentPositionAsync({});
+        if (cancelled) return;
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        // Reverse-geocode the user's location once so the Results
+        // subhead can read ""{query}" results in {city}" instead of
+        // the generic fallback.
+        const reverse = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        if (cancelled) return;
+        const city = reverse[0]?.city ?? reverse[0]?.subregion;
+        if (city) setResultsCity(city);
+      } catch (err) {
+        console.warn('[search] could not acquire user location:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const searchBarState = phase === 'landing' ? 'on-tap' : 'typing';
+
+  // Debounced autocomplete: fire a search 300ms after the user stops
+  // typing. Silent — failures don't show ErrorState (Apple Maps
+  // pattern). Explicit submit (Return key / Recent tap) still shows
+  // proper Loading + Error states via runSearch(query, true).
+  useEffect(() => {
+    if (query.trim().length === 0) return;
+    if (!userLocation) return;
+    const timer = setTimeout(() => {
+      runSearch(query, false);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, userLocation]);
+
+  async function runSearch(searchQuery: string, isExplicit: boolean) {
+    const trimmed = searchQuery.trim();
     if (!trimmed) return;
+    if (!userLocation) {
+      if (isExplicit) {
+        setPhase('error');
+        setErrorMessage('Waiting for your location… try again in a moment.');
+      }
+      return;
+    }
 
-    setSearching(true);
-    setError(null);
+    if (isExplicit) {
+      setPhase('loading');
+      setErrorMessage(null);
+      setResults([]);
+    }
+
+    lastQueryRef.current = trimmed;
 
     try {
-      const results = await Location.geocodeAsync(trimmed);
-      if (!results.length) {
-        setError(`Couldn't find "${trimmed}". Try a more specific address.`);
+      const places = await searchPlaces(trimmed, userLocation);
+      // Stale-response guard — drop if the user has typed past this query.
+      if (lastQueryRef.current !== trimmed) return;
+
+      if (!places.length) {
+        if (isExplicit) {
+          setPhase('error');
+          setErrorMessage(
+            `No results for "${trimmed}". Try a more specific name or address.`,
+          );
+        } else {
+          // Silent autocomplete miss — clear stale results, return
+          // to typing so the user keeps seeing Recent.
+          setPhase('typing');
+          setResults([]);
+        }
         return;
       }
-
-      const top = results[0];
-
-      router.replace({
-        pathname: '/home',
-        params: {
-          destLat: String(top.latitude),
-          destLng: String(top.longitude),
-          destName: trimmed,
-        },
-      });
+      setResults(places);
+      setPhase('results');
     } catch (err) {
-      console.warn('[search] geocode failed:', err);
-      setError('Something went wrong. Try again.');
-    } finally {
-      setSearching(false);
+      if (lastQueryRef.current !== trimmed) return;
+      console.warn('[search] places search failed:', err);
+      if (isExplicit) {
+        setPhase('error');
+        setErrorMessage(
+          "We're having trouble connecting to the internet right now.",
+        );
+      }
+      // Silent autocomplete error — leave UI alone, user can keep typing.
     }
+  }
+
+  function handleQueryChange(text: string) {
+    setQuery(text);
+    setErrorMessage(null);
+    if (text.length === 0) {
+      setPhase('landing');
+      setResults([]);
+    } else if (phase === 'landing' || phase === 'error' || phase === 'results') {
+      // Typing transitions out of any settled state into the typing
+      // intermediate state. The user is composing a new query.
+      setPhase('typing');
+    }
+  }
+
+  function handleSelectPlace(place: Place) {
+    router.replace({
+      pathname: '/home',
+      params: {
+        destLat: String(place.latitude),
+        destLng: String(place.longitude),
+        destName: place.name,
+      },
+    });
   }
 
   return (
@@ -101,129 +260,160 @@ export default function Search() {
       <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.topSection}>
-            {/*
-              Search bar — gray (Fills/Tertiary) variant since this screen
-              is a flat white surface. Per .cursorrules' contextual search-
-              bar rule, only the white-elevated variant lives over map
-              imagery. Three interactive zones inside the pill: back-chevron
-              (left), TextInput (middle), mic (right).
-            */}
-            <View style={styles.searchBar}>
-              <Pressable
-                onPress={() => router.back()}
-                accessibilityRole="button"
-                accessibilityLabel="Go back"
-                hitSlop={12}
-                style={({ pressed }) => pressed ? pressedDim : undefined}
-              >
-                <Ionicons name="chevron-back" size={24} color={colors.labelSecondary} />
-              </Pressable>
+        <View style={styles.searchBarRow}>
+          <SearchBar
+            state={searchBarState}
+            value={query}
+            onChangeText={handleQueryChange}
+            onSubmit={() => runSearch(query, true)}
+            onBackPress={() => router.back()}
+            onClearPress={() => {
+              setQuery('');
+              setPhase('landing');
+              setErrorMessage(null);
+              setResults([]);
+            }}
+            onMicPress={() => {
+              // TODO: voice input via expo-speech / native speech-to-text
+            }}
+            autoFocus
+          />
+        </View>
 
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                onSubmitEditing={handleSubmit}
-                placeholder="Where are you headed?"
-                placeholderTextColor={colors.mutedSecondary}
-                style={styles.searchInput}
-                autoFocus
-                returnKeyType="search"
-                editable={!searching}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Voice search (not yet supported)"
-                hitSlop={12}
-                style={({ pressed }) => pressed ? pressedDim : undefined}
-              >
-                {/* TODO: voice input via expo-speech / native speech-to-text */}
-                <Ionicons name="mic" size={20} color={colors.labelSecondary} />
-              </Pressable>
-            </View>
-
-            {error && <Text style={styles.error}>{error}</Text>}
-
-            {/*
-              Quick Tools — horizontally scrollable row of category
-              shortcuts. Each tile is a visual stub for now; tapping
-              would (in production) pre-fill the search with the
-              relevant category.
-            */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickToolsRow}
-            >
-              {QUICK_TOOLS.map((tool) => (
-                <Pressable
-                  key={tool.id}
-                  style={({ pressed }) => [styles.quickTool, pressed && pressedDim]}
-                  accessibilityRole="button"
-                  accessibilityLabel={tool.label}
-                  // TODO: wire to category-filtered search (e.g., search
-                  // for nearby Food places, gas stations, etc.)
+        {(phase === 'landing' || phase === 'typing') && (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Quick Tools + Fuel show only in landing — when the user
+                is mid-query, hiding them reduces noise. */}
+            {phase === 'landing' && (
+              <>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.quickToolsRow}
                 >
-                  <Ionicons
-                    name={tool.iconName}
-                    size={24}
-                    color={colors.black}
-                  />
-                  <Text style={styles.quickToolLabel}>{tool.label}</Text>
+                  {QUICK_TOOLS.map((tool) => (
+                    <Pressable
+                      key={tool.id}
+                      style={({ pressed }) => [
+                        styles.quickTool,
+                        pressed && pressedDim,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={tool.label}
+                      accessibilityHint="Coming soon"
+                    >
+                      {tool.renderIcon(tool.color)}
+                      <Text style={styles.quickToolLabel}>{tool.label}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+
+                <View style={styles.divider} />
+
+                <Pressable
+                  style={({ pressed }) => [styles.fuelSection, pressed && pressedDim]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fuel. Add your car's model and fuel for refuel reminders"
+                  accessibilityHint="Coming soon"
+                >
+                  <FuelIcon width={32} height={32} />
+                  <Text style={styles.fuelTitle}>Fuel</Text>
+                  <Text style={styles.fuelSubtitle}>
+                    Add your car's model and fuel for refuel reminders
+                  </Text>
+                </Pressable>
+
+                <View style={styles.divider} />
+              </>
+            )}
+
+            {/* Recent stays visible across both landing and typing —
+                gives the user something to tap during the typing
+                phase instead of staring at a blank canvas. */}
+            <View style={styles.recentSection}>
+              <Text style={styles.recentLabel}>Recent</Text>
+              {RECENT_SEARCHES.map((recent) => (
+                <Pressable
+                  key={recent.id}
+                  style={({ pressed }) => [
+                    styles.recentItem,
+                    pressed && pressedDim,
+                  ]}
+                  onPress={() => {
+                    setQuery(recent.label);
+                    runSearch(recent.label, true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Search again for ${recent.label}`}
+                >
+                  <Clock size={24} color={colors.labelTertiary} weight="duotone" />
+                  <Text style={styles.recentText}>{recent.label}</Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
+          </ScrollView>
+        )}
+
+        {phase === 'loading' && (
+          <View style={styles.stateCardWrap}>
+            <LoadingState text="Charting course…" />
           </View>
+        )}
 
-          <View style={styles.divider} />
+        {phase === 'error' && errorMessage && (
+          <View style={styles.stateCardWrap}>
+            <ErrorState text={errorMessage} />
+          </View>
+        )}
 
-          {/*
-            Fuel CTA section — the user can configure their car's model
-            and fuel type for refuel-reminder functionality. Visual stub
-            for v1; tapping would (in production) push to a fuel-config
-            screen.
-          */}
-          <Pressable
-            style={({ pressed }) => [styles.section, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel="Configure fuel reminders"
+        {phase === 'results' && (
+          <ScrollView
+            contentContainerStyle={styles.resultsContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <Ionicons name="speedometer-outline" size={32} color={colors.black} />
-            <Text style={styles.sectionTitle}>Fuel</Text>
-            <Text style={styles.sectionSubtitle}>
-              Add your car's model and fuel for refuel reminders
-            </Text>
-          </Pressable>
-
-          <View style={styles.divider} />
-
-          {/* Recent searches — list of previous destinations. */}
-          <View style={styles.recentSection}>
-            <Text style={styles.recentLabel}>Recent</Text>
-            {RECENT_SEARCHES.map((recent) => (
+            <View style={styles.resultsHeader}>
+              <MagnifyingGlass
+                size={20}
+                color={colors.labelTertiary}
+                weight="duotone"
+              />
+              <Text style={styles.resultsHeaderText} numberOfLines={1}>
+                "{query}" results in {resultsCity}
+              </Text>
+            </View>
+            <View style={styles.divider} />
+            {results.map((place, idx) => (
               <Pressable
-                key={recent.id}
-                style={({ pressed }) => [styles.recentItem, pressed && pressedDim]}
-                onPress={() => {
-                  setQuery(recent.label);
-                  // Don't auto-submit — user may want to edit the query first.
-                }}
+                key={place.id}
+                style={({ pressed }) => [
+                  styles.resultRow,
+                  pressed && pressedDim,
+                ]}
+                onPress={() => handleSelectPlace(place)}
                 accessibilityRole="button"
-                accessibilityLabel={`Search again for ${recent.label}`}
+                accessibilityLabel={`${place.name}, ${place.address}, ${place.distanceMiles} miles away`}
               >
-                <Ionicons name="time-outline" size={24} color={colors.black} />
-                <Text style={styles.recentText}>{recent.label}</Text>
+                <View style={styles.resultText}>
+                  <Text style={styles.resultName} numberOfLines={1}>
+                    {place.name}
+                  </Text>
+                  <Text style={styles.resultAddress} numberOfLines={1}>
+                    {place.address}
+                  </Text>
+                </View>
+                <Text style={styles.resultDistance} numberOfLines={1}>
+                  {place.distanceMiles.toLocaleString('en-US')} mi
+                </Text>
+                {idx < results.length - 1 && (
+                  <View style={styles.resultSeparator} />
+                )}
               </Pressable>
             ))}
-          </View>
-        </ScrollView>
+          </ScrollView>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -237,61 +427,21 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
-  content: {
+  searchBarRow: {
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  scrollContent: {
     gap: 16,
-  },
-  topSection: {
-    // No horizontal padding here — the search bar is 374pt wide and
-    // overflows a 16pt padding by design (same as /home's search bar).
-    // Each child manages its own horizontal padding so the search bar
-    // can render at full 374pt centered on screen.
-    //
-    // paddingTop: 23 sits on top of SafeAreaView's ~47pt top inset,
-    // landing the search bar at ~70pt from screen top — same position
-    // as /home's search bar so the transition between screens has zero
-    // vertical jump.
-    paddingTop: 23,
-    gap: 16,
-    width: '100%', // ensure full-width regardless of ScrollView constraints
-  },
-  searchBar: {
-    // Fills/Tertiary per Figma — gray translucent on flat surfaces.
-    backgroundColor: colors.fillsTertiary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    height: 48,
-    paddingHorizontal: 16,
-    borderRadius: 1000,
-    // Responsive sizing: stretch to fill the parent's width, with 8pt
-    // margins on each side. Figma specs `w-374` on a 390pt iPhone 14
-    // baseline (374 = 390 - 8 - 8), which is the "8pt from each edge"
-    // intent. Hardcoding width: 374 fails on wider devices (Pro Max,
-    // 16 Pro Max, etc) where it creates a 28pt+ edge margin instead.
-    // alignSelf + marginHorizontal preserves the intent across screen
-    // sizes — the bar always sits 8pt from each edge.
-    alignSelf: 'stretch',
-    marginHorizontal: 8,
-  },
-  searchInput: {
-    flex: 1,
-    ...typography.bodyRegular,
-    color: colors.black,
-    height: '100%',
-  },
-  error: {
-    ...typography.footnoteRegular,
-    color: colors.red,
-    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
   quickToolsRow: {
     gap: 16,
     paddingHorizontal: 16,
-    paddingVertical: 4, // breathing room for tile borders/shadows
+    paddingVertical: 4,
   },
   quickTool: {
-    width: 128,
-    height: 96,
+    width: 144,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
@@ -300,8 +450,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     paddingTop: 24,
-    paddingBottom: 14,
-    paddingHorizontal: 30,
+    paddingBottom: 12,
+    paddingHorizontal: 40,
   },
   quickToolLabel: {
     ...typography.subheadlineEmphasized,
@@ -311,38 +461,94 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.separatorSubtle,
   },
-  section: {
-    paddingHorizontal: 16,
+  fuelSection: {
+    paddingHorizontal: 24,
     gap: 8,
   },
-  sectionTitle: {
+  fuelTitle: {
     ...typography.subheadlineEmphasized,
     color: colors.black,
   },
-  sectionSubtitle: {
+  fuelSubtitle: {
     ...typography.footnoteRegular,
     color: colors.wiltedgreen,
   },
   recentSection: {
+    paddingHorizontal: 24,
     gap: 8,
   },
   recentLabel: {
     ...typography.footnoteRegular,
-    color: colors.mutedSecondary,
-    paddingHorizontal: 16,
+    color: colors.labelTertiary,
   },
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 16,
-    // 10pt vertical padding around the 24pt icon = 44pt total tap height,
-    // satisfying the iOS HIG minimum on the visual itself (no hitSlop
-    // fallback). Was 4pt → 32pt total, below HIG.
+    gap: 8,
     paddingVertical: 10,
   },
   recentText: {
     ...typography.subheadlineEmphasized,
     color: colors.black,
+  },
+  stateCardWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 32,
+  },
+  resultsContent: {
+    paddingBottom: 32,
+  },
+  resultsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  resultsHeaderText: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    flex: 1,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 24,
+    paddingLeft: 48,
+    paddingRight: 24,
+    paddingVertical: 12,
+    position: 'relative',
+  },
+  resultText: {
+    flex: 1,
+    gap: 4,
+  },
+  resultName: {
+    ...typography.subheadlineEmphasized,
+    color: colors.black,
+  },
+  resultAddress: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+  },
+  resultDistance: {
+    ...typography.subheadlineRegular,
+    color: colors.black,
+    // 72pt fits up to "9,999.9 mi" (10 chars × ~7pt at SF Pro 15)
+    // — accommodates comma-separated values when Nominatim returns
+    // a far-away match. Address `numberOfLines={1}` ellipsizes
+    // correctly since resultText is `flex: 1` and shrinks to fit.
+    minWidth: 72,
+    textAlign: 'right',
+  },
+  resultSeparator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 48,
+    right: 0,
+    height: 1,
+    backgroundColor: colors.separatorSubtle,
   },
 });
