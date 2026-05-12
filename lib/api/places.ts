@@ -1,10 +1,11 @@
 // Fresh Greens — places (POI) search adapter.
 //
-// Free-text POI search against Mapbox Geocoding. Was Nominatim
-// originally, swapped for rate limit (Mapbox free tier is 10 req/sec
-// vs. Nominatim's 1 req/sec) and POI-search quality (Mapbox
-// understands category-like queries natively where Nominatim's `q=`
-// only matches place names).
+// POI search against Mapbox Search Box API (v6). Was Mapbox v5
+// Geocoding originally — v5's free-text `q=` did substring matching,
+// so "gas station" would also match anything else with "station" in
+// the name (police stations, train stations, fire stations). v6's
+// Search Box `/forward` endpoint is POI-category-aware and routes
+// natural-language queries to the right OSM categories.
 //
 // Mapbox usage policy: free tier is 100K requests/month, 600/min.
 // Comfortably above thesis-demo traffic. Token loaded from
@@ -29,36 +30,41 @@ export type Place = {
   distanceMiles: number;
 };
 
+// v6 Search Box API response shape. Only the fields we use are typed.
 type MapboxFeature = {
-  id: string;
   type: 'Feature';
-  /** Full comma-separated label, e.g. "L'industrie, 254 South 2nd St, Brooklyn, NY 11211, USA" */
-  place_name: string;
-  /** Concise name, e.g. "L'industrie Pizzeria" */
-  text: string;
-  /** [longitude, latitude] in WGS84 */
-  center: [number, number];
+  geometry: { type: 'Point'; coordinates: [number, number] };
+  properties: {
+    mapbox_id: string;
+    name: string;
+    /** Full one-line address including the place's name. */
+    full_address?: string;
+    /** Address portion after the name — "123 Main St, Brooklyn, NY 11211". */
+    place_formatted?: string;
+    feature_type: string;
+    poi_category?: string[];
+  };
 };
 
 type MapboxResponse = {
   features?: MapboxFeature[];
 };
 
-const MAPBOX_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
+const MAPBOX_URL = 'https://api.mapbox.com/search/searchbox/v1/forward';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
 // Bounding box half-width in degrees. ~2.0° ≈ 140 miles at mid-
-// latitudes — generous so rural users still get results. Mapbox's
+// latitudes — generous so rural users still get results. The
 // `proximity` parameter biases toward user location, so closer
-// matches naturally surface first; the bbox just enforces a hard
-// upper bound on how far results can drift.
+// matches naturally surface first; the bbox enforces a hard upper
+// bound on how far results can drift.
 const BBOX_DEGREES = 2.0;
 
 /**
  * Search for named POIs matching the query, biased toward the user's
- * current location. Returns up to 10 results sorted by distance from
- * the user ascending.
+ * current location. Returns up to 10 results sorted by distance
+ * ascending.
  *
  * `userLocation` is required — feeds Mapbox's `proximity` parameter
  * (the closer-results-first hint) and the client-side distance sort.
@@ -86,15 +92,16 @@ export async function searchPlaces(
   ].join(',');
 
   const params = new URLSearchParams({
+    q: trimmed,
     access_token: MAPBOX_TOKEN,
     proximity: `${lng},${lat}`,
     bbox,
     country: 'us',
-    types: 'poi,address',
     limit: '10',
+    types: 'poi',
   });
 
-  const url = `${MAPBOX_URL}/${encodeURIComponent(trimmed)}.json?${params.toString()}`;
+  const url = `${MAPBOX_URL}?${params.toString()}`;
 
   let response: Response;
   try {
@@ -105,9 +112,6 @@ export async function searchPlaces(
   }
 
   if (response.status === 429) {
-    // Mapbox's free tier is 600/min — well above typical typing
-    // cadence. If we hit this it's still a transient cap; treat as
-    // empty (calm UI) and let the user retry.
     console.warn('[places] Mapbox rate-limited (429); returning empty');
     return [];
   }
@@ -120,10 +124,10 @@ export async function searchPlaces(
 
   return features
     .map((f) => {
-      const [placeLng, placeLat] = f.center;
+      const [placeLng, placeLat] = f.geometry.coordinates;
       return {
-        id: f.id,
-        name: f.text,
+        id: f.properties.mapbox_id,
+        name: f.properties.name,
         address: formatAddress(f),
         latitude: placeLat,
         longitude: placeLng,
@@ -136,17 +140,27 @@ export async function searchPlaces(
 // --- Helpers --------------------------------------------------------------
 
 /**
- * Mapbox's `place_name` is comma-separated: "Name, Street, City, ST
- * ZIP, USA". The first segment is `text` (the name); we want the next
- * two segments (street + city) as the address line.
+ * Prefer Mapbox's pre-formatted `place_formatted` (street + city +
+ * state), falling back to `full_address` minus the name prefix. Both
+ * are populated for POIs in the v6 response.
  */
 function formatAddress(f: MapboxFeature): string {
-  const parts = f.place_name.split(',').map((s) => s.trim());
-  // Skip the first segment (name) and the trailing country.
-  const middle = parts.slice(1, -1);
-  if (middle.length === 0) return parts.join(', ');
-  // Street + city is the most useful 2 segments for display.
-  return middle.slice(0, 2).join(', ');
+  const { place_formatted, full_address, name } = f.properties;
+  if (place_formatted) {
+    // Trim the trailing ", United States" — too noisy for a one-line
+    // display row, US-only is implied by the country filter.
+    return place_formatted.replace(/,\s*United States$/, '');
+  }
+  if (full_address) {
+    return full_address
+      .replace(new RegExp(`^${escapeRegExp(name)},\\s*`), '')
+      .replace(/,\s*United States$/, '');
+  }
+  return '';
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

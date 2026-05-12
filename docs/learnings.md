@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/mapbox-search-box-v6 (2026-05-12)
+
+Same-day follow-up to the Mapbox swap: v5 Geocoding's `/places/{q}` does substring matching, so "gas station" surfaced anything with "station" in its name (police stations, train stations, fire stations). Switched to Mapbox **Search Box API v6** `/forward` — same auth token, but the endpoint is POI-category-aware and routes natural-language queries to the right OSM categories.
+
+- **Provider/endpoint matters more than provider/family.** Mapbox has TWO search products: Geocoding (v5) and Search Box (v6). They share the same access token but have different query semantics, response shapes, and pricing scales. v5 is text-similarity-based; v6 is intent-aware (knows "gas station" means `gas_station` category, not "station-something"). Worth keeping: when integrating a third-party "search" API, read which of the provider's endpoints actually handles the use case — the wrong endpoint within the right provider will perform worse than the right endpoint at a worse provider.
+- **The adapter pattern made this swap a 100-line file replacement, again.** Like the Nominatim → v5 swap earlier today, the v5 → v6 swap touched only `lib/api/places.ts` internals. Different request URL, different response parsing, same `Place[]` output. /search and every consumer is unchanged. Worth keeping: when you ship a backend integration via adapter, expect 2-3 swaps before you're happy — and budget zero refactor cost for each swap.
+- **`place_formatted` is the cleaner display path than re-deriving from `full_address`.** v6 ships both: `full_address` includes the place name as a prefix; `place_formatted` is just the street + locality. The original v5 → v6 instinct was to keep the same "strip first comma segment of place_name" logic, but v6 gives us the right field pre-parsed. Trim the trailing ", United States" (implied by `country=us` filter) and you have a clean display string. Worth keeping: when migrating between API versions of the same provider, audit the response fields for "the data you used to compute" — the new version often has it pre-computed.
+
+---
+
 ## feat/mapbox-geocoding-swap (2026-05-12)
 
 Swapped /search's geocoder backend from Nominatim (1 req/sec, name-only matching) to Mapbox Geocoding (10 req/sec free tier, native POI/category understanding). The adapter pattern earned its keep: only `lib/api/places.ts` internals changed; the rest of the app sees the same `Place[]` shape and doesn't care which service answered. Token loaded from `EXPO_PUBLIC_MAPBOX_TOKEN` in `.env.local` (gitignored). `.env.example` added (committed) so onboarding is documented.
