@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/single-caller-component-pass (2026-05-12)
+
+Follow-up to the architecture audit's flagged punch list. Reviewed every single-caller component in `components/` (`EdgeIndicator`, `EnRouteCarMarker`, `EnRouteZone`, `ReportDetailCard`, `UserLocationMarker`) and decided to **keep all five** as future-facing / domain-meaningful. Only structural change: two stale comments in `app/en-route.tsx` that referenced `UserLocationMarker` were actually describing the GPS plumbing that feeds `EnRouteCarMarker`; updated for accuracy.
+
+- **The rule of three's "well-named, semantically meaningful" exception covers more than I'd assumed.** Each single-caller component encodes a domain concept the consumer would lose by inlining: `EdgeIndicator` is the off-viewport-POI primitive (used 3× within home.tsx alone — the rule of three is internally satisfied even though the import count is 1), `EnRouteCarMarker` encapsulates the `tracksViewChanges` first-paint workaround, `EnRouteZone` matches Figma `1133:13297`'s Default/Extended state machine, `ReportDetailCard` matches Figma `1133:13853` (Bottom Sheet Marker), and `UserLocationMarker` encodes the MKUserLocation zIndex workaround. The naming alone explains what each does; inlining would force the consumer to absorb that explanation. Worth keeping: when assessing the rule of three on a component, count *meaningful internal use sites* alongside *import count* — a 3× internal use of a 159-line component is the rule-of-three already paying off.
+- **A 1-caller import count is a *trigger* for review, not a verdict.** The audit flagged 5 candidates; review kept all 5. The pattern that matters is "thin styling wrapper" vs "domain concept" — both can show up as single-caller. Worth keeping: pre-flagging single-caller components in audit punch lists is still high-value (forces the explicit "is this earning its name?" check), even when the answer is "yes, keep" most of the time.
+- **Stale-comment hygiene catches misleading names that survived a rename.** `app/en-route.tsx`'s GPS setup comments said "UserLocationMarker" but /en-route actually renders `EnRouteCarMarker` (the user-glyph swap during active navigation). The reader following the comment thread would have grepped for the wrong component. Fixed in this pass. Worth keeping: every rename should sweep the call-site comments, not just the imports — the static-analysis tool catches the imports, not the prose.
+
+---
+
 ## fix/atomic-route-zone-state-update (2026-05-12)
 
 The /en-route route polyline and car marker were visibly flickering at the exact moment Overpass either resolved or fell back to mock — both went away briefly and came back. Root cause: the fetch flow set `rawRoutes` first (when OSRM resolved fast), then `osmZones` separately (up to 12s later when Overpass succeeded or timed out). That second `setOsmZones` triggered the `routes` memo to recompute, which gave the `routePolylines` memo new Polyline JSX with new coordinate-array references, which made iOS MapKit's MKMapView briefly clear and re-add every overlay including the car. Fix: `Promise.allSettled` both fetches and apply both state updates in the same React batch.
