@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/en-route-hazard-system (2026-05-12)
+
+Closes a thesis-defense item from CLAUDE.md's "What's NOT shipped": the hazard notice on /en-route's turn card. Adds the `hazardsNearTurn` helper in `lib/scoring.ts` and a `Hazard` component matching Figma `1133:13397` (4 variants: Light/Road/Deer/Eye). Rides along with a copy-only fix to `TrustedContactStatus`. First PR to exercise the expanded Pattern 3 pair-review rubric from PR #81 — caught 3 defects + 2 readability notes beyond what I'd seen.
+
+- **Severity tie-breakers should be deterministic, not data-dependent.** First pass had `wildlife: 2` and `road-condition: 2` in `HAZARD_SEVERITY` — both crossing threshold would resolve by `Set` insertion order, which is zone-iteration-order-dependent. From the user's perspective that's random. Bumped to four distinct integer severities so the worst-first sort is consistent regardless of where the zones came from. Worth keeping: any time you sort by a derived score, ensure the score's domain is wide enough that ties are impossible — ties resolved by collection order *look* deterministic in code but feel random in the UI.
+- **Hyphenated category ids don't survive VoiceOver.** Used `category.join(', ')` in the `accessibilityLabel` initially. Screen readers literalize `"road-condition"` as "road dash condition" — a hidden accessibility tax that's invisible in normal testing. Added a `humanReadableHazard` mapping for accessibility-label interpolation only; the on-screen icon component still takes the typed id. Worth keeping: when a domain type's string values contain non-alphanumeric chars, treat them as identifiers, not display strings — map to human text at every consumer-facing edge (labels, voiceover, error messages).
+- **The Pattern 3 readability rubric earned its keep on the first PR it ran on.** Beyond the design-rule defect catches (which it would have caught anyway), the expanded rubric flagged that `Hazard` is currently a single-consumer component and asked whether it earned the rule-of-three. Answer: yes — it'll get a second consumer when the En-Route Zone extended-pill ships, plus the `HazardCategory` union lock makes adding a category a single-place type error. But the question being asked at all is the win — extraction isn't free, and "is this worth extracting yet?" is the right thing to be asked on every component PR.
+
+---
+
 ## feat/avatar-speed-limit (2026-05-12)
 
 Scoped follow-up to the design-system-v2 redesign focused on the two highest-impact visible changes that don't require new component scaffolding: the avatar illustration on /menu and the Speed Limit sign on /en-route. The bigger Home + En-Route bottom-sheet rewrites and the report-flow states need new patterns (weather card, "Things to Do" recommendation cards, BottomSheet variants) and got deferred to dedicated PRs.
