@@ -404,7 +404,7 @@ export default function Search() {
                     {place.address}
                   </Text>
                 </View>
-                <Text style={styles.resultDistance}>
+                <Text style={styles.resultDistance} numberOfLines={1}>
                   {place.distanceMiles} mi
                 </Text>
                 {idx < results.length - 1 && (
@@ -536,7 +536,11 @@ const styles = StyleSheet.create({
   resultDistance: {
     ...typography.subheadlineRegular,
     color: colors.black,
-    width: 42,
+    // 56pt fits up to "50.0 mi" (7 chars × ~7pt at SF Pro 15) on a
+    // single line. The Figma `w-42` was too tight — "5.7 mi" wrapped
+    // to two lines. Address `numberOfLines={1}` ellipsizes correctly
+    // since resultText is `flex: 1` and shrinks to fit the row.
+    minWidth: 56,
     textAlign: 'right',
   },
   resultSeparator: {
