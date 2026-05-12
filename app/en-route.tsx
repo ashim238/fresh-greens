@@ -228,6 +228,69 @@ export default function EnRoute() {
     return hazardsNearTurn(recommended.coordinates[0], allZones).slice(0, 2);
   }, [recommended, allZones]);
 
+  // What the Full bottom-sheet hazard panel should show. Entered-zone
+  // hazards take priority over next-turn hazards — when the driver
+  // crosses INTO a zone, that's the live context, more relevant than
+  // "something is near your next turn." Falls back to turnHazards
+  // when not in a zone. Returns null when neither has anything.
+  const displayedHazardCategory = useMemo<HazardCategory | null>(() => {
+    for (const { zone, category } of enRouteZones) {
+      if (enteredZoneIds.has(zone.id)) return category;
+    }
+    return turnHazards[0] ?? null;
+  }, [enRouteZones, enteredZoneIds, turnHazards]);
+
+  // Auto-expand on zone entry. Compares enteredZoneIds across renders
+  // and, on any newly-entered zone, expands the sheet so the hazard
+  // panel surfaces immediately — the driver doesn't have to think to
+  // tap the drag handle mid-drive. Auto-collapse 5s later so the
+  // sheet doesn't camp expanded indefinitely. Manual drag-handle taps
+  // cancel the pending auto-collapse (see handleDragHandleToggle).
+  const prevEnteredZoneIdsRef = useRef<Set<string>>(new Set());
+  const autoCollapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  useEffect(() => {
+    let entered = false;
+    for (const id of enteredZoneIds) {
+      if (!prevEnteredZoneIdsRef.current.has(id)) {
+        entered = true;
+        break;
+      }
+    }
+    prevEnteredZoneIdsRef.current = enteredZoneIds;
+    if (!entered) return;
+
+    setSheetExpanded(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
+    autoCollapseTimerRef.current = setTimeout(() => {
+      setSheetExpanded(false);
+      autoCollapseTimerRef.current = null;
+    }, 5000);
+  }, [enteredZoneIds]);
+
+  // Cleanup the auto-collapse timer on unmount so a pending callback
+  // never fires after the screen is gone.
+  useEffect(() => {
+    return () => {
+      if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
+    };
+  }, []);
+
+  // Drag-handle tap: toggles expansion AND cancels any pending
+  // auto-collapse. Without the cancel, tapping while the timer is
+  // running would re-set sheetExpanded but the timer would still
+  // fire seconds later and override the user's manual choice.
+  const handleDragHandleToggle = useCallback(() => {
+    if (autoCollapseTimerRef.current) {
+      clearTimeout(autoCollapseTimerRef.current);
+      autoCollapseTimerRef.current = null;
+    }
+    setSheetExpanded((v) => !v);
+  }, []);
+
   // Route polylines memoized so live-GPS re-renders don't rebuild the
   // overlay on the native side. Halo retired — see longer note in
   // /home; RN-Maps Polyline lacks zIndex and iOS paint-order can't be
@@ -771,7 +834,7 @@ export default function EnRoute() {
         */}
         <Pressable
           style={styles.dragHandleTapTarget}
-          onPress={() => setSheetExpanded((v) => !v)}
+          onPress={handleDragHandleToggle}
           accessibilityRole="button"
           accessibilityLabel={
             sheetExpanded
@@ -836,23 +899,25 @@ export default function EnRoute() {
 
           {/*
             Hazard panel — Full state (Figma 1133:13329). Renders the
-            top-severity hazard from `turnHazards` (already worst-first
-            from `hazardsNearTurn`). 96pt yellow diamond on the left
-            (inscribed 68pt square rotated 45°), Title3/Emphasized
-            copy on the right. Only shows when the user has expanded
+            `displayedHazardCategory` — which prefers entered-zone
+            hazards over next-turn hazards, so the panel reflects the
+            live driving context when the auto-expand fires on zone
+            entry. 96pt yellow diamond on the left (inscribed 68pt
+            square rotated 45°), Title3/Emphasized copy on the right.
+            Only shows when the user (or the auto-expand) has expanded
             AND a hazard exists — collapsed = compact ETA only.
           */}
-          {sheetExpanded && turnHazards.length > 0 && (
+          {sheetExpanded && displayedHazardCategory && (
             <View
               style={styles.hazardPanel}
               accessibilityRole="text"
-              accessibilityLabel={`Heads up: ${hazardFullCopy(turnHazards[0])}`}
+              accessibilityLabel={`Heads up: ${hazardFullCopy(displayedHazardCategory)}`}
             >
               <View style={styles.hazardDiamondWrap} accessibilityIgnoresInvertColors>
                 <View style={styles.hazardDiamond}>
                   <View style={styles.hazardDiamondIcon}>
                     <Hazard
-                      category={turnHazards[0]}
+                      category={displayedHazardCategory}
                       size={48}
                       color={colors.black}
                     />
@@ -860,7 +925,7 @@ export default function EnRoute() {
                 </View>
               </View>
               <Text style={styles.hazardCopy}>
-                {hazardFullCopy(turnHazards[0])}
+                {hazardFullCopy(displayedHazardCategory)}
               </Text>
             </View>
           )}

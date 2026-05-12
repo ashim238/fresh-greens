@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/en-route-zone-entry-auto-expand (2026-05-12)
+
+Layered on top of `feat/en-route-bottom-sheet-full`: the sheet now auto-expands the moment the user crosses INTO a hazard zone, surfaces the entered zone's category in the panel (priority over next-turn hazards), fires a Warning notification haptic, and auto-collapses 5 seconds later. Manual drag-handle taps during the timer cancel the pending auto-collapse so the user's explicit choice always wins.
+
+- **Auto-expand only works if the panel pivots to live context.** Initial wiring kept the panel sourced from `turnHazards` (hazards near the next turn). When the auto-expand fires on zone entry, the entered zone might NOT be near the next turn — panel would render empty or wrong. Added `displayedHazardCategory` that prefers entered-zone hazards over turn-hazards, with turn-hazards as the fallback. Worth keeping: when an event (zone entry) triggers a surface (expand), the surface's data must reflect the event — otherwise the trigger is hollow.
+- **Auto-collapse timers need a manual-override escape hatch.** First implementation set the timer on entry and ignored taps during the window — meaning if the user manually expanded for a different reason or tapped to collapse, the timer would fire later and overwrite their choice. Added `handleDragHandleToggle` that clears any pending timer on tap. Worth keeping: any auto-driven UI state needs a "user just disagreed" detector that cancels the auto-behavior on the user action that contradicts it.
+- **`Haptics.notificationAsync(Warning)` is the right register for "watch out" without being scary.** Heavy impact feels like an error/penalty; Warning is a deliberate two-pulse pattern iOS uses for system-level "attention" cues. Same register Apple Maps uses for speed-camera approach. Worth keeping: pick haptics by their cultural meaning (iOS user-trained associations), not just by strength — Warning ≠ Heavy even if both are "strong" technically.
+
+---
+
 ## feat/en-route-bottom-sheet-full (2026-05-12)
 
 Completes the /en-route bottom-sheet redesign by porting the Full/expanded state per Figma `1133:13329`. Tap the drag handle to toggle Collapsed ↔ Full. When expanded AND at least one hazard crosses threshold near the upcoming turn, the sheet surfaces a 96pt yellow diamond hazard marker + Title3/Emphasized sentence-form copy ("Recent community alert ahead", "Wildlife crossing ahead", etc.). The on-map EnRouteZone markers are passive — this panel is the driver's explicit "show me what's ahead" affordance.
