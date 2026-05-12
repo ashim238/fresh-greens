@@ -141,22 +141,32 @@ export async function searchPlaces(
 
 /**
  * Prefer Mapbox's pre-formatted `place_formatted` (street + city +
- * state), falling back to `full_address` minus the name prefix. Both
- * are populated for POIs in the v6 response.
+ * state), falling back to `full_address` minus the name prefix.
+ * Strip the trailing ", United States" (implied by the `country=us`
+ * filter) and the 5-digit ZIP code — both are noise for a one-line
+ * display row when the user just wants to know "where is this?"
  */
 function formatAddress(f: MapboxFeature): string {
   const { place_formatted, full_address, name } = f.properties;
-  if (place_formatted) {
-    // Trim the trailing ", United States" — too noisy for a one-line
-    // display row, US-only is implied by the country filter.
-    return place_formatted.replace(/,\s*United States$/, '');
-  }
-  if (full_address) {
-    return full_address
-      .replace(new RegExp(`^${escapeRegExp(name)},\\s*`), '')
-      .replace(/,\s*United States$/, '');
-  }
-  return '';
+  const raw = place_formatted
+    ?? full_address?.replace(new RegExp(`^${escapeRegExp(name)},\\s*`), '')
+    ?? '';
+  return trimAddressNoise(raw);
+}
+
+/**
+ * "123 Main St, Brooklyn, New York 11211, United States"
+ *   → "123 Main St, Brooklyn, New York"
+ *
+ * The ZIP code lands on the row that doubles as a navigation hint
+ * ("can you guess where this is?") — and ZIP-without-context is just
+ * a 5-digit nuisance. Strip the state suffix's ZIP and the trailing
+ * country.
+ */
+function trimAddressNoise(addr: string): string {
+  return addr
+    .replace(/,\s*United States$/, '')
+    .replace(/\s+\d{5}(-\d{4})?\b/, '');
 }
 
 function escapeRegExp(s: string): string {

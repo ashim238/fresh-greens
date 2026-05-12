@@ -45,7 +45,13 @@ export function gradientSegments(
   const points = route.coordinates;
   if (points.length < 2) return [];
 
-  const segmentCount = 5;
+  // 15 segments (was 5) — RN-Maps Polyline only supports a single
+  // color per overlay, so the daylight gradient is a stepped
+  // approximation. Five segments left visible color jumps; fifteen
+  // makes each step ~1/3 the size, which the eye reads as a smooth
+  // gradient at typical map zoom. Cost is 3× the native Polyline
+  // overlays per route, still cheap on iOS MapKit.
+  const segmentCount = 15;
   const pointsPerSegment = Math.max(
     2,
     Math.ceil(points.length / segmentCount),
