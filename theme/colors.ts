@@ -45,16 +45,29 @@ export const colors = {
   daylightDusk: '#C4785A',
   daylightNight: '#2D1B69',
 
-  // iOS system fills — neutral surface tints used for inactive controls
-  // and tertiary input fields. fillsTertiary is the standard search-bar
-  // gray on a flat (non-map) surface.
+  // iOS system fills — neutral surface tints used for inactive controls,
+  // tertiary input fields, and tag/chip backgrounds. Four-tier ramp
+  // mirrors the iOS Fills system (Primary > Secondary > Tertiary >
+  // Quaternary). `fillsTertiary` is the standard search-bar gray on a
+  // flat (non-map) surface; `fillsPrimary` is the densest tag pill in
+  // the browse-sheet (rating / category chips); `fillsSecondary` is
+  // the slightly-lighter chip background; `fillsQuaternary` is the
+  // weather card backdrop.
+  fillsPrimary: 'rgba(120, 120, 128, 0.2)',
+  fillsSecondary: 'rgba(120, 120, 128, 0.16)',
   fillsTertiary: 'rgba(120, 120, 128, 0.12)',
+  fillsQuaternary: 'rgba(120, 120, 128, 0.08)',
+
+  // Sign-out goodbye-line off-white. Figma-specified; distinct from
+  // pure white so the parting copy reads as quietly secondary.
+  signOutSubtitle: '#F5F5F5',
 
   // Borders + scrims + separators. Tokenized so the same semantic role
   // doesn't get re-derived as raw rgba per screen.
   modalScrim: 'rgba(0, 0, 0, 0.2)',          // dim layer behind /report popup
   cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',    // input/card outlines
   separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers on light bg
+  separatorOnFlat: 'rgba(0, 0, 0, 0.08)',    // search bar outline on tap-state
   dividerOnDark: 'rgba(160, 214, 164, 0.25)',// hairline dividers on wiltedgreen
   dragHandleBar: 'rgba(128, 128, 128, 0.55)',// the gray bar atop modal sheets
   dividerNeutral: 'rgba(202, 196, 208, 1)',  // vertical/horizontal card dividers

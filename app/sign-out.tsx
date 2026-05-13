@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.footnoteRegular,
-    color: '#F5F5F5', // per Figma — slightly off-white for the goodbye line
+    color: colors.signOutSubtitle,
   },
   button: {
     alignSelf: 'flex-start',

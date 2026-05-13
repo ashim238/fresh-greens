@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...typography.footnoteRegular,
-    color: 'rgba(80,80,80,0.7)',
+    color: colors.mutedTertiary,
   },
   topRow: {
     flexDirection: 'row',
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   weatherCard: {
-    backgroundColor: 'rgba(120,120,128,0.08)',
+    backgroundColor: colors.fillsQuaternary,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   weatherText: {
     ...typography.footnoteRegular,
-    color: '#3d3d3d',
+    color: colors.labelTertiary,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   ratingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(120,120,128,0.2)',
+    backgroundColor: colors.fillsPrimary,
     borderRadius: 4,
     padding: 4,
   },
@@ -305,10 +305,10 @@ const styles = StyleSheet.create({
   },
   ratingMeta: {
     ...typography.footnoteRegular,
-    color: '#3d3d3d',
+    color: colors.labelTertiary,
   },
   tag: {
-    backgroundColor: 'rgba(120,120,128,0.2)',
+    backgroundColor: colors.fillsPrimary,
     borderRadius: 4,
     padding: 4,
   },
@@ -326,13 +326,13 @@ const styles = StyleSheet.create({
     color: colors.burntgreen,
   },
   muteTag: {
-    backgroundColor: 'rgba(120,120,128,0.16)',
+    backgroundColor: colors.fillsSecondary,
     borderRadius: 4,
     padding: 4,
     alignSelf: 'flex-start',
   },
   muteText: {
     ...typography.caption1Regular,
-    color: 'rgba(60,60,67,0.6)',
+    color: colors.mutedSecondary,
   },
 });
