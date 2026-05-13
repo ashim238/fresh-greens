@@ -541,9 +541,9 @@ function ThankYouView({
       </View>
 
       <View style={styles.thankYouTitleBlock}>
-        <Text style={styles.thankYouTitle}>Thanks for submitting.</Text>
+        <Text style={styles.thankYouTitle}>Thanks for sharing.</Text>
         <Text style={styles.thankYouSubtitle}>
-          Reports like yours keep Fresh Greens, well...fresh.
+          Your report helps the next driver — the same way every other Fresh Greens user is helping you.
         </Text>
       </View>
 
