@@ -1,29 +1,36 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import type { HazardCategory } from '../lib/scoring';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import EnrouteHazardCommunityAlert from '../assets/illustrations/enroute-hazard-community-alert.svg';
+import EnrouteHazardExtendedCommunityAlert from '../assets/illustrations/enroute-hazard-extended-community-alert.svg';
+import EnrouteHazardExtendedLight from '../assets/illustrations/enroute-hazard-extended-light.svg';
+import EnrouteHazardExtendedRoad from '../assets/illustrations/enroute-hazard-extended-road.svg';
+import EnrouteHazardExtendedWildlife from '../assets/illustrations/enroute-hazard-extended-wildlife.svg';
+import EnrouteHazardLight from '../assets/illustrations/enroute-hazard-light.svg';
+import EnrouteHazardRoad from '../assets/illustrations/enroute-hazard-road.svg';
+import EnrouteHazardWildlife from '../assets/illustrations/enroute-hazard-wildlife.svg';
 
-import { Hazard } from './Hazard';
+import type { HazardCategory } from '../lib/scoring';
 
 /**
  * On-map zone marker that swaps between a compact "this is a hazard
  * zone" badge and an extended pill once the user enters the zone.
  * Matches Figma `1133:13297` (Default + Extended variants).
  *
- *   Default  — 72pt yellow rectangle with a 24pt hazard glyph inside.
- *              Always rendered for caution/avoid polygon/polyline
- *              zones within the viewport.
- *   Extended — 150×42 pill: `[hazard icon] For X mi.` Shown when the
+ *   Default  — 62×50 yellow tail-shape marker with the diamond +
+ *              glyph baked into the SVG. Always rendered for
+ *              caution/avoid polygon/polyline zones within the
+ *              viewport. The tail's tip sits at the coordinate.
+ *   Extended — 158×50 pill: `[hazard icon] For X mi.` Shown when the
  *              user is currently inside (or near) the zone, telling
  *              the driver how long the zone lasts so they know what
  *              to expect ahead.
  *
- * Second consumer of the Hazard glyph (first was the en-route turn
- * card hazard row). The Hazard component's existence is now earned
- * by the rule of three: turn-card row, this marker's Default, this
- * marker's Extended pill.
+ * v1 limitation: the Extended SVG carries a baked-in "For 0.5 mi."
+ * text path from Figma. The dynamic `lengthMiles` prop is still
+ * threaded through for VoiceOver (which uses the real length) but
+ * the visible text on the pill is the Figma-baked value until a
+ * future PR strips the text path and overlays a dynamic `<Text>`.
  */
 
 export function EnRouteZone({
@@ -44,10 +51,20 @@ export function EnRouteZone({
    */
   lengthMiles: number;
 }) {
+  // Default anchor: the tail's tip is at the bottom-left corner of
+  // the 62×50 SVG (matches the trusted-friend marker's frame). Anchor
+  // there so the coord sits at the tail tip. Extended's tail is in
+  // the same position relative to its 158×50 frame, so the x ratio
+  // shifts (4/158 instead of 4/62) while y stays at 45/50.
+  const anchor =
+    state === 'default'
+      ? { x: 4 / 62, y: 45 / 50 }
+      : { x: 4 / 158, y: 45 / 50 };
+
   return (
     <Marker
       coordinate={{ latitude, longitude }}
-      anchor={{ x: 0.5, y: 0.5 }}
+      anchor={anchor}
       // Static within a mount — the caller remounts the Marker (via
       // a state-bearing key) when default↔extended flips. With that
       // pattern, we can leave tracking off in both states and avoid
@@ -59,37 +76,43 @@ export function EnRouteZone({
           : `${humanReadableHazard(category)} zone ahead`
       }
     >
-      {state === 'default' ? <DefaultMarker category={category} /> : (
-        <ExtendedPill category={category} lengthMiles={lengthMiles} />
+      {state === 'default' ? (
+        <DefaultMarker category={category} />
+      ) : (
+        <ExtendedPill category={category} />
       )}
     </Marker>
   );
 }
 
 function DefaultMarker({ category }: { category: HazardCategory }) {
-  // 32pt Hazard SVG inside a 72pt invisible tap region. The SVG
-  // already carries the yellow diamond + black stroke — no inner
-  // badge wrapper needed.
   return (
-    <View style={styles.defaultMarker} accessibilityIgnoresInvertColors>
-      <Hazard category={category} size={32} />
+    <View style={styles.defaultFrame} accessibilityIgnoresInvertColors>
+      {category === 'lighting' && <EnrouteHazardLight width={62} height={50} />}
+      {category === 'road-condition' && <EnrouteHazardRoad width={62} height={50} />}
+      {category === 'wildlife' && <EnrouteHazardWildlife width={62} height={50} />}
+      {category === 'community-alert' && (
+        <EnrouteHazardCommunityAlert width={62} height={50} />
+      )}
     </View>
   );
 }
 
-function ExtendedPill({
-  category,
-  lengthMiles,
-}: {
-  category: HazardCategory;
-  lengthMiles: number;
-}) {
+function ExtendedPill({ category }: { category: HazardCategory }) {
   return (
-    <View style={styles.extendedPill} accessibilityIgnoresInvertColors>
-      <Hazard category={category} size={24} />
-      <Text style={styles.extendedText} numberOfLines={1}>
-        For {formatMiles(lengthMiles)}
-      </Text>
+    <View style={styles.extendedFrame} accessibilityIgnoresInvertColors>
+      {category === 'lighting' && (
+        <EnrouteHazardExtendedLight width={158} height={50} />
+      )}
+      {category === 'road-condition' && (
+        <EnrouteHazardExtendedRoad width={158} height={50} />
+      )}
+      {category === 'wildlife' && (
+        <EnrouteHazardExtendedWildlife width={158} height={50} />
+      )}
+      {category === 'community-alert' && (
+        <EnrouteHazardExtendedCommunityAlert width={158} height={50} />
+      )}
     </View>
   );
 }
@@ -118,39 +141,12 @@ function formatMiles(miles: number): string {
 }
 
 const styles = StyleSheet.create({
-  // Default marker — 72pt outer drop area as the marker's tap region;
-  // the inner 32pt Hazard SVG carries its own yellow diamond + stroke.
-  defaultMarker: {
-    width: 72,
-    height: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
+  defaultFrame: {
+    width: 62,
+    height: 50,
   },
-  // Extended pill — 150×42 yellow rounded pill per Figma 1133:13305.
-  // 24pt hazard icon on the left, copy on the right. 4pt gap between.
-  extendedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    width: 150,
-    height: 42,
-    paddingHorizontal: 8,
-    borderRadius: 32,
-    backgroundColor: colors.yellow,
-    borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
-    justifyContent: 'center',
-    // M3 Elevation 1 — same as Speed Limit sign so both yellow
-    // hazard-register elements feel like physical objects on the map.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  extendedText: {
-    ...typography.subheadlineEmphasized,
-    color: colors.black,
-    textAlign: 'center',
+  extendedFrame: {
+    width: 158,
+    height: 50,
   },
 });
