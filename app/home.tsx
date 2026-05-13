@@ -9,7 +9,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, LayoutAnimation, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -245,6 +245,39 @@ export default function Home() {
       });
     },
     [routes],
+  );
+
+  // PanResponder for the bottom-sheet drag handle in browse mode.
+  // Three intents resolved on release based on the gesture's vertical
+  // delta: a near-stationary release reads as a tap (toggle), a
+  // sufficient downward drag reads as collapse-intent, an upward drag
+  // reads as expand-intent. 20pt threshold filters out the wobble of
+  // a normal finger-lift while staying loose enough that a deliberate
+  // half-inch flick commits.
+  //
+  // We don't bother making the sheet *follow* the finger in real time
+  // — that would mean Animated.Value tracking + render-time interp,
+  // and the snap-on-release feel is what most users actually expect
+  // from a drag handle (Google Maps + Waze use the same pattern).
+  // LayoutAnimation transitions the resulting height change so the
+  // snap doesn't feel jarring.
+  const dragHandleResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+        onPanResponderRelease: (_, g) => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          if (g.dy > 20) {
+            setThingsToDoCollapsed(true);
+          } else if (g.dy < -20) {
+            setThingsToDoCollapsed(false);
+          } else {
+            setThingsToDoCollapsed((v) => !v);
+          }
+        },
+      }),
+    [],
   );
 
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
@@ -868,7 +901,26 @@ export default function Home() {
         edges={['bottom']}
         onLayout={(e) => setBottomSheetHeight(e.nativeEvent.layout.height)}
       >
-        <DragHandle />
+        {!(params.destLat && params.destLng) ? (
+          // Browse mode: the drag bar is interactive — tap or vertical
+          // pan to toggle the recommendations section. Wider hit area
+          // via vertical padding so the bar is comfortable to grab
+          // mid-trip without aiming at a 4pt stripe.
+          <View
+            style={styles.dragHandleArea}
+            accessibilityRole="button"
+            accessibilityLabel={
+              thingsToDoCollapsed
+                ? 'Drag bar — drag up or tap to expand recommendations'
+                : 'Drag bar — drag down or tap to collapse recommendations'
+            }
+            {...dragHandleResponder.panHandlers}
+          >
+            <DragHandle />
+          </View>
+        ) : (
+          <DragHandle />
+        )}
 
         {!(params.destLat && params.destLng) ? (
           <HomeBrowseSheet
@@ -1113,6 +1165,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // No horizontal padding — children set their own widths so the menu
     // button can left-align with the search bar's left edge (both 374pt).
+  },
+  dragHandleArea: {
+    // Wraps the 4pt DragHandle bar with vertical padding so the
+    // touchable region is ~40pt tall — comfortable to grab mid-drive.
+    // The DragHandle itself stays visually 4pt; this only expands
+    // the gesture's hit area.
+    paddingVertical: 16,
+    alignItems: 'center',
   },
   menuRow: {
     // Responsive: stretch to parent width with 16pt margins on each
