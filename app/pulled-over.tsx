@@ -5,7 +5,7 @@ import { usePreventRemove } from '@react-navigation/native';
 // + Stop align this screen's audio-control register with /recordings
 // (which uses Phosphor Play/Pause/Microphone for the same recording
 // data); UserPlus is the canonical "add a person" affordance per
-// CLAUDE.md (contact phase) and matches /trusted-contact-setup.
+// docs/architecture.md (contact phase) and matches /trusted-contact-setup.
 import { SpeakerHigh } from 'phosphor-react-native/src/icons/SpeakerHigh';
 import { Stop } from 'phosphor-react-native/src/icons/Stop';
 import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';

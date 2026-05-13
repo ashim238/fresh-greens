@@ -278,7 +278,7 @@ Per `docs/workflow.md`. Summary:
     - Theme-token discipline — no hardcoded colors or typography outside `.cursorrules`'s documented exceptions.
     - Hook usage — no hooks defined with only one consumer unless explicitly future-facing.
     Result is a punch list that either becomes its own cleanup PR or feeds into the next feature PR.
-11. **Quarterly (or every ~20 PRs), consolidate `docs/learnings.md`.** The file is append-only by design — per-PR practice — but it grows unbounded. Consolidation merges redundant entries about the same lesson, retires entries where the underlying decision was overturned, and *promotes stable patterns* from learnings → CLAUDE.md body so they're seen on every session boot. Best run as a Pattern 1 agent task (instruct it to consolidate without losing the *why* context). Keep entries that captured the reason a decision was made, even when the decision is now obvious.
+11. **Quarterly (or every ~20 PRs), consolidate `docs/learnings.md`.** The file is append-only by design — per-PR practice — but it grows unbounded. Consolidation merges redundant entries about the same lesson, retires entries where the underlying decision was overturned, and *promotes stable patterns* from learnings → docs/architecture.md body so they're seen on every session boot. Best run as a Pattern 1 agent task (instruct it to consolidate without losing the *why* context). Keep entries that captured the reason a decision was made, even when the decision is now obvious.
 
 ---
 

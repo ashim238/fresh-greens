@@ -82,7 +82,7 @@ async function tryCaptureContactLocation(
  * Note: presentContactPickerAsync is iOS-only. On Android the picker
  * promise resolves to null. A future Android-friendly path would
  * request CONTACTS permission and roll its own picker UI; not in
- * scope while we're iPhone-first per CLAUDE.md.
+ * scope while we're iPhone-first per docs/architecture.md.
  */
 export function useTrustedContact() {
   const [contact, setContact] = useState<TrustedContact | null>(null);

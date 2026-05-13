@@ -125,7 +125,7 @@ export default function Welcome() {
             `@3x` filename suffix because Metro reads that as a density
             tag and expects a 1x base file alongside; a single
             high-density bitmap referenced directly is simpler.
-            CLAUDE.md "Asset format default: SVG" rule has the
+            docs/architecture.md "Asset format default: SVG" rule has the
             documented exception for assets with image fills like this.
           */}
           <Image
