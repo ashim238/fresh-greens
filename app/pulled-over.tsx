@@ -1543,6 +1543,12 @@ const guidanceStyles = StyleSheet.create({
   page: {
     flex: 1,
     gap: 24,
+    // +8pt additional horizontal padding on top of the modal-level 16pt
+    // (styles.safe), bringing the guidance phase's effective gutter to
+    // 24pt. The bullet-heavy register reads tighter than the rest of
+    // the modal phases (armed cards, contact avatar block, review hero
+    // illustrations) and benefits from extra breathing room.
+    paddingHorizontal: 8,
   },
   titleBlock: {
     gap: 8,
@@ -1715,7 +1721,7 @@ const contactStyles = StyleSheet.create({
     color: colors.white,
   },
   contactName: {
-    ...typography.title2Regular,
+    ...typography.bodyRegular,
     color: colors.black,
     textAlign: 'center',
   },

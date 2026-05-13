@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 // `paths` mapping that keeps TypeScript happy.
 import { Calendar } from 'phosphor-react-native/src/icons/Calendar';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
+import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { GearSix } from 'phosphor-react-native/src/icons/GearSix';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { PaintRoller } from 'phosphor-react-native/src/icons/PaintRoller';
@@ -15,6 +16,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  LayoutAnimation,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -319,13 +321,16 @@ export default function Menu() {
 // --- Sub-components ------------------------------------------------------
 
 /**
- * Zone Preferences row — header + always-visible toggle.
+ * Zone Preferences row — collapsible accordion with a single inline
+ * toggle child.
  *
- * Differs from regular SettingsRow in that the toggle sits inline
- * below the header, always visible. v1 hid this behind an
- * accordion-on-tap; v2 surfaces it directly per Figma `1120:7357`.
- * Header still shows a CaretDown to communicate that this is an
- * expanded dropdown (vs the CaretRight used on push-to-route rows).
+ * Tap the header to expand/collapse; the chevron flips between
+ * CaretDown (collapsed, "tap to open") and CaretUp (expanded, "tap
+ * to close"). LayoutAnimation makes the height transition smooth.
+ *
+ * Starts collapsed because the toggle's default-off state means the
+ * row's information value is low at first paint; the user opens it
+ * intentionally to flip the preference.
  */
 function ZonePreferencesRow({
   showZones,
@@ -334,28 +339,45 @@ function ZonePreferencesRow({
   showZones: boolean;
   onToggle: (next: boolean) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const handleToggleExpanded = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded((v) => !v);
+  };
   return (
     <View style={styles.zoneRow}>
-      <View style={styles.row}>
+      <Pressable
+        onPress={handleToggleExpanded}
+        accessibilityRole="button"
+        accessibilityLabel="Zone Preferences"
+        accessibilityState={{ expanded }}
+        style={({ pressed }) => [styles.row, pressed && pressedDim]}
+      >
         <View style={styles.rowIconWrap}>
           <MapPinArea size={24} color={colors.black} weight="duotone" />
         </View>
         <Text style={styles.rowLabel}>Zone Preferences</Text>
-        <CaretDown size={16} color={colors.labelTertiary} weight="bold" />
-      </View>
-      <View style={styles.zoneInner}>
-        <Text style={styles.zoneInnerLabel}>Show zones overlay</Text>
-        <Switch
-          value={showZones}
-          onValueChange={onToggle}
-          trackColor={{
-            false: colors.cardBorderSubtle,
-            true: colors.freshgreen,
-          }}
-          thumbColor={colors.white}
-          accessibilityLabel="Toggle zones overlay"
-        />
-      </View>
+        {expanded ? (
+          <CaretUp size={16} color={colors.labelTertiary} weight="bold" />
+        ) : (
+          <CaretDown size={16} color={colors.labelTertiary} weight="bold" />
+        )}
+      </Pressable>
+      {expanded && (
+        <View style={styles.zoneInner}>
+          <Text style={styles.zoneInnerLabel}>Show zones overlay</Text>
+          <Switch
+            value={showZones}
+            onValueChange={onToggle}
+            trackColor={{
+              false: colors.cardBorderSubtle,
+              true: colors.freshgreen,
+            }}
+            thumbColor={colors.white}
+            accessibilityLabel="Toggle zones overlay"
+          />
+        </View>
+      )}
     </View>
   );
 }
