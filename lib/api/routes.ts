@@ -58,7 +58,19 @@ export async function getRoutesBetween(
       throw new Error(`OSRM returned no routes (code: ${data.code})`);
     }
 
-    return data.routes.map(parseOSRMRoute);
+    // OSRM snaps the destination to the nearest road segment in its
+    // own (OpenStreetMap-derived) network, which can be a different
+    // road than where the Mapbox-geocoded POI actually sits. The
+    // returned geometry ends at OSRM's snap, which often visibly
+    // overshoots the destination on the map. Trim each route to the
+    // point closest to the requested destination so the polyline
+    // ends where the user expects to arrive.
+    return data.routes
+      .map(parseOSRMRoute)
+      .map((route) => ({
+        ...route,
+        coordinates: trimToDestination(route.coordinates, destination),
+      }));
   } catch (error) {
     console.warn(
       '[routes] OSRM fetch failed, falling back to mock:',
@@ -103,6 +115,48 @@ type OSRMRoute = {
     coordinates: [number, number][];
   };
 };
+
+/**
+ * Trims a route's coordinate list so it ends at the polyline point
+ * closest to `destination`. Necessary because OSRM snaps the
+ * requested destination to its own road network — when the snap is
+ * a block past the actual POI, the unbounded geometry visibly
+ * overshoots. The trimmed polyline preserves OSRM's path up to the
+ * closest approach, then stops.
+ *
+ * Pure + cheap: O(n) linear scan over the coordinate list (~50-200
+ * points per route on a city trip).
+ *
+ * Safety net: always keeps at least 2 points so the result is still
+ * a renderable line, even in the degenerate case where the closest
+ * point is the origin itself.
+ */
+function trimToDestination(
+  coordinates: Coordinate[],
+  destination: Coordinate,
+): Coordinate[] {
+  if (coordinates.length <= 2) return coordinates;
+
+  let bestIndex = coordinates.length - 1;
+  let bestDistSq = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < coordinates.length; i++) {
+    // Squared equirectangular distance — same units as the existing
+    // estimatePathMeters helper, but we only care about ordering so
+    // skip the sqrt + Earth-radius multiply.
+    const dLat = coordinates[i].latitude - destination.latitude;
+    const dLng = coordinates[i].longitude - destination.longitude;
+    const distSq = dLat * dLat + dLng * dLng;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      bestIndex = i;
+    }
+  }
+
+  // Slice inclusive of the closest point; guard against returning a
+  // 1-point list if the origin itself was the closest match.
+  const trimmedLength = Math.max(2, bestIndex + 1);
+  return coordinates.slice(0, trimmedLength);
+}
 
 function buildOSRMUrl(origin: Coordinate, destination: Coordinate): string {
   // OSRM expects coordinates as `lng,lat;lng,lat` (longitude first — opposite

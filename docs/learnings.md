@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/route-trim-overshoot (2026-05-12)
+
+User observed the route polyline visibly overshooting the destination — line continued a block or two past the named POI ("Fan Fan Doughnuts" at the screenshot). Root cause: OSRM snaps the requested destination to the nearest road segment in *its own* (OpenStreetMap-derived) road network. Mapbox's POI coordinates and OSRM's road network often disagree by a block or two; when they do, OSRM's route geometry ends at OSRM's snap point, which appears past the POI's pin on Apple Maps. Fix is a pure `trimToDestination(coordinates, destination)` helper applied in `getRoutesBetween` — linear scan to find the coordinate closest to the requested destination, slice the polyline there.
+
+- **Don't trust routing-engine geometry to end where you asked.** OSRM, Mapbox Directions, Google Directions — all of them snap input coordinates to their internal road network before routing. If the geocoder feeding the destination and the router consuming it use different road datasets (Mapbox vs OSM is a classic mismatch), the route geometry's endpoint can be visibly off. Worth keeping: when you're stitching a Mapbox geocoder to an OSRM router, post-process the geometry to end at the requested destination — don't assume the router knows where to stop.
+- **Squared-distance comparisons skip the sqrt + Earth-radius multiply when you only need ordering.** The trim helper iterates ~50–200 polyline points looking for the closest match to the destination. The naïve approach is haversine (or equirectangular meters via sqrt + R*c), but we only need to know which point is closest — actual distance is never used. Squared lat/lng deltas work as a comparator (smaller-squared-delta ⇔ closer point) and skip both the trig and the constant scaling. Same answer, half the math. Worth keeping: when you're picking the min/max over a metric and never using the metric's value, compute its order-preserving square instead — sqrt is for humans, not for comparisons.
+
+---
+
 ## fix/route-paint-order (2026-05-12)
 
 The gray alternate polylines on `/home` and `/en-route` were visibly cutting through the colored daylight gradient where the recommended and alternate routes shared streets. Root cause: react-native-maps renders Polyline overlays in document order — later children paint *over* earlier ones — and `pickWinner` returns recommended at index 0, so iterating `routes.flatMap` as-is rendered the gray strokes after the gradient. Fix: pre-sort the list so alternates come first, recommended last, before mapping to Polylines.
