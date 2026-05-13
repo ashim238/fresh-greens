@@ -50,12 +50,19 @@ export function HomeBrowseSheet({
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }) {
-  const eyebrowName = firstName ? `${firstName}'s` : 'Local';
+  // Eyebrow copy — when we have the user's first name, render the
+  // possessive ("Jordan's Local Recs 💃🏾"). With no name (signed-out
+  // or pre-displayName Apple sign-in), drop the possessive entirely
+  // rather than substituting a generic placeholder — "Local Local
+  // Recs" reads as a typo (and was, in v1).
+  const eyebrowCopy = firstName
+    ? `${firstName}'s Local Recs 💃🏾`
+    : 'Local Recs 💃🏾';
 
   return (
     <View style={styles.content}>
       <View style={styles.headers}>
-        <Text style={styles.eyebrow}>{eyebrowName} Local Recs 💃🏾</Text>
+        <Text style={styles.eyebrow}>{eyebrowCopy}</Text>
 
         <View style={styles.topRow}>
           <Text style={styles.neighborhood} numberOfLines={1}>

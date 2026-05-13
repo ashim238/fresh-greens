@@ -88,13 +88,16 @@ export default function Home() {
   const { user } = useUser();
   // First name for the browse-mode sheet eyebrow ("Jordan's Local
   // Recs"). Pull off displayName since that's what useUser exposes;
-  // fall back to undefined so HomeBrowseSheet renders the generic
-  // "Local" eyebrow rather than a placeholder name.
+  // fall back to undefined so HomeBrowseSheet drops the possessive
+  // and renders "Local Recs 💃🏾" plain.
   const userFirstName = user?.displayName?.split(' ')[0];
-  // Browse-mode "Things to Do" section starts expanded; user can
-  // collapse via the chevron toggle. State lives here so it survives
-  // re-renders triggered by zone/route fetches.
-  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(false);
+  // Browse-mode "Things to Do" section starts COLLAPSED — the
+  // expanded recommendation card is ~280pt tall and combined with
+  // the eyebrow/title/weather rows would eat most of the screen on
+  // iPhone-sized devices, crowding the Report FAB against the search
+  // bar. Collapsed by default leaves the map breathing room; user
+  // expands via the chevron when they want recommendations.
+  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
   // showZones is `false` while preferences are loading from AsyncStorage;
   // overlays just render on the next pass once the value resolves.
   const showZones = preferences?.showZones ?? false;
