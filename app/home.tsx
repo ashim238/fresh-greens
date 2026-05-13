@@ -195,8 +195,19 @@ export default function Home() {
   // geometry. Bumped strokeWidth slightly so the route still claims
   // the map without the border.
   const routePolylines = useMemo(
-    () =>
-      routes.flatMap((route) => {
+    () => {
+      // Paint order matters: react-native-maps' `Polyline` overlays
+      // render in document order, so later children sit *over* earlier
+      // ones. `pickWinner` returns recommended at index 0; iterating
+      // routes as-is means the gray alternate polylines would paint
+      // over the colored gradient where the two share streets — the
+      // gradient gets visibly "cut" by gray segments. Render alternates
+      // first, recommended last, so the colored stroke stays on top.
+      const ordered = [
+        ...routes.filter((r) => r.type !== 'recommended'),
+        ...routes.filter((r) => r.type === 'recommended'),
+      ];
+      return ordered.flatMap((route) => {
         if (route.type === 'recommended') {
           return gradientSegments(route).map((segment, idx) => (
             <Polyline
@@ -215,7 +226,8 @@ export default function Home() {
             strokeWidth={routeColors[route.type].width}
           />,
         ];
-      }),
+      });
+    },
     [routes],
   );
 
