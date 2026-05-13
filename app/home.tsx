@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
-import MenuHome from '../assets/illustrations/menu-home.svg';
+import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { DestinationMarker } from '../components/DestinationMarker';
@@ -826,23 +826,21 @@ export default function Home() {
             shield in the en-route side-button column.
           */}
           {/*
-            MenuHome SVG ships with its own pill + shadow chrome
-            (Figma 1133:13222 exports the full Button component).
-            Render it directly in a Pressable rather than wrapping in
-            FloatingActionButton — double-chrome reads as a pill
-            inside a pill. Future cleanup: re-export the inner glyph
-            (Figma node 1102:4155) at 24×24 viewBox and slot back
-            into a FAB to match the avatar pill's register.
+            Menu hamburger — Figma 1133:13222 (56×56 white pill with
+            inner 24×24 hamburger). `menu-glyph.svg` is the inner
+            glyph only; FAB provides the matching pill + shadow so
+            the chrome lives in one place and stays consistent with
+            the Report button (also FAB size 56). Replaces the prior
+            menu-home.svg which baked the full button chrome into a
+            single SVG.
           */}
-          <Pressable
+          <FloatingActionButton
+            size="56"
             onPress={() => router.push('/menu')}
-            accessibilityRole="button"
             accessibilityLabel="Menu"
-            style={({ pressed }) => pressed && pressedDim}
-            hitSlop={8}
           >
-            <MenuHome width={48} height={48} />
-          </Pressable>
+            <MenuGlyph width={24} height={24} />
+          </FloatingActionButton>
 
           {/*
             Avatar button retired — it was redundant with the
