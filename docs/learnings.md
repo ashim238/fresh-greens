@@ -32,6 +32,16 @@ The gray alternate polylines on `/home` and `/en-route` were visibly cutting thr
 
 ---
 
+## feat/destination-marker (2026-05-12)
+
+Added a destination marker at the route endpoint on `/home` and `/en-route`. Two Figma-faithful variants from node `296:468`: `home` (wiltedgreen pin with freshgreen center, pre-departure) and `enroute` (checkered finish-line flag, mid-trip). Anchor differs per variant — pin tip on coord (bottom-center), flag pole base on coord (≈22%, 85%) — so each glyph's natural reference point lands exactly on the destination.
+
+- **The route polyline is not a destination affordance.** It encodes the *path*; the endpoint is implicit and disappears when the user pans or the camera follows the car. The destination needs its own marker because "where am I going?" is a different question from "what path will I take?" — and the answer to the first is a fixed point, not a line that scrolls off-screen. Worth keeping: when a screen depends on a piece of geometry having visible endpoints, the endpoint deserves its own pin — don't lean on the line to do double duty.
+- **Per-variant marker anchors honor each glyph's natural reference point.** Tempting to standardize to bottom-center across variants for code simplicity — but a checkered flag's pole base, not its frame's bottom-center, is what users expect to land on the coord. The pin variant naturally lands tip-on-coord at `{ x: 0.5, y: 1 }`; the flag variant needs `{ x: 10.5/48, y: 41/48 }` because the pole's physical bottom-left is offset from the frame's bottom-center. Worth keeping: when a marker swaps glyphs across contexts, the anchor is glyph-specific data, not a constant — encode the per-glyph "where should the coord live" point, not a one-size-fits-all bottom-center.
+- **Figma MCP returns Vector layers as individual SVG fragments, not a single composed SVG.** `get_design_context` on a 48×48 marker frame with 5 vector layers returns 5 image URLs (each a fragment of the whole) plus CSS inset positions. To rebuild a single SVG, download each fragment, map each `inset-[T%_R%_B%_L%]` to absolute `translate(left top)` in the parent's 48×48 frame, wrap each layer's paths in `<g transform="translate(x y)">`, and replace Figma's `var(--fill-0, color)` shorthand with the bare fallback color (react-native-svg doesn't read CSS variables). Worth keeping: Figma MCP is great for design context but doesn't substitute for a designer's SVG export — when assembling multi-layer glyphs in-code, the math (inset% × frame size = translate) is mechanical but error-prone, so verify against a screenshot before shipping.
+
+---
+
 <<<<<<< HEAD
 ## chore/pulled-over-chrome-polish (2026-05-12)
 

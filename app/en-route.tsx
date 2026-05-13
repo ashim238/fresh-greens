@@ -32,6 +32,7 @@ import TurnMic from '../assets/illustrations/turn-mic.svg';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
+import { DestinationMarker } from '../components/DestinationMarker';
 import { DragHandle } from '../components/DragHandle';
 import { EnRouteZone } from '../components/EnRouteZone';
 import { FloatingActionButton } from '../components/FloatingActionButton';
@@ -667,6 +668,20 @@ export default function EnRoute() {
             />
           );
         })}
+        {/*
+          Destination pin — sits at the route endpoint so the driver
+          always sees where the line ends, even when the polyline runs
+          off-screen as the car advances. Same component as /home so
+          the destination reads identically across the trip.
+        */}
+        {params.destLat && params.destLng && (
+          <DestinationMarker
+            latitude={parseFloat(params.destLat)}
+            longitude={parseFloat(params.destLng)}
+            name={params.destName}
+            variant="enroute"
+          />
+        )}
         {routePolylines}
 
         {/*
