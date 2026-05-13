@@ -52,24 +52,26 @@
 // signals can compound (e.g., a residential street that's also lit=yes
 // stacks safe+safe = strongly preferred).
 
-// Public Overpass mirrors, tried in order on every call. Both speak
-// the same query API. `kumi.systems` is typically lighter-loaded;
-// `overpass-api.de` is canonical and tends to recover when kumi is
-// slow (the two mirrors don't usually fail in lockstep). Trying both
-// before falling back to mock cuts the "real data fails, demo runs
-// on synthetic zones" rate roughly in half during thesis-demo
-// windows when one mirror is under load.
+// Public Overpass mirrors, tried in order on every call. All three
+// speak the same query API. `kumi.systems` (Yannik Schwieren, Berlin)
+// is typically lighter-loaded; `overpass-api.de` (Heidelberg /
+// Geofabrik) is the canonical mirror; `openstreetmap.fr` (OSM France)
+// is the second backup. The three mirrors don't usually fail in
+// lockstep — chaining all three before mock fallback cuts the
+// "demo runs on synthetic zones" rate sharply during thesis-demo
+// windows when one or two are under load.
 const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
 ] as const;
 
 /**
  * Bail on a single Overpass call if it doesn't respond within this
  * window. 12s leaves room for a cold-start request (Overpass JIT-
  * compiles the query on first hit) without making a real failure
- * feel infinite. With two endpoints tried sequentially, worst-case
- * latency before mock fallback is ~24s.
+ * feel infinite. With three endpoints tried sequentially, worst-case
+ * latency before mock fallback is ~36s.
  */
 const OVERPASS_TIMEOUT_MS = 12000;
 
