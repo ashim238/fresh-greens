@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   containerInset: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: colors.separatorOnFlat,
   },
   placeholder: {
     ...typography.bodyRegular,

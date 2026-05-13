@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   cardEmptyDefault: {
-    backgroundColor: 'rgba(120, 120, 128, 0.16)',
+    backgroundColor: colors.fillsSecondary,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
   },
