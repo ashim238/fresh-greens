@@ -338,8 +338,14 @@ export default function EnRoute() {
   // controlled reliably across re-renders, so the colored stroke
   // alone is the v1 design.
   const routePolylines = useMemo(
-    () =>
-      routes.flatMap((route) => {
+    () => {
+      // See /home for the why — alternates render first so the
+      // recommended gradient paints over them, not under.
+      const ordered = [
+        ...routes.filter((r) => r.type !== 'recommended'),
+        ...routes.filter((r) => r.type === 'recommended'),
+      ];
+      return ordered.flatMap((route) => {
         if (route.type === 'recommended') {
           return gradientSegments(route).map((segment, idx) => (
             <Polyline
@@ -358,7 +364,8 @@ export default function EnRoute() {
             strokeWidth={routeColors[route.type].width}
           />,
         ];
-      }),
+      });
+    },
     [routes],
   );
 

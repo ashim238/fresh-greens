@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/route-paint-order (2026-05-12)
+
+The gray alternate polylines on `/home` and `/en-route` were visibly cutting through the colored daylight gradient where the recommended and alternate routes shared streets. Root cause: react-native-maps renders Polyline overlays in document order — later children paint *over* earlier ones — and `pickWinner` returns recommended at index 0, so iterating `routes.flatMap` as-is rendered the gray strokes after the gradient. Fix: pre-sort the list so alternates come first, recommended last, before mapping to Polylines.
+
+- **react-native-maps paint order = document order, not zIndex.** Polyline doesn't expose a zIndex prop (Marker does, Polyline doesn't), and there's no overlay-z control in MKMapView that survives re-renders. The only knob is the order children appear in JSX. Worth keeping: when overlay stacking matters in react-native-maps, control it at the data layer (sort the array before mapping) — don't reach for a zIndex prop that doesn't exist.
+- **Bugs latent in the data pipeline only surface when a new visual lands.** This paint-order bug existed since the gradient + alternates first shipped together, but the gray-on-color overlap was easy to miss without a destination pin drawing the eye to the route. The destination marker was a magnifying glass: it gave the user a reason to look closely at the route, and the regression revealed itself. Worth keeping: when a new visual element is added near existing geometry (markers near polylines, labels near pins), pre-emptively re-audit the existing geometry — the new element raises the user's attention and bugs that have been hiding in plain sight will surface.
+
+---
+
 <<<<<<< HEAD
 ## chore/pulled-over-chrome-polish (2026-05-12)
 
