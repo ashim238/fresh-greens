@@ -44,3 +44,7 @@ yarn-error.*
 # github.com/ashim238/fresh-greens-specimen) sometimes gets cloned
 # inside this checkout — ignore so it doesn't show up in `git status`.
 fresh-greens-specimen/
+
+# Claude Code session metadata (worktrees, agent state). Not part of
+# the project source; excluded from the submitted snapshot.
+.claude/

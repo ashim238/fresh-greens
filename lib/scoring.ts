@@ -288,7 +288,7 @@ const HAZARD_PROXIMITY_METERS = 200;
  *
  * v1 trigger: any zone of caution/avoid type within
  * `HAZARD_PROXIMITY_METERS` of the turn surfaces its category. Future
- * refinement (per CLAUDE.md): a saturation threshold (≥N zones, not
+ * refinement (per docs/architecture.md): a saturation threshold (≥N zones, not
  * just one) so a single distant marker doesn't trigger the symbol.
  *
  * Caller is responsible for capping the returned list — the turn card
