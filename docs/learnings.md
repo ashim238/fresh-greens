@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/menu-icon-update (2026-05-12)
+
+Figma 1133:13222 (the /home menu hamburger button) was redesigned to a 56×56 white pill with a 24×24 inner glyph — and the project's "future cleanup" path from CLAUDE.md (use the inner glyph inside `FloatingActionButton` instead of baking the full button chrome into a single SVG) is now actionable. Re-exported just the inner glyph as `menu-glyph.svg` (24×24 viewBox); replaced the bespoke `Pressable + MenuHome` block on /home with `FloatingActionButton size="56"` wrapping the new glyph. Old `menu-home.svg` (the full-chrome export) deleted.
+
+- **Chrome-in-FAB beats chrome-in-SVG when the FAB exists.** The original `menu-home.svg` was a single 64×64 SVG containing the white pill + shadow + inner hamburger — convenient because it dropped into a `Pressable` and was visually complete. But it forced the home screen to render the menu button outside the FAB system that the rest of the row uses (Report button + future avatar). Once `FloatingActionButton` exists with shadow/elevation baked in, an inner-glyph-only SVG composed inside the FAB is the cleaner pattern: one place for shadow/elevation, the glyph file scales independently, and pressed-state opacity is handled by the FAB. Worth keeping: when a shared button shell exists in the codebase, prefer "glyph + shell" over "self-contained SVG with chrome" — the shell's pressed-state and accessibility hooks come for free.
+
+---
+
 ## fix/route-trim-overshoot (2026-05-12)
 
 User observed the route polyline visibly overshooting the destination — line continued a block or two past the named POI ("Fan Fan Doughnuts" at the screenshot). Root cause: OSRM snaps the requested destination to the nearest road segment in *its own* (OpenStreetMap-derived) road network. Mapbox's POI coordinates and OSRM's road network often disagree by a block or two; when they do, OSRM's route geometry ends at OSRM's snap point, which appears past the POI's pin on Apple Maps. Fix is a pure `trimToDestination(coordinates, destination)` helper applied in `getRoutesBetween` — linear scan to find the coordinate closest to the requested destination, slice the polyline there.
