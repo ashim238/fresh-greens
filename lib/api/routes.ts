@@ -118,18 +118,31 @@ type OSRMRoute = {
 
 /**
  * Trims a route's coordinate list so it ends at the polyline point
- * closest to `destination`. Necessary because OSRM snaps the
- * requested destination to its own road network — when the snap is
- * a block past the actual POI, the unbounded geometry visibly
- * overshoots. The trimmed polyline preserves OSRM's path up to the
- * closest approach, then stops.
+ * closest to `destination` — but only when OSRM's snap is genuinely
+ * past the destination. Necessary because OSRM and Mapbox use
+ * different road networks; when their endpoints disagree, OSRM's
+ * geometry can overshoot the user's expected destination pin.
  *
- * Pure + cheap: O(n) linear scan over the coordinate list (~50-200
- * points per route on a city trip).
+ * Two guards prevent over-aggressive trimming:
+ *
+ *  1. **End-already-close short-circuit** — if the geometry's last
+ *     point is within ~50m of the destination, OSRM's snap matched
+ *     the requested point closely enough. Return the geometry
+ *     untouched.
+ *
+ *  2. **Search the latter half only** — when we DO trim, search
+ *     only the second half of the polyline. A route that curves
+ *     near the destination mid-trip (loops, U-turns, multi-leg
+ *     paths) was passing-by, not arriving; a global-closest scan
+ *     would mistake that pass-by for the endpoint and cut the
+ *     route in half. Constraining the search to the latter half
+ *     keeps mid-trip approaches intact.
+ *
+ * Pure + cheap: O(n) linear scan over half the coordinate list
+ * (~25-100 points on a city trip).
  *
  * Safety net: always keeps at least 2 points so the result is still
- * a renderable line, even in the degenerate case where the closest
- * point is the origin itself.
+ * a renderable line.
  */
 function trimToDestination(
   coordinates: Coordinate[],
@@ -137,12 +150,24 @@ function trimToDestination(
 ): Coordinate[] {
   if (coordinates.length <= 2) return coordinates;
 
+  // Guard 1: end-already-close. Compute approximate meters from the
+  // last polyline point to the destination via equirectangular
+  // projection — same scale lib/scoring.ts and the mock estimator
+  // use elsewhere. 50m is roughly half a city block; closer than
+  // that and OSRM's snap is "right place, slightly different road."
+  const last = coordinates[coordinates.length - 1];
+  const latToM = 111000;
+  const lngToM = 111000 * Math.cos((destination.latitude * Math.PI) / 180);
+  const lastDLat = (last.latitude - destination.latitude) * latToM;
+  const lastDLng = (last.longitude - destination.longitude) * lngToM;
+  if (Math.hypot(lastDLat, lastDLng) < 50) return coordinates;
+
+  // Guard 2: search the latter half only. Use squared lat/lng deltas
+  // as a comparator — we only care about ordering, not actual meters.
+  const startIdx = Math.floor(coordinates.length / 2);
   let bestIndex = coordinates.length - 1;
   let bestDistSq = Number.POSITIVE_INFINITY;
-  for (let i = 0; i < coordinates.length; i++) {
-    // Squared equirectangular distance — same units as the existing
-    // estimatePathMeters helper, but we only care about ordering so
-    // skip the sqrt + Earth-radius multiply.
+  for (let i = startIdx; i < coordinates.length; i++) {
     const dLat = coordinates[i].latitude - destination.latitude;
     const dLng = coordinates[i].longitude - destination.longitude;
     const distSq = dLat * dLat + dLng * dLng;
@@ -152,10 +177,7 @@ function trimToDestination(
     }
   }
 
-  // Slice inclusive of the closest point; guard against returning a
-  // 1-point list if the origin itself was the closest match.
-  const trimmedLength = Math.max(2, bestIndex + 1);
-  return coordinates.slice(0, trimmedLength);
+  return coordinates.slice(0, Math.max(2, bestIndex + 1));
 }
 
 function buildOSRMUrl(origin: Coordinate, destination: Coordinate): string {
