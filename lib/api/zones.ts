@@ -52,19 +52,26 @@
 // signals can compound (e.g., a residential street that's also lit=yes
 // stacks safe+safe = strongly preferred).
 
-// `kumi.systems` is a lighter-loaded public Overpass mirror than the
-// canonical `overpass-api.de`; identical query API. We use it as the
-// primary because `overpass-api.de` consistently 503s or times out
-// during thesis-demo windows. If kumi ever stops responding, the
-// canonical endpoint is the documented fallback below.
-const OVERPASS_ENDPOINT = 'https://overpass.kumi.systems/api/interpreter';
+// Public Overpass mirrors, tried in order on every call. All three
+// speak the same query API. `kumi.systems` (Yannik Schwieren, Berlin)
+// is typically lighter-loaded; `overpass-api.de` (Heidelberg /
+// Geofabrik) is the canonical mirror; `openstreetmap.fr` (OSM France)
+// is the second backup. The three mirrors don't usually fail in
+// lockstep — chaining all three before mock fallback cuts the
+// "demo runs on synthetic zones" rate sharply during thesis-demo
+// windows when one or two are under load.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+] as const;
 
 /**
- * Bail on the Overpass call if it doesn't respond within this window.
- * 12s leaves room for a cold-start request (Overpass JIT-compiles the
- * query on first hit) without making a real failure feel infinite.
- * Was 6s — tripping AbortError mid-cold-start was the dominant cause
- * of mock fallbacks on /home + /en-route.
+ * Bail on a single Overpass call if it doesn't respond within this
+ * window. 12s leaves room for a cold-start request (Overpass JIT-
+ * compiles the query on first hit) without making a real failure
+ * feel infinite. With three endpoints tried sequentially, worst-case
+ * latency before mock fallback is ~36s.
  */
 const OVERPASS_TIMEOUT_MS = 12000;
 
@@ -155,10 +162,40 @@ export type Zone = {
  * (network error, non-OK response, parse error, no results).
  */
 export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
+  const query = buildOverpassQuery(center);
+
+  // Try each mirror in order. The first one that returns usable zones
+  // wins; on abort/HTTP-error/empty-response we move on to the next.
+  // Only after every mirror has failed do we fall back to mock zones.
+  for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
+    const endpoint = OVERPASS_ENDPOINTS[i];
+    try {
+      const zones = await fetchOverpassZones(endpoint, query);
+      return zones;
+    } catch (error) {
+      const isLast = i === OVERPASS_ENDPOINTS.length - 1;
+      console.warn(
+        `[zones] Overpass ${endpoint} failed${isLast ? ', falling back to mock' : ', trying next mirror'}:`,
+        error,
+      );
+    }
+  }
+
+  return getZonesForRegionMock(center);
+}
+
+/**
+ * Single-endpoint fetch + parse. Throws on abort, non-OK HTTP, empty
+ * elements, or parse failure — the caller catches and decides whether
+ * to retry another endpoint or fall back to mock data.
+ */
+async function fetchOverpassZones(
+  endpoint: string,
+  query: string,
+): Promise<Zone[]> {
   // AbortController + setTimeout: fetch has no built-in timeout, so a
-  // hanging server would otherwise block forever. We give the request
-  // OVERPASS_TIMEOUT_MS, then abort. The aborted fetch throws into our
-  // catch block, which falls back to mock zones cleanly.
+  // hanging server would otherwise block forever. We give each
+  // endpoint OVERPASS_TIMEOUT_MS, then abort.
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(),
@@ -166,8 +203,7 @@ export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
   );
 
   try {
-    const query = buildOverpassQuery(center);
-    const response = await fetch(OVERPASS_ENDPOINT, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `data=${encodeURIComponent(query)}`,
@@ -191,14 +227,7 @@ export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
     }
 
     return zones;
-  } catch (error) {
-    console.warn(
-      '[zones] Overpass fetch failed, falling back to mock:',
-      error,
-    );
-    return getZonesForRegionMock(center);
   } finally {
-    // Always clear the timeout so it doesn't fire after success.
     clearTimeout(timeoutId);
   }
 }
