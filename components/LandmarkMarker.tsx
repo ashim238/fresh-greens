@@ -8,6 +8,7 @@ import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
+import TrustedFriendMarker from '../assets/illustrations/trusted-friend.svg';
 import BgBlackOwned from '../assets/illustrations/mapmarker-bg-blackowned.svg';
 import BgPositive from '../assets/illustrations/mapmarker-bg-positive.svg';
 import BgReport from '../assets/illustrations/mapmarker-bg-report.svg';
@@ -191,6 +192,28 @@ export function LandmarkMarker({
 }) {
   const variant = variantForCategoryId(categoryId);
 
+  // Trusted Friend has its own Figma-faithful SVG (1133:13245) — green
+  // tail-shape marker with the heart glyph baked in. Bypass the
+  // composed pin+bg+glyph layout for this one variant; the other map
+  // markers continue to compose from the shared three-layer system.
+  // Anchor at bottom-left because the tail's tip sits there in the
+  // 62×51 frame (per Figma's M4 24.1304 origin path).
+  if (categoryId === 'trusted-friend') {
+    return (
+      <Marker
+        coordinate={{ latitude, longitude }}
+        anchor={{ x: 4 / 62, y: 45.26 / 51 }}
+        onPress={onPress}
+        accessibilityLabel={accessibilityLabel}
+        tracksViewChanges={false}
+      >
+        <View style={styles.trustedFriendFrame} accessibilityIgnoresInvertColors>
+          <TrustedFriendMarker width={62} height={51} />
+        </View>
+      </Marker>
+    );
+  }
+
   return (
     <Marker
       coordinate={{ latitude, longitude }}
@@ -253,5 +276,9 @@ const styles = StyleSheet.create({
     height: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  trustedFriendFrame: {
+    width: 62,
+    height: 51,
   },
 });

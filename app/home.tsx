@@ -22,6 +22,7 @@ import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
+import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { SearchBar } from '../components/SearchBar';
@@ -29,6 +30,7 @@ import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { useUser } from '../hooks/useUser';
 import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
@@ -82,6 +84,16 @@ export default function Home() {
   // LandmarkMarker; the canonical SVG comes from Figma 1133:13245 when
   // it's exported.
   const { contact: trustedContact } = useTrustedContact();
+  const { user } = useUser();
+  // First name for the browse-mode sheet eyebrow ("Jordan's Local
+  // Recs"). Pull off displayName since that's what useUser exposes;
+  // fall back to undefined so HomeBrowseSheet renders the generic
+  // "Local" eyebrow rather than a placeholder name.
+  const userFirstName = user?.displayName?.split(' ')[0];
+  // Browse-mode "Things to Do" section starts expanded; user can
+  // collapse via the chevron toggle. State lives here so it survives
+  // re-renders triggered by zone/route fetches.
+  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(false);
   // showZones is `false` while preferences are loading from AsyncStorage;
   // overlays just render on the next pass once the value resolves.
   const showZones = preferences?.showZones ?? false;
@@ -826,11 +838,15 @@ export default function Home() {
       </SafeAreaView>
 
       {/*
-        Bottom sheet — Route (Established) variant.
-        Figma node: 825:3635
-        Layout mirrors Figma's nested groups: drag handle / headers
-        (greeting + daylight strip + main copy) / picture (tradeoff
-        explanation) / actions row (Schedule + Go).
+        Bottom sheet — two visual modes:
+          - Route established (destination set): trip-context greeting,
+            daylight strip, "About X min to Y", Schedule + Go.
+            Figma node: 825:3635.
+          - Browse mode (no destination yet): "Jordan's Local Recs",
+            weather + driving conditions, "Things to Do: Black Owned"
+            recommendation card. Figma node: 1133:13690.
+        Single SafeAreaView shell + DragHandle wraps both — only the
+        body content swaps based on `params.destLat`.
       */}
       <SafeAreaView
         style={styles.bottomSheet}
@@ -839,6 +855,14 @@ export default function Home() {
       >
         <DragHandle />
 
+        {!(params.destLat && params.destLng) ? (
+          <HomeBrowseSheet
+            firstName={userFirstName}
+            collapsed={thingsToDoCollapsed}
+            onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+          />
+        ) : (
+          <>
         <View style={styles.bottomSheetContent}>
           <View style={styles.headers}>
             <View style={styles.greetingRow}>
@@ -969,6 +993,8 @@ export default function Home() {
             <Text style={styles.goText}>Go</Text>
           </Pressable>
         </View>
+          </>
+        )}
       </SafeAreaView>
 
       {/*

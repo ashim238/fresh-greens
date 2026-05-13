@@ -1099,7 +1099,7 @@ function OfficerTrooperView() {
               style={[officerStyles.illustrationWrap, officerStyles.alignEnd]}
             >
               <Image
-                source={require('../assets/illustrations/officer.png')}
+                source={require('../assets/illustrations/pulled-over-officer.png')}
                 style={officerStyles.officerImage}
                 resizeMode="contain"
                 accessible
@@ -1129,7 +1129,7 @@ function OfficerTrooperView() {
           <View style={officerStyles.illustrationBox}>
             <View style={officerStyles.illustrationWrap}>
               <Image
-                source={require('../assets/illustrations/trooper.png')}
+                source={require('../assets/illustrations/pulled-over-trooper.png')}
                 style={officerStyles.trooperImage}
                 resizeMode="contain"
                 accessible
@@ -1233,7 +1233,14 @@ function WhatToDoView() {
   return (
     <ContentView
       illustration={
-        <Ionicons name="car-outline" size={120} color={colors.wiltedgreen} />
+        <Image
+          source={require('../assets/illustrations/pulled-over-stopped.png')}
+          style={reviewIllustrationStyles.square}
+          resizeMode="contain"
+          accessible
+          accessibilityLabel="Illustration: a car pulled over to the side of the road"
+          accessibilityIgnoresInvertColors
+        />
       }
       title="Immediately after you've been stopped:"
       bullets={[
@@ -1258,7 +1265,14 @@ function WhatToHaveView() {
   return (
     <ContentView
       illustration={
-        <Ionicons name="card-outline" size={120} color={colors.wiltedgreen} />
+        <Image
+          source={require('../assets/illustrations/pulled-over-provide.png')}
+          style={reviewIllustrationStyles.square}
+          resizeMode="contain"
+          accessible
+          accessibilityLabel="Illustration: license, registration, and insurance documents"
+          accessibilityIgnoresInvertColors
+        />
       }
       title="What you must provide:"
       bullets={[
@@ -1317,10 +1331,13 @@ function WhatToSayView({
   return (
     <ContentView
       illustration={
-        <Ionicons
-          name="chatbubble-ellipses-outline"
-          size={120}
-          color={colors.wiltedgreen}
+        <Image
+          source={require('../assets/illustrations/pulled-over-say.png')}
+          style={reviewIllustrationStyles.square}
+          resizeMode="contain"
+          accessible
+          accessibilityLabel="Illustration: a person speaking with the officer"
+          accessibilityIgnoresInvertColors
         />
       }
       title="What you can say:"
@@ -1348,7 +1365,14 @@ function WhatToKnowView() {
   return (
     <ContentView
       illustration={
-        <Ionicons name="library-outline" size={120} color={colors.wiltedgreen} />
+        <Image
+          source={require('../assets/illustrations/pulled-over-know.png')}
+          style={reviewIllustrationStyles.square}
+          resizeMode="contain"
+          accessible
+          accessibilityLabel="Illustration: a book of rights"
+          accessibilityIgnoresInvertColors
+        />
       }
       title="Know your rights:"
       bullets={[
@@ -1942,5 +1966,15 @@ const contentStyles = StyleSheet.create({
   bulletStrong: {
     ...typography.title3Emphasized,
     color: colors.black,
+  },
+});
+
+// Review hero illustrations (`pulled-over-stopped/provide/say/know`)
+// are square @3x PNGs (~960×960). Display at 280pt inside the 320pt
+// illustrationBox so there's ~20pt breathing room on each side.
+const reviewIllustrationStyles = StyleSheet.create({
+  square: {
+    width: 280,
+    height: 280,
   },
 });
