@@ -210,9 +210,13 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   body: {
-    // Body/Emphasized (17pt Semibold) per Figma — matches the
-    // onboarding panels' body register.
-    ...typography.bodyEmphasized,
+    // Body/Regular (17pt) — the explanatory copy reads as quieter
+    // supporting information beneath the page title, not a directive.
+    // (v1 used bodyEmphasized to "match the onboarding panels'
+    // register"; in practice the panels' body copy and this page's
+    // body copy serve different rhetorical roles — the panels deliver
+    // the brand claims, this paragraph explains a setting.)
+    ...typography.bodyRegular,
     color: colors.white,
   },
 

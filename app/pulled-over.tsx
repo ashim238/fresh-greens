@@ -1721,7 +1721,7 @@ const contactStyles = StyleSheet.create({
     color: colors.white,
   },
   contactName: {
-    ...typography.bodyRegular,
+    ...typography.title2Regular,
     color: colors.black,
     textAlign: 'center',
   },
