@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,6 +26,7 @@ import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 
 import { SearchBar } from '../components/SearchBar';
 import { ErrorState, LoadingState } from '../components/StateCard';
+import { useRecentSearches } from '../hooks/useRecentSearches';
 import { searchPlaces, type Place } from '../lib/api/places';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -96,11 +98,14 @@ const QUICK_TOOLS: QuickTool[] = [
   { id: 'parking', label: 'Parking', Icon: QuickToolParking, query: 'parking' },
 ];
 
-// TODO: real recent searches from a persistence layer.
-const RECENT_SEARCHES = [{ id: 'recent-1', label: 'Jackson, Mississippi' }];
+// Recents are sourced from useRecentSearches (AsyncStorage-backed,
+// 8-entry cap, dedup by mapbox_id). Picked-from-results only — typed-
+// and-discarded queries don't enter the list. See
+// lib/api/recent-searches.ts for the storage contract.
 
 export default function Search() {
   const router = useRouter();
+  const { recents, addRecent, removeRecent, clearRecents } = useRecentSearches();
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('landing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -252,6 +257,17 @@ export default function Search() {
   }
 
   function handleSelectPlace(place: Place) {
+    // Fire-and-forget the persistence write — we don't want to gate
+    // the navigation on AsyncStorage I/O. The hook's optimistic
+    // local-state update reflects the new recent immediately on the
+    // next /search visit; the disk write resolves in the background.
+    void addRecent({
+      id: place.id,
+      name: place.name,
+      address: place.address,
+      latitude: place.latitude,
+      longitude: place.longitude,
+    });
     router.replace({
       pathname: '/home',
       params: {
@@ -260,6 +276,50 @@ export default function Search() {
         destName: place.name,
       },
     });
+  }
+
+  /**
+   * Re-tapping a recent routes directly using the stored coord — no
+   * Mapbox re-query. The user gets the *same place* every time, not
+   * "whatever Mapbox returns for this string today." Also faster:
+   * skips a network round-trip on a known destination.
+   */
+  function handleSelectRecent(recent: typeof recents[number]) {
+    void addRecent({
+      id: recent.id,
+      name: recent.name,
+      address: recent.address,
+      latitude: recent.latitude,
+      longitude: recent.longitude,
+    });
+    router.replace({
+      pathname: '/home',
+      params: {
+        destLat: String(recent.latitude),
+        destLng: String(recent.longitude),
+        destName: recent.name,
+      },
+    });
+  }
+
+  /** Long-press → confirm → remove. Quiet feature, expected for any
+   *  recents list. iOS Alert is fine here — no design comp for a
+   *  custom remove-confirm sheet. */
+  function handleLongPressRecent(recent: typeof recents[number]) {
+    Alert.alert(
+      'Remove from recent',
+      `Forget "${recent.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void removeRecent(recent.id);
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -376,25 +436,58 @@ export default function Search() {
                 gives the user something to tap during the typing
                 phase instead of staring at a blank canvas. */}
             <View style={styles.recentSection}>
-              <Text style={styles.recentLabel}>Recent</Text>
-              {RECENT_SEARCHES.map((recent) => (
-                <Pressable
-                  key={recent.id}
-                  style={({ pressed }) => [
-                    styles.recentItem,
-                    pressed && pressedDim,
-                  ]}
-                  onPress={() => {
-                    setQuery(recent.label);
-                    runSearch(recent.label, true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Search again for ${recent.label}`}
-                >
-                  <Clock size={24} color={colors.labelTertiary} weight="duotone" />
-                  <Text style={styles.recentText}>{recent.label}</Text>
-                </Pressable>
-              ))}
+              <View style={styles.recentHeader}>
+                <Text style={styles.recentLabel}>Recent</Text>
+                {recents.length > 0 && (
+                  <Pressable
+                    onPress={() => {
+                      Alert.alert(
+                        'Clear recent searches',
+                        'Forget all your recent destinations? This cannot be undone.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Clear',
+                            style: 'destructive',
+                            onPress: () => void clearRecents(),
+                          },
+                        ],
+                      );
+                    }}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear all recent searches"
+                    style={({ pressed }) => pressed && pressedDim}
+                  >
+                    <Text style={styles.recentClear}>Clear</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {recents.length === 0 ? (
+                <Text style={styles.recentEmpty}>
+                  Your recent destinations will show up here.
+                </Text>
+              ) : (
+                recents.map((recent) => (
+                  <Pressable
+                    key={recent.id}
+                    style={({ pressed }) => [
+                      styles.recentItem,
+                      pressed && pressedDim,
+                    ]}
+                    onPress={() => handleSelectRecent(recent)}
+                    onLongPress={() => handleLongPressRecent(recent)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Re-route to ${recent.name}. Long-press to remove.`}
+                  >
+                    <Clock size={24} color={colors.labelTertiary} weight="duotone" />
+                    <Text style={styles.recentText} numberOfLines={1}>
+                      {recent.name}
+                    </Text>
+                  </Pressable>
+                ))
+              )}
             </View>
           </ScrollView>
         )}
@@ -542,9 +635,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 8,
   },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   recentLabel: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
+  },
+  recentClear: {
+    ...typography.footnoteEmphasized,
+    color: colors.freshgreen,
+  },
+  recentEmpty: {
+    ...typography.subheadlineRegular,
+    color: colors.mutedSecondary,
+    paddingVertical: 10,
   },
   recentItem: {
     flexDirection: 'row',
