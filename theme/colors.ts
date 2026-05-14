@@ -62,6 +62,14 @@ export const colors = {
   // pure white so the parting copy reads as quietly secondary.
   signOutSubtitle: '#F5F5F5',
 
+  // Edge-marker palette per Figma `1133:13250`. Darker, more
+  // saturated than the brand orange/green — designed to read
+  // crisply against busy map content at the small (36pt) edge-
+  // marker size. Used only by `components/EdgeIndicator.tsx`; the
+  // brand orange/green still cover everything else.
+  slightlyDarkOrange: '#D34400',
+  slightlyWiltedGreen: '#1F8122',
+
   // Borders + scrims + separators. Tokenized so the same semantic role
   // doesn't get re-derived as raw rgba per screen.
   modalScrim: 'rgba(0, 0, 0, 0.2)',          // dim layer behind /report popup
