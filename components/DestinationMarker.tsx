@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
@@ -19,9 +20,13 @@ export type DestinationVariant = 'home' | 'enroute';
  * pole base (≈ 22%, 85% of the 48×48 frame) so the pole "stands" on the
  * coordinate the way navigation flags conventionally do.
  *
- * `tracksViewChanges={false}` after first paint — the marker doesn't
- * animate or update; static throughout the trip. The SVG is bundled
- * (no async path resolution), so the first frame is safe.
+ * **`tracksViewChanges` lifecycle.** Mounts with `true` so MapKit's
+ * snapshot captures the SVG subtree once it paints, then flips to
+ * `false` on the next tick so subsequent zoom/pan transitions don't
+ * pay the re-render cost. Same pattern as `EnRouteCarMarker`. With
+ * `false` from t=0, MapKit can snapshot before the SVG resolves and
+ * the marker renders empty — visible as "marker disappears when I
+ * zoom" because the cached empty bitmap is what gets drawn.
  */
 export function DestinationMarker({
   latitude,
@@ -45,11 +50,20 @@ export function DestinationMarker({
       ? { x: 0.5, y: 1 }
       : { x: 10.5 / 48, y: 41 / 48 };
 
+  // Track-until-first-paint — see header note for the why. setTimeout(0)
+  // (rAF-equivalent) is enough: by the next tick, the bundled SVG has
+  // painted and MapKit's snapshot captures it correctly.
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    const id = setTimeout(() => setTracking(false), 0);
+    return () => clearTimeout(id);
+  }, []);
+
   return (
     <Marker
       coordinate={{ latitude, longitude }}
       anchor={anchor}
-      tracksViewChanges={false}
+      tracksViewChanges={tracking}
       zIndex={500}
       accessibilityLabel={name ? `Destination: ${name}` : 'Destination'}
     >
