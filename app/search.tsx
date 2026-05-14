@@ -103,6 +103,23 @@ const QUICK_TOOLS: QuickTool[] = [
 // and-discarded queries don't enter the list. See
 // lib/api/recent-searches.ts for the storage contract.
 
+/**
+ * Distance-row formatter for the results list.
+ *
+ *   < 0.1 mi  → "Near you"  (the row is essentially at the user's
+ *                            location; a precise number like "0.1
+ *                            mi" reads as false precision and the
+ *                            phrase reads more naturally)
+ *   0.1–9.9   → "X.X mi"    (one decimal place)
+ *   ≥ 10      → "X mi"      (rounded whole — past 10 mi the tenths
+ *                            don't carry meaningful information)
+ */
+function formatResultDistance(miles: number): string {
+  if (miles < 0.1) return 'Near you';
+  if (miles < 10) return `${miles.toFixed(1)} mi`;
+  return `${Math.round(miles)} mi`;
+}
+
 export default function Search() {
   const router = useRouter();
   const { recents, addRecent, removeRecent, clearRecents } = useRecentSearches();
@@ -185,7 +202,7 @@ export default function Search() {
     if (!userLocation) {
       if (isExplicit) {
         setPhase('error');
-        setErrorMessage('Waiting for your location… try again in a moment.');
+        setErrorMessage('Locating you… try again in a moment.');
       }
       return;
     }
@@ -358,6 +375,7 @@ export default function Search() {
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Quick Tools + Fuel show only in landing — when the user
                 is mid-query, hiding them reduces noise. */}
@@ -525,6 +543,7 @@ export default function Search() {
           <ScrollView
             contentContainerStyle={styles.resultsContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             <View style={styles.resultsHeader}>
               <MagnifyingGlass
@@ -553,7 +572,7 @@ export default function Search() {
                 ]}
                 onPress={() => handleSelectPlace(place)}
                 accessibilityRole="button"
-                accessibilityLabel={`${place.name}, ${place.address}, ${place.distanceMiles} miles away`}
+                accessibilityLabel={`${place.name}, ${place.address}, ${formatResultDistance(place.distanceMiles)} away`}
               >
                 <View style={styles.resultText}>
                   <Text style={styles.resultName} numberOfLines={1}>
@@ -564,7 +583,7 @@ export default function Search() {
                   </Text>
                 </View>
                 <Text style={styles.resultDistance} numberOfLines={1}>
-                  {place.distanceMiles.toLocaleString('en-US')} mi
+                  {formatResultDistance(place.distanceMiles)}
                 </Text>
                 {idx < results.length - 1 && (
                   <View style={styles.resultSeparator} />
