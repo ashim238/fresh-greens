@@ -148,6 +148,11 @@ function GlyphForCategory({
     case 'home':
       return <GlyphHome width={size} height={size} />;
     case 'trusted-friend':
+      // Unreachable in practice — the special-case render in
+      // `LandmarkMarker` below uses the full `trusted-friend.svg`
+      // (brand-baked tail + heart) and bypasses this dispatch. Kept
+      // as a defensive fallback in case the special case is removed
+      // later.
       return <GlyphTrustedFriend width={size} height={size} />;
     case 'black-owned':
       return <GlyphBlackOwned width={size} height={size} />;
@@ -220,6 +225,12 @@ export function LandmarkMarker({
   // markers continue to compose from the shared three-layer system.
   // Anchor at bottom-left because the tail's tip sits there in the
   // 62×51 frame (per Figma's M4 24.1304 origin path).
+  //
+  // Note: when this marker leaves the viewport, the EdgeIndicator
+  // overlay swaps the heart for a white Phosphor Car glyph (set up
+  // by /home passing categoryId='trusted-friend' to EdgeIndicator).
+  // The on-map heart stays; the off-screen marker uses the car to
+  // disambiguate "trusted friend" from "felt-welcome" report.
   if (categoryId === 'trusted-friend') {
     return (
       <Marker
