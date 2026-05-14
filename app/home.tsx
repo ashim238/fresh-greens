@@ -169,8 +169,11 @@ export default function Home() {
   // --- Report detail card ---
   // Tapping an on-map community-report marker opens a compact detail
   // card at the bottom of the screen. Stores the zone data needed to
-  // render the card; null = card hidden.
+  // render the card; null = card hidden. `zoneId` lets the
+  // corresponding marker render its on-tap state (1.33× scale per
+  // Figma `1133:13418`) while the card is open.
   const [selectedReport, setSelectedReport] = useState<{
+    zoneId: string;
     categoryId: ReportCategoryId;
     detail?: string;
     subTag?: string;
@@ -651,8 +654,10 @@ export default function Home() {
               categoryId={zone.reportCategoryId}
               subTag={zone.reportSubTag}
               accessibilityLabel={zone.label}
+              selected={selectedReport?.zoneId === zone.id}
               onPress={() =>
                 setSelectedReport({
+                  zoneId: zone.id,
                   categoryId: zone.reportCategoryId as ReportCategoryId,
                   detail: zone.reportDetail,
                   subTag: zone.reportSubTag,

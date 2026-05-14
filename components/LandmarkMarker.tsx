@@ -176,6 +176,7 @@ export function LandmarkMarker({
   subTag,
   accessibilityLabel,
   onPress,
+  selected = false,
 }: {
   latitude: number;
   longitude: number;
@@ -190,19 +191,28 @@ export function LandmarkMarker({
   subTag?: string;
   accessibilityLabel?: string;
   onPress?: () => void;
+  /**
+   * On-tap visual state per Figma `1133:13418` — when true, scales
+   * the marker up ~1.33× to indicate "this pin is the subject of the
+   * open detail card." Caller is responsible for clearing it on
+   * card dismiss. Approximates the Figma's 72→96pt on-tap variant.
+   */
+  selected?: boolean;
 }) {
   const variant = variantForCategoryId(categoryId);
 
-  // Track-until-first-paint, applied to both Marker branches below.
-  // SVG-content markers mounted with `tracksViewChanges={false}` from
-  // t=0 race the react-native-svg subtree's paint and MapKit can
-  // snapshot empty bitmaps; on subsequent zoom re-evaluations the
-  // marker briefly disappears. Same pattern as EnRouteCarMarker.
+  // Track-until-first-paint. Also re-snapshots when `selected` flips,
+  // so MapKit captures the new scaled bitmap rather than rendering a
+  // stale snapshot of the previous state. SVG-content markers mounted
+  // with `tracksViewChanges={false}` from t=0 race the react-native-svg
+  // subtree's paint and MapKit can snapshot empty bitmaps. Same
+  // pattern as EnRouteCarMarker.
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
+    setTracking(true);
     const id = setTimeout(() => setTracking(false), 0);
     return () => clearTimeout(id);
-  }, []);
+  }, [selected]);
 
   // Trusted Friend has its own Figma-faithful SVG (1133:13245) — green
   // tail-shape marker with the heart glyph baked in. Bypass the
@@ -234,7 +244,10 @@ export function LandmarkMarker({
       accessibilityLabel={accessibilityLabel}
       tracksViewChanges={tracking}
     >
-      <View style={styles.frame} accessibilityIgnoresInvertColors>
+      <View
+        style={[styles.frame, selected && styles.frameSelected]}
+        accessibilityIgnoresInvertColors
+      >
         {variant === 'black-owned' && <PinBlackOwned width={30} height={39} style={styles.pin} />}
         {variant === 'positive' && <PinPositive width={30} height={39} style={styles.pin} />}
         {variant === 'report' && <PinReport width={30} height={39} style={styles.pin} />}
@@ -267,6 +280,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  // On-tap state per Figma `1133:13418` — pin grows ~1.33× from
+  // 72→96pt in the design. We scale the existing 48pt frame via
+  // transform: scale(1.33) which preserves the anchor's bottom-
+  // center alignment (the pin tip rises above the coord, matching
+  // the Figma's small below-pin "anchor still here" dot intuition
+  // without needing a separate indicator overlay). MapKit snapshots
+  // the new bitmap thanks to the tracking effect's `selected` dep.
+  frameSelected: {
+    transform: [{ scale: 1.33 }],
   },
   pin: {
     position: 'absolute',
