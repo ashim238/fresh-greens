@@ -1051,13 +1051,17 @@ export default function Home() {
                   ...(params.destLng ? { destLng: params.destLng } : {}),
                   ...(params.destName ? { destName: params.destName } : {}),
                   // Prime /en-route with the recommended route's
-                  // estimatedMinutes so its ETA shows immediately on
+                  // estimatedMinutes + distanceMeters so its ETA,
+                  // duration, and mileage all render immediately on
                   // mount instead of waiting for /en-route's own
                   // OSRM fetch to resolve. /en-route still re-fetches
-                  // and refines the value; this just removes the
-                  // visible "—" placeholder during the network call.
+                  // and refines the values; this just removes the
+                  // visible "—" placeholders during the network call.
                   ...(recommended
-                    ? { destEstMinutes: String(recommended.estimatedMinutes) }
+                    ? {
+                        destEstMinutes: String(recommended.estimatedMinutes),
+                        destDistanceMeters: String(recommended.distanceMeters),
+                      }
                     : {}),
                 },
               })

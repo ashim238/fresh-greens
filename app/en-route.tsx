@@ -135,13 +135,14 @@ export default function EnRoute() {
     destLng?: string;
     destName?: string;
     /**
-     * Optional priming value from /home — the recommended route's
-     * estimatedMinutes at the time the user tapped Go. Lets /en-route
-     * render an ETA on first paint instead of "—" while its own OSRM
-     * fetch resolves. Once the local fetch lands, the live value
-     * replaces it.
+     * Optional priming values from /home — the recommended route's
+     * estimatedMinutes + distanceMeters at the time the user tapped
+     * Go. Let /en-route render the ETA, duration, and mileage on
+     * first paint instead of "—" while its own OSRM fetch resolves.
+     * Once the local fetch lands, the live values replace them.
      */
     destEstMinutes?: string;
+    destDistanceMeters?: string;
   }>();
   // Zone overlay rendering follows /home — driven by the user's
   // preference, which lives in AsyncStorage and is toggled from
@@ -405,13 +406,31 @@ export default function EnRoute() {
     return { time: `${h12}:${minutes}`, isNight };
   }, [recommended, params.destEstMinutes]);
 
-  // Distance in miles, derived from the recommended route's coordinates.
-  // OSRM returns distance in meters on the route object; we fall back to
-  // a polyline length estimate when the field isn't populated.
+  // Distance in miles, derived from the recommended route. Falls back
+  // to the primed `destDistanceMeters` from /home until the local
+  // OSRM fetch resolves. Same pattern as arrivalDisplay above —
+  // first paint has a real number instead of a dash.
   const distanceMiles = useMemo(() => {
-    if (!recommended) return null;
-    return (recommended.distanceMeters ?? 0) / 1609.344;
-  }, [recommended]);
+    const meters =
+      recommended?.distanceMeters ??
+      (params.destDistanceMeters
+        ? parseFloat(params.destDistanceMeters)
+        : NaN);
+    if (!Number.isFinite(meters)) return null;
+    return meters / 1609.344;
+  }, [recommended, params.destDistanceMeters]);
+
+  // Duration in minutes — same priming logic as the ETA, but exposed
+  // as a number for formatDuration. Kept separate from arrivalDisplay
+  // because the two render in different rows (ETA cluster vs.
+  // secondary [distance · duration] line) and could conceivably want
+  // different formatters in the future.
+  const durationMinutes = useMemo(() => {
+    const m =
+      recommended?.estimatedMinutes ??
+      (params.destEstMinutes ? parseFloat(params.destEstMinutes) : NaN);
+    return Number.isFinite(m) ? m : null;
+  }, [recommended, params.destEstMinutes]);
 
   // User's current location, captured once on mount and used as the map's
   // initial focus. Real driving would update continuously via watchPosition
@@ -1051,7 +1070,7 @@ export default function EnRoute() {
             </Text>
             <Text style={styles.secondarySeparator}>·</Text>
             <Text style={styles.secondaryDuration}>
-              {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
+              {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
             </Text>
           </View>
 
