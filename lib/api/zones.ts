@@ -53,16 +53,21 @@
 // stacks safe+safe = strongly preferred).
 
 // Public Overpass mirrors, tried in order on every call. All three
-// speak the same query API. `kumi.systems` (Yannik Schwieren, Berlin)
-// is typically lighter-loaded; `overpass-api.de` (Heidelberg /
-// Geofabrik) is the canonical mirror; `openstreetmap.fr` (OSM France)
-// is the second backup. The three mirrors don't usually fail in
-// lockstep — chaining all three before mock fallback cuts the
-// "demo runs on synthetic zones" rate sharply during thesis-demo
-// windows when one or two are under load.
+// speak the same query API. `overpass-api.de` (Heidelberg / Geofabrik)
+// is the canonical mirror and tends to respond first in our testing,
+// despite being heavier-loaded in general. `kumi.systems` (Yannik
+// Schwieren, Berlin) and `openstreetmap.fr` (OSM France) are the
+// backups. The three mirrors don't usually fail in lockstep —
+// chaining all three before mock fallback cuts the "demo runs on
+// synthetic zones" rate sharply during thesis-demo windows when one
+// or two are under load.
+//
+// Order was kumi → overpass-api.de → openstreetmap.fr until empirical
+// testing showed kumi timing out (AbortError) more often than the
+// canonical. Order optimized for hit-rate at the head of the chain.
 const OVERPASS_ENDPOINTS = [
-  'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.openstreetmap.fr/api/interpreter',
 ] as const;
 
@@ -174,10 +179,23 @@ export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
       return zones;
     } catch (error) {
       const isLast = i === OVERPASS_ENDPOINTS.length - 1;
-      console.warn(
-        `[zones] Overpass ${endpoint} failed${isLast ? ', falling back to mock' : ', trying next mirror'}:`,
-        error,
-      );
+      // Mid-chain failures are expected behavior (the whole point of
+      // the failover is to skip a slow mirror), so they log at info
+      // level — visible in dev tools if you go looking, not a "WARN"
+      // banner suggesting something's broken. Only the terminal
+      // mock-fallback case warns: that one IS a degraded state worth
+      // attention because it means none of the public mirrors
+      // responded and the app is now running on synthetic zones.
+      if (isLast) {
+        console.warn(
+          `[zones] Overpass ${endpoint} failed, falling back to mock:`,
+          error,
+        );
+      } else {
+        console.log(
+          `[zones] Overpass ${endpoint} unavailable, trying next mirror`,
+        );
+      }
     }
   }
 
