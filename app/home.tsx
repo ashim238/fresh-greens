@@ -308,6 +308,22 @@ export default function Home() {
     setPlacingReport(true);
     setPlacementPin({ ...userLocation });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // Recenter on the placement pin with a tighter zoom — the user is
+    // about to drag this thing, so the camera should be sitting on
+    // top of it. Previously the pin appeared at the user's GPS coord
+    // regardless of where the map was panned to; if the user had
+    // scrolled the map away, the new pin could land off-screen and
+    // they'd have no idea where it went. Tighter delta (0.005 vs the
+    // 0.02 used on initial center) so the drag-by-1-block intent
+    // reads as a meaningful gesture, not a tiny nudge.
+    mapRef.current?.animateToRegion(
+      {
+        ...userLocation,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      },
+      400,
+    );
   }
 
   /**
@@ -403,33 +419,33 @@ export default function Home() {
         1000,
       );
 
-      // Destination comes from URL params (set by the search screen).
-      // Falls back to a fixed offset NE of the user when the user hasn't
-      // searched yet — gives the demo something to route to on first open.
+      // Destination only comes from URL params (set by the search
+      // screen). On first open / browse mode, no destination is set
+      // — and we deliberately *don't* fetch routes in that case.
+      // Previously we synthesized a NE-of-user destination as a demo
+      // crutch; that produced a stray polyline pointing nowhere
+      // every time the user landed on /home without having searched.
       const destination =
         params.destLat && params.destLng
           ? {
               latitude: parseFloat(params.destLat),
               longitude: parseFloat(params.destLng),
             }
-          : {
-              latitude: center.latitude + 0.01,
-              longitude: center.longitude + 0.01,
-            };
+          : null;
 
-      // Fire both fetches in parallel, but DON'T await them together —
-      // that would gate the whole UI on the slower one. Instead:
-      //   1. Render routes as soon as OSRM responds (with no zone
-      //      ranking yet — first candidate becomes recommended by
-      //      default since pickWinner with [] zones gives all routes
-      //      score 0 and stable-sort preserves order).
-      //   2. When zones arrive a moment later, re-rank against real
-      //      data. The recommended route may shift; the screen updates.
+      // Fire fetches in parallel where applicable. Routes are skipped
+      // entirely when there's no destination (rawRoutes stays []).
+      // Zones still fetch — scoring needs them ready by the time a
+      // user does search, and the overlay toggle can render them
+      // immediately when flipped on.
       //
       // Net effect: route polyline appears immediately after OSRM
-      // (often <1s); the daylight gradient + scoring refines a beat
-      // later when Overpass finishes.
-      const routePromise = getRoutesBetween(center, destination);
+      // (often <1s) when a destination IS set; daylight gradient +
+      // scoring refines a beat later when Overpass finishes. Browse
+      // mode shows zero polylines on the map.
+      const routePromise = destination
+        ? getRoutesBetween(center, destination)
+        : Promise.resolve([]);
       const zonePromise = getZonesForRegion(center);
 
       const fetchedRoutes = await routePromise;
