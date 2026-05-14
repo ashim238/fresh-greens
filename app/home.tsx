@@ -9,7 +9,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, LayoutAnimation, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, LayoutAnimation, Linking, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -305,6 +305,61 @@ export default function Home() {
     setPlacingReport(true);
     setPlacementPin({ ...userLocation });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }
+
+  /**
+   * Tapping the saved-home pin recenters the map on it with a slight
+   * zoom-in. Most users tap a saved-place pin because they want a
+   * closer look at it — "drive me to home" is a separate flow handled
+   * by the search/destination pipeline, not by tapping the pin itself.
+   */
+  function handleHomeMarkerPress() {
+    if (!home) return;
+    Haptics.selectionAsync().catch(() => {});
+    mapRef.current?.animateToRegion(
+      {
+        latitude: home.latitude,
+        longitude: home.longitude,
+        latitudeDelta: 0.008,
+        longitudeDelta: 0.008,
+      },
+      400,
+    );
+  }
+
+  /**
+   * Tapping the trusted-friend pin opens an action sheet with Call /
+   * Text (deep-linking the same way /pulled-over's Contact phase
+   * does). Caller is the trusted-contact-setup picker's stored phone.
+   * Native iOS Alert is the right register here — it matches the
+   * mid-flow safety affordance without introducing a new sheet
+   * component for a single decision point.
+   */
+  function handleTrustedFriendMarkerPress() {
+    if (!trustedContact?.phoneNumber) return;
+    Haptics.selectionAsync().catch(() => {});
+    const name = trustedContact.name ?? 'your trusted contact';
+    Alert.alert(
+      name,
+      `Reach ${name} now.`,
+      [
+        {
+          text: 'Call',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            void Linking.openURL(`tel:${trustedContact.phoneNumber}`);
+          },
+        },
+        {
+          text: 'Text',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            void Linking.openURL(`sms:${trustedContact.phoneNumber}`);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   }
 
   function handleConfirmPlacement() {
@@ -640,7 +695,8 @@ export default function Home() {
               latitude={home.latitude}
               longitude={home.longitude}
               categoryId="home"
-              accessibilityLabel={`${home.name} (saved place)`}
+              accessibilityLabel={`${home.name} (saved place) — tap to recenter`}
+              onPress={handleHomeMarkerPress}
             />
           )}
         {/*
@@ -664,7 +720,8 @@ export default function Home() {
               latitude={trustedContact.latitude}
               longitude={trustedContact.longitude}
               categoryId="trusted-friend"
-              accessibilityLabel={`${trustedContact.name}'s ${trustedContact.addressLabel ?? 'home'} (trusted contact)`}
+              accessibilityLabel={`${trustedContact.name}'s ${trustedContact.addressLabel ?? 'home'} (trusted contact) — tap to call or text`}
+              onPress={handleTrustedFriendMarkerPress}
             />
           )}
         {/*
