@@ -1,9 +1,17 @@
+import { Car } from 'phosphor-react-native/src/icons/Car';
 import { type ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import EdgeBlackOwned from '../assets/illustrations/edge-marker-blackowned.svg';
+import EdgePositive from '../assets/illustrations/edge-marker-positive.svg';
+import EdgeReport from '../assets/illustrations/edge-marker-report.svg';
 import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-black-owned.svg';
 import GlyphFeltUnsafe from '../assets/illustrations/mapmarker-glyph-felt-unsafe.svg';
 import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welcome.svg';
+import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
+import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
+import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
+import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -14,32 +22,35 @@ import { type Variant } from './LandmarkMarker';
 /**
  * Off-viewport POI indicator — per Figma `1133:13250`.
  *
- * Shape: a 36pt colored circle with a small triangular tail at the
- * bottom pointing outward, the whole thing rotated so the tail
- * faces the direction of the off-screen POI. The 24pt inner glyph
- * is counter-rotated so the icon stays upright regardless of the
- * marker's orientation.
+ * Renders the Figma teardrop polygon SVG (per variant — green for
+ * positive, orange for report, black for black-owned) at 42×62,
+ * rotated so the tip points toward the off-screen POI. A 24pt inner
+ * glyph layers on top, positioned over the polygon's "circle"
+ * lower portion and counter-rotated so it stays upright regardless
+ * of the wrapper's rotation.
  *
- * Variant maps to color + default glyph:
- *   - 'positive'    → slightlyWiltedGreen circle + FeltWelcome heart
- *   - 'report'      → slightlyDarkOrange circle + FeltUnsafe eye
- *   - 'black-owned' → black circle + BlackOwned storefront
+ * Polygon orientation note: the source SVG's tip is at (21, 0) —
+ * pointing UP in its natural orientation. The caller's `rotation`
+ * uses screen-space `atan2(dy, dx)` where 0° = right. We add +90°
+ * to reconcile: at rotation=0, the polygon needs +90° clockwise to
+ * swing its up-tip to the right-tip pointing at an east-of-screen
+ * POI.
+ *
+ * Per-category glyph routing: `categoryId` (when set) wins over the
+ * variant default. Lets the trusted-friend variant render a Car
+ * glyph rather than the felt-welcome heart, even though both map
+ * to the `positive` variant.
  *
  * When `count > 1`, the inner glyph is replaced with the counter
- * number (matches the Figma "Badge" variant). The Badge variant in
- * Figma uses brand orange with a white border, but for visual
- * consistency the cluster counter inherits the underlying variant's
- * color — a cluster of felt-unsafe reports still reads as orange.
- *
- * Caller can pass `children` to override the default glyph (e.g. a
- * custom Phosphor icon). When omitted, the variant-default glyph
- * renders.
+ * number ("3", "9+"). Inherits the variant's color via the polygon,
+ * so a cluster of felt-unsafe reports stays orange.
  */
 export function EdgeIndicator({
   x,
   y,
   rotation,
   variant,
+  categoryId,
   count,
   children,
   onPress,
@@ -49,13 +60,20 @@ export function EdgeIndicator({
   y: number;
   rotation: number;
   variant?: Variant;
+  /**
+   * Underlying community-report category id. When set, picks the
+   * inner glyph per-category (so trusted-friend gets a Car rather
+   * than the variant-default heart). Variant still drives polygon
+   * color.
+   */
+  categoryId?: string;
   count?: number;
   children?: ReactNode;
   onPress?: () => void;
   accessibilityLabel?: string;
 }) {
   const pulse = usePulseOpacity(0.55);
-  const fillColor = variant ? VARIANT_COLOR[variant] : colors.labelSecondary;
+  const Polygon = variant ? POLYGON_FOR_VARIANT[variant] : EdgeReport;
   const showCount = count != null && count > 1;
   const countLabel = count != null && count > 9 ? '9+' : String(count);
 
@@ -67,54 +85,101 @@ export function EdgeIndicator({
       hitSlop={8}
       style={({ pressed }) => [
         styles.wrap,
-        { left: x - 36, top: y - 36, transform: [{ rotate: `${rotation}deg` }] },
+        { left: x - 36, top: y - 36 },
         pressed && pressedDim,
       ]}
     >
-      <Animated.View style={[styles.inner, { opacity: pulse }]}>
-        {/*
-          Circle + tail stacked vertically as flow children. The
-          parent's alignItems:'center' centers them horizontally;
-          the tail sits flush against the bottom of the circle so
-          the two read as a single teardrop shape. The whole stack
-          rotates with the wrapper so the tail faces the actual
-          off-viewport direction.
-        */}
+      {/*
+        Polygon layer — rotates with the off-viewport direction so
+        the tip points at the POI. Pulses for "look at me, off-
+        screen content here." The +90° offset reconciles the SVG's
+        up-tip natural orientation with rotation=0=east semantics.
+      */}
+      <Animated.View
+        style={[
+          styles.polygonLayer,
+          {
+            opacity: pulse,
+            transform: [{ rotate: `${rotation + 90}deg` }],
+          },
+        ]}
+      >
+        <Polygon width={42} height={62} />
+      </Animated.View>
+      {/*
+        Glyph layer — same rotation as the polygon so the glyph
+        moves with the polygon's circle through the rotation, then
+        the glyph itself counter-rotates to stay upright. Positioned
+        at the polygon's circle center (~21, 40 in the 42×62 local
+        coords, which maps to ~36, 45 in the 72-frame after centering).
+      */}
+      <View
+        style={[
+          styles.glyphLayer,
+          { transform: [{ rotate: `${rotation + 90}deg` }] },
+        ]}
+      >
         <View
           style={[
-            styles.circle,
-            { backgroundColor: fillColor },
-            // Counter-rotate the circle so the inner glyph (or
-            // counter number) stays upright at any wrapper rotation.
-            // The TAIL stays in the rotated frame so it points
-            // outward — only the inner glyph fights the rotation.
-            { transform: [{ rotate: `${-rotation}deg` }] },
+            styles.glyphInner,
+            {
+              // translateY first to shift down to the polygon's
+              // circle center in the (still-rotating) parent frame.
+              // Then counter-rotate to keep the glyph itself upright.
+              transform: [
+                { translateY: 9 },
+                { rotate: `${-(rotation + 90)}deg` },
+              ],
+            },
           ]}
         >
           {showCount ? (
             <Text style={styles.countText}>{countLabel}</Text>
           ) : children ? (
             children
-          ) : variant ? (
-            <DefaultGlyphForVariant variant={variant} />
-          ) : null}
+          ) : (
+            <DefaultGlyph categoryId={categoryId} variant={variant} />
+          )}
         </View>
-        {/*
-          Triangle tail via CSS-style border tricks. width:0/height:0
-          + colored top border + transparent left/right borders gives
-          a downward-pointing triangle. marginTop:-2 overlaps with
-          the circle by a hair so the seam reads as one shape rather
-          than two adjacent pieces.
-        */}
-        <View
-          style={[styles.tail, { borderTopColor: fillColor }]}
-        />
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
 
-function DefaultGlyphForVariant({ variant }: { variant: Variant }) {
+/**
+ * Per-category glyph dispatch. `categoryId` wins when set; otherwise
+ * we fall back to the variant default. The trusted-friend case is
+ * the load-bearing reason this exists — both trusted-friend and
+ * felt-welcome map to variant='positive', but they need different
+ * inner glyphs (Car vs heart).
+ */
+function DefaultGlyph({
+  categoryId,
+  variant,
+}: {
+  categoryId?: string;
+  variant?: Variant;
+}) {
+  // Specific categories first — these win over variant defaults.
+  switch (categoryId) {
+    case 'trusted-friend':
+      return <Car size={24} color={colors.white} weight="duotone" />;
+    case 'home':
+      return <GlyphHome width={24} height={24} />;
+    case 'felt-welcome':
+      return <GlyphFeltWelcome width={24} height={24} />;
+    case 'felt-unsafe':
+      return <GlyphFeltUnsafe width={24} height={24} />;
+    case 'incident':
+      return <GlyphIncident width={24} height={24} />;
+    case 'lighting':
+      return <GlyphLighting width={24} height={24} />;
+    case 'hazard':
+      return <GlyphHazard width={24} height={24} />;
+    case 'black-owned':
+      return <GlyphBlackOwned width={24} height={24} />;
+  }
+  // Variant defaults when no specific categoryId is set.
   switch (variant) {
     case 'positive':
       return <GlyphFeltWelcome width={24} height={24} />;
@@ -122,21 +187,18 @@ function DefaultGlyphForVariant({ variant }: { variant: Variant }) {
       return <GlyphFeltUnsafe width={24} height={24} />;
     case 'black-owned':
       return <GlyphBlackOwned width={24} height={24} />;
+    default:
+      return null;
   }
 }
 
-const VARIANT_COLOR: Record<Variant, string> = {
-  'positive': colors.slightlyWiltedGreen,
-  'report': colors.slightlyDarkOrange,
-  'black-owned': colors.black,
+const POLYGON_FOR_VARIANT: Record<Variant, typeof EdgeReport> = {
+  'positive': EdgePositive,
+  'report': EdgeReport,
+  'black-owned': EdgeBlackOwned,
 };
 
 const styles = StyleSheet.create({
-  // 72pt frame per Figma 1133:13250 — the wrapper is the rotation
-  // anchor, so its size dictates how much the tail extends beyond
-  // the circle when the marker is "pointing" in any direction. The
-  // x/y caller-passed coords land at the frame's top-left; we shift
-  // by -36 to center the frame on (x, y).
   wrap: {
     position: 'absolute',
     width: 72,
@@ -144,44 +206,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  inner: {
+  // Polygon layer is centered in the 72×72 wrapper. The polygon
+  // itself is 42×62; flex centering puts it visually centered, and
+  // the transform rotates it around its center point — same
+  // anchor as the glyphLayer below, so polygon + glyph rotate in
+  // lockstep and the glyph stays inside the polygon's circle.
+  polygonLayer: {
+    position: 'absolute',
     width: 72,
     height: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    // Slight elevation so the marker reads as floating above the
-    // map, matching the LandmarkMarker shadow register.
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.25,
     shadowRadius: 3,
     elevation: 3,
   },
-  // 36pt circle holding the glyph or counter. Stays centered in the
-  // frame; the tail extends beyond it.
-  circle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  // Glyph layer — same 72×72, same rotation, same center. The inner
+  // child counter-rotates to stay upright. translateY shifts the
+  // glyph down ~9pt to align with the polygon's circle center (which
+  // sits in the lower portion of the teardrop, not its geometric
+  // center).
+  glyphLayer: {
+    position: 'absolute',
+    width: 72,
+    height: 72,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // CSS triangle via border tricks. The 0×0 element with three
-  // transparent borders + one colored top border yields a downward-
-  // pointing triangle. Rendered as a flow child below the circle
-  // (not absolute), so it sits centered horizontally under the circle
-  // automatically via the parent's alignItems:'center'. marginTop:-2
-  // tucks the triangle's wide edge a hair into the circle's bottom
-  // curve so the two read as one teardrop shape.
-  tail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 12,
-    borderRightWidth: 12,
-    borderTopWidth: 18,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    marginTop: -2,
+  glyphInner: {
+    // Layout-time properties only. Transform combines translateY+rotate
+    // inline above — putting them both in one transform array preserves
+    // order (translate first, rotate second) so the counter-rotation
+    // happens around the already-shifted center.
   },
   countText: {
     ...typography.subheadlineEmphasized,

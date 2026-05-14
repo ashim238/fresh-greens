@@ -1,3 +1,4 @@
+import { Car } from 'phosphor-react-native/src/icons/Car';
 import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
 import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
 import { House } from 'phosphor-react-native/src/icons/House';
@@ -9,7 +10,6 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import TrustedFriendMarker from '../assets/illustrations/trusted-friend.svg';
 import BgBlackOwned from '../assets/illustrations/mapmarker-bg-blackowned.svg';
 import BgPositive from '../assets/illustrations/mapmarker-bg-positive.svg';
 import BgReport from '../assets/illustrations/mapmarker-bg-report.svg';
@@ -20,7 +20,6 @@ import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
-import GlyphTrustedFriend from '../assets/illustrations/mapmarker-glyph-trusted-friend.svg';
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
@@ -148,7 +147,13 @@ function GlyphForCategory({
     case 'home':
       return <GlyphHome width={size} height={size} />;
     case 'trusted-friend':
-      return <GlyphTrustedFriend width={size} height={size} />;
+      // Trusted contact is represented by a car — the same metaphor
+      // the app uses for the user themselves (UserCar). The brand-
+      // baked trusted-friend.svg (with a heart) is now retired; the
+      // standard composed teardrop with a white Car glyph inside the
+      // positive (green) bg conveys "person you reach by car" more
+      // legibly than the heart did.
+      return <Car size={size} color={colors.white} weight="duotone" />;
     case 'black-owned':
       return <GlyphBlackOwned width={size} height={size} />;
     case 'felt-welcome':
@@ -214,27 +219,12 @@ export function LandmarkMarker({
     return () => clearTimeout(id);
   }, [selected]);
 
-  // Trusted Friend has its own Figma-faithful SVG (1133:13245) — green
-  // tail-shape marker with the heart glyph baked in. Bypass the
-  // composed pin+bg+glyph layout for this one variant; the other map
-  // markers continue to compose from the shared three-layer system.
-  // Anchor at bottom-left because the tail's tip sits there in the
-  // 62×51 frame (per Figma's M4 24.1304 origin path).
-  if (categoryId === 'trusted-friend') {
-    return (
-      <Marker
-        coordinate={{ latitude, longitude }}
-        anchor={{ x: 4 / 62, y: 45.26 / 51 }}
-        onPress={onPress}
-        accessibilityLabel={accessibilityLabel}
-        tracksViewChanges={tracking}
-      >
-        <View style={styles.trustedFriendFrame} accessibilityIgnoresInvertColors>
-          <TrustedFriendMarker width={62} height={51} />
-        </View>
-      </Marker>
-    );
-  }
+  // Trusted-friend was previously rendered via a brand-faithful
+  // tail-shape SVG with a heart glyph baked in (Figma 1133:13245).
+  // The marker now goes through the standard composed pattern below,
+  // with a Car glyph as its inner icon — same metaphor the app uses
+  // for the user themselves. `trusted-friend.svg` is orphaned but
+  // kept on disk in case the heart-variant register returns later.
 
   return (
     <Marker
@@ -311,9 +301,5 @@ const styles = StyleSheet.create({
     height: 16,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  trustedFriendFrame: {
-    width: 62,
-    height: 51,
   },
 });

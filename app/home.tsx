@@ -811,6 +811,12 @@ export default function Home() {
                   y={group.edge.y}
                   rotation={group.edge.rotation}
                   variant={variant}
+                  // Pass the category id of the first item so single-
+                  // pin clusters render the correct per-category glyph
+                  // (e.g. lighting → bulb, not the variant-default eye).
+                  // Multi-pin clusters get the counter anyway, which
+                  // overrides the glyph at render time.
+                  categoryId={group.items[0].reportCategoryId}
                   count={group.items.length}
                   accessibilityLabel={
                     group.items.length === 1
@@ -859,6 +865,7 @@ export default function Home() {
                   y={edge.y}
                   rotation={edge.rotation}
                   variant="positive"
+                  categoryId="home"
                   accessibilityLabel={`${home.name} (off-screen — tap to center)`}
                   onPress={() =>
                     mapRef.current?.animateToRegion(
@@ -896,6 +903,7 @@ export default function Home() {
                   y={edge.y}
                   rotation={edge.rotation}
                   variant="positive"
+                  categoryId="trusted-friend"
                   accessibilityLabel={`${trustedContact.name} (off-screen — tap to center)`}
                   onPress={() =>
                     mapRef.current?.animateToRegion(
