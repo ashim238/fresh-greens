@@ -17,6 +17,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
+import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { DestinationMarker } from '../components/DestinationMarker';
@@ -302,6 +303,26 @@ export default function Home() {
     if (!mapRegion || !mapSize) return [];
     return clusterPointZones(reportZones, mapRegion, mapSize.width, mapSize.height);
   }, [reportZones, mapRegion, mapSize]);
+
+  /**
+   * Recenter the map on the user's current location. Standard nav-app
+   * affordance — useful after the user has panned the map away. Uses
+   * `animateToRegion` (flat 2D view) at the same delta as the initial
+   * centering, so the post-tap framing matches the screen's default
+   * "you just opened the app" state.
+   */
+  function handleRecenter() {
+    if (!userLocation) return;
+    Haptics.selectionAsync().catch(() => {});
+    mapRef.current?.animateToRegion(
+      {
+        ...userLocation,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      },
+      400,
+    );
+  }
 
   function handleReportButtonPress() {
     if (!userLocation) return;
@@ -1170,18 +1191,42 @@ export default function Home() {
         /report with those coords.
       */}
       {bottomSheetHeight > 0 && !placingReport && (
-        <FloatingActionButton
-          size="56"
-          onPress={handleReportButtonPress}
-          accessibilityLabel="Report something — place a pin on the map"
-          style={{
-            position: 'absolute',
-            right: 16,
-            bottom: bottomSheetHeight + 24,
-          }}
-        >
-          <SidebtnReport width={32} height={32} />
-        </FloatingActionButton>
+        <>
+          {/*
+            Recenter button — stacked 12pt above the Report FAB on the
+            right side. Same right-edge alignment so the two buttons
+            read as a vertical stack of map-controls. Hidden when
+            we're in placement mode (the Confirm/Cancel bar takes
+            over) or before the bottom sheet has measured (so we
+            don't paint at y=0 mid-mount).
+          */}
+          {userLocation && (
+            <FloatingActionButton
+              size="56"
+              onPress={handleRecenter}
+              accessibilityLabel="Recenter map on your location"
+              style={{
+                position: 'absolute',
+                right: 16,
+                bottom: bottomSheetHeight + 24 + 56 + 12,
+              }}
+            >
+              <SidebtnRecenter width={32} height={32} />
+            </FloatingActionButton>
+          )}
+          <FloatingActionButton
+            size="56"
+            onPress={handleReportButtonPress}
+            accessibilityLabel="Report something — place a pin on the map"
+            style={{
+              position: 'absolute',
+              right: 16,
+              bottom: bottomSheetHeight + 24,
+            }}
+          >
+            <SidebtnReport width={32} height={32} />
+          </FloatingActionButton>
+        </>
       )}
 
       {/* Placement mode controls — confirm / cancel bar at the bottom. */}
