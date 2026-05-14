@@ -1,10 +1,10 @@
-import { Car } from 'phosphor-react-native/src/icons/Car';
 import { type ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import EdgeBlackOwned from '../assets/illustrations/edge-marker-blackowned.svg';
 import EdgePositive from '../assets/illustrations/edge-marker-positive.svg';
 import EdgeReport from '../assets/illustrations/edge-marker-report.svg';
+import EdgeGlyphCar from '../assets/illustrations/edge-marker-glyph-car.svg';
 import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-black-owned.svg';
 import GlyphFeltUnsafe from '../assets/illustrations/mapmarker-glyph-felt-unsafe.svg';
 import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welcome.svg';
@@ -163,7 +163,13 @@ function DefaultGlyph({
   // Specific categories first — these win over variant defaults.
   switch (categoryId) {
     case 'trusted-friend':
-      return <Car size={24} color={colors.white} weight="duotone" />;
+      // Custom car glyph extracted from `trusted-friend.svg` (the
+      // on-map marker's inner illustration). Re-uses the brand-baked
+      // car silhouette + wheels rather than swapping to a generic
+      // Phosphor Car — keeps visual continuity between the on-map
+      // pin and its off-screen edge indicator. Body recolored white
+      // (was freshgreen) so it shows against the green polygon.
+      return <EdgeGlyphCar width={24} height={24} />;
     case 'home':
       return <GlyphHome width={24} height={24} />;
     case 'felt-welcome':
