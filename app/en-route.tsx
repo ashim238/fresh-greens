@@ -134,6 +134,14 @@ export default function EnRoute() {
     destLat?: string;
     destLng?: string;
     destName?: string;
+    /**
+     * Optional priming value from /home — the recommended route's
+     * estimatedMinutes at the time the user tapped Go. Lets /en-route
+     * render an ETA on first paint instead of "—" while its own OSRM
+     * fetch resolves. Once the local fetch lands, the live value
+     * replaces it.
+     */
+    destEstMinutes?: string;
   }>();
   // Zone overlay rendering follows /home — driven by the user's
   // preference, which lives in AsyncStorage and is toggled from
@@ -378,10 +386,16 @@ export default function EnRoute() {
   // toLocaleTimeString since the iOS default appends locale
   // AM/PM that can't be cleanly stripped.
   const arrivalDisplay = useMemo(() => {
-    if (!recommended) return { time: '—', isNight: false };
-    const arrival = new Date(
-      Date.now() + recommended.estimatedMinutes * 60_000,
-    );
+    // Prefer the live recommended-route value; fall back to the
+    // primed `destEstMinutes` from /home until the local OSRM fetch
+    // resolves. Only show "—" if we have neither (e.g. user opened
+    // /en-route via deep-link without coming through /home's Go).
+    const minutesAhead =
+      recommended?.estimatedMinutes ??
+      (params.destEstMinutes ? parseFloat(params.destEstMinutes) : NaN);
+    if (!Number.isFinite(minutesAhead)) return { time: '—', isNight: false };
+
+    const arrival = new Date(Date.now() + minutesAhead * 60_000);
     const h24 = arrival.getHours();
     const h12 = h24 % 12 || 12;
     const minutes = String(arrival.getMinutes()).padStart(2, '0');
@@ -389,7 +403,7 @@ export default function EnRoute() {
     // intent in Figma (moon = arriving in the dark, sun = daylight).
     const isNight = h24 < 6 || h24 >= 18;
     return { time: `${h12}:${minutes}`, isNight };
-  }, [recommended]);
+  }, [recommended, params.destEstMinutes]);
 
   // Distance in miles, derived from the recommended route's coordinates.
   // OSRM returns distance in meters on the route object; we fall back to
