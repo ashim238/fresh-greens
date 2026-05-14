@@ -73,29 +73,21 @@ export function EdgeIndicator({
     >
       <Animated.View style={[styles.inner, { opacity: pulse }]}>
         {/*
-          Triangle tail. Drawn via View borders — cheap, no SVG asset
-          needed. The tail points "down" within the unrotated frame;
-          the wrapper's rotate transform swings it to face the actual
-          off-viewport direction. Positioned at the bottom of the
-          frame so the circle sits centered with the tail extending
-          beyond.
-        */}
-        <View
-          style={[
-            styles.tail,
-            { borderTopColor: fillColor },
-          ]}
-        />
-        {/*
-          The colored circle. Counter-rotated so the inner glyph (or
-          counter number) stays upright regardless of the wrapper's
-          rotation — a marker facing north and one facing south both
-          have a vertically-upright eye/heart inside the circle.
+          Circle + tail stacked vertically as flow children. The
+          parent's alignItems:'center' centers them horizontally;
+          the tail sits flush against the bottom of the circle so
+          the two read as a single teardrop shape. The whole stack
+          rotates with the wrapper so the tail faces the actual
+          off-viewport direction.
         */}
         <View
           style={[
             styles.circle,
             { backgroundColor: fillColor },
+            // Counter-rotate the circle so the inner glyph (or
+            // counter number) stays upright at any wrapper rotation.
+            // The TAIL stays in the rotated frame so it points
+            // outward — only the inner glyph fights the rotation.
             { transform: [{ rotate: `${-rotation}deg` }] },
           ]}
         >
@@ -107,6 +99,16 @@ export function EdgeIndicator({
             <DefaultGlyphForVariant variant={variant} />
           ) : null}
         </View>
+        {/*
+          Triangle tail via CSS-style border tricks. width:0/height:0
+          + colored top border + transparent left/right borders gives
+          a downward-pointing triangle. marginTop:-2 overlaps with
+          the circle by a hair so the seam reads as one shape rather
+          than two adjacent pieces.
+        */}
+        <View
+          style={[styles.tail, { borderTopColor: fillColor }]}
+        />
       </Animated.View>
     </Pressable>
   );
@@ -164,14 +166,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // CSS triangle via border tricks. The 0×0 element draws its borders
-  // as the only visible content; setting transparent on three sides
-  // and the fill color on the top yields a downward-pointing triangle.
-  // Positioned below the circle's center so it reads as a "tail"
-  // extending from the bottom of the marker.
+  // CSS triangle via border tricks. The 0×0 element with three
+  // transparent borders + one colored top border yields a downward-
+  // pointing triangle. Rendered as a flow child below the circle
+  // (not absolute), so it sits centered horizontally under the circle
+  // automatically via the parent's alignItems:'center'. marginTop:-2
+  // tucks the triangle's wide edge a hair into the circle's bottom
+  // curve so the two read as one teardrop shape.
   tail: {
-    position: 'absolute',
-    top: 32,
     width: 0,
     height: 0,
     borderLeftWidth: 12,
@@ -179,6 +181,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 18,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
+    marginTop: -2,
   },
   countText: {
     ...typography.subheadlineEmphasized,
