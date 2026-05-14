@@ -62,8 +62,20 @@ export function gradientSegments(
     // -1 so adjacent segments share a boundary coordinate, preventing
     // visible gaps between polylines at segment seams.
     const start = i * (pointsPerSegment - 1);
-    const end = Math.min(start + pointsPerSegment, points.length);
     if (start >= points.length - 1) break;
+
+    // The naïve `end = start + pointsPerSegment` math leaves the last
+    // ~stride points uncovered (segmentCount × stride < points.length
+    // when stride = pointsPerSegment - 1). Detect "no more segments
+    // will fit after this one" and stretch this segment's end to the
+    // polyline's true end so the route always draws all the way to
+    // the destination.
+    const nextStart = (i + 1) * (pointsPerSegment - 1);
+    const isFinalSegment =
+      i === segmentCount - 1 || nextStart >= points.length - 1;
+    const end = isFinalSegment
+      ? points.length
+      : Math.min(start + pointsPerSegment, points.length);
 
     const segmentCoords = points.slice(start, end);
 

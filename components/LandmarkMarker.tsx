@@ -5,6 +5,7 @@ import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
 import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
 import { Tree } from 'phosphor-react-native/src/icons/Tree';
 import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
@@ -192,6 +193,17 @@ export function LandmarkMarker({
 }) {
   const variant = variantForCategoryId(categoryId);
 
+  // Track-until-first-paint, applied to both Marker branches below.
+  // SVG-content markers mounted with `tracksViewChanges={false}` from
+  // t=0 race the react-native-svg subtree's paint and MapKit can
+  // snapshot empty bitmaps; on subsequent zoom re-evaluations the
+  // marker briefly disappears. Same pattern as EnRouteCarMarker.
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    const id = setTimeout(() => setTracking(false), 0);
+    return () => clearTimeout(id);
+  }, []);
+
   // Trusted Friend has its own Figma-faithful SVG (1133:13245) — green
   // tail-shape marker with the heart glyph baked in. Bypass the
   // composed pin+bg+glyph layout for this one variant; the other map
@@ -205,7 +217,7 @@ export function LandmarkMarker({
         anchor={{ x: 4 / 62, y: 45.26 / 51 }}
         onPress={onPress}
         accessibilityLabel={accessibilityLabel}
-        tracksViewChanges={false}
+        tracksViewChanges={tracking}
       >
         <View style={styles.trustedFriendFrame} accessibilityIgnoresInvertColors>
           <TrustedFriendMarker width={62} height={51} />
@@ -220,7 +232,7 @@ export function LandmarkMarker({
       anchor={{ x: 0.5, y: 1 }}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
-      tracksViewChanges={false}
+      tracksViewChanges={tracking}
     >
       <View style={styles.frame} accessibilityIgnoresInvertColors>
         {variant === 'black-owned' && <PinBlackOwned width={30} height={39} style={styles.pin} />}
