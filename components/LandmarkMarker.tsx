@@ -259,17 +259,17 @@ export function LandmarkMarker({
         style={[styles.frame, selected && styles.frameSelected]}
         accessibilityIgnoresInvertColors
       >
-        {variant === 'black-owned' && <PinBlackOwned width={30} height={39} style={styles.pin} />}
-        {variant === 'positive' && <PinPositive width={30} height={39} style={styles.pin} />}
-        {variant === 'report' && <PinReport width={30} height={39} style={styles.pin} />}
+        {variant === 'black-owned' && <PinBlackOwned width={45} height={58.5} style={styles.pin} />}
+        {variant === 'positive' && <PinPositive width={45} height={58.5} style={styles.pin} />}
+        {variant === 'report' && <PinReport width={45} height={58.5} style={styles.pin} />}
 
         <View style={styles.bgWrap}>
-          {variant === 'black-owned' && <BgBlackOwned width={24} height={24} />}
-          {variant === 'positive' && <BgPositive width={24} height={24} />}
-          {variant === 'report' && <BgReport width={24} height={24} />}
+          {variant === 'black-owned' && <BgBlackOwned width={36} height={36} />}
+          {variant === 'positive' && <BgPositive width={36} height={36} />}
+          {variant === 'report' && <BgReport width={36} height={36} />}
 
           <View style={styles.glyphWrap}>
-            <GlyphForCategory categoryId={categoryId} subTag={subTag} variant={variant} />
+            <GlyphForCategory categoryId={categoryId} subTag={subTag} variant={variant} size={24} />
           </View>
         </View>
       </View>
@@ -277,49 +277,51 @@ export function LandmarkMarker({
   );
 }
 
-// Layout per Figma 1044:2667. Outer box 48×48; pin (30×39) sits at
-// inset 9.38%/18.75% (≈ 4.5pt vertical, 9pt horizontal); inner Bg
-// circle (24×24) is centered horizontally with top:8 and bottom:16
-// per Figma's `bottom-[33.33%] left-1/4 right-1/4 top-[16.67%]`.
-// Glyph (16×16) is centered on the Bg.
+// Layout per Figma 1133:13418. Outer box 72×72; pin (45×58.5) sits
+// at inset 9.38%/18.75% (≈ 6.75pt vertical, 13.5pt horizontal);
+// inner Bg circle (36×36) centered horizontally with top:12; glyph
+// (24×24) centered on the Bg. Scaled 1.5× from the prior 48pt
+// design to match Figma's actual marker dimensions.
 const styles = StyleSheet.create({
   frame: {
-    width: 48,
-    height: 48,
+    width: 72,
+    height: 72,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
   },
-  // On-tap state per Figma `1133:13418` — pin grows ~1.33× from
-  // 72→96pt in the design. We scale the existing 48pt frame via
-  // transform: scale(1.33) which preserves the anchor's bottom-
-  // center alignment (the pin tip rises above the coord, matching
-  // the Figma's small below-pin "anchor still here" dot intuition
-  // without needing a separate indicator overlay). MapKit snapshots
-  // the new bitmap thanks to the tracking effect's `selected` dep.
+  // On-tap state per Figma `1133:13418` — 72→96pt, a 1.33× scale.
+  // transformOrigin: 'bottom' anchors the scale at the bottom-center
+  // of the frame, which is also where the Marker's anchor lives.
+  // Without that, scale grows from the View's geometric center,
+  // dragging the visual bottom down by half the growth amount —
+  // and when MapKit re-snapshots on deselect, the marker visually
+  // "jumps" back up by that drift. Scaling from the bottom keeps
+  // the pin's tip pinned at the coord through both transitions.
   frameSelected: {
+    transformOrigin: 'bottom',
     transform: [{ scale: 1.33 }],
   },
   pin: {
     position: 'absolute',
-    top: 4.5,
-    left: 9,
+    top: 6.75,
+    left: 13.5,
   },
   bgWrap: {
     position: 'absolute',
-    top: 8,
-    left: 12,
-    width: 24,
-    height: 24,
+    top: 12,
+    left: 18,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   glyphWrap: {
     position: 'absolute',
-    width: 16,
-    height: 16,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
