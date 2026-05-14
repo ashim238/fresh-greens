@@ -160,10 +160,12 @@ export default function Home() {
   // the wrong position.
   const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
 
-  // --- Report placement mode (tap-then-drag) ---
-  // When true, a draggable marker appears on the map. The user drags
-  // it to the report location, then taps Confirm to open /report with
-  // those coords. Cancel exits placement mode.
+  // --- Report placement mode (tap-to-move + drag fine-tune) ---
+  // When true, a placement marker appears at the user's location. Two
+  // gestures move it: tap anywhere on the map to relocate (primary,
+  // friction-free), or long-press the pin and drag for fine
+  // adjustment (MapKit's native ~500ms draggable behavior).
+  // Confirm opens /report with the chosen coords; Cancel exits.
   const [placingReport, setPlacingReport] = useState(false);
   const [placementPin, setPlacementPin] = useState<Coordinate | null>(null);
 
@@ -525,6 +527,11 @@ export default function Home() {
   // accidental long-presses on a navigation map shouldn't silently
   // overwrite a real saved home.
   function handleLongPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
+    // In placement mode the long-press is silenced — the user is
+    // already focused on positioning a report pin; surfacing a
+    // "Save as home" prompt mid-flow would be jarring. Tap-to-move
+    // (handlePlacementTap below) handles the placement gesture.
+    if (placingReport) return;
     const { latitude, longitude } = e.nativeEvent.coordinate;
     // Light impact when the long-press fires — confirms the gesture
     // registered before the Alert appears, same way iOS Maps thumps
@@ -544,6 +551,24 @@ export default function Home() {
         },
       ],
     );
+  }
+
+  /**
+   * Tap-to-move for the report placement pin. While placing a report,
+   * any tap on the map relocates the pin to the tap location — a
+   * fast, friction-free gesture that sidesteps MapKit's ~500ms
+   * long-press requirement for native Marker drags. The pin is still
+   * `draggable` for fine adjustment after the tap, so users get both
+   * patterns: tap to roughly place, drag to nudge.
+   *
+   * Outside of placement mode the handler is a no-op — taps in
+   * normal browse mode shouldn't accidentally move anything.
+   */
+  function handleMapPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
+    if (!placingReport) return;
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    Haptics.selectionAsync().catch(() => {});
+    setPlacementPin({ latitude, longitude });
   }
 
   // Refresh community reports each time /home gains focus. Two paths
@@ -587,6 +612,7 @@ export default function Home() {
           })
         }
         onLongPress={handleLongPress}
+        onPress={handleMapPress}
       >
         {/*
           Map overlays. Polygons (zones) and Polylines (routes) must be
@@ -716,7 +742,7 @@ export default function Home() {
               })
             }
             anchor={{ x: 0.5, y: 1 }}
-            accessibilityLabel="Report location — drag to adjust"
+            accessibilityLabel="Report location — tap the map to move, or drag to fine-tune"
           >
             <View style={styles.placementPin}>
               <Ionicons name="alert-circle" size={24} color={colors.orange} />
@@ -1238,7 +1264,7 @@ export default function Home() {
         >
           <View style={styles.placementBarInner}>
             <Text style={styles.placementHint}>
-              Drag the pin to the report location
+              Tap the map to move the pin
             </Text>
             <View style={styles.placementActions}>
               <Pressable
