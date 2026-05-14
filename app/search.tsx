@@ -479,12 +479,29 @@ export default function Search() {
                     onPress={() => handleSelectRecent(recent)}
                     onLongPress={() => handleLongPressRecent(recent)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Re-route to ${recent.name}. Long-press to remove.`}
+                    accessibilityLabel={`Re-route to ${recent.name} at ${recent.address}. Long-press to remove.`}
                   >
                     <Clock size={24} color={colors.labelTertiary} weight="duotone" />
-                    <Text style={styles.recentText} numberOfLines={1}>
-                      {recent.name}
-                    </Text>
+                    {/*
+                      Two-line row: name on top, address as subtitle.
+                      The address disambiguates multiple locations of
+                      the same chain — two Starbucks recents have
+                      identical names but different street addresses,
+                      and the subtitle is what tells them apart at
+                      a glance. (The adapter already dedups by
+                      mapbox_id, so two locations of one chain are
+                      stored as two separate recents, not one.)
+                    */}
+                    <View style={styles.recentTextColumn}>
+                      <Text style={styles.recentText} numberOfLines={1}>
+                        {recent.name}
+                      </Text>
+                      {recent.address ? (
+                        <Text style={styles.recentSubtext} numberOfLines={1}>
+                          {recent.address}
+                        </Text>
+                      ) : null}
+                    </View>
                   </Pressable>
                 ))
               )}
@@ -659,9 +676,22 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
   },
+  // The text column wraps name + address so the Clock icon stays
+  // vertically centered against the full row block, not just the
+  // name line. flex:1 + minWidth:0 lets the address truncate via
+  // numberOfLines without pushing the row width.
+  recentTextColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   recentText: {
     ...typography.subheadlineEmphasized,
     color: colors.black,
+  },
+  recentSubtext: {
+    ...typography.footnoteRegular,
+    color: colors.mutedSecondary,
   },
   stateCardWrap: {
     flex: 1,
