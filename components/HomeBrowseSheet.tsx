@@ -373,7 +373,9 @@ function RecommendationCard({
       </View>
 
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{r.name}</Text>
+        <Text style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+          {r.name}
+        </Text>
 
         <View style={styles.tagRow}>
           {r.rating != null ? (
@@ -574,12 +576,13 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: colors.white,
     borderRadius: 12,
-    // 16pt content padding matches mobile-density Apple/Google place
-    // cards. Figma renders at 24pt on the wide canvas — keeping 16
-    // for mobile keeps the title + tag rows breathing without
-    // wasting vertical space.
-    padding: 16,
-    gap: 16,
+    // 12pt padding (was 16) and 12pt gap (was 16) — Google-sourced
+    // entries with longer names + variable hours pills were
+    // overflowing the available sheet height on iPhone. Tightening
+    // the card by ~20pt vertically gets every variant inside the
+    // ~510pt sheet window without giving up legibility.
+    padding: 12,
+    gap: 12,
     // M3 Elevation 1 — chrome over map. Theme tier so the card,
     // FAB stack, and ETA pill all read at the same depth.
     ...shadows.e1,
