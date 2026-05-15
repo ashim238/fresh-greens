@@ -37,6 +37,7 @@ import {
   removeCommunityReport,
 } from '../lib/api/community-reports';
 import type { Coordinate } from '../lib/api/zones';
+import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
@@ -127,11 +128,22 @@ export default function Report() {
     if (!category || !location || submitting) return;
     setSubmitting(true);
     try {
+      // Best-effort business-name lookup. The contribution succeeds
+      // either way — if Google has nothing at this coord, we still
+      // persist the report and the marker falls back to subTag-
+      // based naming. Fire-and-await but capture failures silently;
+      // a network blip shouldn't block a real submission.
+      const nearest = await fetchNearestPlace(
+        location.latitude,
+        location.longitude,
+      );
+
       const report = await addCommunityReport({
         categoryId: category.id,
         location,
         detail: detailText.trim() || undefined,
         subTag: selectedSubTag,
+        placeName: nearest?.name,
         // Anonymous categories never persist a submitter; for non-
         // anonymous, the real implementation would attach the auth
         // user's id once auth lands. Mock placeholder for now.
@@ -217,6 +229,7 @@ export default function Report() {
         )}
         {mode === 'thank-you' && (
           <ThankYouView
+            placeName={submittedReport?.placeName}
             onUndo={handleUndo}
             onClose={handleClose}
           />
@@ -521,12 +534,22 @@ function DetailView({
 // --- Thank-You view ------------------------------------------------------
 
 function ThankYouView({
+  placeName,
   onUndo,
   onClose,
 }: {
+  placeName?: string;
   onUndo: () => void;
   onClose: () => void;
 }) {
+  // Subtitle leads with the resolved business name when we have it
+  // — makes the contribution feel concrete ("Your note about
+  // Wintzell's…") instead of abstract. Falls back to the generic
+  // copy when /api/nearby returned nothing.
+  const subtitle = placeName
+    ? `Your note about ${placeName} helps the next driver — the same way every other Fresh Greens user is helping you.`
+    : 'Your report helps the next driver — the same way every other Fresh Greens user is helping you.';
+
   return (
     <>
       <View style={styles.headerRow}>
@@ -542,9 +565,7 @@ function ThankYouView({
 
       <View style={styles.thankYouTitleBlock}>
         <Text style={styles.thankYouTitle}>Thanks for sharing.</Text>
-        <Text style={styles.thankYouSubtitle}>
-          Your report helps the next driver — the same way every other Fresh Greens user is helping you.
-        </Text>
+        <Text style={styles.thankYouSubtitle}>{subtitle}</Text>
       </View>
 
       <Button

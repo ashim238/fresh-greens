@@ -169,6 +169,7 @@ export default function EnRoute() {
     categoryId: ReportCategoryId;
     detail?: string;
     subTag?: string;
+    placeName?: string;
     timestamp: number;
   } | null>(null);
   // Region + viewport size for marker clustering. Without these, dense
@@ -747,6 +748,7 @@ export default function EnRoute() {
                   categoryId: zone.reportCategoryId as ReportCategoryId,
                   detail: zone.reportDetail,
                   subTag: zone.reportSubTag,
+                  placeName: zone.reportPlaceName,
                   timestamp: zone.reportTimestamp ?? Date.now(),
                 })
               }
@@ -1179,6 +1181,7 @@ export default function EnRoute() {
           categoryId={selectedReport.categoryId}
           detail={selectedReport.detail}
           subTag={selectedReport.subTag}
+          placeName={selectedReport.placeName}
           timestamp={selectedReport.timestamp}
           onDismiss={() => setSelectedReport(null)}
         />

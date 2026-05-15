@@ -212,6 +212,7 @@ export default function Home() {
     categoryId: ReportCategoryId;
     detail?: string;
     subTag?: string;
+    placeName?: string;
     timestamp: number;
   } | null>(null);
 
@@ -824,6 +825,7 @@ export default function Home() {
                   categoryId: zone.reportCategoryId as ReportCategoryId,
                   detail: zone.reportDetail,
                   subTag: zone.reportSubTag,
+                  placeName: zone.reportPlaceName,
                   timestamp: zone.reportTimestamp ?? Date.now(),
                 })
               }
@@ -1492,6 +1494,7 @@ export default function Home() {
           categoryId={selectedReport.categoryId}
           detail={selectedReport.detail}
           subTag={selectedReport.subTag}
+          placeName={selectedReport.placeName}
           timestamp={selectedReport.timestamp}
           onDismiss={() => setSelectedReport(null)}
         />

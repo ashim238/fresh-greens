@@ -92,12 +92,20 @@ export function ReportDetailCard({
   categoryId,
   detail,
   subTag,
+  placeName,
   timestamp,
   onDismiss,
 }: {
   categoryId: ReportCategoryId;
   detail?: string;
   subTag?: string;
+  /**
+   * Auto-resolved business name from the report's coords (set at
+   * submit time via the proxy's /api/nearby lookup). When present,
+   * renders as the card's primary title; the category becomes the
+   * subline. Falls back to category.label when not set.
+   */
+  placeName?: string;
   timestamp: number;
   onDismiss: () => void;
 }) {
@@ -107,8 +115,14 @@ export function ReportDetailCard({
   const variant = variantForCategoryId(categoryId);
   const BgSvg = BG_FOR_VARIANT[variant];
 
-  const subline =
-    subTag && subTag !== 'Other'
+  // Title is the resolved place name when we have it; otherwise the
+  // category label (the v1 behavior). Subline carries whatever
+  // didn't fit in the title — category when placeName is the title,
+  // sub-tag otherwise, plus relative time.
+  const title = placeName ?? category.label;
+  const subline = placeName
+    ? `${category.label}${subTag && subTag !== 'Other' ? ` · ${subTag}` : ''} · ${relativeTime(timestamp)}`
+    : subTag && subTag !== 'Other'
       ? `${subTag} · ${relativeTime(timestamp)}`
       : relativeTime(timestamp);
 
@@ -156,7 +170,7 @@ export function ReportDetailCard({
               accessibilityRole="header"
               numberOfLines={1}
             >
-              {category.label}
+              {title}
             </Text>
             <Text style={styles.subline} numberOfLines={1}>
               {subline}
