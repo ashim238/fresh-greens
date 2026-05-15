@@ -266,20 +266,20 @@ export function LandmarkMarker({
       tracksViewChanges={tracking}
     >
       <View
-        style={[styles.frame, selected && styles.frameSelected]}
+        style={[styles.frame, !selected && styles.frameUnselected]}
         accessibilityIgnoresInvertColors
       >
-        {variant === 'black-owned' && <PinBlackOwned width={45} height={58.5} style={styles.pin} />}
-        {variant === 'positive' && <PinPositive width={45} height={58.5} style={styles.pin} />}
-        {variant === 'report' && <PinReport width={45} height={58.5} style={styles.pin} />}
+        {variant === 'black-owned' && <PinBlackOwned width={60} height={78} style={styles.pin} />}
+        {variant === 'positive' && <PinPositive width={60} height={78} style={styles.pin} />}
+        {variant === 'report' && <PinReport width={60} height={78} style={styles.pin} />}
 
         <View style={styles.bgWrap}>
-          {variant === 'black-owned' && <BgBlackOwned width={36} height={36} />}
-          {variant === 'positive' && <BgPositive width={36} height={36} />}
-          {variant === 'report' && <BgReport width={36} height={36} />}
+          {variant === 'black-owned' && <BgBlackOwned width={48} height={48} />}
+          {variant === 'positive' && <BgPositive width={48} height={48} />}
+          {variant === 'report' && <BgReport width={48} height={48} />}
 
           <View style={styles.glyphWrap}>
-            <GlyphForCategory categoryId={categoryId} subTag={subTag} variant={variant} size={24} />
+            <GlyphForCategory categoryId={categoryId} subTag={subTag} variant={variant} size={32} />
           </View>
         </View>
       </View>
@@ -287,51 +287,61 @@ export function LandmarkMarker({
   );
 }
 
-// Layout per Figma 1133:13418. Outer box 72×72; pin (45×58.5) sits
-// at inset 9.38%/18.75% (≈ 6.75pt vertical, 13.5pt horizontal);
-// inner Bg circle (36×36) centered horizontally with top:12; glyph
-// (24×24) centered on the Bg. Scaled 1.5× from the prior 48pt
-// design to match Figma's actual marker dimensions.
+// Layout per Figma 1133:13418. The frame is **always 96×96** (the
+// selected size) — content renders at native 96-scale by default
+// and unselected state scales the whole frame down to 0.75× (visual
+// 72) from the bottom edge.
+//
+// Why the frame doesn't grow on selection: React Native's
+// `transform: scale(...)` scales the rendered pixels but does NOT
+// grow the View's `bounds`. react-native-maps caches the marker as
+// a bitmap sized from `self.bounds`; when MapKit re-snapshots on
+// the tracking flip, the bitmap size changes between selected
+// (live 96×96 render) and unselected (72×72 cached) — and that
+// bitmap-size mismatch is what makes the pin appear to "jump" by
+// ~24pt on tap/deselect. transformOrigin (PR #139) and the 50ms
+// settle (PR #147) couldn't fix that because the cause is
+// geometric, not temporal.
+//
+// Fix: keep bounds at 96×96 for both states; downscale unselected
+// content via transform. Bounds never change → no bitmap mismatch
+// → no jump. Pin/bg/glyph dimensions are 1.33× the prior 72-frame
+// values (60×78 pin, 48×48 bg, 32×32 glyph) so the on-screen
+// visual at native 96-scale matches Figma's selected variant
+// exactly. transformOrigin: 'bottom' keeps the pin's tip pinned
+// at the coord through the scale, as before.
 const styles = StyleSheet.create({
   frame: {
-    width: 72,
-    height: 72,
+    width: 96,
+    height: 96,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
   },
-  // On-tap state per Figma `1133:13418` — 72→96pt, a 1.33× scale.
-  // transformOrigin: 'bottom' anchors the scale at the bottom-center
-  // of the frame, which is also where the Marker's anchor lives.
-  // Without that, scale grows from the View's geometric center,
-  // dragging the visual bottom down by half the growth amount —
-  // and when MapKit re-snapshots on deselect, the marker visually
-  // "jumps" back up by that drift. Scaling from the bottom keeps
-  // the pin's tip pinned at the coord through both transitions.
-  frameSelected: {
+  frameUnselected: {
     transformOrigin: 'bottom',
-    transform: [{ scale: 1.33 }],
+    transform: [{ scale: 0.75 }],
   },
   pin: {
     position: 'absolute',
-    top: 6.75,
-    left: 13.5,
+    top: 9,
+    left: 18,
   },
   bgWrap: {
     position: 'absolute',
-    top: 12,
-    left: 18,
-    width: 36,
-    height: 36,
+    top: 16,
+    left: 24,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   glyphWrap: {
     position: 'absolute',
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
