@@ -1117,35 +1117,6 @@ export default function Home() {
           <DragHandle />
         )}
 
-        {/*
-          Clear-destination X — absolute-positioned at top-right of
-          the sheet (iOS standard close affordance). Only renders in
-          route mode. Separated from the Go CTA below so the two
-          affordances read as distinct gestures rather than stacked.
-        */}
-        {params.destLat && params.destLng && (
-          <Pressable
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              // router.replace with no params clears destLat/destLng/
-              // destName from the URL; /home re-renders in browse
-              // mode. We DON'T router.back() — the back stack may
-              // have /search or other screens we don't want to
-              // revisit.
-              router.replace({ pathname: '/home', params: {} });
-            }}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Clear destination and return to browsing"
-            style={({ pressed }) => [
-              styles.clearDestBtn,
-              pressed && pressedDim,
-            ]}
-          >
-            <X size={20} color={colors.labelSecondary} weight="bold" />
-          </Pressable>
-        )}
-
         {!(params.destLat && params.destLng) ? (
           <HomeBrowseSheet
             firstName={userFirstName}
@@ -1260,6 +1231,30 @@ export default function Home() {
         </View>
 
         <View style={styles.actionsRow}>
+          {/*
+            Clear-destination X — first child of the actions row,
+            matching the placement-bar pattern (44pt cancel circle on
+            the left, primary CTA flex:1 to the right). Same X-icon-
+            in-a-grey-circle visual register as the report-placement
+            Cancel button (styles.placementCancel) so the two
+            "back out of this mode" gestures look identical.
+          */}
+          <Pressable
+            style={({ pressed }) => [styles.placementCancel, pressed && pressedDim]}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              // router.replace with no params clears destLat/destLng/
+              // destName from the URL; /home re-renders in browse
+              // mode. We DON'T router.back() — the back stack may
+              // have /search or other screens we don't want to
+              // revisit.
+              router.replace({ pathname: '/home', params: {} });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Clear destination and return to browsing"
+          >
+            <X size={20} color={colors.labelSecondary} weight="bold" />
+          </Pressable>
           {suggestedDeparture && (
             <Pressable
               style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
@@ -1519,22 +1514,6 @@ const styles = StyleSheet.create({
   },
   mainCopyRow: {
     paddingHorizontal: 16,
-  },
-  // Circular tap target for the destination-clear X, absolute-
-  // positioned at the top-right of the bottom sheet (just below
-  // the drag handle's row). Pulls it visually out of the
-  // "actions" stack so it doesn't read as a sibling of Go.
-  clearDestBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 16,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.fillsTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
   },
   mainCopy: {
     ...typography.bodyEmphasized,
