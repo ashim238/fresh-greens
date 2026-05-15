@@ -173,6 +173,17 @@ export default function Home() {
   // button stays unrendered until then to avoid a one-frame flash at
   // the wrong position.
   const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
+  // FAB anchor height — locked to the *collapsed* browse-sheet height
+  // (or current sheet height in route mode, where there's no
+  // expand/collapse concept). The Recenter/Report FABs anchor to this
+  // instead of `bottomSheetHeight` so they DON'T push up when the
+  // user expands the browse sheet — they stay parked and the
+  // expanded sheet draws over them (Apple Maps / Google Maps pattern).
+  // EdgeIndicator inset below still reads `bottomSheetHeight` so
+  // off-screen markers stay visible when the sheet expands; the
+  // marker chrome IS subject to "stay out of the sheet's way," the
+  // FABs are not.
+  const [fabAnchorHeight, setFabAnchorHeight] = useState(0);
 
   // --- Report placement mode (tap-to-move + drag fine-tune) ---
   // When true, a placement marker appears at the user's location. Two
@@ -1112,7 +1123,18 @@ export default function Home() {
       <SafeAreaView
         style={styles.bottomSheet}
         edges={['bottom']}
-        onLayout={(e) => setBottomSheetHeight(e.nativeEvent.layout.height)}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          setBottomSheetHeight(h);
+          // Lock the FAB anchor to the collapsed sheet height in
+          // browse mode (so FABs stay put while the sheet expands
+          // over them); in route mode there's no collapse concept,
+          // so always track.
+          const isRouteMode = !!(params.destLat && params.destLng);
+          if (isRouteMode || thingsToDoCollapsed) {
+            setFabAnchorHeight(h);
+          }
+        }}
       >
         {!(params.destLat && params.destLng) ? (
           // Browse mode: the drag bar is interactive — tap or vertical
@@ -1341,7 +1363,7 @@ export default function Home() {
         the user's location. Drag to refine, then Confirm to open
         /report with those coords.
       */}
-      {bottomSheetHeight > 0 && !placingReport && (
+      {fabAnchorHeight > 0 && !placingReport && (
         <>
           {/*
             Recenter button — stacked 12pt above the Report FAB on the
@@ -1350,6 +1372,11 @@ export default function Home() {
             we're in placement mode (the Confirm/Cancel bar takes
             over) or before the bottom sheet has measured (so we
             don't paint at y=0 mid-mount).
+
+            Anchored to `fabAnchorHeight` (locked at the collapsed
+            sheet height) rather than the live `bottomSheetHeight`,
+            so expanding the browse sheet covers the FABs instead of
+            shoving them up — Apple Maps / Google Maps convention.
           */}
           {userLocation && (
             <FloatingActionButton
@@ -1359,7 +1386,7 @@ export default function Home() {
               style={{
                 position: 'absolute',
                 right: 16,
-                bottom: bottomSheetHeight + 24 + 56 + 12,
+                bottom: fabAnchorHeight + 24 + 56 + 12,
               }}
             >
               <SidebtnRecenter width={32} height={32} />
@@ -1372,7 +1399,7 @@ export default function Home() {
             style={{
               position: 'absolute',
               right: 16,
-              bottom: bottomSheetHeight + 24,
+              bottom: fabAnchorHeight + 24,
             }}
           >
             <SidebtnReport width={32} height={32} />
@@ -1488,6 +1515,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    // zIndex above the Recenter/Report FABs so when the sheet
+    // expands past their fixed anchor, it draws *over* them
+    // (Apple Maps / Google Maps obscure-not-reflow pattern).
+    zIndex: 10,
     backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
