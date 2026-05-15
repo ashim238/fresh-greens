@@ -38,8 +38,12 @@ import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
+import { ReportDetailCard } from '../components/ReportDetailCard';
 import { usePreferences } from '../hooks/usePreferences';
-import { getCommunityReportsAsZones } from '../lib/api/community-reports';
+import {
+  getCommunityReportsAsZones,
+  type ReportCategoryId,
+} from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
 import {
   getZonesForRegion,
@@ -156,6 +160,17 @@ export default function EnRoute() {
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  // Tapped community-report state — mirrors /home so the marker
+  // grows in place (LandmarkMarker `selected` prop) and the
+  // ReportDetailCard surfaces the report's detail/timestamp. Same
+  // shape and dismiss semantics as the /home implementation.
+  const [selectedReport, setSelectedReport] = useState<{
+    zoneId: string;
+    categoryId: ReportCategoryId;
+    detail?: string;
+    subTag?: string;
+    timestamp: number;
+  } | null>(null);
   // Region + viewport size for marker clustering. Without these, dense
   // pin neighborhoods stack on top of the user-location dot at the
   // default zoom — same problem /home solved by clustering.
@@ -721,6 +736,16 @@ export default function EnRoute() {
               categoryId={zone.reportCategoryId}
               subTag={zone.reportSubTag}
               accessibilityLabel={zone.label}
+              selected={selectedReport?.zoneId === zone.id}
+              onPress={() =>
+                setSelectedReport({
+                  zoneId: zone.id,
+                  categoryId: zone.reportCategoryId as ReportCategoryId,
+                  detail: zone.reportDetail,
+                  subTag: zone.reportSubTag,
+                  timestamp: zone.reportTimestamp ?? Date.now(),
+                })
+              }
             />
           );
         })}
@@ -1129,6 +1154,22 @@ export default function EnRoute() {
           </Pressable>
         </View>
       </SafeAreaView>
+
+      {/*
+        Report detail card — surfaces when the driver taps an on-map
+        community-report pin. Same component and dismiss semantics as
+        /home; drivers can read what the report is about without
+        leaving the trip. Tap outside (on the map) dismisses.
+      */}
+      {selectedReport && (
+        <ReportDetailCard
+          categoryId={selectedReport.categoryId}
+          detail={selectedReport.detail}
+          subTag={selectedReport.subTag}
+          timestamp={selectedReport.timestamp}
+          onDismiss={() => setSelectedReport(null)}
+        />
+      )}
     </View>
   );
 }
