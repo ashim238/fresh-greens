@@ -296,34 +296,6 @@ export default function Home() {
     [],
   );
 
-  // PanResponder for the route-preview bottom sheet: swipe right
-  // (or down — both common "dismiss" gestures) clears the
-  // destination and returns the sheet to browse mode. Extra
-  // affordance alongside the X button on the "About X to Y" row,
-  // so users who reach for a gesture instead of the button still
-  // get a way out.
-  //
-  // Threshold: 60pt minimum, with the dominant axis check (|dx| >
-  // |dy| × 1.2 for swipe right, |dy| > |dx| × 1.2 for swipe down).
-  // That stops the gesture from triggering on micro-jitters or on
-  // gestures that are mostly the other direction.
-  const routeSheetSwipeResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, g) =>
-          Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8,
-        onPanResponderRelease: (_, g) => {
-          const isRightSwipe = g.dx > 60 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2;
-          const isDownSwipe = g.dy > 60 && Math.abs(g.dy) > Math.abs(g.dx) * 1.2;
-          if (isRightSwipe || isDownSwipe) {
-            Haptics.selectionAsync().catch(() => {});
-            router.replace({ pathname: '/home', params: {} });
-          }
-        },
-      }),
-    [router],
-  );
-
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
   // when leaving later actually buys more daylight (currently: pre-dawn
   // departures). `null` hides the chip — see lib/daylight.ts for rules.
@@ -1168,7 +1140,7 @@ export default function Home() {
             }}
           />
         ) : (
-          <View {...routeSheetSwipeResponder.panHandlers}>
+          <>
         <View style={styles.bottomSheetContent}>
           <View style={styles.headers}>
             <View style={styles.greetingRow}>
@@ -1229,15 +1201,12 @@ export default function Home() {
                 trip-frequency signal; right now every destination
                 renders plain.
 
-                Close button (×) on the right clears the destination
-                and returns the sheet to browse mode — a way out of
-                the route preview without entering /en-route, the
-                "cancel my search" affordance the user expects after
-                picking a destination they want to abandon. flex:1
-                on the copy + the button trailing keeps the X right-
-                aligned while the text fills the row.
+                Clear-destination X moved out of this row — it now
+                sits at the top-right of the sheet (see clearDestBtn
+                render below the drag handle) so it's clearly
+                separate from the Go CTA in the actions row.
               */}
-              <Text style={[styles.mainCopy, styles.mainCopyText]}>
+              <Text style={styles.mainCopy}>
                 About{' '}
                 <Text style={styles.minutes}>
                   {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
@@ -1248,27 +1217,6 @@ export default function Home() {
                 </Text>
                 .
               </Text>
-              <Pressable
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  // router.replace with no params clears destLat/
-                  // destLng/destName from the URL; /home re-renders
-                  // in browse mode. We DON'T router.back() — the
-                  // back stack may have /search or other screens
-                  // we don't want to revisit. Replace is the
-                  // "stay on /home, drop the destination" move.
-                  router.replace({ pathname: '/home', params: {} });
-                }}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Clear destination"
-                style={({ pressed }) => [
-                  styles.clearDestBtn,
-                  pressed && pressedDim,
-                ]}
-              >
-                <X size={20} color={colors.labelSecondary} weight="bold" />
-              </Pressable>
             </View>
           </View>
 
@@ -1283,6 +1231,30 @@ export default function Home() {
         </View>
 
         <View style={styles.actionsRow}>
+          {/*
+            Clear-destination X — first child of the actions row,
+            matching the placement-bar pattern (44pt cancel circle on
+            the left, primary CTA flex:1 to the right). Same X-icon-
+            in-a-grey-circle visual register as the report-placement
+            Cancel button (styles.placementCancel) so the two
+            "back out of this mode" gestures look identical.
+          */}
+          <Pressable
+            style={({ pressed }) => [styles.placementCancel, pressed && pressedDim]}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              // router.replace with no params clears destLat/destLng/
+              // destName from the URL; /home re-renders in browse
+              // mode. We DON'T router.back() — the back stack may
+              // have /search or other screens we don't want to
+              // revisit.
+              router.replace({ pathname: '/home', params: {} });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Clear destination and return to browsing"
+          >
+            <X size={20} color={colors.labelSecondary} weight="bold" />
+          </Pressable>
           {suggestedDeparture && (
             <Pressable
               style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
@@ -1341,7 +1313,7 @@ export default function Home() {
             <Text style={styles.goText}>Go</Text>
           </Pressable>
         </View>
-          </View>
+          </>
         )}
       </SafeAreaView>
 
@@ -1542,23 +1514,6 @@ const styles = StyleSheet.create({
   },
   mainCopyRow: {
     paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  mainCopyText: {
-    flex: 1,
-  },
-  // Circular tap target for the destination-clear X. 32×32 visual
-  // ring sits comfortably without crowding the copy; hitSlop pads
-  // it to a 44pt effective tap area.
-  clearDestBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.fillsTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   mainCopy: {
     ...typography.bodyEmphasized,
