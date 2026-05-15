@@ -1558,7 +1558,10 @@ const styles = StyleSheet.create({
     // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
     height: 44,
     borderRadius: 100,
-    backgroundColor: colors.freshgreen,
+    // wiltedgreen rather than freshgreen so white text on the pill
+    // clears WCAG AA (6.5:1 vs 2.9:1). freshgreen stays reserved for
+    // polylines and accent chips where text isn't layered on top.
+    backgroundColor: colors.wiltedgreen,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1571,7 +1574,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   goText: {
-    ...typography.subheadlineEmphasized,
+    // bodyEmphasized (17pt) — primary CTA should outweigh Schedule's
+    // 13pt footnote secondary. Apple Maps "Directions" / Waze "GO"
+    // both sit near 17pt semibold.
+    ...typography.bodyEmphasized,
     color: colors.white,
   },
   // --- Cluster marker ---
@@ -1652,7 +1658,8 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 100,
-    backgroundColor: colors.freshgreen,
+    // wiltedgreen for WCAG AA contrast on the white "Confirm" text.
+    backgroundColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

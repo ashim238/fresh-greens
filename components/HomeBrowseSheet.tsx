@@ -251,7 +251,7 @@ function RecommendationCard({
         </View>
         {quoteText ? (
           <View style={styles.quoteCallout}>
-            <ChatCircle size={16} color={colors.freshgreen} weight="fill" />
+            <ChatCircle size={16} color={colors.wiltedgreen} weight="fill" />
             <Text style={styles.quoteText} numberOfLines={4}>
               {quoteText}
             </Text>
@@ -378,7 +378,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsTertiary,
   },
   chipSelected: {
-    backgroundColor: colors.freshgreen,
+    // wiltedgreen for AA contrast on the white chip label.
+    backgroundColor: colors.wiltedgreen,
   },
   chipText: {
     ...typography.footnoteRegular,
@@ -404,8 +405,12 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 24,
-    gap: 48,
+    // Tighter internal rhythm — was 24/48, read as "demo card."
+    // Apple/Google place cards use ~16pt content padding with the
+    // photo edge-bled to the card border. We keep a small (8pt) top
+    // gutter so the photo doesn't kiss the rounded corner.
+    padding: 16,
+    gap: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.18,
@@ -413,8 +418,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   photoWrap: {
-    width: 280,
-    height: 280,
+    // Edge-bled photo: width fills card minus 16pt of side padding.
+    // Height kept proportional (≈ 16:11 like a card hero image).
+    width: '100%',
+    aspectRatio: 16 / 11,
     borderRadius: 8,
     overflow: 'hidden',
     alignSelf: 'center',
@@ -470,7 +477,10 @@ const styles = StyleSheet.create({
   },
   rating: {
     ...typography.footnoteEmphasized,
-    color: colors.freshgreen,
+    // Black rather than freshgreen — Google/Yelp pattern keeps the
+    // number neutral and lets the star carry the visual cue. Also
+    // fixes the 2.9:1 freshgreen-on-fillsPrimary contrast issue.
+    color: colors.black,
   },
   ratingMeta: {
     ...typography.footnoteRegular,
