@@ -7,29 +7,43 @@ import {
 } from '../lib/api/recommendations';
 
 /**
- * Reactive wrapper around the recommendations adapter. Same shape as
- * useRecentSearches / useSavedPlaces / useTrustedContact — loads on
- * mount, re-runs when the category filter changes.
+ * Reactive wrapper around the recommendations adapter. Loads on
+ * mount, re-runs when category / region / userLocation change.
  *
- * `category` filters server-side via the adapter. `region` is
- * accepted but not yet wired to a reverse-geocode call — v1
- * defaults to whatever the curated catalog returns. v2 hook would
- * accept the user's current lat/lng and reverse-geocode to a region
- * string before passing it to the adapter.
+ * `userLocation` flows through to the adapter for three uses:
+ *   1. Proximity filter on community submissions (10mi radius —
+ *      far-away contributions don't compete for chip real estate)
+ *   2. External-source proxy call (Google Places searchText with a
+ *      10mi locationBias around the user)
+ *   3. Per-entry `distanceMiles` for the card's "0.7 mi away" pill
+ *
+ * The hook reads from a rounded geo-grid key on the adapter side,
+ * so jittery GPS coordinates within ~0.5mi don't bust the cache.
  */
 export function useRecommendations(opts: {
   category?: RecommendationCategory;
   region?: string;
+  userLocation?: { latitude: number; longitude: number } | null;
 } = {}) {
-  const { category, region } = opts;
+  const { category, region, userLocation } = opts;
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Round the GPS coord for the effect dep so sub-grid jitter
+  // doesn't cause an unnecessary refetch. The adapter's own
+  // geo-grid cache key uses the same rounding strategy.
+  const gridLat = userLocation ? Math.round(userLocation.latitude * 200) / 200 : null;
+  const gridLng = userLocation ? Math.round(userLocation.longitude * 200) / 200 : null;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const recs = await getRecommendations({ category, region });
+      const recs = await getRecommendations({
+        category,
+        region,
+        userLocation: userLocation ?? undefined,
+      });
       if (!cancelled) {
         setRecommendations(recs);
         setLoading(false);
@@ -38,7 +52,8 @@ export function useRecommendations(opts: {
     return () => {
       cancelled = true;
     };
-  }, [category, region]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, region, gridLat, gridLng]);
 
   return { recommendations, loading };
 }

@@ -8,7 +8,7 @@ import { Heart } from 'phosphor-react-native/src/icons/Heart';
 import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useRecommendations } from '../hooks/useRecommendations';
@@ -44,6 +44,7 @@ import { typography } from '../theme/typography';
 export function HomeBrowseSheet({
   firstName,
   neighborhoodLabel,
+  userLocation,
   collapsed,
   onToggleCollapsed,
   onSelectRecommendation,
@@ -52,27 +53,25 @@ export function HomeBrowseSheet({
   firstName?: string;
   /** Geocoded neighborhood label; falls back to a generic when null. */
   neighborhoodLabel?: string;
+  /**
+   * User's current GPS — drives the proximity filter on community
+   * submissions (10mi) AND the Google Places `searchText`
+   * locationBias on the proxy side. Without it the external adapter
+   * short-circuits to []; the sheet then falls back to curated.
+   */
+  userLocation?: { latitude: number; longitude: number } | null;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   /** Caller routes to /home with the destination params set. */
   onSelectRecommendation: (rec: Recommendation) => void;
 }) {
   const [category, setCategory] = useState<RecommendationCategory>('black-owned');
-  const { recommendations } = useRecommendations({ category });
-  // Pick a random recommendation per category change so chip taps
-  // visibly cycle content (otherwise the card always shows the
-  // first catalog entry for that category — feels broken when each
-  // category has 3 curated entries). useMemo keyed on category +
-  // recommendations.length: the seed is stable within a single
-  // category view (no re-rolling on unrelated re-renders), but a
-  // fresh pick lands each time the user switches chips. If the
-  // user taps back to the same chip later, they may see a
-  // different entry — that's the intended variety.
-  const featured = useMemo(() => {
-    if (recommendations.length === 0) return null;
-    const idx = Math.floor(Math.random() * recommendations.length);
-    return recommendations[idx];
-  }, [category, recommendations.length]);
+  const { recommendations } = useRecommendations({ category, userLocation });
+  // Multi-card variant per Figma 1133:13551 — horizontal scroll of
+  // up to 5 cards. `getRecommendations` already orders them
+  // (community first, then external, curated only as catastrophic
+  // fallback) and computes `distanceMiles`, so this consumes the
+  // list as-is.
   const reduceMotion = useReduceMotion();
 
   // Eyebrow copy — when we have the user's first name, render the
@@ -134,16 +133,32 @@ export function HomeBrowseSheet({
       </Pressable>
 
       {!collapsed && (
-        <View style={styles.cardWrap}>
-          {featured ? (
-            <RecommendationCard
-              recommendation={featured}
-              onPress={() => onSelectRecommendation(featured)}
-            />
-          ) : (
+        recommendations.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cardsRow}
+            // A bit of a snap so the next card lands aligned to the
+            // card width — feels closer to the platform-native
+            // carousel pattern (Apple Maps Place collections, Google
+            // Maps "Explore" cards) than free-scroll.
+            decelerationRate="fast"
+            snapToInterval={CARD_WIDTH + CARD_GAP}
+            snapToAlignment="start"
+          >
+            {recommendations.map((rec) => (
+              <RecommendationCard
+                key={rec.id}
+                recommendation={rec}
+                onPress={() => onSelectRecommendation(rec)}
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.cardWrap}>
             <EmptyState categoryLabel={categoryLabel} />
-          )}
-        </View>
+          </View>
+        )
       )}
     </View>
   );
@@ -306,7 +321,12 @@ function RecommendationCard({
           ) : null}
           {r.hoursLabel ? (
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{r.hoursLabel}</Text>
+              <Text style={styles.tagText} numberOfLines={1}>{r.hoursLabel}</Text>
+            </View>
+          ) : null}
+          {r.distanceMiles != null ? (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>{formatDistanceMiles(r.distanceMiles)}</Text>
             </View>
           ) : null}
         </View>
@@ -330,6 +350,18 @@ function RecommendationCard({
   );
 }
 
+/**
+ * "0.7 mi away" / "12 mi away" — same pattern as the en-route
+ * distance pill but mile-only (no metric switch). Decimal under
+ * 10mi, rounded whole above. Below 0.1mi reads as "<0.1 mi away"
+ * (we don't promise pedestrian precision at GPS scale).
+ */
+function formatDistanceMiles(miles: number): string {
+  if (miles < 0.1) return '<0.1 mi away';
+  if (miles < 10) return `${miles.toFixed(1)} mi away`;
+  return `${Math.round(miles)} mi away`;
+}
+
 // --- Empty state ---------------------------------------------------------
 
 function EmptyState({ categoryLabel }: { categoryLabel: string }) {
@@ -347,6 +379,15 @@ function EmptyState({ categoryLabel }: { categoryLabel: string }) {
 }
 
 // --- Styles --------------------------------------------------------------
+
+// Multi-card variant per Figma 1133:13551. Cards are fixed width so
+// the horizontal ScrollView's snapToInterval has a deterministic
+// stride and adjacent cards peek consistently at the viewport edge
+// (Apple Maps / Google Maps collection convention). Figma renders
+// at 328pt × 576pt on the wide canvas; ~280pt fits an iPhone
+// viewport with comfortable peek room.
+export const CARD_WIDTH = 280;
+export const CARD_GAP = 12;
 
 const styles = StyleSheet.create({
   content: {
@@ -422,13 +463,23 @@ const styles = StyleSheet.create({
   cardWrap: {
     paddingHorizontal: 16,
   },
+  // Horizontal scroller container for the multi-card variant. Padding
+  // on left = sheet edge gutter (16); the right edge gets a matching
+  // 16 inside the last card via `marginRight` on the last item, so
+  // the trailing card lands flush with the sheet edge when scrolled
+  // all the way right.
+  cardsRow: {
+    paddingHorizontal: 16,
+    gap: CARD_GAP,
+  },
   card: {
+    width: CARD_WIDTH,
     backgroundColor: colors.white,
     borderRadius: 12,
-    // Tighter internal rhythm — was 24/48, read as "demo card."
-    // Apple/Google place cards use ~16pt content padding with the
-    // photo edge-bled to the card border. We keep a small (8pt) top
-    // gutter so the photo doesn't kiss the rounded corner.
+    // 16pt content padding matches mobile-density Apple/Google place
+    // cards. Figma renders at 24pt on the wide canvas — keeping 16
+    // for mobile keeps the title + tag rows breathing without
+    // wasting vertical space.
     padding: 16,
     gap: 16,
     shadowColor: '#000',
@@ -438,10 +489,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   photoWrap: {
-    // Edge-bled photo: width fills card minus 16pt of side padding.
-    // Height kept proportional (≈ 16:11 like a card hero image).
+    // Square photo (Figma 1133:13554 — 280×280 inside a 328 card,
+    // here scaled to 248×248 inside a 280 card). Photo fills the
+    // card width minus the 16pt padding on each side.
     width: '100%',
-    aspectRatio: 16 / 11,
+    aspectRatio: 1,
     borderRadius: 8,
     overflow: 'hidden',
     alignSelf: 'center',
