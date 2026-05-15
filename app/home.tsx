@@ -57,6 +57,8 @@ import {
 import { pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { mapStyle } from '../theme/map-style';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 // Zone-overlay rendering is now a real user preference (toggled from
@@ -652,7 +654,15 @@ export default function Home() {
           latitudeDelta: 0.02,
           longitudeDelta: 0.02,
         }}
+        // Veteran-navigation basemap: hides POI clutter (other
+        // restaurants, attractions, transit stations) so our own
+        // curated/community pins read against a quieter background.
+        // iOS honors mapType="mutedStandard"; Android reads the JSON.
+        // See theme/map-style.ts for the dimming rules + rationale.
+        customMapStyle={mapStyle}
+        mapType="mutedStandard"
         showsMyLocationButton={false}
+        showsPointsOfInterest={false}
         onRegionChangeComplete={setMapRegion}
         onLayout={(e) =>
           setMapSize({
@@ -1475,13 +1485,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingTop: 16,
     gap: 16,
-    // Shadow points UP (negative offset.y) since the sheet floats above
-    // content from the bottom edge.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    // Shadow points UP since the sheet floats above content from the
+    // bottom edge — `shadows.sheet` bundles the directional offset.
+    ...shadows.sheet,
   },
   bottomSheetContent: {
     gap: 24,
@@ -1625,11 +1631,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    ...shadows.sheet,
   },
   placementBarInner: {
     paddingHorizontal: 16,
