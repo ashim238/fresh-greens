@@ -63,6 +63,8 @@ import {
 } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { mapStyle } from '../theme/map-style';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -601,7 +603,12 @@ export default function EnRoute() {
           zoom: 17,
           altitude: 1000,
         }}
+        // Same muted basemap as /home — Apple Maps / Waze dim POIs
+        // during navigation; we apply it app-wide. See theme/map-style.ts.
+        customMapStyle={mapStyle}
+        mapType="mutedStandard"
         showsMyLocationButton={false}
+        showsPointsOfInterest={false}
         onRegionChangeComplete={setMapRegion}
         onLayout={(e) =>
           setMapSize({
@@ -1315,11 +1322,7 @@ const styles = StyleSheet.create({
     // Without that move, the top 16pt of the sheet was visual
     // dead-space outside the Pressable.
     gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    ...shadows.sheet,
   },
   sheetContent: {
     gap: 8,
