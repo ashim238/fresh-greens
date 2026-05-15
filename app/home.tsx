@@ -1193,6 +1193,7 @@ export default function Home() {
           <HomeBrowseSheet
             firstName={userFirstName}
             neighborhoodLabel={neighborhoodLabel}
+            userLocation={userLocation}
             collapsed={thingsToDoCollapsed}
             onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
             onSelectRecommendation={(rec) => {

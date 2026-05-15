@@ -92,6 +92,13 @@ export type Recommendation = {
   region: string;
   /** Optional community-report detail when source === 'community'. */
   reportDetail?: string;
+  /**
+   * Distance from the user's current GPS to this rec, in miles.
+   * Computed in the adapter when `query.userLocation` is provided;
+   * undefined when no user fix is available. Surfaces in the
+   * Multi-card variant as the "0.7 mi away" pill (Figma 1133:13614).
+   */
+  distanceMiles?: number;
 };
 
 // --- Public surface ------------------------------------------------------
@@ -99,24 +106,89 @@ export type Recommendation = {
 export type RecommendationQuery = {
   category?: RecommendationCategory;
   region?: string;
+  /**
+   * User's current GPS, used for: (1) proximity filtering of
+   * community submissions (10mi radius — places far outside the
+   * driver's area shouldn't compete for chip real estate), (2)
+   * proxying to the external adapter (Google Places searchText
+   * with a 10mi locationBias around this point), and (3) computing
+   * per-entry `distanceMiles` for the card's distance pill.
+   */
+  userLocation?: { latitude: number; longitude: number };
 };
 
 /**
- * Reads recommendations from the three sources, optionally filtered
- * by category and region. Always returns curated entries first
- * (they're the editorial baseline), then community contributions,
- * then external (currently empty).
+ * Reads recommendations from the three sources and merges them into
+ * the order the browse sheet expects:
+ *
+ *   1. Top community submission (≤10mi from user, if any)
+ *   2. Up to 4 external entries (Google Places / OSM Overpass via
+ *      the proxy)
+ *   3. Curated fallback ONLY when slots 2–5 came back empty
+ *      (catastrophic offline / API down) — the curated catalog is
+ *      Mobile-only seed content, not a primary source.
+ *
+ * Dedup by ~50m proximity so a community submission that's also in
+ * Google's index doesn't show twice. When `userLocation` is set,
+ * `distanceMiles` is computed for every entry so the card can
+ * render its "0.7 mi away" pill (Figma 1133:13614).
  */
 export async function getRecommendations(
   query: RecommendationQuery = {},
 ): Promise<Recommendation[]> {
-  const [curated, community, external] = await Promise.all([
-    getCuratedRecommendations(query),
+  const [community, external] = await Promise.all([
     getCommunityRecommendations(query),
     getExternalRecommendations(query),
   ]);
 
-  return dedupByProximity([...curated, ...community, ...external]);
+  const sorted = sortByDistance(community, query.userLocation);
+  const topCommunity = sorted.slice(0, 1);
+  const externalSorted = sortByDistance(external, query.userLocation).slice(0, 4);
+
+  const primary = [...topCommunity, ...externalSorted];
+  const merged = primary.length > 0
+    ? primary
+    : await getCuratedRecommendations(query);
+
+  return annotateDistance(dedupByProximity(merged), query.userLocation);
+}
+
+/** Haversine miles between two lat/lng pairs. */
+function distanceMilesBetween(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+): number {
+  const R = 3958.8; // earth radius in miles
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function sortByDistance(
+  recs: Recommendation[],
+  userLocation: { latitude: number; longitude: number } | undefined,
+): Recommendation[] {
+  if (!userLocation) return recs;
+  return [...recs].sort(
+    (a, b) =>
+      distanceMilesBetween(userLocation, a) - distanceMilesBetween(userLocation, b),
+  );
+}
+
+function annotateDistance(
+  recs: Recommendation[],
+  userLocation: { latitude: number; longitude: number } | undefined,
+): Recommendation[] {
+  if (!userLocation) return recs;
+  return recs.map((r) => ({
+    ...r,
+    distanceMiles: distanceMilesBetween(userLocation, r),
+  }));
 }
 
 // --- Source 1: Curated catalog -------------------------------------------
@@ -184,6 +256,8 @@ function recCategoryForReport(
   return null;
 }
 
+const COMMUNITY_PROXIMITY_RADIUS_MILES = 10;
+
 async function getCommunityRecommendations(
   query: RecommendationQuery,
 ): Promise<Recommendation[]> {
@@ -194,6 +268,15 @@ async function getCommunityRecommendations(
         const recCategory = recCategoryForReport(r.categoryId, r.subTag);
         if (!recCategory) return null;
         if (query.category && recCategory !== query.category) return null;
+        // Proximity gate — community submissions only surface as
+        // recommendations when they're within ~10mi of the driver.
+        // Far-away contributions still drop as map markers; they
+        // just don't compete for chip real estate. Skipped when no
+        // GPS fix yet so we don't drop everything pre-first-fix.
+        if (query.userLocation) {
+          const miles = distanceMilesBetween(query.userLocation, r.location);
+          if (miles > COMMUNITY_PROXIMITY_RADIUS_MILES) return null;
+        }
         const rec: Recommendation = {
           id: `community-${r.id}`,
           source: 'community',
@@ -217,30 +300,63 @@ async function getCommunityRecommendations(
 // --- Source 3: External feed (v2 integration point) ----------------------
 
 /**
- * Stubbed external recommendations source. v2 candidates:
+ * External recommendations — proxied through a Vercel-hosted
+ * endpoint that holds the Google Places API key server-side
+ * (`proxy/` in this repo). Restroom category routes to OSM
+ * Overpass; everything else to Google Places `searchText` with a
+ * 10mi locationBias around `userLocation`.
  *
- *   - **Google Places API** — `identifies_as_black_owned` attribute
- *     plus general POI metadata. Most reliable geographic coverage
- *     for self-identification flags. Paid after ~$200/month free
- *     tier.
+ * If `userLocation` is missing (no GPS fix yet), returns []
+ * immediately — the proxy needs lat/lng to do meaningful work.
  *
- *   - **Yelp Fusion API** — self-identification attributes added
- *     2020. Free tier ~500 requests/day; sufficient for thesis-
- *     scale traffic. Less canonical than Google.
- *
- *   - **EatOkra / Black Wall Street / Greenwood partnership** —
- *     Black-founded community-curated databases. No public APIs
- *     currently documented; would need partnership negotiation.
- *     Most thesis-aligned long-term direction.
- *
- * Intentionally returns empty in v1: the demo leans on community +
- * curated to keep the thesis claim ("community knowledge as
- * backbone") load-bearing rather than corporate-API-mediated.
+ * Cached per (geo-grid + category) for 10 minutes. Two reasons:
+ * (1) chip-tap latency is much lower for repeated views; (2) we
+ * stay polite to the upstream APIs and respect Google's free-tier
+ * quota. Geo-grid bucket = ~0.5mi (`Math.round(lat*200)/200`), so
+ * users moving < 0.5mi share the cached result.
  */
+
+type CacheEntry = { ts: number; recs: Recommendation[] };
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const externalCache = new Map<string, CacheEntry>();
+
+function gridKey(lat: number, lng: number): string {
+  const round = (n: number) => Math.round(n * 200) / 200;
+  return `${round(lat)},${round(lng)}`;
+}
+
+// Override at build time via EXPO_PUBLIC_PROXY_BASE_URL; falls back
+// to the deployed thesis-demo URL. Production would point at a
+// scoped per-environment URL.
+const PROXY_BASE_URL =
+  process.env.EXPO_PUBLIC_PROXY_BASE_URL ?? 'https://fresh-greens-proxy.vercel.app';
+
 async function getExternalRecommendations(
-  _query: RecommendationQuery,
+  query: RecommendationQuery,
 ): Promise<Recommendation[]> {
-  return [];
+  const { category, userLocation } = query;
+  if (!category || !userLocation) return [];
+
+  const cacheKey = `${gridKey(userLocation.latitude, userLocation.longitude)}|${category}`;
+  const cached = externalCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    return cached.recs;
+  }
+
+  try {
+    const url = `${PROXY_BASE_URL}/api/recs?lat=${userLocation.latitude}&lng=${userLocation.longitude}&category=${category}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { recommendations?: Recommendation[] };
+    const recs = data.recommendations ?? [];
+    externalCache.set(cacheKey, { ts: Date.now(), recs });
+    return recs;
+  } catch (e) {
+    // Network failure: silently empty so the source merge falls back
+    // to community (and ultimately curated). The card renders an
+    // empty state if all three sources strike out.
+    return [];
+  }
 }
 
 // --- Dedup ---------------------------------------------------------------
