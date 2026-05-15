@@ -1137,8 +1137,16 @@ export default function Home() {
                 Hard-coded false until feat/recent-trips lands a real
                 trip-frequency signal; right now every destination
                 renders plain.
+
+                Close button (×) on the right clears the destination
+                and returns the sheet to browse mode — a way out of
+                the route preview without entering /en-route, the
+                "cancel my search" affordance the user expects after
+                picking a destination they want to abandon. flex:1
+                on the copy + the button trailing keeps the X right-
+                aligned while the text fills the row.
               */}
-              <Text style={styles.mainCopy}>
+              <Text style={[styles.mainCopy, styles.mainCopyText]}>
                 About{' '}
                 <Text style={styles.minutes}>
                   {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
@@ -1149,6 +1157,27 @@ export default function Home() {
                 </Text>
                 .
               </Text>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  // router.replace with no params clears destLat/
+                  // destLng/destName from the URL; /home re-renders
+                  // in browse mode. We DON'T router.back() — the
+                  // back stack may have /search or other screens
+                  // we don't want to revisit. Replace is the
+                  // "stay on /home, drop the destination" move.
+                  router.replace({ pathname: '/home', params: {} });
+                }}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Clear destination"
+                style={({ pressed }) => [
+                  styles.clearDestBtn,
+                  pressed && pressedDim,
+                ]}
+              >
+                <X size={20} color={colors.labelSecondary} weight="bold" />
+              </Pressable>
             </View>
           </View>
 
@@ -1422,6 +1451,23 @@ const styles = StyleSheet.create({
   },
   mainCopyRow: {
     paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mainCopyText: {
+    flex: 1,
+  },
+  // Circular tap target for the destination-clear X. 32×32 visual
+  // ring sits comfortably without crowding the copy; hitSlop pads
+  // it to a 44pt effective tap area.
+  clearDestBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.fillsTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mainCopy: {
     ...typography.bodyEmphasized,
