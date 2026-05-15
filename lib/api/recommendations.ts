@@ -220,13 +220,16 @@ function dedupByProximity(recs: Recommendation[]): Recommendation[] {
 // --- Curated seed --------------------------------------------------------
 
 /**
- * Two entries per category for the Mobile, AL demo region. Real
+ * Three entries per category for the Mobile, AL demo region. Real
  * production would curate per city; this is the thesis-demo
  * starting point. Coordinates are real Mobile locations so the
- * routing pipeline gets a meaningful destination on tap.
+ * routing pipeline gets a meaningful destination on tap. The
+ * HomeBrowseSheet picks one at random on each category change so
+ * the chip tap visibly cycles content rather than stuck on the
+ * same single entry.
  */
 const CURATED_CATALOG: Recommendation[] = [
-  // Black-owned
+  // --- Black-owned ---------------------------------------------------------
   {
     id: 'curated-black-owned-1',
     source: 'curated',
@@ -247,7 +250,48 @@ const CURATED_CATALOG: Recommendation[] = [
     isOpen: true,
     region: 'Mobile, AL',
   },
-  // Women-owned
+  {
+    id: 'curated-black-owned-2',
+    source: 'curated',
+    category: 'black-owned',
+    name: 'Spot of Tea',
+    address: '310 Dauphin St, Mobile, AL',
+    latitude: 30.6927,
+    longitude: -88.0418,
+    categoryLabel: 'Restaurant',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Brunch that runs late and a porch worth lingering on. Order the crab cake omelette and a second pot of tea.',
+    tags: [{ label: 'Brunch all day', emoji: '🍳' }],
+    priceTier: '$$',
+    rating: 4.6,
+    reviewCount: 412,
+    hoursLabel: 'Closes 3 PM',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+  {
+    id: 'curated-black-owned-3',
+    source: 'curated',
+    category: 'black-owned',
+    name: 'Soul Kitchen Music Hall',
+    address: '219 Dauphin St, Mobile, AL',
+    latitude: 30.6921,
+    longitude: -88.0429,
+    categoryLabel: 'Music venue',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'The room they built for the show you didn’t know you needed. Black-owned, blues-rooted, every act welcome.',
+    tags: [{ label: 'Live music', emoji: '🎷' }],
+    priceTier: '$$',
+    rating: 4.8,
+    reviewCount: 268,
+    hoursLabel: 'Open until midnight',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+
+  // --- Women-owned ---------------------------------------------------------
   {
     id: 'curated-women-owned-1',
     source: 'curated',
@@ -268,7 +312,48 @@ const CURATED_CATALOG: Recommendation[] = [
     isOpen: true,
     region: 'Mobile, AL',
   },
-  // LGBTQ+ welcoming
+  {
+    id: 'curated-women-owned-2',
+    source: 'curated',
+    category: 'women-owned',
+    name: 'Iron + Ivy Boutique',
+    address: '52 N Royal St, Mobile, AL',
+    latitude: 30.6940,
+    longitude: -88.0410,
+    categoryLabel: 'Boutique',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Curated by someone with taste — the kind of place where the owner remembers what you almost bought last time.',
+    tags: [{ label: 'Local designers', emoji: '🧵' }],
+    priceTier: '$$',
+    rating: 4.7,
+    reviewCount: 89,
+    hoursLabel: 'Closes 6 PM',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+  {
+    id: 'curated-women-owned-3',
+    source: 'curated',
+    category: 'women-owned',
+    name: 'Bayside Bloom Florist',
+    address: '156 S Conception St, Mobile, AL',
+    latitude: 30.6907,
+    longitude: -88.0431,
+    categoryLabel: 'Florist',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Bring a friend, walk out with something seasonal and unexpected. Cash arrangements always honored.',
+    tags: [{ label: 'Walk-ins welcome', emoji: '💐' }],
+    priceTier: '$$',
+    rating: 4.8,
+    reviewCount: 116,
+    hoursLabel: 'Closes 5 PM',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+
+  // --- LGBTQ+ welcoming ----------------------------------------------------
   {
     id: 'curated-lgbtq-1',
     source: 'curated',
@@ -289,7 +374,47 @@ const CURATED_CATALOG: Recommendation[] = [
     isOpen: true,
     region: 'Mobile, AL',
   },
-  // Restroom
+  {
+    id: 'curated-lgbtq-2',
+    source: 'curated',
+    category: 'lgbtq-welcoming',
+    name: 'Gallery 54',
+    address: '54 S Section St, Fairhope, AL',
+    latitude: 30.5239,
+    longitude: -87.9028,
+    categoryLabel: 'Gallery',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Quiet, generous space. The openings are mixed crowds and that’s by design — leadership has always made room.',
+    tags: [{ label: 'Open openings', emoji: '🖼️' }],
+    rating: 4.9,
+    reviewCount: 74,
+    hoursLabel: 'Closes 5 PM',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+  {
+    id: 'curated-lgbtq-3',
+    source: 'curated',
+    category: 'lgbtq-welcoming',
+    name: 'Cammie’s Old Dutch Ice Cream',
+    address: '2511 Old Shell Rd, Mobile, AL',
+    latitude: 30.6796,
+    longitude: -88.0734,
+    categoryLabel: 'Ice cream',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Bring whoever you’re with, no one is watching. Family flavor, family-friendly, family means whoever you say.',
+    tags: [{ label: 'Late scoops', emoji: '🍦' }],
+    priceTier: '$1–10',
+    rating: 4.8,
+    reviewCount: 522,
+    hoursLabel: 'Open until 10 PM',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+
+  // --- Restroom ------------------------------------------------------------
   {
     id: 'curated-restroom-1',
     source: 'curated',
@@ -307,7 +432,42 @@ const CURATED_CATALOG: Recommendation[] = [
     isOpen: true,
     region: 'Mobile, AL',
   },
-  // Late Night Warm Welcome
+  {
+    id: 'curated-restroom-2',
+    source: 'curated',
+    category: 'restroom',
+    name: 'Mobile Public Library (Ben May)',
+    address: '701 Government St, Mobile, AL',
+    latitude: 30.6889,
+    longitude: -88.0445,
+    categoryLabel: 'Library restroom',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Ground floor by the entrance. Staff treats everyone like a regular — because everyone is, kind of.',
+    tags: [{ label: 'No purchase needed', emoji: '📚' }],
+    hoursLabel: 'Closes 8 PM',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+  {
+    id: 'curated-restroom-3',
+    source: 'curated',
+    category: 'restroom',
+    name: 'Cathedral Square Park Restrooms',
+    address: 'Cathedral Square, Mobile, AL',
+    latitude: 30.6905,
+    longitude: -88.0421,
+    categoryLabel: 'Public restroom',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Right next to where the food trucks line up Fridays. Stop here before you commit to the line.',
+    tags: [{ label: 'Near food trucks', emoji: '🚐' }],
+    hoursLabel: 'Open until dusk',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+
+  // --- Late Night Warm Welcome --------------------------------------------
   {
     id: 'curated-late-night-1',
     source: 'curated',
@@ -325,6 +485,46 @@ const CURATED_CATALOG: Recommendation[] = [
     rating: 4.4,
     reviewCount: 211,
     hoursLabel: 'Open until 1 AM',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+  {
+    id: 'curated-late-night-2',
+    source: 'curated',
+    category: 'late-night-warm-welcome',
+    name: 'Callaghan’s Irish Social Club',
+    address: '916 Charleston St, Mobile, AL',
+    latitude: 30.6829,
+    longitude: -88.0509,
+    categoryLabel: 'Pub',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'The Lammie burger and a quiet booth at the back. Hosts know every regular but never push.',
+    tags: [{ label: 'Kitchen open late', emoji: '🍔' }],
+    priceTier: '$$',
+    rating: 4.7,
+    reviewCount: 894,
+    hoursLabel: 'Open until midnight',
+    isOpen: true,
+    region: 'Mobile, AL',
+  },
+  {
+    id: 'curated-late-night-3',
+    source: 'curated',
+    category: 'late-night-warm-welcome',
+    name: 'Wintzell’s Oyster House',
+    address: '605 Dauphin St, Mobile, AL',
+    latitude: 30.6928,
+    longitude: -88.0452,
+    categoryLabel: 'Restaurant',
+    curatorName: 'Jordan',
+    curatorQuote:
+      'Lit lot, big windows, the kind of place a long drive can end at without feeling like an imposition.',
+    tags: [{ label: 'Easy parking', emoji: '🅿️' }],
+    priceTier: '$$',
+    rating: 4.5,
+    reviewCount: 1147,
+    hoursLabel: 'Open until 10 PM',
     isOpen: true,
     region: 'Mobile, AL',
   },

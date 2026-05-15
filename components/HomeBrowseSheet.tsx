@@ -8,7 +8,7 @@ import { Heart } from 'phosphor-react-native/src/icons/Heart';
 import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useRecommendations } from '../hooks/useRecommendations';
@@ -59,7 +59,20 @@ export function HomeBrowseSheet({
 }) {
   const [category, setCategory] = useState<RecommendationCategory>('black-owned');
   const { recommendations } = useRecommendations({ category });
-  const featured = recommendations[0] ?? null;
+  // Pick a random recommendation per category change so chip taps
+  // visibly cycle content (otherwise the card always shows the
+  // first catalog entry for that category — feels broken when each
+  // category has 3 curated entries). useMemo keyed on category +
+  // recommendations.length: the seed is stable within a single
+  // category view (no re-rolling on unrelated re-renders), but a
+  // fresh pick lands each time the user switches chips. If the
+  // user taps back to the same chip later, they may see a
+  // different entry — that's the intended variety.
+  const featured = useMemo(() => {
+    if (recommendations.length === 0) return null;
+    const idx = Math.floor(Math.random() * recommendations.length);
+    return recommendations[idx];
+  }, [category, recommendations.length]);
   const reduceMotion = useReduceMotion();
 
   // Eyebrow copy — when we have the user's first name, render the
