@@ -1,11 +1,13 @@
-// Fresh Greens — places (POI) search adapter.
+// Fresh Greens — places + address search adapter.
 //
-// POI search against Mapbox Search Box API (v6). Was Mapbox v5
-// Geocoding originally — v5's free-text `q=` did substring matching,
-// so "gas station" would also match anything else with "station" in
-// the name (police stations, train stations, fire stations). v6's
-// Search Box `/forward` endpoint is POI-category-aware and routes
-// natural-language queries to the right OSM categories.
+// Search against Mapbox Search Box API (v6) for both named POIs
+// and street addresses. Was POI-only originally — v5's free-text
+// `q=` did substring matching across all types, so "gas station"
+// would also match anything else with "station" in the name (police
+// stations, train stations, fire stations). v6's Search Box
+// `/forward` endpoint is type-aware: we request `poi,address` so
+// queries like "Soul Kitchen" surface the POI and queries like
+// "123 Main St" surface the address.
 //
 // Mapbox usage policy: free tier is 100K requests/month, 600/min.
 // Comfortably above thesis-demo traffic. Token loaded from
@@ -98,7 +100,13 @@ export async function searchPlaces(
     bbox,
     country: 'us',
     limit: '10',
-    types: 'poi',
+    // Include both POIs and street addresses. Was `poi` only, which
+    // meant typing a specific street address ("123 Main St") returned
+    // zero results — addresses aren't POIs in Mapbox's taxonomy.
+    // Both types share the Feature shape; the address branch fills
+    // `name` with the street number+name, and `place_formatted` with
+    // the rest, so the existing card render works for both.
+    types: 'poi,address',
   });
 
   const url = `${MAPBOX_URL}?${params.toString()}`;
