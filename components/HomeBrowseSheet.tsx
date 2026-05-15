@@ -77,7 +77,7 @@ export function HomeBrowseSheet({
 
         <View style={styles.topRow}>
           <Text style={styles.neighborhood} numberOfLines={1}>
-            {neighborhoodLabel ?? 'East Historic District, Mobile'}
+            {neighborhoodLabel ?? 'Your area'}
           </Text>
           <WeatherDrivingCard />
         </View>

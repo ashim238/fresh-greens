@@ -99,6 +99,16 @@ export default function Home() {
   // bar. Collapsed by default leaves the map breathing room; user
   // expands via the chevron when they want recommendations.
   const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
+  // Neighborhood label for the browse-mode sheet header. Derived
+  // from a one-shot `Location.reverseGeocodeAsync` against the
+  // user's first GPS fix. Picks `subregion + city` (most natural
+  // for a neighborhood-level read) and falls back through `city +
+  // region` → `region` until something resolves. Null while in
+  // flight; HomeBrowseSheet renders "Your area" until it lands.
+  // Re-runs only when userLocation transitions from null → set;
+  // we deliberately don't refetch on every GPS tick (the label
+  // doesn't need real-time precision).
+  const [neighborhoodLabel, setNeighborhoodLabel] = useState<string | undefined>();
   // showZones is `false` while preferences are loading from AsyncStorage;
   // overlays just render on the next pass once the value resolves.
   const showZones = preferences?.showZones ?? false;
@@ -549,6 +559,45 @@ export default function Home() {
       subscription?.remove();
     };
   }, []);
+
+  // One-shot reverse-geocode for the browse-sheet neighborhood label.
+  // Fires the first time userLocation transitions from null → set;
+  // skipped on subsequent GPS ticks because the label doesn't need
+  // real-time precision (the user isn't crossing neighborhood
+  // boundaries every second of every drive).
+  //
+  // Format priority: `subregion + city` → `city + region` →
+  // `region`. Subregion in Expo's reverse-geocode response often
+  // resolves to a neighborhood name in dense cities (e.g.
+  // "Williamsburg, Brooklyn"); city + region is the standard
+  // fallback ("Brooklyn, NY"); region alone is the last resort if
+  // the geocoder only got that far.
+  useEffect(() => {
+    if (!userLocation || neighborhoodLabel) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Location.reverseGeocodeAsync(userLocation);
+        if (cancelled) return;
+        const place = results[0];
+        if (!place) return;
+        const label =
+          place.subregion && place.city
+            ? `${place.subregion}, ${place.city}`
+            : place.city && place.region
+              ? `${place.city}, ${place.region}`
+              : place.region ?? null;
+        if (label) setNeighborhoodLabel(label);
+      } catch {
+        // Geocoder failures soft-fail — HomeBrowseSheet renders its
+        // generic "Your area" fallback. Not a degraded experience
+        // worth surfacing.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation, neighborhoodLabel]);
 
   // Long-press on the map saves that location as the user's home.
   // Goes through Alert so the user confirms before persistence —
@@ -1099,6 +1148,7 @@ export default function Home() {
         {!(params.destLat && params.destLng) ? (
           <HomeBrowseSheet
             firstName={userFirstName}
+            neighborhoodLabel={neighborhoodLabel}
             collapsed={thingsToDoCollapsed}
             onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
             onSelectRecommendation={(rec) => {
