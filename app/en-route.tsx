@@ -986,7 +986,11 @@ export default function EnRoute() {
           {/*
             v2 layout per Figma `1133:13328` (BottomSheet/En-route/
             Collapsed). Two 48pt FABs flank a 34pt Large Title/Emphasized
-            ETA in freshgreen. The ETA is wrapped in a flex:1 column
+            ETA. The number renders in label/black for WCAG AA-large
+            contrast (freshgreen-on-white is 2.9:1, fails 3:1) — the
+            brand presence on this sheet comes from the route polyline
+            and the recommended-route badge, not the ETA number. The
+            ETA is wrapped in a flex:1 column
             that takes the remaining width — the FABs are intrinsic-
             sized, so the ETA centers between them regardless of which
             iconography lands on each side.
@@ -1391,7 +1395,7 @@ const styles = StyleSheet.create({
   },
   eta: {
     ...typography.largeTitleEmphasized,
-    color: colors.freshgreen,
+    color: colors.black,
   },
   // Body/Emphasized 17pt per Figma 364:3133/3135 — bumped from v1's
   // 15pt Subheadline. Distance + duration both emphasized; the "·"
