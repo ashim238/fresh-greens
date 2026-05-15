@@ -286,6 +286,34 @@ export default function Home() {
     [],
   );
 
+  // PanResponder for the route-preview bottom sheet: swipe right
+  // (or down — both common "dismiss" gestures) clears the
+  // destination and returns the sheet to browse mode. Extra
+  // affordance alongside the X button on the "About X to Y" row,
+  // so users who reach for a gesture instead of the button still
+  // get a way out.
+  //
+  // Threshold: 60pt minimum, with the dominant axis check (|dx| >
+  // |dy| × 1.2 for swipe right, |dy| > |dx| × 1.2 for swipe down).
+  // That stops the gesture from triggering on micro-jitters or on
+  // gestures that are mostly the other direction.
+  const routeSheetSwipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) =>
+          Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8,
+        onPanResponderRelease: (_, g) => {
+          const isRightSwipe = g.dx > 60 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2;
+          const isDownSwipe = g.dy > 60 && Math.abs(g.dy) > Math.abs(g.dx) * 1.2;
+          if (isRightSwipe || isDownSwipe) {
+            Haptics.selectionAsync().catch(() => {});
+            router.replace({ pathname: '/home', params: {} });
+          }
+        },
+      }),
+    [router],
+  );
+
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
   // when leaving later actually buys more daylight (currently: pre-dawn
   // departures). `null` hides the chip — see lib/daylight.ts for rules.
@@ -833,7 +861,19 @@ export default function Home() {
         rather than the map's native layer. pointerEvents="box-none"
         keeps taps falling through to the map elsewhere.
       */}
-      {mapRegion && mapSize && (
+      {mapRegion && mapSize && (() => {
+        // Chrome-aware insets: edge markers shouldn't land under the
+        // search bar / menu button stack (top), the Report/Recenter
+        // FAB stack (right), or the bottom sheet. Bottom uses the
+        // measured sheet height + a buffer that clears the FAB
+        // stack above it.
+        const chromeInsets = {
+          top: 220,          // search bar (~70+56) + menu button (~56+12 gap) + buffer
+          right: 88,         // FAB column right:16 + 56pt width + buffer
+          bottom: (bottomSheetHeight || 0) + 64,
+          left: 32,
+        };
+        return (
         <View style={styles.edgeOverlay} pointerEvents="box-none">
           {(() => {
             const offScreen = reportZones
@@ -845,7 +885,7 @@ export default function Home() {
               )
               .map((zone) => ({
                 item: zone,
-                edge: edgePositionForPoint(zone.coordinates[0], mapRegion, mapSize),
+                edge: edgePositionForPoint(zone.coordinates[0], mapRegion, mapSize, chromeInsets),
               }));
             const groups = groupEdgeIndicators(offScreen);
             return groups.map((group, i) => {
@@ -905,7 +945,7 @@ export default function Home() {
           })()}
           {home && !isPointInRegion(home, mapRegion) && (
             (() => {
-              const edge = edgePositionForPoint(home, mapRegion, mapSize);
+              const edge = edgePositionForPoint(home, mapRegion, mapSize, chromeInsets);
               return (
                 <EdgeIndicator
                   x={edge.x}
@@ -943,7 +983,7 @@ export default function Home() {
                 latitude: trustedContact.latitude!,
                 longitude: trustedContact.longitude!,
               };
-              const edge = edgePositionForPoint(point, mapRegion, mapSize);
+              const edge = edgePositionForPoint(point, mapRegion, mapSize, chromeInsets);
               return (
                 <EdgeIndicator
                   x={edge.x}
@@ -966,7 +1006,8 @@ export default function Home() {
               );
             })()}
         </View>
-      )}
+        );
+      })()}
 
       {/*
         Top overlay: search bar + menu button. pointerEvents="box-none"
@@ -1077,7 +1118,7 @@ export default function Home() {
             }}
           />
         ) : (
-          <>
+          <View {...routeSheetSwipeResponder.panHandlers}>
         <View style={styles.bottomSheetContent}>
           <View style={styles.headers}>
             <View style={styles.greetingRow}>
@@ -1250,7 +1291,7 @@ export default function Home() {
             <Text style={styles.goText}>Go</Text>
           </Pressable>
         </View>
-          </>
+          </View>
         )}
       </SafeAreaView>
 

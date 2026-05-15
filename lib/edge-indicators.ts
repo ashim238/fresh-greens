@@ -60,15 +60,34 @@ export function isPointInRegion(point: LatLng, region: Region): boolean {
  * compute the bearing in screen pixels and clamp to the viewport
  * rectangle inset by `padding`.
  *
- * `padding` keeps the indicator off the absolute edge — useful for
- * notches, status bars, and just visually pleasant breathing room.
+ * `insets` keeps the indicator off the absolute edge. Either a
+ * uniform number (legacy callers) or per-side `{ top, right,
+ * bottom, left }` for screens with asymmetric chrome — /home, for
+ * example, has the search bar + menu button stacked at the top and
+ * the Report/Recenter FAB stack on the right, so edge markers
+ * landing in those regions would render BEHIND the chrome and read
+ * as missing. Per-side insets push markers off those zones while
+ * still letting them sit close to the unobstructed edges.
  */
+export type EdgeInsets = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
+
 export function edgePositionForPoint(
   point: LatLng,
   region: Region,
   viewport: ViewportSize,
-  padding = 32,
+  insets: EdgeInsets | number = 32,
 ): EdgePosition {
+  // Normalize the legacy number form to a uniform inset object.
+  const i: EdgeInsets =
+    typeof insets === 'number'
+      ? { top: insets, right: insets, bottom: insets, left: insets }
+      : insets;
+
   // Convert point to screen-space relative to viewport center.
   // 1° of lat ≈ 1° of region.latitudeDelta = full viewport height.
   // Ditto for longitude.
@@ -78,12 +97,15 @@ export function edgePositionForPoint(
   const dx = (dxLng / region.longitudeDelta) * viewport.width;
   const dy = -(dyLat / region.latitudeDelta) * viewport.height;
 
-  // Rectangle clamp: scale (dx, dy) so the result lands on the
-  // padded viewport edge. The half-extents are (W/2 - padding,
-  // H/2 - padding); the scale factor is the smaller of how far we'd
-  // travel along each axis to hit its respective edge.
-  const halfW = viewport.width / 2 - padding;
-  const halfH = viewport.height / 2 - padding;
+  // Rectangle clamp with per-side extents. The bearing's sign picks
+  // which side it hits (right vs left for dx; bottom vs top for dy),
+  // and the corresponding inset shortens that side's half-extent.
+  const halfW = dx >= 0
+    ? viewport.width / 2 - i.right
+    : viewport.width / 2 - i.left;
+  const halfH = dy >= 0
+    ? viewport.height / 2 - i.bottom
+    : viewport.height / 2 - i.top;
   const tx = halfW / Math.abs(dx || 1e-9);
   const ty = halfH / Math.abs(dy || 1e-9);
   const t = Math.min(tx, ty);
