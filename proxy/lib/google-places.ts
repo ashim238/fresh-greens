@@ -109,7 +109,14 @@ function searchTextFor(category: RecommendationCategory): string | null {
     case 'late-night-warm-welcome':
       return 'late night restaurant or bar';
     case 'restroom':
-      return null; // handled by OSM adapter
+      // Was OSM Overpass (handled separately) — switched to Google
+      // Places to surface real business names instead of clinical
+      // "Public restroom" labels. The OSM data has good coverage
+      // for truly public toilets but lacks business names. Google
+      // surfaces restroom-providing venues (gas stations, libraries,
+      // parks) by name, which is what the driver actually wants to
+      // recognize from the card.
+      return 'public restroom or open restroom';
     default:
       return null;
   }

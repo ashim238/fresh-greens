@@ -489,11 +489,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   photoWrap: {
-    // Square photo (Figma 1133:13554 — 280×280 inside a 328 card,
-    // here scaled to 248×248 inside a 280 card). Photo fills the
-    // card width minus the 16pt padding on each side.
+    // Mobile-density override of Figma 1133:13554's 1:1 photo.
+    // The square design works on a wide canvas; on iPhone, a 248pt
+    // square + 200pt of card body + 32pt of padding overflowed the
+    // sheet's available vertical space (~510pt on a 6.1" device).
+    // 4:3 keeps the rectangular spirit and the title/tag rows
+    // visible without scrolling inside the card.
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 4 / 3,
     borderRadius: 8,
     overflow: 'hidden',
     alignSelf: 'center',
