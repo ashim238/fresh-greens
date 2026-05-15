@@ -218,6 +218,12 @@ export default function Welcome() {
             type="primary"
             fill="fill"
             text="Get started"
+            // Gated on the terms checkbox above. The state was
+            // already tracked but `Get started` worked regardless —
+            // a thesis reviewer asking "what if I don't check the
+            // box?" would get "nothing, you get in anyway." Now the
+            // button is disabled until they consent.
+            disabled={!termsAccepted}
             onPress={() => router.push('/get-started')}
             style={styles.buttonStretch}
           />

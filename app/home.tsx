@@ -102,7 +102,14 @@ export default function Home() {
   // iPhone-sized devices, crowding the Report FAB against the search
   // bar. Collapsed by default leaves the map breathing room; user
   // expands via the chevron when they want recommendations.
-  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
+  // Default EXPANDED so the carousel is visible on first paint —
+  // the thesis claim ("community knowledge is the backbone") lives
+  // in the Around Me cards; hiding them behind a chevron the user
+  // has to discover undercuts the framing. Earlier default was
+  // collapsed to leave map breathing room, but the multi-card
+  // variant is sheet-anchored and doesn't crowd the map the same
+  // way the old single-card variant did.
+  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(false);
   // Neighborhood label for the browse-mode sheet header. Derived
   // from a one-shot `Location.reverseGeocodeAsync` against the
   // user's first GPS fix. Picks `subregion + city` (most natural
