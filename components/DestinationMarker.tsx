@@ -22,11 +22,13 @@ export type DestinationVariant = 'home' | 'enroute';
  *
  * **`tracksViewChanges` lifecycle.** Mounts with `true` so MapKit's
  * snapshot captures the SVG subtree once it paints, then flips to
- * `false` on the next tick so subsequent zoom/pan transitions don't
- * pay the re-render cost. Same pattern as `EnRouteCarMarker`. With
- * `false` from t=0, MapKit can snapshot before the SVG resolves and
- * the marker renders empty — visible as "marker disappears when I
- * zoom" because the cached empty bitmap is what gets drawn.
+ * `false` after a 50ms settle so subsequent zoom/pan transitions
+ * don't pay the re-render cost. Same pattern as `EnRouteCarMarker`.
+ * With `false` from t=0 (or even setTimeout(0)), MapKit can snapshot
+ * before native paint resolves and the marker renders empty —
+ * visible as "destination marker lags in" or "disappears when I
+ * zoom" because the cached empty bitmap is what gets drawn. 50ms
+ * ≈ 3 frames covers layout + paint + style commit reliably.
  */
 export function DestinationMarker({
   latitude,
@@ -50,12 +52,12 @@ export function DestinationMarker({
       ? { x: 0.5, y: 1 }
       : { x: 10.5 / 48, y: 41 / 48 };
 
-  // Track-until-first-paint — see header note for the why. setTimeout(0)
-  // (rAF-equivalent) is enough: by the next tick, the bundled SVG has
-  // painted and MapKit's snapshot captures it correctly.
+  // Track-until-first-paint — see header note for the why. 50ms gives
+  // the SVG subtree time to paint and the View tree time to commit
+  // before MapKit caches the bitmap.
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
-    const id = setTimeout(() => setTracking(false), 0);
+    const id = setTimeout(() => setTracking(false), 50);
     return () => clearTimeout(id);
   }, []);
 

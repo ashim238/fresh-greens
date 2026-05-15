@@ -206,16 +206,26 @@ export function LandmarkMarker({
 }) {
   const variant = variantForCategoryId(categoryId);
 
-  // Track-until-first-paint. Also re-snapshots when `selected` flips,
+  // Track-until-first-paint. Also re-snapshots when `selected` flips
   // so MapKit captures the new scaled bitmap rather than rendering a
   // stale snapshot of the previous state. SVG-content markers mounted
   // with `tracksViewChanges={false}` from t=0 race the react-native-svg
-  // subtree's paint and MapKit can snapshot empty bitmaps. Same
-  // pattern as EnRouteCarMarker.
+  // subtree's paint and MapKit can snapshot empty bitmaps.
+  //
+  // Settle delay is 50ms (≈3 frames), not setTimeout(0). setTimeout(0)
+  // fires in the next macrotask, *before* native paint — for the
+  // selected→unselected transition specifically, the scale=1.33 →
+  // scale=1.0 transform hadn't committed yet when MapKit snapshotted,
+  // so the marker stayed visually "stuck" at the previous scale even
+  // after deselect. 50ms covers layout + paint + style commit on
+  // both iOS and Android without a perceptible flicker. On rapid
+  // taps across markers, each effect's cleanup clears the pending
+  // timeout, so `tracking` stays true while taps continue and only
+  // settles 50ms after the last tap — all snapshots end up correct.
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
     setTracking(true);
-    const id = setTimeout(() => setTracking(false), 0);
+    const id = setTimeout(() => setTracking(false), 50);
     return () => clearTimeout(id);
   }, [selected]);
 

@@ -27,10 +27,12 @@ import EnRouteCurrentLocation from '../assets/illustrations/enroute-current-loca
  * caused the SVG to snapshot empty (the `react-native-svg` subtree
  * hadn't resolved yet), leaving an invisible marker. Fix: start
  * `true` so the marker re-renders while the SVG paints, then flip to
- * `false` on the next frame so subsequent rotation re-renders aren't
- * paid for. The consumer also re-mounts the marker via a heading-
- * derived `key` (Math.round(heading)) when heading changes
- * meaningfully — that path stays the same.
+ * `false` after a 50ms settle so subsequent rotation re-renders
+ * aren't paid for. setTimeout(0) (next macrotask) fires before
+ * native paint commits and isn't enough; 50ms ≈ 3 frames covers
+ * layout + paint + commit reliably. The consumer also re-mounts the
+ * marker via a heading-derived `key` (Math.round(heading)) when
+ * heading changes meaningfully — that path stays the same.
  */
 export function EnRouteCarMarker({
   latitude,
@@ -45,10 +47,9 @@ export function EnRouteCarMarker({
   const rotation = heading ?? 0;
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
-    // One-shot flip after first paint. Using rAF via setTimeout(0) is
-    // enough — by the next tick, the SVG subtree has painted and
-    // MapKit's snapshot will pick it up.
-    const id = setTimeout(() => setTracking(false), 0);
+    // One-shot flip after first paint. 50ms gives the SVG subtree time
+    // to paint and native to commit before MapKit caches the bitmap.
+    const id = setTimeout(() => setTracking(false), 50);
     return () => clearTimeout(id);
   }, []);
   return (

@@ -60,14 +60,15 @@ export function UserLocationMarker({
   // Track-until-first-paint. With `tracksViewChanges={false}` from
   // t=0, MapKit's marker snapshot was racing the View tree's paint;
   // on zoom re-evaluations the marker could disappear when MapKit
-  // re-rasterized a cached-but-empty bitmap. Flipping to false on
-  // the next tick gives the View time to paint, then locks in the
-  // snapshot. (The pulse stops animating once we stop tracking —
+  // re-rasterized a cached-but-empty bitmap. 50ms ≈ 3 frames gives
+  // the View tree time to paint and commit before MapKit caches the
+  // bitmap — setTimeout(0) fires before native paint and isn't
+  // enough. (The pulse stops animating once we stop tracking —
   // acceptable trade for a marker that actually renders. The pulse
   // is decorative; the dot is the load-bearing affordance.)
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
-    const id = setTimeout(() => setTracking(false), 0);
+    const id = setTimeout(() => setTracking(false), 50);
     return () => clearTimeout(id);
   }, []);
 
