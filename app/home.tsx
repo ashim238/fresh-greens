@@ -454,24 +454,20 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // Immediate visual: clear the route polylines if there's no
+    // destination, BEFORE we await any I/O below. Pairs with the
+    // camera-animation skip further down so the X tap gives instant
+    // feedback (no ~1s perceived delay while we re-do location
+    // permission + GPS fetch + re-center).
+    if (!params.destLat || !params.destLng) {
+      setRawRoutes([]);
+    }
+
     let cancelled = false;
 
     async function fetchAndCenterOnUser() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (cancelled || status !== 'granted') return;
-
-      const location = await Location.getCurrentPositionAsync({});
-      if (cancelled) return;
-
-      const center = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-
-      mapRef.current?.animateToRegion(
-        { ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 },
-        1000,
-      );
 
       // Destination only comes from URL params (set by the search
       // screen). On first open / browse mode, no destination is set
@@ -486,6 +482,25 @@ export default function Home() {
               longitude: parseFloat(params.destLng),
             }
           : null;
+
+      const location = await Location.getCurrentPositionAsync({});
+      if (cancelled) return;
+
+      const center = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+
+      // Only animate the camera when a destination is set — re-running
+      // this effect on destination CLEAR (X tap) shouldn't yank the
+      // user's map back to their location. That 1000ms re-center was
+      // the perceived delay between "tapped X" and "map looks right."
+      if (destination) {
+        mapRef.current?.animateToRegion(
+          { ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 },
+          1000,
+        );
+      }
 
       // Fire fetches in parallel where applicable. Routes are skipped
       // entirely when there's no destination (rawRoutes stays []).
@@ -1129,8 +1144,15 @@ export default function Home() {
         paints over the placement bar even when the bar is the only
         thing meant to be visible. Conditional unmount is simpler
         than juggling zIndex per phase.
+
+        Also hide while the ReportDetailCard is open — that card is
+        ITSELF a bottom sheet (slides up, rounded top, same shadow
+        depth). Stacking it on the browse sheet read as "two cards
+        stacked," which is what the user saw and flagged. The
+        ReportDetailCard owns the bottom-of-screen affordance while
+        a report is selected.
       */}
-      {!placingReport && <SafeAreaView
+      {!placingReport && !selectedReport && <SafeAreaView
         style={styles.bottomSheet}
         edges={['bottom']}
         onLayout={(e) => {
