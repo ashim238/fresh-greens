@@ -101,7 +101,11 @@ function searchTextFor(category: RecommendationCategory): string | null {
     case 'women-owned':
       return 'women-owned business';
     case 'lgbtq-welcoming':
-      return 'LGBTQ+ friendly';
+      // "LGBTQ+ friendly" alone returns 0 results in smaller markets
+      // (tested in Mobile, AL) because Google indexes the phrase
+      // narrowly. Broader query catches both venues + businesses
+      // that have self-identified as welcoming/inclusive.
+      return 'LGBTQ inclusive bar restaurant or shop';
     case 'late-night-warm-welcome':
       return 'late night restaurant or bar';
     case 'restroom':
