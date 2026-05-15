@@ -8,7 +8,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -431,6 +431,23 @@ export default function EnRoute() {
       (params.destEstMinutes ? parseFloat(params.destEstMinutes) : NaN);
     return Number.isFinite(m) ? m : null;
   }, [recommended, params.destEstMinutes]);
+
+  // Announce the route-loaded state once for screen reader users.
+  // Apple Maps speaks each route recalc; we get the smaller version
+  // of the same affordance — when the OSRM fetch resolves and the
+  // ETA/duration land, VoiceOver reads "Route loaded, X minutes."
+  // Fires once on first non-null duration (a `useRef` flag could
+  // avoid the dependency array doing this implicitly, but the
+  // `routeAnnouncedRef` pattern below makes the intent explicit).
+  const routeAnnouncedRef = useRef(false);
+  useEffect(() => {
+    if (routeAnnouncedRef.current) return;
+    if (durationMinutes == null) return;
+    routeAnnouncedRef.current = true;
+    AccessibilityInfo.announceForAccessibility(
+      `Route loaded, ${formatDuration(durationMinutes)} to ${params.destName ?? 'your destination'}.`,
+    );
+  }, [durationMinutes, params.destName]);
 
   // User's current location, captured once on mount and used as the map's
   // initial focus. Real driving would update continuously via watchPosition
@@ -1007,7 +1024,16 @@ export default function EnRoute() {
                 on the time defends against any locale-format expansion.
               */}
               <View style={styles.etaIconSpacer} />
-              <Text style={styles.eta} numberOfLines={1}>
+              <Text
+                style={styles.eta}
+                numberOfLines={1}
+                // accessibilityLiveRegion="polite" lets TalkBack
+                // re-announce the ETA when it updates after rerouting
+                // — Apple Maps speaks every route recalc; this is the
+                // text-region equivalent on Android.
+                accessibilityLiveRegion="polite"
+                accessibilityLabel={`Arrival time ${arrivalDisplay.time}${arrivalDisplay.isNight ? ', after dark' : ', in daylight'}`}
+              >
                 {arrivalDisplay.time}
               </Text>
               {arrivalDisplay.isNight ? (

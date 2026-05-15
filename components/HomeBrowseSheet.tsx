@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useRecommendations } from '../hooks/useRecommendations';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import type {
   Recommendation,
   RecommendationCategory,
@@ -59,6 +60,7 @@ export function HomeBrowseSheet({
   const [category, setCategory] = useState<RecommendationCategory>('black-owned');
   const { recommendations } = useRecommendations({ category });
   const featured = recommendations[0] ?? null;
+  const reduceMotion = useReduceMotion();
 
   // Eyebrow copy — when we have the user's first name, render the
   // possessive ("Jordan's Local Recs 💃🏾"). With no name (signed-out
@@ -87,22 +89,27 @@ export function HomeBrowseSheet({
         category={category}
         onChange={(next) => {
           // Smooth re-layout when the card refreshes with a different
-          // category's recommendation. Keeps the chip-tap → card-update
-          // transition from feeling abrupt.
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          // category's recommendation. Skip the animation when the
+          // user has Reduce Motion on — the state change still
+          // happens, only the transition is suppressed.
+          if (!reduceMotion) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          }
           setCategory(next);
         }}
       />
 
       <Pressable
         onPress={() => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          if (!reduceMotion) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          }
           onToggleCollapsed();
         }}
         accessibilityRole="button"
         accessibilityLabel={collapsed ? `Show ${categoryLabel} recommendations` : `Hide ${categoryLabel} recommendations`}
         accessibilityState={{ expanded: !collapsed }}
-        hitSlop={8}
+        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
       >
         <Text style={styles.sectionTitle}>Things to Do: {categoryLabel}</Text>
