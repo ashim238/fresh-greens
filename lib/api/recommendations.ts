@@ -99,6 +99,14 @@ export type Recommendation = {
    * Multi-card variant as the "0.7 mi away" pill (Figma 1133:13614).
    */
   distanceMiles?: number;
+  /**
+   * Google Places photo *name* (e.g. `places/X/photos/Y`) for the
+   * card's hero image. Rendered by the card via the proxy's
+   * `/api/photo?name=...` endpoint. Undefined for curated/community
+   * entries (no upstream photo) — card falls back to the
+   * category-glyph placeholder.
+   */
+  photoName?: string;
 };
 
 // --- Public surface ------------------------------------------------------

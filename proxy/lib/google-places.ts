@@ -42,11 +42,11 @@ const FIELD_MASK = [
   'places.userRatingCount',
   'places.regularOpeningHours.openNow',
   'places.regularOpeningHours.weekdayDescriptions',
-  // Identity attributes — these are the fields that make this whole
-  // adapter worth wiring. They may be absent on places that haven't
-  // self-identified; the filter below drops anything without the
-  // matching flag.
-  'places.evChargeOptions', // smoke test field
+  // Photos — only the `name` field is enough to construct the
+  // /v1/{name}/media URL later. Don't request `photoUri` directly
+  // since that returns a redirect URL that gets stale; resolving
+  // via /api/photo at view time is more reliable.
+  'places.photos.name',
 ].join(',');
 
 type GooglePlace = {
@@ -63,6 +63,7 @@ type GooglePlace = {
     openNow?: boolean;
     weekdayDescriptions?: string[];
   };
+  photos?: Array<{ name: string }>;
 };
 
 type SearchNearbyResponse = {
@@ -193,6 +194,7 @@ export async function fetchGooglePlaces(
           hoursLabel: p.regularOpeningHours?.weekdayDescriptions?.[0],
           isOpen: p.regularOpeningHours?.openNow,
           region: 'external',
+          photoName: p.photos?.[0]?.name,
         };
       })
       .filter((r): r is Recommendation => r !== null);

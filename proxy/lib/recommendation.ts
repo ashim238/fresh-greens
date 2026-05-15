@@ -34,4 +34,13 @@ export type Recommendation = {
   hoursLabel?: string;
   isOpen?: boolean;
   region: string;
+  /**
+   * Google Places photo *name* (e.g. `places/XYZ/photos/ABC`) for
+   * the place's hero image. The app fetches the actual image via
+   * the proxy's `/api/photo` endpoint, which holds the API key and
+   * forwards Google's redirect to the signed CDN URL. Undefined
+   * when the upstream returned no photos (or for OSM-sourced
+   * entries — OSM nodes don't carry images).
+   */
+  photoName?: string;
 };

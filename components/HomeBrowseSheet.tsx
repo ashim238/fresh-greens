@@ -9,10 +9,11 @@ import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { useState } from 'react';
-import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useRecommendations } from '../hooks/useRecommendations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useWeather } from '../hooks/useWeather';
 import type {
   Recommendation,
   RecommendationCategory,
@@ -93,7 +94,7 @@ export function HomeBrowseSheet({
           <Text style={styles.neighborhood} numberOfLines={1}>
             {neighborhoodLabel ?? 'Your area'}
           </Text>
-          <WeatherDrivingCard />
+          <WeatherDrivingCard userLocation={userLocation} />
         </View>
       </View>
 
@@ -252,16 +253,35 @@ function CategoryChips({
 
 // --- Weather card --------------------------------------------------------
 
-function WeatherDrivingCard() {
+function WeatherDrivingCard({
+  userLocation,
+}: {
+  userLocation?: { latitude: number; longitude: number } | null;
+}) {
+  const { weather } = useWeather(userLocation);
+  // Fall back to a sensible placeholder until the first API
+  // response lands. The card never disappears — it's read at a
+  // glance and "missing weather" reads worse than "loading-state
+  // weather." 66°/Moderate was the prior hardcoded mock.
+  const temp = weather ? `${weather.temperatureF}°` : '—°';
+  const condition = weather ? weather.drivingLabel : '—';
+
   return (
-    <View style={styles.weatherCard} accessibilityLabel="66 degrees, moderate driving conditions">
+    <View
+      style={styles.weatherCard}
+      accessibilityLabel={
+        weather
+          ? `${weather.temperatureF} degrees, ${weather.drivingLabel.toLowerCase()} driving conditions`
+          : 'Loading weather'
+      }
+    >
       <View style={styles.weatherRow}>
         <CloudSun size={16} color={colors.labelSecondary} weight="fill" />
-        <Text style={styles.weatherText}>66°</Text>
+        <Text style={styles.weatherText}>{temp}</Text>
       </View>
       <View style={styles.weatherRow}>
         <SteeringWheel size={16} color={colors.labelSecondary} weight="fill" />
-        <Text style={styles.weatherText}>Moderate</Text>
+        <Text style={styles.weatherText}>{condition}</Text>
       </View>
     </View>
   );
@@ -328,9 +348,17 @@ function RecommendationCard({
       style={({ pressed }) => [styles.card, pressed && pressedDim]}
     >
       <View style={styles.photoWrap}>
-        <View style={styles.photoPlaceholder} accessibilityIgnoresInvertColors>
-          <PhotoPlaceholderGlyph category={r.category} />
-        </View>
+        {r.photoName ? (
+          <Image
+            source={{ uri: `${PROXY_PHOTO_BASE}?name=${encodeURIComponent(r.photoName)}&max=560` }}
+            style={styles.photoImage}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <View style={styles.photoPlaceholder} accessibilityIgnoresInvertColors>
+            <PhotoPlaceholderGlyph category={r.category} />
+          </View>
+        )}
         {quoteText ? (
           <View style={styles.quoteCallout}>
             <ChatCircle size={16} color={colors.wiltedgreen} weight="fill" />
@@ -461,6 +489,14 @@ function EmptyState({ categoryLabel }: { categoryLabel: string }) {
 // viewport with comfortable peek room.
 export const CARD_WIDTH = 280;
 export const CARD_GAP = 12;
+
+// Mirrors the proxy URL constant in `lib/api/recommendations.ts`.
+// The recs adapter and the photo loader both call the same proxy
+// origin; if the env var moves we update both. Could lift to a
+// shared `lib/proxy.ts` once a third consumer needs it.
+const PROXY_PHOTO_BASE =
+  (process.env.EXPO_PUBLIC_PROXY_BASE_URL ?? 'https://fresh-greens-proxy.vercel.app') +
+  '/api/photo';
 
 const styles = StyleSheet.create({
   content: {
@@ -600,6 +636,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fadedgreen,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.fadedgreen, // shows during image load
   },
   quoteCallout: {
     position: 'absolute',
