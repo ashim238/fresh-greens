@@ -9,14 +9,17 @@
 //      1936–67. The curator name + quote do the rhetorical work
 //      that an algorithmic "top results near you" can't.
 //
-//   2. **Community reports** (`getCommunityReportsAsRecommendations`
-//      below — filters `lib/api/community-reports.ts` for matching
-//      categories). The peer-knowledge layer: when a user submits a
-//      black-owned place via /report, it surfaces here too. Only
-//      `black-owned` currently flows through this path; expanding
-//      ReportCategoryId to cover women-owned / LGBTQ+ / restroom /
-//      late-night-warm-welcome is the v2 follow-up that closes
-//      the cross-category community contribution loop.
+//   2. **Community reports** (`getCommunityRecommendations` below
+//      — reads `lib/api/community-reports.ts`). The peer-knowledge
+//      layer: every Around Me chip is fed by community submissions.
+//      Routing:
+//        - `categoryId === 'black-owned'` → black-owned chip
+//        - `categoryId === 'felt-welcome'` with an identity subTag
+//          (`Women-owned`, `LGBTQ+ welcoming`, `Open restroom`,
+//          `Late-night welcome`) → matching identity chip
+//      That keeps the /report picker at 6 tiles while still letting
+//      community knowledge feed all 5 browse-sheet chips — the
+//      thesis-claim loop closed at the data layer, not the picker.
 //
 //   3. **External feed** (`getExternalRecommendations` — stub
 //      below, returns []). Documented integration point for a
@@ -131,36 +134,81 @@ async function getCuratedRecommendations(
 
 /**
  * Maps community reports → Recommendation[] for the matching
- * categories. v1: only `black-owned` ReportCategoryId flows through
- * (the other four recommendation categories don't have matching
- * report types yet). v2: expand ReportCategoryId to add
- * `women-owned`, `lgbtq-welcoming`, `restroom`, and a
- * `felt-welcome-late` subtype, then route them here.
+ * browse-sheet chip. Routing rules:
+ *
+ *   - `categoryId === 'black-owned'` → `black-owned` chip (always).
+ *   - `categoryId === 'felt-welcome'` AND `subTag` is one of the
+ *     identity tags (`Women-owned` / `LGBTQ+ welcoming` /
+ *     `Open restroom` / `Late-night welcome`) → that identity's chip.
+ *   - Any other felt-welcome submission doesn't surface in the
+ *     browse-sheet recommendations — it still drops as a marker on
+ *     the map, but its place-type subTag isn't enough to claim a
+ *     chip.
+ *
+ * Closes the thesis-claim loop: community submissions now feed every
+ * Around Me chip (not just black-owned), routed via the identity
+ * subTag the contributor picked on /report.
  */
+type FeltWelcomeIdentitySubTag =
+  | 'Women-owned'
+  | 'LGBTQ+ welcoming'
+  | 'Open restroom'
+  | 'Late-night welcome';
+
+const IDENTITY_SUBTAG_TO_REC_CATEGORY: Record<
+  FeltWelcomeIdentitySubTag,
+  RecommendationCategory
+> = {
+  'Women-owned': 'women-owned',
+  'LGBTQ+ welcoming': 'lgbtq-welcoming',
+  'Open restroom': 'restroom',
+  'Late-night welcome': 'late-night-warm-welcome',
+};
+
+const FALLBACK_NAME_BY_REC_CATEGORY: Record<RecommendationCategory, string> = {
+  'black-owned': 'Community-reported black-owned business',
+  'women-owned': 'Community-reported women-owned place',
+  'lgbtq-welcoming': 'Community-flagged LGBTQ+ welcoming place',
+  restroom: 'Community-shared open restroom',
+  'late-night-warm-welcome': 'Community-shared late-night welcome',
+};
+
+function recCategoryForReport(
+  categoryId: string,
+  subTag: string | undefined,
+): RecommendationCategory | null {
+  if (categoryId === 'black-owned') return 'black-owned';
+  if (categoryId === 'felt-welcome' && subTag) {
+    return IDENTITY_SUBTAG_TO_REC_CATEGORY[subTag as FeltWelcomeIdentitySubTag] ?? null;
+  }
+  return null;
+}
+
 async function getCommunityRecommendations(
   query: RecommendationQuery,
 ): Promise<Recommendation[]> {
-  // Optimization: only community-reports for `black-owned` currently
-  // contribute. If the caller filtered to a different category, skip
-  // the AsyncStorage read entirely.
-  if (query.category && query.category !== 'black-owned') return [];
-
   try {
     const reports = await getCommunityReports();
     return reports
-      .filter((r) => r.categoryId === 'black-owned')
-      .map((r): Recommendation => ({
-        id: `community-${r.id}`,
-        source: 'community',
-        category: 'black-owned',
-        name: r.subTag ?? 'Community-reported black-owned business',
-        address: '',
-        latitude: r.location.latitude,
-        longitude: r.location.longitude,
-        categoryLabel: r.subTag ?? 'Place',
-        region: 'detected', // v1 doesn't reverse-geocode reports
-        reportDetail: r.detail,
-      }));
+      .map((r) => {
+        const recCategory = recCategoryForReport(r.categoryId, r.subTag);
+        if (!recCategory) return null;
+        if (query.category && recCategory !== query.category) return null;
+        const rec: Recommendation = {
+          id: `community-${r.id}`,
+          source: 'community',
+          category: recCategory,
+          name: r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[recCategory],
+          address: '',
+          latitude: r.location.latitude,
+          longitude: r.location.longitude,
+          categoryLabel: r.subTag ?? 'Place',
+          region: 'detected', // v1 doesn't reverse-geocode reports
+          reportDetail: r.detail,
+        };
+        return rec;
+      })
+      .filter((r): r is Recommendation => r !== null);
   } catch {
     return [];
   }
