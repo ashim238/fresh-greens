@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.freshgreens.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,8 +29,13 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "plugins": [
       "expo-router",
+      "expo-updates",
+      "expo-dev-client",
       [
         "expo-location",
         {
