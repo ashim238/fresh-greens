@@ -14,12 +14,15 @@ import { Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View }
 import { useRecommendations } from '../hooks/useRecommendations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useWeather } from '../hooks/useWeather';
+import { formatDistanceAway } from '../lib/format';
+import { PROXY_PHOTO_URL } from '../lib/proxy';
 import type {
   Recommendation,
   RecommendationCategory,
 } from '../lib/api/recommendations';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -333,7 +336,7 @@ function RecommendationCard({
       : null,
     r.isOpen === true ? 'Open now' : r.isOpen === false ? 'Closed' : null,
     r.hoursLabel,
-    r.distanceMiles != null ? formatDistanceMiles(r.distanceMiles) : null,
+    r.distanceMiles != null ? formatDistanceAway(r.distanceMiles) : null,
     quoteText ? `${r.curatorName ? `${r.curatorName} says` : 'Note'}: ${quoteText}` : null,
   ]
     .filter(Boolean)
@@ -350,7 +353,7 @@ function RecommendationCard({
       <View style={styles.photoWrap}>
         {r.photoName ? (
           <Image
-            source={{ uri: `${PROXY_PHOTO_BASE}?name=${encodeURIComponent(r.photoName)}&max=560` }}
+            source={{ uri: `${PROXY_PHOTO_URL}?name=${encodeURIComponent(r.photoName)}&max=560` }}
             style={styles.photoImage}
             accessibilityIgnoresInvertColors
           />
@@ -401,7 +404,7 @@ function RecommendationCard({
           ) : null}
           {r.distanceMiles != null ? (
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{formatDistanceMiles(r.distanceMiles)}</Text>
+              <Text style={styles.tagText}>{formatDistanceAway(r.distanceMiles)}</Text>
             </View>
           ) : null}
         </View>
@@ -451,18 +454,6 @@ function RecommendationCardSkeleton() {
   );
 }
 
-/**
- * "0.7 mi away" / "12 mi away" — same pattern as the en-route
- * distance pill but mile-only (no metric switch). Decimal under
- * 10mi, rounded whole above. Below 0.1mi reads as "<0.1 mi away"
- * (we don't promise pedestrian precision at GPS scale).
- */
-function formatDistanceMiles(miles: number): string {
-  if (miles < 0.1) return '<0.1 mi away';
-  if (miles < 10) return `${miles.toFixed(1)} mi away`;
-  return `${Math.round(miles)} mi away`;
-}
-
 // --- Empty state ---------------------------------------------------------
 
 function EmptyState({ categoryLabel }: { categoryLabel: string }) {
@@ -489,14 +480,6 @@ function EmptyState({ categoryLabel }: { categoryLabel: string }) {
 // viewport with comfortable peek room.
 export const CARD_WIDTH = 280;
 export const CARD_GAP = 12;
-
-// Mirrors the proxy URL constant in `lib/api/recommendations.ts`.
-// The recs adapter and the photo loader both call the same proxy
-// origin; if the env var moves we update both. Could lift to a
-// shared `lib/proxy.ts` once a third consumer needs it.
-const PROXY_PHOTO_BASE =
-  (process.env.EXPO_PUBLIC_PROXY_BASE_URL ?? 'https://fresh-greens-proxy.vercel.app') +
-  '/api/photo';
 
 const styles = StyleSheet.create({
   content: {
@@ -597,11 +580,9 @@ const styles = StyleSheet.create({
     // wasting vertical space.
     padding: 16,
     gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.18,
-    shadowRadius: 2,
-    elevation: 2,
+    // M3 Elevation 1 — chrome over map. Theme tier so the card,
+    // FAB stack, and ETA pill all read at the same depth.
+    ...shadows.e1,
   },
   cardSkeleton: {
     // Slightly muted shadow on the skeleton so it doesn't draw the
@@ -652,11 +633,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: colors.white,
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
+    ...shadows.e1,
   },
   quoteText: {
     ...typography.caption1Regular,

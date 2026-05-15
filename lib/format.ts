@@ -33,6 +33,24 @@ export function formatDistance(miles: number): string {
 }
 
 /**
+ * "X mi away" — recommendation-card proximity pill. Distinct from
+ * `formatDistance` (trip metric) because the card variant:
+ *   - Floors at 0.1mi as "<0.1 mi away" (GPS at urban density isn't
+ *     precise enough to promise sub-tenth granularity to a driver)
+ *   - Rounds to a whole at 10mi (not 1000) — Around Me cards
+ *     surface places within ~10mi, so the decimal is meaningful
+ *     under 10 and noise above it
+ *   - Adds the "away" suffix that the en-route variant doesn't
+ *     need (en-route distance reads as a trip metric, not a
+ *     proximity statement)
+ */
+export function formatDistanceAway(miles: number): string {
+  if (miles < 0.1) return '<0.1 mi away';
+  if (miles < 10) return `${miles.toFixed(1)} mi away`;
+  return `${Math.round(miles)} mi away`;
+}
+
+/**
  * Time of day in 12-hour `"7:38 AM"` form — matches Figma's
  * "Schedule for X:XX AM" copy on /home and the iOS-native register
  * users see in Maps and Calendar. Uses Intl rather than hand-rolling
