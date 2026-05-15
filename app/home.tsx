@@ -1120,7 +1120,17 @@ export default function Home() {
         Single SafeAreaView shell + DragHandle wraps both — only the
         body content swaps based on `params.destLat`.
       */}
-      <SafeAreaView
+      {/*
+        Hide the browse/route sheet entirely while in placement mode
+        so the user can tap anywhere on the map (including the
+        bottom half) to move the pin. Without this the sheet's ~180pt
+        collapsed footprint covers the lower map and creates a dead
+        zone the user can't tap — and the sheet's zIndex:10 also
+        paints over the placement bar even when the bar is the only
+        thing meant to be visible. Conditional unmount is simpler
+        than juggling zIndex per phase.
+      */}
+      {!placingReport && <SafeAreaView
         style={styles.bottomSheet}
         edges={['bottom']}
         onLayout={(e) => {
@@ -1355,7 +1365,7 @@ export default function Home() {
         </View>
           </>
         )}
-      </SafeAreaView>
+      </SafeAreaView>}
 
       {/*
         Report button — floats 24pt above the bottom sheet's top edge.
@@ -1666,9 +1676,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    // zIndex above the browse/route sheet (zIndex 10) — defensive
+    // even though we unmount that sheet during placement, so future
+    // changes don't accidentally re-introduce the overlap regression.
+    // Match radius to the main sheet (28pt) so the surface family
+    // reads as consistent across phases.
+    zIndex: 11,
     backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingTop: 16,
     ...shadows.sheet,
   },
