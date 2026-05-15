@@ -9,10 +9,11 @@ import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { useState } from 'react';
-import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useRecommendations } from '../hooks/useRecommendations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useWeather } from '../hooks/useWeather';
 import type {
   Recommendation,
   RecommendationCategory,
@@ -66,7 +67,7 @@ export function HomeBrowseSheet({
   onSelectRecommendation: (rec: Recommendation) => void;
 }) {
   const [category, setCategory] = useState<RecommendationCategory>('black-owned');
-  const { recommendations } = useRecommendations({ category, userLocation });
+  const { recommendations, loading } = useRecommendations({ category, userLocation });
   // Multi-card variant per Figma 1133:13551 — horizontal scroll of
   // up to 5 cards. `getRecommendations` already orders them
   // (community first, then external, curated only as catastrophic
@@ -93,7 +94,7 @@ export function HomeBrowseSheet({
           <Text style={styles.neighborhood} numberOfLines={1}>
             {neighborhoodLabel ?? 'Your area'}
           </Text>
-          <WeatherDrivingCard />
+          <WeatherDrivingCard userLocation={userLocation} />
         </View>
       </View>
 
@@ -133,19 +134,45 @@ export function HomeBrowseSheet({
       </Pressable>
 
       {!collapsed && (
-        recommendations.length > 0 ? (
+        loading && recommendations.length === 0 ? (
+          // First-render path while the proxy resolves. Renders 3
+          // skeleton cards in the same horizontal scroller so the
+          // user doesn't see the EmptyState flash before content
+          // lands. Without this, every chip-tap shows "More <cat>
+          // coming soon" for ~50–500ms while the network call is
+          // in flight.
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cardsRow}
-            // A bit of a snap so the next card lands aligned to the
-            // card width — feels closer to the platform-native
-            // carousel pattern (Apple Maps Place collections, Google
-            // Maps "Explore" cards) than free-scroll.
-            decelerationRate="fast"
-            snapToInterval={CARD_WIDTH + CARD_GAP}
-            snapToAlignment="start"
+            contentContainerStyle={styles.cardsRowContent}
+            scrollEnabled={false}
+            accessible
+            accessibilityLabel={`Loading ${categoryLabel} recommendations`}
           >
+            <View style={styles.carouselLeadingSpacer} />
+            {[0, 1, 2].map((i) => (
+              <RecommendationCardSkeleton key={`skel-${i}`} />
+            ))}
+            <View style={styles.carouselTrailingSpacer} />
+          </ScrollView>
+        ) : recommendations.length > 0 ? (
+          // Snap math note: padding lives on leading/trailing spacer
+          // Views, NOT on `contentContainerStyle.paddingHorizontal`.
+          // Padding on the contentContainer offsets x=0 in scroll
+          // coordinates but doesn't shift snap points, so cards 2+
+          // misalign. Spacer views participate in the layout and the
+          // snap interval lines up with each card's left edge.
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cardsRowContent}
+            decelerationRate={reduceMotion ? 'normal' : 'fast'}
+            snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
+            snapToAlignment="start"
+            accessibilityRole={'list' as any}
+            accessibilityLabel={`${categoryLabel} recommendations`}
+          >
+            <View style={styles.carouselLeadingSpacer} />
             {recommendations.map((rec) => (
               <RecommendationCard
                 key={rec.id}
@@ -153,6 +180,7 @@ export function HomeBrowseSheet({
                 onPress={() => onSelectRecommendation(rec)}
               />
             ))}
+            <View style={styles.carouselTrailingSpacer} />
           </ScrollView>
         ) : (
           <View style={styles.cardWrap}>
@@ -225,16 +253,35 @@ function CategoryChips({
 
 // --- Weather card --------------------------------------------------------
 
-function WeatherDrivingCard() {
+function WeatherDrivingCard({
+  userLocation,
+}: {
+  userLocation?: { latitude: number; longitude: number } | null;
+}) {
+  const { weather } = useWeather(userLocation);
+  // Fall back to a sensible placeholder until the first API
+  // response lands. The card never disappears — it's read at a
+  // glance and "missing weather" reads worse than "loading-state
+  // weather." 66°/Moderate was the prior hardcoded mock.
+  const temp = weather ? `${weather.temperatureF}°` : '—°';
+  const condition = weather ? weather.drivingLabel : '—';
+
   return (
-    <View style={styles.weatherCard} accessibilityLabel="66 degrees, moderate driving conditions">
+    <View
+      style={styles.weatherCard}
+      accessibilityLabel={
+        weather
+          ? `${weather.temperatureF} degrees, ${weather.drivingLabel.toLowerCase()} driving conditions`
+          : 'Loading weather'
+      }
+    >
       <View style={styles.weatherRow}>
         <CloudSun size={16} color={colors.labelSecondary} weight="fill" />
-        <Text style={styles.weatherText}>66°</Text>
+        <Text style={styles.weatherText}>{temp}</Text>
       </View>
       <View style={styles.weatherRow}>
         <SteeringWheel size={16} color={colors.labelSecondary} weight="fill" />
-        <Text style={styles.weatherText}>Moderate</Text>
+        <Text style={styles.weatherText}>{condition}</Text>
       </View>
     </View>
   );
@@ -272,18 +319,46 @@ function RecommendationCard({
 }) {
   const r = recommendation;
   const quoteText = r.curatorQuote ?? r.reportDetail;
+  // VoiceOver / TalkBack label — composes the visible information
+  // into a single readable string so screen-reader users get the
+  // same context the sighted card surfaces (name + category +
+  // rating + open state + distance + curator quote). Previously
+  // truncated to "{name} recommendation — tap to route" which
+  // stripped 5+ data points.
+  const a11yLabel = [
+    r.name,
+    r.categoryLabel,
+    r.rating != null
+      ? `${r.rating.toFixed(1)} stars${r.reviewCount != null ? `, ${r.reviewCount} reviews` : ''}`
+      : null,
+    r.isOpen === true ? 'Open now' : r.isOpen === false ? 'Closed' : null,
+    r.hoursLabel,
+    r.distanceMiles != null ? formatDistanceMiles(r.distanceMiles) : null,
+    quoteText ? `${r.curatorName ? `${r.curatorName} says` : 'Note'}: ${quoteText}` : null,
+  ]
+    .filter(Boolean)
+    .join('. ');
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${r.name} recommendation — tap to route`}
+      accessibilityLabel={a11yLabel}
+      accessibilityHint="Routes to this destination"
       style={({ pressed }) => [styles.card, pressed && pressedDim]}
     >
       <View style={styles.photoWrap}>
-        <View style={styles.photoPlaceholder} accessibilityIgnoresInvertColors>
-          <PhotoPlaceholderGlyph category={r.category} />
-        </View>
+        {r.photoName ? (
+          <Image
+            source={{ uri: `${PROXY_PHOTO_BASE}?name=${encodeURIComponent(r.photoName)}&max=560` }}
+            style={styles.photoImage}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <View style={styles.photoPlaceholder} accessibilityIgnoresInvertColors>
+            <PhotoPlaceholderGlyph category={r.category} />
+          </View>
+        )}
         {quoteText ? (
           <View style={styles.quoteCallout}>
             <ChatCircle size={16} color={colors.wiltedgreen} weight="fill" />
@@ -351,6 +426,32 @@ function RecommendationCard({
 }
 
 /**
+ * Loading-state stand-in for `RecommendationCard`. Same outer
+ * dimensions (CARD_WIDTH × ~card body height) so the carousel
+ * doesn't reflow when real cards land. Solid `fillsPrimary`
+ * blocks represent photo + title + tag rows — enough to read as
+ * "loading" without animation (animated shimmer would conflict
+ * with Reduce Motion + adds another moving piece during the
+ * sheet's snap behavior).
+ */
+function RecommendationCardSkeleton() {
+  return (
+    <View
+      style={[styles.card, styles.cardSkeleton]}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <View style={[styles.photoWrap, styles.skelBlock]} />
+      <View style={styles.cardBody}>
+        <View style={[styles.skelLine, { width: '70%', height: 28 }]} />
+        <View style={[styles.skelLine, { width: '50%', height: 18 }]} />
+        <View style={[styles.skelLine, { width: '60%', height: 18 }]} />
+      </View>
+    </View>
+  );
+}
+
+/**
  * "0.7 mi away" / "12 mi away" — same pattern as the en-route
  * distance pill but mile-only (no metric switch). Decimal under
  * 10mi, rounded whole above. Below 0.1mi reads as "<0.1 mi away"
@@ -388,6 +489,14 @@ function EmptyState({ categoryLabel }: { categoryLabel: string }) {
 // viewport with comfortable peek room.
 export const CARD_WIDTH = 280;
 export const CARD_GAP = 12;
+
+// Mirrors the proxy URL constant in `lib/api/recommendations.ts`.
+// The recs adapter and the photo loader both call the same proxy
+// origin; if the env var moves we update both. Could lift to a
+// shared `lib/proxy.ts` once a third consumer needs it.
+const PROXY_PHOTO_BASE =
+  (process.env.EXPO_PUBLIC_PROXY_BASE_URL ?? 'https://fresh-greens-proxy.vercel.app') +
+  '/api/photo';
 
 const styles = StyleSheet.create({
   content: {
@@ -463,14 +572,20 @@ const styles = StyleSheet.create({
   cardWrap: {
     paddingHorizontal: 16,
   },
-  // Horizontal scroller container for the multi-card variant. Padding
-  // on left = sheet edge gutter (16); the right edge gets a matching
-  // 16 inside the last card via `marginRight` on the last item, so
-  // the trailing card lands flush with the sheet edge when scrolled
-  // all the way right.
-  cardsRow: {
-    paddingHorizontal: 16,
+  // Horizontal scroller content layout. The contentContainerStyle's
+  // `paddingHorizontal` was breaking snap math (snap points are
+  // measured from x=0 regardless of padding, so cards 2+ misaligned
+  // by 16pt). Fixed by replacing paddingHorizontal with explicit
+  // leading/trailing spacer Views that participate in layout and
+  // shift the cards' actual positions, not just their visible offset.
+  cardsRowContent: {
     gap: CARD_GAP,
+  },
+  carouselLeadingSpacer: {
+    width: 16,
+  },
+  carouselTrailingSpacer: {
+    width: 16,
   },
   card: {
     width: CARD_WIDTH,
@@ -487,6 +602,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 2,
     elevation: 2,
+  },
+  cardSkeleton: {
+    // Slightly muted shadow on the skeleton so it doesn't draw the
+    // eye as much as real cards. Same dimensions otherwise so the
+    // layout stays put when real cards land.
+    shadowOpacity: 0.08,
+  },
+  skelBlock: {
+    backgroundColor: colors.fillsPrimary,
+  },
+  skelLine: {
+    backgroundColor: colors.fillsPrimary,
+    borderRadius: 4,
   },
   photoWrap: {
     // Mobile-density override of Figma 1133:13554's 1:1 photo.
@@ -508,6 +636,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fadedgreen,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.fadedgreen, // shows during image load
   },
   quoteCallout: {
     position: 'absolute',
