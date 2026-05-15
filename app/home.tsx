@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
@@ -13,6 +12,8 @@ import { Alert, LayoutAnimation, Linking, PanResponder, Pressable, StyleSheet, T
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
+import { WarningCircle } from 'phosphor-react-native/src/icons/WarningCircle';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
@@ -822,7 +823,7 @@ export default function Home() {
             accessibilityLabel="Report location — tap the map to move, or drag to fine-tune"
           >
             <View style={styles.placementPin}>
-              <Ionicons name="alert-circle" size={24} color={colors.orange} />
+              <WarningCircle size={24} color={colors.orange} weight="fill" />
             </View>
           </Marker>
         )}
@@ -1337,7 +1338,7 @@ export default function Home() {
             accessibilityRole="button"
             accessibilityLabel="Start navigation"
           >
-            <Ionicons name="arrow-forward" size={24} color={colors.white} />
+            <ArrowRight size={24} color={colors.white} weight="bold" />
             <Text style={styles.goText}>Go</Text>
           </Pressable>
         </View>
