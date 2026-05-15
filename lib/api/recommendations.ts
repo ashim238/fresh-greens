@@ -286,11 +286,18 @@ async function getCommunityRecommendations(
           const miles = distanceMilesBetween(query.userLocation, r.location);
           if (miles > COMMUNITY_PROXIMITY_RADIUS_MILES) return null;
         }
+        // Name resolution order: auto-resolved business name (from
+        // submit-time /api/nearby lookup) → user-picked subTag →
+        // category-fallback ("Community-reported black-owned
+        // business"). The placeName is the most concrete and
+        // recognizable when present — closes the
+        // "community-reported X" → "<real business>" gap that made
+        // community recs look like fillers.
         const rec: Recommendation = {
           id: `community-${r.id}`,
           source: 'community',
           category: recCategory,
-          name: r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[recCategory],
+          name: r.placeName ?? r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[recCategory],
           address: '',
           latitude: r.location.latitude,
           longitude: r.location.longitude,

@@ -158,6 +158,12 @@ export type Zone = {
   reportDetail?: string;
   /** Community-report submission timestamp (ms since epoch). */
   reportTimestamp?: number;
+  /**
+   * Auto-resolved business name from the report's coords (set at
+   * submit time by /report via the proxy's /api/nearby lookup).
+   * Surfaces as the title in ReportDetailCard when present.
+   */
+  reportPlaceName?: string;
 };
 
 /**

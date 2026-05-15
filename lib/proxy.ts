@@ -17,3 +17,37 @@ export const PROXY_BASE_URL =
 
 export const PROXY_RECS_URL = `${PROXY_BASE_URL}/api/recs`;
 export const PROXY_PHOTO_URL = `${PROXY_BASE_URL}/api/photo`;
+export const PROXY_NEARBY_URL = `${PROXY_BASE_URL}/api/nearby`;
+
+/**
+ * Nearest-business response from `/api/nearby`. `place` is null
+ * when Google found nothing in the 50m radius around (lat, lng).
+ */
+export type NearbyPlace = {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  categoryLabel: string | null;
+};
+
+/**
+ * Look up the nearest business to a coordinate. Returns null on
+ * any failure (network, no match, malformed response) so callers
+ * can fall back to whatever name they had. Same `null` semantics
+ * as the proxy's `{ place: null }`.
+ */
+export async function fetchNearestPlace(
+  latitude: number,
+  longitude: number,
+): Promise<NearbyPlace | null> {
+  try {
+    const url = `${PROXY_NEARBY_URL}?lat=${latitude}&lng=${longitude}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { place: NearbyPlace | null };
+    return data.place ?? null;
+  } catch {
+    return null;
+  }
+}

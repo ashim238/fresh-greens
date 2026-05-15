@@ -213,6 +213,16 @@ export type CommunityReport = {
    * type-system migration.
    */
   subTag?: string;
+  /**
+   * Auto-resolved business name at the report's coordinates, looked
+   * up at submit time via the proxy's `/api/nearby` endpoint (Google
+   * Places `searchNearby` with a 50m radius). Lets the
+   * recommendations card render "Wintzell's Oyster House" instead of
+   * "Restaurant." Undefined when the lookup returned no nearby
+   * business (rural / sparse-Places-coverage) or when the network
+   * call failed — display path falls back to subTag-based naming.
+   */
+  placeName?: string;
   /** Anonymous-category reports never set this. */
   submittedBy?: string;
   /** ms since epoch — used for ordering and stale-cleanup if ever needed. */
@@ -271,7 +281,13 @@ function reportToZone(report: CommunityReport): Zone {
   return {
     id: report.id,
     type: category.zoneType,
-    label: `${category.label}${report.detail ? `: ${report.detail}` : ''}`,
+    // Marker accessibilityLabel — leads with the resolved business
+    // name when we have it ("Wintzell's Oyster House: felt welcome")
+    // so VoiceOver users hear what kind of place the report is
+    // about, not just the category abstraction.
+    label: report.placeName
+      ? `${report.placeName}: ${category.label.toLowerCase()}${report.detail ? ` — ${report.detail}` : ''}`
+      : `${category.label}${report.detail ? `: ${report.detail}` : ''}`,
     geometry: 'point',
     coordinates: [report.location],
     category: 'community-report',
@@ -279,6 +295,7 @@ function reportToZone(report: CommunityReport): Zone {
     reportSubTag: report.subTag,
     reportDetail: report.detail,
     reportTimestamp: report.timestamp,
+    reportPlaceName: report.placeName,
   };
 }
 
