@@ -92,7 +92,7 @@ export async function fetchOsmRestrooms(
       return [];
     }
 
-    const data: OverpassResponse = await res.json();
+    const data = (await res.json()) as OverpassResponse;
     const elements = data.elements ?? [];
 
     return elements
