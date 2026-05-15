@@ -998,7 +998,16 @@ export default function EnRoute() {
         Center) — it's a driving-utility control like the others in
         that family, and removing it lets the bottom sheet read clean.
       */}
-      <SafeAreaView
+      {/*
+        Hide the ETA bottom sheet when a ReportDetailCard is open
+        — that card slides up from the same edge with the same
+        rounded chrome, so leaving both visible reads as "two cards
+        stacked." Same rule as /home. The driver can dismiss the
+        report card to bring the ETA panel back; if this proves too
+        aggressive in real driving we can swap to auto-dismiss the
+        card after a few seconds instead.
+      */}
+      {!selectedReport && <SafeAreaView
         style={styles.bottomSheet}
         edges={['bottom']}
         onLayout={(e) => setBottomSheetHeight(e.nativeEvent.layout.height)}
@@ -1153,7 +1162,7 @@ export default function EnRoute() {
             <Text style={styles.endTripText}>End trip</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </SafeAreaView>}
 
       {/*
         Report detail card — surfaces when the driver taps an on-map

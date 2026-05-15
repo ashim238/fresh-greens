@@ -29,7 +29,7 @@ import { typography } from '../theme/typography';
  *   - Eyebrow:    "Jordan's Local Recs 💃🏾"
  *   - Title row:  neighborhood (left) + weather/driving card (right)
  *   - Chips:      horizontal scroller of recommendation categories
- *   - Section:    "Things to Do: {selected category}" with collapse
+ *   - Section:    "Around Me: {selected category}" with collapse
  *                 chevron
  *   - Card:       featured recommendation from the selected category
  *                 (or empty state when no matches yet)
@@ -125,7 +125,7 @@ export function HomeBrowseSheet({
         hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
       >
-        <Text style={styles.sectionTitle}>Things to Do: {categoryLabel}</Text>
+        <Text style={styles.sectionTitle}>Around Me: {categoryLabel}</Text>
         {collapsed ? (
           <CaretDown size={16} color={colors.black} weight="fill" />
         ) : (
@@ -156,7 +156,7 @@ const CATEGORY_LABELS: Record<RecommendationCategory, string> = {
   'women-owned': 'Women-Owned',
   'lgbtq-welcoming': 'LGBTQ+ Welcoming',
   'restroom': 'Restrooms',
-  'late-night-warm-welcome': 'Late Night Warm Welcome',
+  'late-night-warm-welcome': 'Late Night, Warm Welcome',
 };
 
 /** Iteration order — surfaces black-owned first per the original Figma framing. */

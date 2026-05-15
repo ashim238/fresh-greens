@@ -1,6 +1,6 @@
 // Fresh Greens — recommendations adapter.
 //
-// Three-source hybrid powering the /home browse-mode "Things to Do"
+// Three-source hybrid powering the /home browse-mode "Around Me"
 // card. Each call returns a unified `Recommendation[]` from:
 //
 //   1. **Curated catalog** (bundled below). Editorial entries with a
