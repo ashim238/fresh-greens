@@ -136,12 +136,34 @@ export const CATEGORIES: ReportCategory[] = [
     anonymous: false,
     hasPhoto: false,
     cta: 'Submit review',
+    // subTags here mix two kinds of "why this felt welcome":
+    //   1. Place-type tags (Restaurant, Bar/Cafe, …) — what kind of
+    //      place it is.
+    //   2. Identity / context tags (Women-owned, LGBTQ+ welcoming,
+    //      Open restroom, Late-night welcome) — what about this
+    //      place earned the affirmation.
+    //
+    // The user picks ONE — whichever feels most salient. The
+    // recommendations adapter (`getCommunityRecommendations`)
+    // dispatches on this subTag value to route the submission into
+    // the matching browse-sheet chip ("Women Owned", "LGBTQ+
+    // Welcoming", "Restroom", "Late Night, Warm Welcome"); a
+    // place-type subTag stays under Black-Owned's chip's nearest-
+    // neighbor felt-welcome bucket.
+    //
+    // This architecture replaced an earlier attempt that promoted
+    // each identity tag to a top-level category (10 picker tiles)
+    // which was visually too crowded — see closed PR #158.
     subTags: [
       'Restaurant',
       'Bar/Cafe',
       'Retail',
       'Park/Public space',
       'Personal',
+      'Women-owned',
+      'LGBTQ+ welcoming',
+      'Open restroom',
+      'Late-night welcome',
       'Other',
     ],
   },

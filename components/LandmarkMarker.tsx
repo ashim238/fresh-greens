@@ -1,8 +1,12 @@
 import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
 import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
+import { HandHeart } from 'phosphor-react-native/src/icons/HandHeart';
+import { Heart } from 'phosphor-react-native/src/icons/Heart';
 import { House } from 'phosphor-react-native/src/icons/House';
+import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
 import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
+import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { Tree } from 'phosphor-react-native/src/icons/Tree';
 import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { useEffect, useState } from 'react';
@@ -83,12 +87,17 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
 }
 
 /**
- * Phosphor (duotone) icon component per place sub-tag — only the
- * place categories (`black-owned`, `felt-welcome`) define sub-tags
- * in `community-reports.ts`'s CATEGORIES table, so this map only
- * needs to cover what those whitelists allow. `'Other'` and any
- * unrecognized value return null so the caller can fall back to
- * the category-level SVG glyph.
+ * Phosphor (duotone) icon component per place sub-tag. Sub-tags
+ * come from two contexts:
+ *   - Place-type (Restaurant, Bar/Cafe, Salon/Barber, etc.) — what
+ *     kind of place it is.
+ *   - Identity / context (Women-owned, LGBTQ+ welcoming, Open
+ *     restroom, Late-night welcome) — what about the place earned
+ *     the affirmation. These also drive which Around Me chip the
+ *     report surfaces under (see `recommendations.ts`).
+ *
+ * `'Other'` and any unrecognized value return null so the caller
+ * can fall back to the category-level SVG glyph.
  */
 function phosphorForSubTag(subTag: string | undefined) {
   switch (subTag) {
@@ -106,6 +115,17 @@ function phosphorForSubTag(subTag: string | undefined) {
       return Tree;
     case 'Personal':
       return House;
+    // Identity / context sub-tags under felt-welcome — same icons
+    // HomeBrowseSheet uses on the chip strip, so chip / picker /
+    // marker glyphs all line up.
+    case 'Women-owned':
+      return HandHeart;
+    case 'LGBTQ+ welcoming':
+      return Heart;
+    case 'Open restroom':
+      return Toilet;
+    case 'Late-night welcome':
+      return MoonStars;
     default:
       return null;
   }
