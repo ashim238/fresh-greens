@@ -3,9 +3,19 @@ import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
 import { CloudSun } from 'phosphor-react-native/src/icons/CloudSun';
 import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
+import { HandHeart } from 'phosphor-react-native/src/icons/HandHeart';
+import { Heart } from 'phosphor-react-native/src/icons/Heart';
+import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
-import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
+import { useState } from 'react';
+import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useRecommendations } from '../hooks/useRecommendations';
+import type {
+  Recommendation,
+  RecommendationCategory,
+} from '../lib/api/recommendations';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
@@ -15,33 +25,27 @@ import { typography } from '../theme/typography';
  * Figma node: 1133:13690 (Home Full + Collapsed variants).
  *
  * Layout (Full):
- *   - Eyebrow:   "Jordan's Local Recs 💃🏾"
- *   - Title row: place neighborhood (left) + weather/driving card (right)
- *   - Section:   "Things to Do: Black Owned ▼" (toggles full ↔ collapsed)
- *   - Card:      one featured recommendation (photo + quote + tags)
+ *   - Eyebrow:    "Jordan's Local Recs 💃🏾"
+ *   - Title row:  neighborhood (left) + weather/driving card (right)
+ *   - Chips:      horizontal scroller of recommendation categories
+ *   - Section:    "Things to Do: {selected category}" with collapse
+ *                 chevron
+ *   - Card:       featured recommendation from the selected category
+ *                 (or empty state when no matches yet)
  *
- * The route-established sheet (existing /home design) renders when a
- * destination IS set; this sheet renders when the user hasn't picked
- * one yet — the "what's around here?" state.
+ * Five categories per the v1 design — see `RecommendationCategory`
+ * in `lib/api/recommendations.ts` for the full taxonomy and the
+ * three-source hybrid data flow (curated + community + external).
  *
- * Data adapters intentionally not wired yet:
- *   - Weather (66° + "Moderate" driving conditions) is mocked. Future
- *     `lib/api/weather.ts` would call NOAA or OpenWeather and return
- *     `{ temperatureF, drivingConditions: 'good'|'moderate'|'poor' }`.
- *   - Recommendation card (Great Day Latte) is hardcoded from Figma.
- *     Future `lib/api/recommendations.ts` would return a list of
- *     curated POIs with photo + testimony + tags.
- *
- * Both adapter shells are out of scope for this PR — the screen
- * already encodes the design intent against mocked data; the swap-in
- * happens behind the `useWeather` / `useRecommendations` hooks when
- * those land.
+ * Weather (66° + Moderate) is still mocked — `lib/api/weather.ts`
+ * is the documented future swap-in.
  */
 export function HomeBrowseSheet({
   firstName,
   neighborhoodLabel,
   collapsed,
   onToggleCollapsed,
+  onSelectRecommendation,
 }: {
   /** Display name for the eyebrow; falls back to "Local" if undefined. */
   firstName?: string;
@@ -49,15 +53,22 @@ export function HomeBrowseSheet({
   neighborhoodLabel?: string;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /** Caller routes to /home with the destination params set. */
+  onSelectRecommendation: (rec: Recommendation) => void;
 }) {
+  const [category, setCategory] = useState<RecommendationCategory>('black-owned');
+  const { recommendations } = useRecommendations({ category });
+  const featured = recommendations[0] ?? null;
+
   // Eyebrow copy — when we have the user's first name, render the
   // possessive ("Jordan's Local Recs 💃🏾"). With no name (signed-out
   // or pre-displayName Apple sign-in), drop the possessive entirely
-  // rather than substituting a generic placeholder — "Local Local
-  // Recs" reads as a typo (and was, in v1).
+  // rather than substituting a generic placeholder.
   const eyebrowCopy = firstName
     ? `${firstName}'s Local Recs 💃🏾`
     : 'Local Recs 💃🏾';
+
+  const categoryLabel = CATEGORY_LABELS[category];
 
   return (
     <View style={styles.content}>
@@ -72,18 +83,29 @@ export function HomeBrowseSheet({
         </View>
       </View>
 
+      <CategoryChips
+        category={category}
+        onChange={(next) => {
+          // Smooth re-layout when the card refreshes with a different
+          // category's recommendation. Keeps the chip-tap → card-update
+          // transition from feeling abrupt.
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setCategory(next);
+        }}
+      />
+
       <Pressable
         onPress={() => {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           onToggleCollapsed();
         }}
         accessibilityRole="button"
-        accessibilityLabel={collapsed ? 'Show recommendations' : 'Hide recommendations'}
+        accessibilityLabel={collapsed ? `Show ${categoryLabel} recommendations` : `Hide ${categoryLabel} recommendations`}
         accessibilityState={{ expanded: !collapsed }}
         hitSlop={8}
         style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
       >
-        <Text style={styles.sectionTitle}>Things to Do: Black Owned</Text>
+        <Text style={styles.sectionTitle}>Things to Do: {categoryLabel}</Text>
         {collapsed ? (
           <CaretDown size={16} color={colors.black} weight="fill" />
         ) : (
@@ -93,16 +115,82 @@ export function HomeBrowseSheet({
 
       {!collapsed && (
         <View style={styles.cardWrap}>
-          <RecommendationCard />
+          {featured ? (
+            <RecommendationCard
+              recommendation={featured}
+              onPress={() => onSelectRecommendation(featured)}
+            />
+          ) : (
+            <EmptyState categoryLabel={categoryLabel} />
+          )}
         </View>
       )}
     </View>
   );
 }
 
+// --- Category chip row ---------------------------------------------------
+
+const CATEGORY_LABELS: Record<RecommendationCategory, string> = {
+  'black-owned': 'Black-Owned',
+  'women-owned': 'Women-Owned',
+  'lgbtq-welcoming': 'LGBTQ+ Welcoming',
+  'restroom': 'Restrooms',
+  'late-night-warm-welcome': 'Late Night Warm Welcome',
+};
+
+/** Iteration order — surfaces black-owned first per the original Figma framing. */
+const CATEGORY_ORDER: RecommendationCategory[] = [
+  'black-owned',
+  'women-owned',
+  'lgbtq-welcoming',
+  'restroom',
+  'late-night-warm-welcome',
+];
+
+function CategoryChips({
+  category,
+  onChange,
+}: {
+  category: RecommendationCategory;
+  onChange: (next: RecommendationCategory) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.chipsRow}
+    >
+      {CATEGORY_ORDER.map((cat) => {
+        const selected = cat === category;
+        return (
+          <Pressable
+            key={cat}
+            onPress={() => onChange(cat)}
+            accessibilityRole="button"
+            accessibilityLabel={`${CATEGORY_LABELS[cat]} category`}
+            accessibilityState={{ selected }}
+            style={({ pressed }) => [
+              styles.chip,
+              selected && styles.chipSelected,
+              pressed && pressedDim,
+            ]}
+          >
+            <Text
+              style={[styles.chipText, selected && styles.chipTextSelected]}
+            >
+              {CATEGORY_LABELS[cat]}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+// --- Weather card --------------------------------------------------------
+
 function WeatherDrivingCard() {
-  // Mocked v1: 66°F + Moderate. See file-level doc for the future
-  // weather adapter contract.
   return (
     <View style={styles.weatherCard} accessibilityLabel="66 degrees, moderate driving conditions">
       <View style={styles.weatherRow}>
@@ -117,66 +205,128 @@ function WeatherDrivingCard() {
   );
 }
 
-function RecommendationCard() {
-  // Mocked v1: Great Day Latte from Figma 306:823. Photo is the cafe
-  // illustration the design uses; testimony copy verbatim from the
-  // Figma so the visual register matches end-to-end.
+// --- Recommendation card -------------------------------------------------
+
+/**
+ * Photo placeholder per category. Real production would replace this
+ * with bundled storefront images (recommendation.photoAsset).
+ * Category-appropriate Phosphor glyph + fadedgreen ground reads as
+ * "this kind of place" without faking a specific photo.
+ */
+function PhotoPlaceholderGlyph({ category }: { category: RecommendationCategory }) {
+  switch (category) {
+    case 'black-owned':
+      return <Coffee size={64} color={colors.burntgreen} weight="duotone" />;
+    case 'women-owned':
+      return <HandHeart size={64} color={colors.burntgreen} weight="duotone" />;
+    case 'lgbtq-welcoming':
+      return <Heart size={64} color={colors.burntgreen} weight="duotone" />;
+    case 'restroom':
+      return <Toilet size={64} color={colors.burntgreen} weight="duotone" />;
+    case 'late-night-warm-welcome':
+      return <MoonStars size={64} color={colors.burntgreen} weight="duotone" />;
+  }
+}
+
+function RecommendationCard({
+  recommendation,
+  onPress,
+}: {
+  recommendation: Recommendation;
+  onPress: () => void;
+}) {
+  const r = recommendation;
+  const quoteText = r.curatorQuote ?? r.reportDetail;
+
   return (
-    <View style={styles.card} accessible accessibilityLabel="Great Day Latte recommendation card">
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${r.name} recommendation — tap to route`}
+      style={({ pressed }) => [styles.card, pressed && pressedDim]}
+    >
       <View style={styles.photoWrap}>
-        {/*
-          Photo placeholder — real cafe storefront image arrives with
-          the recommendations adapter. fadedgreen ground + a Coffee
-          glyph reads as "cafe placeholder" without faking a specific
-          photo. Eight-pt corner radius matches Figma 306:826.
-        */}
         <View style={styles.photoPlaceholder} accessibilityIgnoresInvertColors>
-          <Coffee size={64} color={colors.burntgreen} weight="duotone" />
+          <PhotoPlaceholderGlyph category={r.category} />
         </View>
-        <View style={styles.quoteCallout}>
-          <ChatCircle size={16} color={colors.freshgreen} weight="fill" />
-          <Text style={styles.quoteText}>
-            An ESSENTIAL part of my daily morning ritual. The fragrant scents and
-            atmosphere remind me of my own kitchen
-          </Text>
-        </View>
+        {quoteText ? (
+          <View style={styles.quoteCallout}>
+            <ChatCircle size={16} color={colors.freshgreen} weight="fill" />
+            <Text style={styles.quoteText} numberOfLines={4}>
+              {quoteText}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>Great Day Latte</Text>
+        <Text style={styles.cardTitle}>{r.name}</Text>
 
         <View style={styles.tagRow}>
-          <View style={styles.ratingPill}>
-            <Text style={styles.rating}>4.7</Text>
-            <Text style={styles.ratingMeta}> (97 reviews)</Text>
-          </View>
+          {r.rating != null ? (
+            <View style={styles.ratingPill}>
+              <Text style={styles.rating}>{r.rating.toFixed(1)}</Text>
+              {r.reviewCount != null ? (
+                <Text style={styles.ratingMeta}> ({r.reviewCount} reviews)</Text>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles.tag}>
-            <Text style={styles.tagText}>Cafe</Text>
+            <Text style={styles.tagText}>{r.categoryLabel}</Text>
           </View>
         </View>
 
         <View style={styles.tagRow}>
-          <View style={styles.openPill}>
-            <Text style={styles.openText}>Open</Text>
-          </View>
-          <View style={styles.tag}>
-            <Text style={styles.tagText}>Closes 4 PM</Text>
-          </View>
-          <View style={styles.tag}>
-            <Text style={styles.tagText}>0.7 mi away</Text>
-          </View>
+          {r.isOpen != null ? (
+            <View style={r.isOpen ? styles.openPill : styles.tag}>
+              <Text style={r.isOpen ? styles.openText : styles.tagText}>
+                {r.isOpen ? 'Open' : 'Closed'}
+              </Text>
+            </View>
+          ) : null}
+          {r.hoursLabel ? (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>{r.hoursLabel}</Text>
+            </View>
+          ) : null}
         </View>
 
-        <View style={styles.muteTag}>
-          <Text style={styles.muteText}>$1–10</Text>
-        </View>
-        <View style={styles.muteTag}>
-          <Text style={styles.muteText}>A Sunday staple 👀</Text>
-        </View>
+        {r.priceTier ? (
+          <View style={styles.muteTag}>
+            <Text style={styles.muteText}>{r.priceTier}</Text>
+          </View>
+        ) : null}
+
+        {r.tags?.map((t) => (
+          <View key={t.label} style={styles.muteTag}>
+            <Text style={styles.muteText}>
+              {t.label}
+              {t.emoji ? ` ${t.emoji}` : ''}
+            </Text>
+          </View>
+        ))}
       </View>
+    </Pressable>
+  );
+}
+
+// --- Empty state ---------------------------------------------------------
+
+function EmptyState({ categoryLabel }: { categoryLabel: string }) {
+  return (
+    <View style={styles.empty} accessible>
+      <Text style={styles.emptyTitle}>
+        More {categoryLabel.toLowerCase()} coming soon
+      </Text>
+      <Text style={styles.emptyBody}>
+        We're still collecting community-trusted spots in your area.
+        Submit a report from the map and yours could land here.
+      </Text>
     </View>
   );
 }
+
+// --- Styles --------------------------------------------------------------
 
 const styles = StyleSheet.create({
   content: {
@@ -217,6 +367,27 @@ const styles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
   },
+  chipsRow: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: colors.fillsTertiary,
+  },
+  chipSelected: {
+    backgroundColor: colors.freshgreen,
+  },
+  chipText: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+  },
+  chipTextSelected: {
+    ...typography.footnoteEmphasized,
+    color: colors.white,
+  },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -235,8 +406,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 24,
     gap: 48,
-    // M3 Elevation 1 — keeps the card distinct from the sheet body
-    // without competing with the sheet's own elevation.
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.18,
@@ -334,5 +503,22 @@ const styles = StyleSheet.create({
   muteText: {
     ...typography.caption1Regular,
     color: colors.mutedSecondary,
+  },
+  empty: {
+    padding: 24,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    gap: 8,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    ...typography.subheadlineEmphasized,
+    color: colors.black,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    textAlign: 'center',
   },
 });

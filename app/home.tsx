@@ -1060,6 +1060,21 @@ export default function Home() {
             firstName={userFirstName}
             collapsed={thingsToDoCollapsed}
             onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+            onSelectRecommendation={(rec) => {
+              // Tapping a recommendation card routes to /home with the
+              // destination params set, same way a search-result tap
+              // does. router.replace (not push) so back-stack stays
+              // clean — this is a destination CHANGE on /home, not a
+              // new screen entry.
+              router.replace({
+                pathname: '/home',
+                params: {
+                  destLat: String(rec.latitude),
+                  destLng: String(rec.longitude),
+                  destName: rec.name,
+                },
+              });
+            }}
           />
         ) : (
           <>
