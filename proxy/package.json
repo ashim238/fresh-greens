@@ -1,0 +1,19 @@
+{
+  "name": "fresh-greens-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vercel-hosted proxy for Google Places + OSM Overpass — keeps API keys server-side and returns recommendations matching the Fresh Greens app's `Recommendation` shape.",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vercel/node": "^3.0.0",
+    "typescript": "^5.0.0",
+    "vercel": "^39.0.0"
+  }
+}
