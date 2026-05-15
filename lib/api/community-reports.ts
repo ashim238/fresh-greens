@@ -45,7 +45,19 @@ export type ReportCategoryId =
   | 'incident'
   | 'felt-unsafe'
   | 'felt-welcome'
-  | 'black-owned';
+  | 'black-owned'
+  // v2 — place-identity categories that mirror the browse-sheet
+  // recommendation chips. Adding them here lets community reports
+  // flow into ALL 5 "Around Me" chips, not just black-owned — closes
+  // the thesis-claim loop ("community knowledge as backbone") across
+  // every category rather than one. `felt-welcome-late` is the late-
+  // night-warm-welcome equivalent (matches the report-side tone of
+  // "what made it feel that way" rather than the rec-side "Late
+  // Night, Warm Welcome" surfacing label).
+  | 'women-owned'
+  | 'lgbtq-welcoming'
+  | 'restroom'
+  | 'felt-welcome-late';
 
 export type ReportCategory = {
   id: ReportCategoryId;
@@ -162,6 +174,67 @@ export const CATEGORIES: ReportCategory[] = [
       'Services',
       'Other',
     ],
+  },
+  // --- v2 place-identity categories ---------------------------------------
+  // Same `safe` zone type as black-owned + felt-welcome (they're all
+  // affirming submissions). Sub-tags mirror their place-type cousins
+  // where useful; restroom + late-night-warm-welcome are condition
+  // categories so they leave subTags undefined.
+  {
+    id: 'women-owned',
+    label: 'Women-owned',
+    iconName: 'hand-left-outline',
+    subtitle: 'Run by a woman whose work deserves a spotlight?',
+    zoneType: 'safe',
+    anonymous: false,
+    hasPhoto: false,
+    cta: 'Submit review',
+    subTags: [
+      'Restaurant',
+      'Bar/Cafe',
+      'Retail',
+      'Salon/Barber',
+      'Services',
+      'Other',
+    ],
+  },
+  {
+    id: 'lgbtq-welcoming',
+    label: 'LGBTQ+ welcoming',
+    iconName: 'heart-half-outline',
+    subtitle: 'Made you feel welcome — say more.',
+    zoneType: 'safe',
+    anonymous: false,
+    hasPhoto: false,
+    cta: 'Submit review',
+    subTags: [
+      'Restaurant',
+      'Bar/Cafe',
+      'Retail',
+      'Services',
+      'Park/Public space',
+      'Other',
+    ],
+  },
+  {
+    id: 'restroom',
+    label: 'Open restroom',
+    iconName: 'medical-outline',
+    subtitle: 'Clean and accessible? Mark it for the next driver.',
+    zoneType: 'safe',
+    anonymous: false,
+    hasPhoto: false,
+    cta: 'Submit review',
+  },
+  {
+    id: 'felt-welcome-late',
+    label: 'Welcome late',
+    iconName: 'moon-outline',
+    subtitle: 'Late hours, well-lit, the staff said hello. Tell us.',
+    zoneType: 'safe',
+    anonymous: false,
+    hasPhoto: false,
+    cta: 'Submit review',
   },
 ];
 

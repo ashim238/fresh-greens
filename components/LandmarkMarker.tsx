@@ -1,8 +1,12 @@
 import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
 import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
+import { HandHeart } from 'phosphor-react-native/src/icons/HandHeart';
+import { Heart } from 'phosphor-react-native/src/icons/Heart';
 import { House } from 'phosphor-react-native/src/icons/House';
+import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
 import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
+import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { Tree } from 'phosphor-react-native/src/icons/Tree';
 import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { useEffect, useState } from 'react';
@@ -68,9 +72,15 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
     case 'black-owned':
       return 'black-owned';
     case 'felt-welcome':
-      return 'positive';
     case 'home':
     case 'trusted-friend':
+    // v2 place-identity categories — all affirming, share the green
+    // positive register so the pin reads "this is a place worth
+    // visiting" regardless of which kind of affirmation it carries.
+    case 'women-owned':
+    case 'lgbtq-welcoming':
+    case 'restroom':
+    case 'felt-welcome-late':
       return 'positive';
     case 'felt-unsafe':
     case 'incident':
@@ -142,6 +152,22 @@ function GlyphForCategory({
   if (PhosphorIcon) {
     const color = variant === 'black-owned' ? colors.freshgreen : colors.white;
     return <PhosphorIcon size={size} color={color} weight="duotone" />;
+  }
+
+  // v2 place-identity categories don't have bespoke SVG glyphs yet —
+  // we re-use the Phosphor icons that already represent these chips
+  // on the browse sheet (HomeBrowseSheet) so the marker, chip, and
+  // /report picker all read with the same iconography. White inside
+  // the positive (wiltedgreen) bg.
+  const phosphorByCategory: Record<string, typeof HandHeart> = {
+    'women-owned': HandHeart,
+    'lgbtq-welcoming': Heart,
+    restroom: Toilet,
+    'felt-welcome-late': MoonStars,
+  };
+  const PhosphorCategoryIcon = categoryId ? phosphorByCategory[categoryId] : undefined;
+  if (PhosphorCategoryIcon) {
+    return <PhosphorCategoryIcon size={size} color={colors.white} weight="fill" />;
   }
 
   switch (categoryId) {

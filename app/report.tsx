@@ -28,6 +28,14 @@ import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 
+// Phosphor fallbacks for v2 place-identity categories that don't
+// have bespoke SVG glyphs yet. Same icons HomeBrowseSheet uses on
+// the chip strip so picker tile + chip + marker all read alike.
+import { HandHeart } from 'phosphor-react-native/src/icons/HandHeart';
+import { Heart } from 'phosphor-react-native/src/icons/Heart';
+import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
+import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
+
 import { Button } from '../components/Button';
 import {
   addCommunityReport,
@@ -283,6 +291,17 @@ function CategoryGlyph({
       return <GlyphLighting width={size} height={size} />;
     case 'hazard':
       return <GlyphHazard width={size} height={size} />;
+    // v2 place-identity categories — Phosphor icons in the brand
+    // green to mirror their browse-sheet chips. Once bespoke SVGs
+    // export from Figma, swap each to the GlyphX equivalent.
+    case 'women-owned':
+      return <HandHeart size={size} color={colors.wiltedgreen} weight="duotone" />;
+    case 'lgbtq-welcoming':
+      return <Heart size={size} color={colors.wiltedgreen} weight="duotone" />;
+    case 'restroom':
+      return <Toilet size={size} color={colors.wiltedgreen} weight="duotone" />;
+    case 'felt-welcome-late':
+      return <MoonStars size={size} color={colors.wiltedgreen} weight="duotone" />;
     default:
       return null;
   }
@@ -329,9 +348,12 @@ function PickerView({
       </View>
 
       <View style={styles.grid}>
-        {/* Render in 3 rows of 2. CATEGORIES is already in the right
-            order (avoid → caution → safe) — slice into rows. */}
-        {[0, 2, 4].map((rowStart) => (
+        {/* 2-column grid. Row count derived from CATEGORIES.length so
+            adding v2 categories doesn't require touching the layout.
+            Categories are already in the right order (avoid →
+            caution → safe → place-identity) per the table; slicing
+            preserves that visual grouping. */}
+        {Array.from({ length: Math.ceil(CATEGORIES.length / 2) }, (_, i) => i * 2).map((rowStart) => (
           <View style={styles.gridRow} key={rowStart}>
             {CATEGORIES.slice(rowStart, rowStart + 2).map((c) => (
               <Pressable
