@@ -8,11 +8,13 @@
 //     | 'restroom'    | 'late-night-warm-welcome'
 //
 // Response: `{ recommendations: Recommendation[] }` — up to 4
-// entries matching the app's `Recommendation` shape. The proxy
-// dispatches:
-//   - restroom → OSM Overpass (no clean Google signal)
-//   - everything else → Google Places `searchText` with identity
-//     keywords + a 10mi locationBias around (lat, lng)
+// entries matching the app's `Recommendation` shape. All categories
+// dispatch through Google Places `searchText` with category-specific
+// identity / context keywords + a 10mi locationBias around (lat,
+// lng). The restroom category previously routed to OSM Overpass
+// (`amenity=toilets`) which has solid public-toilet coverage but
+// lacks business names — Google surfaces venues by name which
+// reads better on the recommendation card.
 //
 // CORS: open `*` since the app is a mobile client (not a browser
 // with cookie auth concerns), and the upstream APIs hold the keys.
@@ -23,7 +25,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { fetchGooglePlaces } from '../lib/google-places.js';
-import { fetchOsmRestrooms } from '../lib/osm-overpass.js';
 import type { RecommendationCategory } from '../lib/recommendation.js';
 
 const VALID_CATEGORIES: RecommendationCategory[] = [
@@ -67,10 +68,15 @@ export default async function handler(
   }
 
   try {
-    const recommendations =
-      category === 'restroom'
-        ? await fetchOsmRestrooms(lat, lng)
-        : await fetchGooglePlaces(lat, lng, category);
+    // All 5 categories route through Google Places searchText. The
+    // restroom category was originally OSM Overpass (`amenity=toilets`)
+    // — OSM has solid coverage for truly-public toilets but most
+    // nodes lack a `name` tag, so cards rendered as "Public restroom"
+    // generically. Google surfaces restroom-providing venues by
+    // name (gas stations, libraries, parks) which is what drivers
+    // actually want to recognize from the card. The lib/osm-overpass
+    // module stays in the tree as a documented v2 alternative.
+    const recommendations = await fetchGooglePlaces(lat, lng, category);
 
     return res.status(200).json({ recommendations });
   } catch (e) {
