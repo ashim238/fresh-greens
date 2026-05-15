@@ -159,7 +159,7 @@ export async function fetchGooglePlaces(
       return [];
     }
 
-    const data: SearchNearbyResponse = await res.json();
+    const data = (await res.json()) as SearchNearbyResponse;
     const places = data.places ?? [];
 
     return places
