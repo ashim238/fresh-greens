@@ -37,6 +37,7 @@
 
 import type { ImageSourcePropType } from 'react-native';
 
+import { PROXY_RECS_URL } from '../proxy';
 import { getCommunityReports } from './community-reports';
 
 // --- Types ---------------------------------------------------------------
@@ -333,12 +334,6 @@ function gridKey(lat: number, lng: number): string {
   return `${round(lat)},${round(lng)}`;
 }
 
-// Override at build time via EXPO_PUBLIC_PROXY_BASE_URL; falls back
-// to the deployed thesis-demo URL. Production would point at a
-// scoped per-environment URL.
-const PROXY_BASE_URL =
-  process.env.EXPO_PUBLIC_PROXY_BASE_URL ?? 'https://fresh-greens-proxy.vercel.app';
-
 async function getExternalRecommendations(
   query: RecommendationQuery,
 ): Promise<Recommendation[]> {
@@ -352,7 +347,7 @@ async function getExternalRecommendations(
   }
 
   try {
-    const url = `${PROXY_BASE_URL}/api/recs?lat=${userLocation.latitude}&lng=${userLocation.longitude}&category=${category}`;
+    const url = `${PROXY_RECS_URL}?lat=${userLocation.latitude}&lng=${userLocation.longitude}&category=${category}`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = (await res.json()) as { recommendations?: Recommendation[] };
