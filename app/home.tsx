@@ -30,6 +30,7 @@ import { ReportDetailCard } from '../components/ReportDetailCard';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
@@ -279,13 +280,19 @@ export default function Home() {
   // from a drag handle (Google Maps + Waze use the same pattern).
   // LayoutAnimation transitions the resulting height change so the
   // snap doesn't feel jarring.
+  const reduceMotion = useReduceMotion();
   const dragHandleResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
         onPanResponderRelease: (_, g) => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          // Skip the height-snap animation when the user has Reduce
+          // Motion on. The collapsed-state change still happens; only
+          // the transition is suppressed.
+          if (!reduceMotion) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          }
           if (g.dy > 20) {
             setThingsToDoCollapsed(true);
           } else if (g.dy < -20) {
@@ -295,7 +302,7 @@ export default function Home() {
           }
         },
       }),
-    [],
+    [reduceMotion],
   );
 
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
