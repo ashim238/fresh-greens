@@ -1,21 +1,21 @@
-import type { ComponentType } from 'react';
-import type { SvgProps } from 'react-native-svg';
-
-import SafetyCarTroubles from '../assets/illustrations/safety-car-troubles.svg';
-import SafetyLost from '../assets/illustrations/safety-lost.svg';
-import SafetyPulledOver from '../assets/illustrations/safety-pulled-over.svg';
-import SafetyShareLocation from '../assets/illustrations/safety-share-location.svg';
-import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
+import type { ComponentType } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Compass } from 'phosphor-react-native/src/icons/Compass';
+import { ShareNetwork } from 'phosphor-react-native/src/icons/ShareNetwork';
+import { Siren } from 'phosphor-react-native/src/icons/Siren';
+import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
+import type { IconProps } from 'phosphor-react-native';
+
+import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
 import { DragHandle } from '../components/DragHandle';
-import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -26,22 +26,39 @@ import { typography } from '../theme/typography';
  * options. The drag handle is decorative — modal dismissal happens via
  * the system swipe-down gesture.
  *
- * Each tab is a category entry point. Tapping one pushes the user
+ * Each tile is a category entry point. Tapping one pushes the user
  * into a sub-flow:
- *   I was pulled over → /pulled-over (consolidated state-machine modal:
+ *   Pulled-over → /pulled-over (consolidated state-machine modal:
  *     armed → transition → guidance → contact → review)
- *   I need roadside assistance → /roadside (TBD)
- *   I'm in an unfamiliar area → /unfamiliar (TBD)
- *   I want to share my location → /share-location (TBD)
+ *   Roadside assistance → /roadside (TBD)
+ *   Unfamiliar area → /unfamiliar (TBD)
+ *   Share location → /share-location (TBD)
  *
  * Route: /safety
- * Figma node: 825:3875
+ * Figma node (v2): 1133:13908
+ *
+ * v2 deltas from v1 (PR following next-session.md "Safety page matches
+ * v2 Figma"):
+ *  - Tile labels shortened to single-noun glyphs ("Pulled-over" vs "I
+ *    was pulled over"). Reads as a toolkit at a glance.
+ *  - Illustration set replaced with Phosphor iconography (Siren,
+ *    Wrench, Compass, ShareNetwork) at duotone weight. Iconographic
+ *    style matches the SF Symbols / Apple Settings register the rest
+ *    of the safety surface uses.
+ *  - Navy reserved for the Pulled-over siren (per .cursorrules navy =
+ *    "safety affordance"); the other three render black so the wired
+ *    primary action reads as primary.
+ *  - TrustedContactStatus footer removed — v2 doesn't show it on this
+ *    screen (it lives on /pulled-over's guidance phase instead, where
+ *    it's more contextually relevant).
+ *  - Modal padding/gap adjusted to v2 spec (px-24 py-32 gap-24).
  */
 
 type SafetyTab = {
   id: string;
   label: string;
-  Icon: ComponentType<SvgProps>;
+  Icon: ComponentType<IconProps>;
+  iconColor: string;
   /** Future sub-flow route — null = unwired TODO for this PR */
   href: string | null;
 };
@@ -49,8 +66,12 @@ type SafetyTab = {
 const TABS: SafetyTab[] = [
   {
     id: 'pulled-over',
-    label: 'I was pulled over',
-    Icon: SafetyPulledOver,
+    label: 'Pulled-over',
+    Icon: Siren,
+    // Navy per .cursorrules reserved-color rule #6 — pulled-over is THE
+    // safety affordance, the only fully-wired sub-flow, and the icon
+    // matching the /en-route safety FAB family.
+    iconColor: colors.navy,
     // Routes to /pulled-over, a single consolidated modal that runs the
     // entire flow as an internal state machine: armed-or-not → recording
     // → contact → review-guidance. One swipe-down dismisses everything,
@@ -59,20 +80,23 @@ const TABS: SafetyTab[] = [
   },
   {
     id: 'roadside',
-    label: 'I need roadside assistance',
-    Icon: SafetyCarTroubles,
+    label: 'Roadside assistance',
+    Icon: Wrench,
+    iconColor: colors.black,
     href: null, // TODO: /roadside sub-flow
   },
   {
     id: 'unfamiliar',
-    label: "I'm in an unfamiliar area",
-    Icon: SafetyLost,
+    label: 'Unfamiliar area',
+    Icon: Compass,
+    iconColor: colors.black,
     href: null, // TODO: /unfamiliar sub-flow
   },
   {
     id: 'share-location',
-    label: 'I want to share my location',
-    Icon: SafetyShareLocation,
+    label: 'Share location',
+    Icon: ShareNetwork,
+    iconColor: colors.black,
     href: null, // TODO: /share-location sub-flow
   },
 ];
@@ -87,12 +111,12 @@ export default function SafetyModal() {
     }
     // Tiles whose sub-flows haven't shipped yet — surface a brief
     // haptic + native Alert so the user gets feedback instead of
-    // tapping into dead pixels. Was silently inert; reviewers
-    // assumed the app froze.
+    // tapping into dead pixels. The themed confirmation-modal pattern
+    // is queued for a follow-up; this stays as the interim affordance.
     Haptics.selectionAsync().catch(() => {});
     Alert.alert(
-      `${tab.label}`,
-      "This flow is coming in a future update. For now, only \"I was pulled over\" is wired up.",
+      tab.label,
+      'This flow is coming in a future update. For now, only Pulled-over is wired up.',
       [{ text: 'OK' }],
     );
   }
@@ -108,9 +132,9 @@ export default function SafetyModal() {
 
         <View style={styles.header}>
           {/*
-            56x56 state-layer wrapper around the shield icon. Matches
-            Figma's structure — the wrapper's internal padding provides
-            the visual gap between icon and title block below.
+            56x56 wrapper around the shield icon. Matches Figma's
+            EmptyState/Content structure — icon → title → subtitle in a
+            vertical stack with gap-16.
 
             Uses the canonical navy duotone shield from
             `sidebtn-safety.svg` — the same glyph that lives on
@@ -123,7 +147,7 @@ export default function SafetyModal() {
           </View>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>Safety</Text>
-            <Text style={styles.subtitle}>What's going on?</Text>
+            <Text style={styles.subtitle}>What&rsquo;s going on?</Text>
           </View>
         </View>
 
@@ -148,15 +172,13 @@ export default function SafetyModal() {
                 accessibilityState={{ disabled: isInert }}
               >
                 <View style={styles.tabIcon}>
-                  <tab.Icon width={48} height={48} />
+                  <tab.Icon size={48} color={tab.iconColor} weight="duotone" />
                 </View>
                 <Text style={styles.tabLabel}>{tab.label}</Text>
               </Pressable>
             );
           })}
         </View>
-
-        <TrustedContactStatus />
       </SafeAreaView>
     </View>
   );
@@ -174,23 +196,26 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 16,
-    gap: 48, // matches Figma's gap-48 between drag/header/grid/footer
+    // v2 spec: px-24 py-32. Switching from v1's 16pt gutter gives the
+    // tiles + header more breathing room and matches the Figma node.
+    paddingHorizontal: 24,
+    paddingTop: 16, // additional top space provided by dragHandleWrapper
+    paddingBottom: 16,
+    gap: 24, // v2 inter-section gap
   },
   dragHandleWrapper: {
-    marginTop: 16,
+    // pt-16 from Figma's Drag block; centers the 4pt bar horizontally.
+    paddingTop: 16,
+    alignItems: 'center',
   },
   header: {
-    // No explicit gap — the iconBox's internal padding-16 provides the
-    // visual separation between shield and title block below. Matches
-    // Figma's structure.
+    // EmptyState/Content from Figma: column stack, gap-16. iconBox is
+    // 56pt fixed; title + subtitle stack below.
+    gap: 16,
   },
   iconBox: {
-    // 56x56 dedicated space for the shield. No explicit padding — the
-    // icon (32pt) is smaller than the box and centers via alignItems +
-    // justifyContent, leaving ~12pt margin all around. Figma specifies
-    // p-16 but its renderer is forgiving; in RN, p-16 + 56 box would
-    // clip a 32 icon (inner area becomes 24x24).
+    // 56x56 dedicated space for the shield. The icon (32pt) is smaller
+    // than the box and centers via alignItems + justifyContent.
     width: 56,
     height: 56,
     alignItems: 'center',
@@ -204,7 +229,12 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   subtitle: {
-    ...typography.bodyEmphasized,
+    // v2 spec is Body/Regular (17pt) in labelTertiary. v1 used
+    // bodyEmphasized — softer, less imperative for a held question.
+    // .cursorrules: "In-modal user prompts use Title1 Regular" — the
+    // subtitle is the supporting line, not the prompt itself, so Body
+    // Regular is correct here.
+    ...typography.bodyRegular,
     color: colors.labelTertiary,
   },
   grid: {
@@ -214,7 +244,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tab: {
-    width: 160,
+    // v2 spec: 139.5pt fixed width. Two tiles per row + 32pt gap fits
+    // an iPhone with the 24pt outer gutter (24 + 139.5 + 32 + 139.5 +
+    // 24 = 359, under 390 baseline width — slight extra breathing room).
+    width: 140,
     gap: 8,
     alignItems: 'center',
   },
@@ -232,12 +265,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.systemGroupedBackground,
     alignItems: 'center',
     justifyContent: 'center',
-    // Approximates Figma M3 Elevation Light/1.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // Theme tier for the per-tile lift. e1 matches the v2 Figma
+    // M3/Elevation Light/1 spec (offset 0,1 + radius 3).
+    ...shadows.e1,
   },
   tabLabel: {
     ...typography.subheadlineEmphasized,
