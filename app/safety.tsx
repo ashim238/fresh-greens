@@ -8,7 +8,8 @@ import SafetyShareLocation from '../assets/illustrations/safety-share-location.s
 import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DragHandle } from '../components/DragHandle';
@@ -82,9 +83,18 @@ export default function SafetyModal() {
   function handleTabPress(tab: SafetyTab) {
     if (tab.href) {
       router.push(tab.href as never);
+      return;
     }
-    // Otherwise no-op for now. Once sub-flows exist, every tab will
-    // have a real href and this branch goes away.
+    // Tiles whose sub-flows haven't shipped yet — surface a brief
+    // haptic + native Alert so the user gets feedback instead of
+    // tapping into dead pixels. Was silently inert; reviewers
+    // assumed the app froze.
+    Haptics.selectionAsync().catch(() => {});
+    Alert.alert(
+      `${tab.label}`,
+      "This flow is coming in a future update. For now, only \"I was pulled over\" is wired up.",
+      [{ text: 'OK' }],
+    );
   }
 
   return (
@@ -118,21 +128,32 @@ export default function SafetyModal() {
         </View>
 
         <View style={styles.grid}>
-          {TABS.map((tab) => (
-            <Pressable
-              key={tab.id}
-              style={({ pressed }) => [styles.tab, pressed && pressedDim]}
-              onPress={() => handleTabPress(tab)}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-              accessibilityState={{ disabled: tab.href === null }}
-            >
-              <View style={styles.tabIcon}>
-                <tab.Icon width={48} height={48} />
-              </View>
-              <Text style={styles.tabLabel}>{tab.label}</Text>
-            </Pressable>
-          ))}
+          {TABS.map((tab) => {
+            const isInert = tab.href === null;
+            return (
+              <Pressable
+                key={tab.id}
+                // Dim inert tiles visually so reviewers can see at a
+                // glance which sub-flows are wired vs scaffolded.
+                // accessibilityState already announces disabled to
+                // VoiceOver; this gives sighted users the same cue.
+                style={({ pressed }) => [
+                  styles.tab,
+                  isInert && styles.tabInert,
+                  pressed && pressedDim,
+                ]}
+                onPress={() => handleTabPress(tab)}
+                accessibilityRole="button"
+                accessibilityLabel={tab.label}
+                accessibilityState={{ disabled: isInert }}
+              >
+                <View style={styles.tabIcon}>
+                  <tab.Icon width={48} height={48} />
+                </View>
+                <Text style={styles.tabLabel}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <TrustedContactStatus />
@@ -196,6 +217,13 @@ const styles = StyleSheet.create({
     width: 160,
     gap: 8,
     alignItems: 'center',
+  },
+  // Visible "this sub-flow isn't wired yet" state. Half-opacity
+  // matches the standard iOS disabled-control register; the on-
+  // press handler still fires (with an Alert) so the user gets
+  // feedback rather than dead pixels.
+  tabInert: {
+    opacity: 0.5,
   },
   tabIcon: {
     width: '100%',

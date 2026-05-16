@@ -11,9 +11,11 @@ import { GearSix } from 'phosphor-react-native/src/icons/GearSix';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { PaintRoller } from 'phosphor-react-native/src/icons/PaintRoller';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   LayoutAnimation,
@@ -269,10 +271,28 @@ export default function Menu() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <Pressable
-                style={[styles.tileCard, { width: TILE_WIDTH }]}
+                // Coming-soon tiles. Gives a haptic + Alert so the
+                // user gets feedback instead of tapping into dead
+                // pixels; half-opacity surfaces the disabled state
+                // visually (matches the /safety inert-tile pattern).
+                style={({ pressed }) => [
+                  styles.tileCard,
+                  { width: TILE_WIDTH },
+                  styles.tileCardComingSoon,
+                  pressed && pressedDim,
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  Alert.alert(
+                    item.label,
+                    `${item.subtitle} — this tile lands in a future update.`,
+                    [{ text: 'OK' }],
+                  );
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.label}. ${item.subtitle}`}
                 accessibilityHint="Coming soon"
+                accessibilityState={{ disabled: true }}
               >
                 <View style={styles.tileIcon}>{item.renderIcon()}</View>
                 <Text style={styles.tileTitle}>{item.label}</Text>
@@ -554,6 +574,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
+  },
+  // Coming-soon visual cue. Matches the /safety tabInert opacity
+  // register so every "not wired yet" surface reads the same way.
+  tileCardComingSoon: {
+    opacity: 0.5,
   },
   tileIcon: {
     width: 32,

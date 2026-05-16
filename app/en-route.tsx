@@ -7,7 +7,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -963,10 +963,32 @@ export default function EnRoute() {
             still Phosphor — the documented canonical safety-affordance
             (navy duotone) and matches /menu's Safety row register.
           */}
-          <FloatingActionButton size="56" accessibilityLabel="Toggle volume (coming soon)">
+          <FloatingActionButton
+            size="56"
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              Alert.alert('Volume', 'Voice prompt controls land in a future update.', [
+                { text: 'OK' },
+              ]);
+            }}
+            accessibilityLabel="Toggle volume (coming soon)"
+            style={styles.sideBtnInert}
+          >
             <SidebtnVolume width={32} height={32} />
           </FloatingActionButton>
-          <FloatingActionButton size="56" accessibilityLabel="Help (coming soon)">
+          <FloatingActionButton
+            size="56"
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              Alert.alert(
+                'Help',
+                'In-trip help (chat, FAQ, contact support) lands in a future update.',
+                [{ text: 'OK' }],
+              );
+            }}
+            accessibilityLabel="Help (coming soon)"
+            style={styles.sideBtnInert}
+          >
             <SidebtnHelp width={32} height={32} />
           </FloatingActionButton>
           <FloatingActionButton
@@ -1272,6 +1294,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  // Half-opacity treatment for the Volume + Help FABs (coming-soon
+  // side buttons). Matches the /safety + /menu coming-soon register.
+  sideBtnInert: {
+    opacity: 0.5,
   },
   micBtn: {
     // 56pt pill (Figma specs 48pt as Material 3 icon-button, but the
