@@ -573,6 +573,7 @@ const styles = StyleSheet.create({
   // shift the cards' actual positions, not just their visible offset.
   cardsRowContent: {
     gap: CARD_GAP,
+    paddingBottom: 6,
   },
   carouselLeadingSpacer: {
     width: 16,

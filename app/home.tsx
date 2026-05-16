@@ -8,7 +8,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Dimensions, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Alert, Dimensions, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -302,15 +302,21 @@ export default function Home() {
   // LayoutAnimation transitions the resulting height change so the
   // snap doesn't feel jarring.
   const reduceMotion = useReduceMotion();
+  // Animated value that tracks the finger during a drag gesture. Stays at 0
+  // at rest; set live in onPanResponderMove (clamped ±60pt) and reset to 0
+  // synchronously on release so LayoutAnimation owns the snap transition.
+  const dragTranslateY = useRef(new Animated.Value(0)).current;
   const dragHandleResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+        onPanResponderMove: (_, g) => {
+          dragTranslateY.setValue(Math.max(-60, Math.min(60, g.dy)));
+        },
         onPanResponderRelease: (_, g) => {
-          // Skip the height-snap animation when the user has Reduce
-          // Motion on. The collapsed-state change still happens; only
-          // the transition is suppressed.
+          // Reset translateY immediately so LayoutAnimation owns the snap.
+          dragTranslateY.setValue(0);
           if (!reduceMotion) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           }
@@ -1163,7 +1169,9 @@ export default function Home() {
         ReportDetailCard owns the bottom-of-screen affordance while
         a report is selected.
       */}
-      {!placingReport && !selectedReport && <SafeAreaView
+      {!placingReport && !selectedReport && (
+        <Animated.View style={[styles.bottomSheetAnimWrapper, { transform: [{ translateY: dragTranslateY }] }]}>
+        <SafeAreaView
         style={styles.bottomSheet}
         edges={['bottom']}
         onLayout={(e) => {
@@ -1422,7 +1430,9 @@ export default function Home() {
         </View>
           </>
         )}
-      </SafeAreaView>}
+      </SafeAreaView>
+        </Animated.View>
+      )}
 
       {/*
         Report button — floats 24pt above the bottom sheet's top edge.
@@ -1578,15 +1588,17 @@ const styles = StyleSheet.create({
   },
   // menuButton + avatarButton style blocks retired — both consume
   // the FloatingActionButton component now (size="48").
-  bottomSheet: {
+  //
+  // Position lives on the Animated.View wrapper so transform:translateY
+  // moves the whole sheet without fighting the absolute-positioned anchor.
+  bottomSheetAnimWrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    // zIndex above the Recenter/Report FABs so when the sheet
-    // expands past their fixed anchor, it draws *over* them
-    // (Apple Maps / Google Maps obscure-not-reflow pattern).
     zIndex: 10,
+  },
+  bottomSheet: {
     // Cap the sheet at 85% of screen height so it never pushes
     // entirely off-screen on smaller devices (iPhone SE/mini). The
     // content area inside the sheet wraps in a vertical ScrollView
