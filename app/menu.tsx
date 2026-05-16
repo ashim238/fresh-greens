@@ -361,7 +361,12 @@ function ZonePreferencesRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const handleToggleExpanded = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    // Only animate the expand direction. Calling configureNext on collapse
+    // can prevent the state update from registering (the collapse tap appears
+    // to do nothing), so the animation is skipped on the way down.
+    if (!expanded) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
     setExpanded((v) => !v);
   };
   return (

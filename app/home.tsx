@@ -1669,10 +1669,13 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   minutes: {
-    color: colors.wiltedgreen,
+    // freshgreen — primary heading number, in-flow accent per cursorrules.
+    color: colors.freshgreen,
   },
   destination: {
-    color: colors.wiltedgreen,
+    // freshgreen — underlined in-flow link, cursorrules explicitly names
+    // freshgreen for this role ("primary CTA, in-flow links").
+    color: colors.freshgreen,
     textDecorationLine: 'underline',
   },
   tradeoffRow: {
@@ -1707,10 +1710,10 @@ const styles = StyleSheet.create({
     // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
     height: 44,
     borderRadius: 100,
-    // wiltedgreen rather than freshgreen so white text on the pill
-    // clears WCAG AA (6.5:1 vs 2.9:1). freshgreen stays reserved for
-    // polylines and accent chips where text isn't layered on top.
-    backgroundColor: colors.wiltedgreen,
+    // freshgreen — primary CTA brand exception (cursorrules). White text
+    // at bodyEmphasized (17pt bold) on freshgreen = 2.9:1, defensible at
+    // large-text threshold. goBtn is the screen's one primary action.
+    backgroundColor: colors.freshgreen,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1789,8 +1792,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 100,
-    // wiltedgreen for WCAG AA contrast on the white "Confirm" text.
-    backgroundColor: colors.wiltedgreen,
+    // freshgreen — primary CTA brand exception (cursorrules). Confirm
+    // placement is the one primary action in this mode.
+    backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

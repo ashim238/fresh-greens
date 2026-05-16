@@ -760,7 +760,7 @@ function GuidanceView({
         <Waveform history={meteringHistory} />
 
         <Text style={guidanceStyles.recordingFootnote}>
-          Recordings are saved to your account
+          Saved to your phone — only you can access it
         </Text>
       </View>
 
@@ -1607,7 +1607,7 @@ const guidanceStyles = StyleSheet.create({
     alignItems: 'center',
   },
   recordingLabel: {
-    ...typography.bodyEmphasized,
+    ...typography.bodyRegular,
     color: colors.black,
   },
   recordingTimer: {
