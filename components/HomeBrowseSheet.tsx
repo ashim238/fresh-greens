@@ -6,6 +6,7 @@ import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
 import { HandHeart } from 'phosphor-react-native/src/icons/HandHeart';
 import { Heart } from 'phosphor-react-native/src/icons/Heart';
 import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
+import { Star } from 'phosphor-react-native/src/icons/Star';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { useState } from 'react';
@@ -27,7 +28,8 @@ import { typography } from '../theme/typography';
 
 /**
  * /home bottom sheet — browse mode (no destination set yet).
- * Figma node: 1133:13690 (Home Full + Collapsed variants).
+ * Figma node (v2): 1114:9047 (Home MapMarker — shows the canonical
+ * card with photo + quote callout + star-rating row + tag rows).
  *
  * Layout (Full):
  *   - Eyebrow:    "Jordan's Local Recs 💃🏾"
@@ -388,6 +390,7 @@ function RecommendationCard({
         <View style={styles.tagRow}>
           {r.rating != null ? (
             <View style={styles.ratingPill}>
+              <Star size={14} color={colors.freshgreen} weight="fill" />
               <Text style={styles.rating}>{r.rating.toFixed(1)}</Text>
               {r.reviewCount != null ? (
                 <Text style={styles.ratingMeta}> ({r.reviewCount} reviews)</Text>
@@ -585,13 +588,13 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: colors.white,
     borderRadius: 12,
-    // 12pt padding (was 16) and 12pt gap (was 16) — Google-sourced
-    // entries with longer names + variable hours pills were
-    // overflowing the available sheet height on iPhone. Tightening
-    // the card by ~20pt vertically gets every variant inside the
-    // ~510pt sheet window without giving up legibility.
-    padding: 12,
-    gap: 12,
+    // v2 spec (Figma 1114:9047) is 24pt padding + 48pt photo→body gap;
+    // we use 16pt for both because the outer sheet has a vertical
+    // ScrollView now (so we can grow), but iPhone-fit still wants
+    // tighter density than the design canvas. Bumped from 12 → 16
+    // alongside the 1:1 photo restoration to honor v2's breathing room.
+    padding: 16,
+    gap: 16,
     // M3 Elevation 1 — chrome over map. Theme tier so the card,
     // FAB stack, and ETA pill all read at the same depth.
     ...shadows.e1,
@@ -610,14 +613,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   photoWrap: {
-    // Mobile-density override of Figma 1133:13554's 1:1 photo.
-    // The square design works on a wide canvas; on iPhone, a 248pt
-    // square + 200pt of card body + 32pt of padding overflowed the
-    // sheet's available vertical space (~510pt on a 6.1" device).
-    // 4:3 keeps the rectangular spirit and the title/tag rows
-    // visible without scrolling inside the card.
+    // 1:1 per v2 Figma (1114:9047). The earlier 4:3 override was a
+    // sheet-overflow workaround; that's resolved now that the outer
+    // sheet wraps content in a vertical ScrollView with flex:1
+    // (see home.tsx sheetScrollFlex), so the square photo + body can
+    // exceed the visible sheet window and scroll into view.
     width: '100%',
-    aspectRatio: 4 / 3,
+    aspectRatio: 1,
     borderRadius: 8,
     overflow: 'hidden',
     alignSelf: 'center',
@@ -668,16 +670,21 @@ const styles = StyleSheet.create({
   ratingPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.fillsPrimary,
     borderRadius: 4,
     padding: 4,
   },
   rating: {
     ...typography.footnoteEmphasized,
-    // Black rather than freshgreen — Google/Yelp pattern keeps the
-    // number neutral and lets the star carry the visual cue. Also
-    // fixes the 2.9:1 freshgreen-on-fillsPrimary contrast issue.
-    color: colors.black,
+    // freshgreen per v2 Figma (1114:9047) — brand-exception accent,
+    // same family as the freshgreen Go button and underlined
+    // destination link in route mode (.cursorrules: "primary CTA,
+    // in-flow links"). Contrast on fillsPrimary is ~2.5:1, below
+    // AA, but the star icon to the left carries the meaning and
+    // the "(N reviews)" context resolves any ambiguity. Documented
+    // as a brand exception, not an oversight.
+    color: colors.freshgreen,
   },
   ratingMeta: {
     ...typography.footnoteRegular,
