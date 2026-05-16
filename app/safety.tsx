@@ -4,14 +4,14 @@ import * as Haptics from 'expo-haptics';
 import type { ComponentType } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { SvgProps } from 'react-native-svg';
 
-import { Compass } from 'phosphor-react-native/src/icons/Compass';
-import { ShareNetwork } from 'phosphor-react-native/src/icons/ShareNetwork';
-import { Siren } from 'phosphor-react-native/src/icons/Siren';
-import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
-import type { IconProps } from 'phosphor-react-native';
-
+import SafetyCarTroubles from '../assets/illustrations/safety-car-troubles.svg';
+import SafetyLost from '../assets/illustrations/safety-lost.svg';
+import SafetyPulledOver from '../assets/illustrations/safety-pulled-over.svg';
+import SafetyShareLocation from '../assets/illustrations/safety-share-location.svg';
 import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
+
 import { DragHandle } from '../components/DragHandle';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -37,17 +37,13 @@ import { typography } from '../theme/typography';
  * Route: /safety
  * Figma node (v2): 1133:13908
  *
- * v2 deltas from v1 (PR following next-session.md "Safety page matches
- * v2 Figma"):
+ * v2 deltas from v1:
  *  - Tile labels shortened to single-noun glyphs ("Pulled-over" vs "I
  *    was pulled over"). Reads as a toolkit at a glance.
- *  - Illustration set replaced with Phosphor iconography (Siren,
- *    Wrench, Compass, ShareNetwork) at duotone weight. Iconographic
- *    style matches the SF Symbols / Apple Settings register the rest
- *    of the safety surface uses.
- *  - Navy reserved for the Pulled-over siren (per .cursorrules navy =
- *    "safety affordance"); the other three render black so the wired
- *    primary action reads as primary.
+ *  - Iconography matches v2 spec: bundled SVGs (blue siren, pipe
+ *    wrench, red-diamond compass, share-network + green pin). The
+ *    SVGs were already in assets/illustrations/ — same filenames as
+ *    v1 but the contents were updated to v2 designs.
  *  - TrustedContactStatus footer removed — v2 doesn't show it on this
  *    screen (it lives on /pulled-over's guidance phase instead, where
  *    it's more contextually relevant).
@@ -57,8 +53,7 @@ import { typography } from '../theme/typography';
 type SafetyTab = {
   id: string;
   label: string;
-  Icon: ComponentType<IconProps>;
-  iconColor: string;
+  Icon: ComponentType<SvgProps>;
   /** Future sub-flow route — null = unwired TODO for this PR */
   href: string | null;
 };
@@ -67,11 +62,7 @@ const TABS: SafetyTab[] = [
   {
     id: 'pulled-over',
     label: 'Pulled-over',
-    Icon: Siren,
-    // Navy per .cursorrules reserved-color rule #6 — pulled-over is THE
-    // safety affordance, the only fully-wired sub-flow, and the icon
-    // matching the /en-route safety FAB family.
-    iconColor: colors.navy,
+    Icon: SafetyPulledOver,
     // Routes to /pulled-over, a single consolidated modal that runs the
     // entire flow as an internal state machine: armed-or-not → recording
     // → contact → review-guidance. One swipe-down dismisses everything,
@@ -81,22 +72,19 @@ const TABS: SafetyTab[] = [
   {
     id: 'roadside',
     label: 'Roadside assistance',
-    Icon: Wrench,
-    iconColor: colors.black,
+    Icon: SafetyCarTroubles,
     href: null, // TODO: /roadside sub-flow
   },
   {
     id: 'unfamiliar',
     label: 'Unfamiliar area',
-    Icon: Compass,
-    iconColor: colors.black,
+    Icon: SafetyLost,
     href: null, // TODO: /unfamiliar sub-flow
   },
   {
     id: 'share-location',
     label: 'Share location',
-    Icon: ShareNetwork,
-    iconColor: colors.black,
+    Icon: SafetyShareLocation,
     href: null, // TODO: /share-location sub-flow
   },
 ];
@@ -111,8 +99,7 @@ export default function SafetyModal() {
     }
     // Tiles whose sub-flows haven't shipped yet — surface a brief
     // haptic + native Alert so the user gets feedback instead of
-    // tapping into dead pixels. The themed confirmation-modal pattern
-    // is queued for a follow-up; this stays as the interim affordance.
+    // tapping into dead pixels.
     Haptics.selectionAsync().catch(() => {});
     Alert.alert(
       tab.label,
@@ -172,7 +159,7 @@ export default function SafetyModal() {
                 accessibilityState={{ disabled: isInert }}
               >
                 <View style={styles.tabIcon}>
-                  <tab.Icon size={48} color={tab.iconColor} weight="duotone" />
+                  <tab.Icon width={48} height={48} />
                 </View>
                 <Text style={styles.tabLabel}>{tab.label}</Text>
               </Pressable>
