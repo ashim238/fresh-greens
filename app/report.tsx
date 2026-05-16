@@ -437,7 +437,16 @@ function DetailView({
           consistent across both report-modal phases.
         */}
         <Text style={styles.titleEmphasized}>{category.label}</Text>
-        <Text style={styles.subtitle}>{category.subtitle}</Text>
+        {/*
+          v2 Figma (1114:8811 — canonical Report Modal component): single
+          shared subtitle across all category variants. Per-category
+          subtitles in CATEGORIES are no longer consumed by the detail
+          view — kept on the type in case a future revision wants to
+          surface them again. Only icon + title vary per category.
+        */}
+        <Text style={styles.subtitle}>
+          Reports like yours keep Fresh Greens fresh.
+        </Text>
         {category.anonymous && (
           <Text style={styles.anonymousNote}>
             Note: All reports are anonymous
@@ -541,7 +550,6 @@ function DetailView({
 // --- Thank-You view ------------------------------------------------------
 
 function ThankYouView({
-  placeName,
   onUndo,
   onClose,
 }: {
@@ -549,13 +557,13 @@ function ThankYouView({
   onUndo: () => void;
   onClose: () => void;
 }) {
-  // Subtitle leads with the resolved business name when we have it
-  // — makes the contribution feel concrete ("Your note about
-  // Wintzell's…") instead of abstract. Falls back to the generic
-  // copy when /api/nearby returned nothing.
-  const subtitle = placeName
-    ? `Your note about ${placeName} helps the next driver — the same way every other Fresh Greens user is helping you.`
-    : 'Your report helps the next driver — the same way every other Fresh Greens user is helping you.';
+  // v2 Figma (1114:7584) uses the same generic subtitle as the detail
+  // view — single shared message across the report flow. The earlier
+  // implementation surfaced the resolved place name ("Your note about
+  // Wintzell's…") for warmth, but v2 chose uniformity. The placeName
+  // prop is preserved on the type so a future revision can re-surface
+  // it without re-plumbing.
+  const subtitle = 'Reports like yours keep Fresh Greens fresh.';
 
   return (
     <>
