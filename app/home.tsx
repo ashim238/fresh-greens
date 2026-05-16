@@ -1481,22 +1481,18 @@ export default function Home() {
           edges={['bottom']}
           pointerEvents="box-none"
         >
+          <View style={styles.placementDragHandleWrap}>
+            <DragHandle />
+          </View>
           <View style={styles.placementBarInner}>
-            <Text style={styles.placementHint}>
-              Tap the map to move the pin
-            </Text>
+            {/*
+              v2 Figma (1109:8139) drops the "Tap the map to move the pin"
+              hint text from the bottom sheet — the orange placement pin
+              + the drag-and-drop glyph on the map carry the affordance
+              visually. Layout: Confirm (flex:1 freshgreen pill) left,
+              circular X close FAB right (48pt, matching the FAB family).
+            */}
             <View style={styles.placementActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.placementCancel,
-                  pressed && pressedDim,
-                ]}
-                onPress={handleCancelPlacement}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel report placement"
-              >
-                <X size={20} color={colors.labelSecondary} weight="bold" />
-              </Pressable>
               <Pressable
                 style={({ pressed }) => [
                   styles.placementConfirm,
@@ -1507,6 +1503,17 @@ export default function Home() {
                 accessibilityLabel="Confirm report location"
               >
                 <Text style={styles.placementConfirmText}>Confirm</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.placementCancel,
+                  pressed && pressedDim,
+                ]}
+                onPress={handleCancelPlacement}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel report placement"
+              >
+                <X size={20} color={colors.labelSecondary} weight="bold" />
               </Pressable>
             </View>
           </View>
@@ -1750,31 +1757,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 16,
     ...shadows.sheet,
+  },
+  placementDragHandleWrap: {
+    // Centered drag handle, matching the home browse sheet and the
+    // safety modal. Decorative — placement bar dismissal is via the
+    // X cancel button, not a swipe gesture.
+    paddingTop: 16,
+    alignItems: 'center',
   },
   placementBarInner: {
     paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 16,
     gap: 16,
   },
-  placementHint: {
-    ...typography.subheadlineRegular,
-    color: colors.mutedSecondary,
-    textAlign: 'center',
-  } as const,
   placementActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
     alignItems: 'center',
   },
   placementCancel: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.systemGroupedBackground,
+    // 48pt circular FAB per v2 (1109:8139) — matches the size family of
+    // the bottom-sheet FAB pair (recenter / report on /en-route).
+    // shadows.e1 for the lift above the white sheet surface.
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.e1,
   },
   placementConfirm: {
     flex: 1,
@@ -1785,11 +1798,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    ...shadows.e1,
   },
   placementConfirmText: {
     ...typography.subheadlineEmphasized,
