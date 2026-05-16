@@ -151,7 +151,15 @@ const styles = StyleSheet.create({
   // (0,1,3,1 @ 15% + 0,1,2,0 @ 30%); RN renders only one per view, so
   // we use the bigger soft layer that carries the visible elevation.
   primaryFill: {
-    backgroundColor: colors.freshgreen,
+    // wiltedgreen (not freshgreen) so white text clears WCAG AA at
+    // 6.5:1. Was freshgreen pre-PR #148 contrast pass — that PR only
+    // moved inline /home Go-button styling and missed this shared
+    // Button surface; 6 screens (index, permissions, onboarding,
+    // sign-out, trusted-contact-setup, recordings) inherit from this
+    // and were still shipping the 2.9:1 fail. Visually identical to
+    // secondaryFill now; documented exception to the
+    // primary-vs-secondary visual distinction post-contrast-pass.
+    backgroundColor: colors.wiltedgreen,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,

@@ -148,9 +148,10 @@ export default function GetStarted() {
               press until their flows are wired up.
             */}
             <Pressable
-              style={styles.outlinedButton}
+              style={[styles.outlinedButton, styles.outlinedButtonDisabled]}
               accessibilityRole="button"
               accessibilityLabel="Continue with Google (not yet supported)"
+              accessibilityState={{ disabled: true }}
               disabled
             >
               <LogoGoogle width={20} height={20} />
@@ -158,9 +159,10 @@ export default function GetStarted() {
             </Pressable>
 
             <Pressable
-              style={styles.outlinedButton}
+              style={[styles.outlinedButton, styles.outlinedButtonDisabled]}
               accessibilityRole="button"
               accessibilityLabel="Continue with Email (not yet supported)"
+              accessibilityState={{ disabled: true }}
               disabled
             >
               <LogoMail width={20} height={20} />
@@ -255,6 +257,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8, // space between icon and label
+  },
+  // Visible disabled treatment for the Google + Email buttons.
+  // Without opacity styling, a reviewer who taps them gets ZERO
+  // feedback and assumes the app is frozen. Half-opacity matches
+  // the standard iOS disabled-control register.
+  outlinedButtonDisabled: {
+    opacity: 0.5,
   },
   buttonBusy: {
     // Subtle dim while the Apple sheet is up so the user has feedback
