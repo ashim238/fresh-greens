@@ -8,7 +8,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, LayoutAnimation, Linking, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,6 +21,7 @@ import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
+import { ClusterMarker } from '../components/ClusterMarker';
 import { DestinationMarker } from '../components/DestinationMarker';
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
@@ -774,12 +775,11 @@ export default function Home() {
               return null;
             }
             return (
-              <Marker
+              <ClusterMarker
                 key={cluster.id}
-                coordinate={cluster.center}
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-                accessibilityLabel={`${cluster.count} community reports nearby — tap to zoom in`}
+                latitude={cluster.center.latitude}
+                longitude={cluster.center.longitude}
+                count={cluster.count}
                 onPress={() => {
                   Haptics.selectionAsync();
                   const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
@@ -798,11 +798,7 @@ export default function Home() {
                     400,
                   );
                 }}
-              >
-                <View style={styles.clusterMarker}>
-                  <Text style={styles.clusterCount}>{cluster.count}</Text>
-                </View>
-              </Marker>
+              />
             );
           }
           const { zone } = item;
@@ -905,6 +901,12 @@ export default function Home() {
             latitude={parseFloat(params.destLat)}
             longitude={parseFloat(params.destLng)}
             name={params.destName}
+            // Finish-line flag (was the wiltedgreen pin) — single
+            // destination visual across /home route-preview and
+            // /en-route so the destination reads identically across
+            // the trip lifecycle. Asset already exists in
+            // DestinationMarker as the 'enroute' variant.
+            variant="enroute"
           />
         )}
         {/*
@@ -1199,28 +1201,42 @@ export default function Home() {
         )}
 
         {!(params.destLat && params.destLng) ? (
-          <HomeBrowseSheet
-            firstName={userFirstName}
-            neighborhoodLabel={neighborhoodLabel}
-            userLocation={userLocation}
-            collapsed={thingsToDoCollapsed}
-            onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
-            onSelectRecommendation={(rec) => {
-              // Tapping a recommendation card routes to /home with the
-              // destination params set, same way a search-result tap
-              // does. router.replace (not push) so back-stack stays
-              // clean — this is a destination CHANGE on /home, not a
-              // new screen entry.
-              router.replace({
-                pathname: '/home',
-                params: {
-                  destLat: String(rec.latitude),
-                  destLng: String(rec.longitude),
-                  destName: rec.name,
-                },
-              });
-            }}
-          />
+          // Vertical ScrollView so the sheet's intrinsic content can
+          // exceed the sheet's maxHeight (85% screen). The user
+          // scrolls the sheet's body to reach the bottom of a long
+          // recommendation card. Inner horizontal carousel in
+          // HomeBrowseSheet stays unaffected — perpendicular axes
+          // don't conflict. `nestedScrollEnabled` lets Android route
+          // touches correctly between the outer vertical scroller
+          // and the inner horizontal carousel.
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            contentContainerStyle={styles.sheetScrollContent}
+          >
+            <HomeBrowseSheet
+              firstName={userFirstName}
+              neighborhoodLabel={neighborhoodLabel}
+              userLocation={userLocation}
+              collapsed={thingsToDoCollapsed}
+              onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+              onSelectRecommendation={(rec) => {
+                // Tapping a recommendation card routes to /home with
+                // the destination params set, same way a search-result
+                // tap does. router.replace (not push) so back-stack
+                // stays clean — this is a destination CHANGE on
+                // /home, not a new screen entry.
+                router.replace({
+                  pathname: '/home',
+                  params: {
+                    destLat: String(rec.latitude),
+                    destLng: String(rec.longitude),
+                    destName: rec.name,
+                  },
+                });
+              }}
+            />
+          </ScrollView>
         ) : (
           <>
         <View style={styles.bottomSheetContent}>
@@ -1562,6 +1578,13 @@ const styles = StyleSheet.create({
     // expands past their fixed anchor, it draws *over* them
     // (Apple Maps / Google Maps obscure-not-reflow pattern).
     zIndex: 10,
+    // Cap the sheet at 85% of screen height so it never pushes
+    // entirely off-screen on smaller devices (iPhone SE/mini). The
+    // content area inside the sheet wraps in a vertical ScrollView
+    // (browse mode only), so overflow becomes scrollable rather
+    // than clipped — the user can scroll inside the sheet to reach
+    // the bottom of a long card.
+    maxHeight: Dimensions.get('window').height * 0.85,
     backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -1573,6 +1596,13 @@ const styles = StyleSheet.create({
   },
   bottomSheetContent: {
     gap: 24,
+  },
+  // Vertical scroller inside the sheet (browse mode). No
+  // paddingBottom — HomeBrowseSheet's own `content.paddingBottom`
+  // and the SafeAreaView edges={['bottom']} on the sheet provide
+  // the gutter.
+  sheetScrollContent: {
+    flexGrow: 1,
   },
   headers: {
     gap: 8,
@@ -1668,26 +1698,6 @@ const styles = StyleSheet.create({
     ...typography.bodyEmphasized,
     color: colors.white,
   },
-  // --- Cluster marker ---
-  clusterMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.orange,
-    borderWidth: 2,
-    borderColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  clusterCount: {
-    ...typography.footnoteEmphasized,
-    color: colors.white,
-  } as const,
   // --- Placement mode ---
   placementPin: {
     width: 44,

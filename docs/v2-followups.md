@@ -42,6 +42,22 @@ These are scaffolded-but-not-real features a thesis reviewer would notice. Bette
 - **Saved-home + trusted-friend markers don't get a `selected` state** — tapping them fires handlers but no visual feedback.
 - **Dynamic Type expansion (S1 #6 from a11y audit)** — only ~3 `dynamicType()` invocations across the codebase. Needs broader application + breakpoint testing.
 
+## Accessibility — daylight gradient colorblind support
+
+The daylight gradient on the route polyline (orange → mauve → indigo) encodes when each route segment will be in daylight, twilight, or after dark — *functional* color, per the `.cursorrules` reserved-color rule #3. But the gradient is color-only signaling, which fails on three counts for colorblind users:
+
+- **Deuteranopia / protanopia (red-green colorblind, ~8% of men)** — orange and mauve get hard to distinguish; the daylight→twilight boundary becomes invisible
+- **Tritanopia (blue-yellow, rare)** — indigo→mauve boundary becomes invisible
+- **Monochromacy / low-vision** — the entire gradient reads as a uniform stripe
+
+Two layered fixes (combine for full coverage):
+1. **Non-color cue along the polyline** — alternate dash patterns per daylight tier (solid = day, dashed = twilight, dotted = night), or width changes (thicker = day, thinner = night). RN-Maps Polyline supports `lineDashPattern`.
+2. **Accessibility label or an inline legend overlay** that calls out the transitions explicitly: "Daylight for first 12 mi, twilight from mile 12 to mile 18, dark from mile 18 to arrival." VoiceOver users get the same information the gradient conveys visually.
+
+Same problem applies to the bottom-sheet daylight strip key in /home — color alone today; should add the same dash-pattern legend.
+
+WCAG 1.4.1 (Use of Color, Level A) requires color not be the only visual means of conveying info. Currently a known failure.
+
 ## v2 architecture
 
 - **Curated catalog as catastrophic fallback feels invisible** — `lib/api/recommendations.ts:148-152` only fires curated when external+community both empty. With Google Places returning worldwide results, curated rarely fires in practice. Consider letting curated participate when it's category-appropriate AND user is near the curated entry's region.
