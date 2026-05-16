@@ -322,6 +322,13 @@ function RecommendationCard({
 }) {
   const r = recommendation;
   const quoteText = r.curatorQuote ?? r.reportDetail;
+  // Photo load tracking — when the proxy's /api/photo returns
+  // 4xx/5xx (rate limit, missing photo, Google upstream error),
+  // <Image> stays empty and the card reads as broken. `photoFailed`
+  // flips the card to the placeholder glyph fallback so the card
+  // always renders something.
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const showPhoto = r.photoName && !photoFailed;
   // VoiceOver / TalkBack label — composes the visible information
   // into a single readable string so screen-reader users get the
   // same context the sighted card surfaces (name + category +
@@ -351,11 +358,12 @@ function RecommendationCard({
       style={({ pressed }) => [styles.card, pressed && pressedDim]}
     >
       <View style={styles.photoWrap}>
-        {r.photoName ? (
+        {showPhoto ? (
           <Image
-            source={{ uri: `${PROXY_PHOTO_URL}?name=${encodeURIComponent(r.photoName)}&max=560` }}
+            source={{ uri: `${PROXY_PHOTO_URL}?name=${encodeURIComponent(r.photoName!)}&max=560` }}
             style={styles.photoImage}
             accessibilityIgnoresInvertColors
+            onError={() => setPhotoFailed(true)}
           />
         ) : (
           <View style={styles.photoPlaceholder} accessibilityIgnoresInvertColors>

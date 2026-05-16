@@ -60,7 +60,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.orange,
+    // wiltedgreen (not orange) — orange is reserved per .cursorrules
+    // rule #4 for caution/hazard signaling. A community-report
+    // cluster is informational (N reports here, tap to zoom), not
+    // a hazard signal. wiltedgreen + white reads as "count badge"
+    // without coding it as a danger marker.
+    backgroundColor: colors.wiltedgreen,
     borderWidth: 2,
     borderColor: colors.white,
     alignItems: 'center',

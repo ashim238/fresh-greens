@@ -13,8 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
-import { ArrowBendUpLeft } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
 import { ArrowBendUpRight } from 'phosphor-react-native/src/icons/ArrowBendUpRight';
+import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
@@ -829,31 +829,34 @@ export default function EnRoute() {
           <View
             style={styles.turnDirection}
             accessible
-            accessibilityLabel="Turn left in 0.5 miles"
+            accessibilityLabel={`Heading toward ${params.destName ?? 'your destination'}`}
           >
             {/*
               Turn maneuver glyph — informational, not a button.
               Phosphor duotone per Figma `825:3754`'s Turn Icon
-              register. The earlier `turn-sign.svg` SVG was the
-              wrong export for this surface (kept available in
-              `assets/illustrations/` if a future custom variant
-              is needed).
+              register.
+              v1 doesn't have real turn-by-turn (OSRM gives geometry,
+              not steps), so we render a neutral "Heading toward
+              <destName>" instead of the placeholder "Turn left onto
+              South Cedar Street" that read as a flat lie regardless
+              of where you actually were. v1.5 cheap path: OSRM
+              `steps=true` gives a minimal maneuver list; render
+              that here when it lands.
+              NavigationArrow points up (forward motion) without
+              claiming a specific maneuver direction, since we don't
+              know one yet.
             */}
-            <ArrowBendUpLeft
+            <NavigationArrow
               size={56}
               color={colors.white}
               weight="duotone"
             />
-            <Text style={styles.turnDistance}>
-              0.5{' '}
-              <Text style={styles.turnDistanceUnit}>mi</Text>
-            </Text>
           </View>
 
           <View style={styles.turnText}>
             <Text style={styles.turnInstruction}>
-              Turn left onto{'\n'}
-              <Text style={styles.turnStreet}>South Cedar Street</Text>
+              Heading toward{'\n'}
+              <Text style={styles.turnStreet}>{params.destName ?? 'your destination'}</Text>
             </Text>
             {turnHazards.length > 0 && (
               <View

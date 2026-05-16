@@ -743,7 +743,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: colors.freshgreen,
+    // wiltedgreen so the white active-state label clears WCAG AA.
+    backgroundColor: colors.wiltedgreen,
+    borderColor: colors.wiltedgreen,
   },
   chipLabel: {
     ...typography.subheadlineRegular,

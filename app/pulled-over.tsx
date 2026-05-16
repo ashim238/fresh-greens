@@ -1737,7 +1737,9 @@ const contactStyles = StyleSheet.create({
     gap: 8,
     height: 48,
     width: '100%',
-    backgroundColor: colors.freshgreen,
+    // wiltedgreen for WCAG AA contrast on the white "Call" text
+    // (matches the post-#148 primary-CTA register).
+    backgroundColor: colors.wiltedgreen,
     borderRadius: 1000,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
