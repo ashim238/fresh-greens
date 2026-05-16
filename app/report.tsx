@@ -40,6 +40,7 @@ import type { Coordinate } from '../lib/api/zones';
 import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -337,7 +338,7 @@ function PickerView({
         </View>
         <Text style={styles.titleEmphasized}>Report</Text>
         <Text style={styles.subtitle}>
-          Let the community know what's happening near you.
+          Let the community know what&rsquo;s going on near you.
         </Text>
       </View>
 
@@ -425,12 +426,27 @@ function DetailView({
       </View>
 
       <View style={styles.titleBlock}>
-        <View style={styles.identityIcon}>
-          <CategoryGlyph categoryId={category.id} size={32} />
+        <View style={styles.detailIdentityIcon}>
+          <CategoryGlyph categoryId={category.id} size={48} />
         </View>
-        {/* Title1 Regular — see .cursorrules. The modal is asking, not telling. */}
-        <Text style={styles.titleRegular}>{category.label}</Text>
-        <Text style={styles.subtitle}>{category.subtitle}</Text>
+        {/*
+          v2 Figma (1112:8900) specs Title1 Emphasized (28pt bold) for
+          the category title — the category names ("Incident", "Hazard",
+          etc.) read as labels rather than questions, so the emphasized
+          weight fits. The picker's "Report" title is also titleEmphasized;
+          consistent across both report-modal phases.
+        */}
+        <Text style={styles.titleEmphasized}>{category.label}</Text>
+        {/*
+          v2 Figma (1114:8811 — canonical Report Modal component): single
+          shared subtitle across all category variants. Per-category
+          subtitles in CATEGORIES are no longer consumed by the detail
+          view — kept on the type in case a future revision wants to
+          surface them again. Only icon + title vary per category.
+        */}
+        <Text style={styles.subtitle}>
+          Reports like yours keep Fresh Greens fresh.
+        </Text>
         {category.anonymous && (
           <Text style={styles.anonymousNote}>
             Note: All reports are anonymous
@@ -534,7 +550,6 @@ function DetailView({
 // --- Thank-You view ------------------------------------------------------
 
 function ThankYouView({
-  placeName,
   onUndo,
   onClose,
 }: {
@@ -542,13 +557,13 @@ function ThankYouView({
   onUndo: () => void;
   onClose: () => void;
 }) {
-  // Subtitle leads with the resolved business name when we have it
-  // — makes the contribution feel concrete ("Your note about
-  // Wintzell's…") instead of abstract. Falls back to the generic
-  // copy when /api/nearby returned nothing.
-  const subtitle = placeName
-    ? `Your note about ${placeName} helps the next driver — the same way every other Fresh Greens user is helping you.`
-    : 'Your report helps the next driver — the same way every other Fresh Greens user is helping you.';
+  // v2 Figma (1114:7584) uses the same generic subtitle as the detail
+  // view — single shared message across the report flow. The earlier
+  // implementation surfaced the resolved place name ("Your note about
+  // Wintzell's…") for warmth, but v2 chose uniformity. The placeName
+  // prop is preserved on the type so a future revision can re-surface
+  // it without re-plumbing.
+  const subtitle = 'Reports like yours keep Fresh Greens fresh.';
 
   return (
     <>
@@ -560,6 +575,15 @@ function ThankYouView({
           hitSlop={12}
         >
           <Ionicons name="chevron-back" size={24} color={colors.labelTertiary} />
+        </Pressable>
+        <View style={{ flex: 1 }} />
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          hitSlop={12}
+        >
+          <X size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
       </View>
 
@@ -609,15 +633,14 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     backgroundColor: colors.white,
     borderRadius: 20,
-    paddingHorizontal: 16,
+    // v2 spec (1112:8900): px-24 py-32 gap-24. Bumped horizontal from
+    // 16 → 24 to honor the v2 breathing room while keeping the vertical
+    // and gap unchanged.
+    paddingHorizontal: 24,
     paddingVertical: 32,
     gap: 24,
-    // Approximates Figma M3 Elevation Light/2.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    // Theme tier — content above map but below transparent modal scrim.
+    ...shadows.e2,
   },
   headerRow: {
     flexDirection: 'row',
@@ -628,23 +651,35 @@ const styles = StyleSheet.create({
   },
   identityIcon: {
     // 56x56 dedicated space, internal padding centers the 32pt icon.
-    // Same shape as the safety modal's iconBox.
+    // Same shape as the safety modal's iconBox. Used by the picker's
+    // alert-circle identity glyph.
     width: 56,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -16, // pulls the icon to align with the popup's left edge
   },
+  detailIdentityIcon: {
+    // Detail-view variant — v2 Figma (1112:8900) renders the category
+    // glyph at a larger 48pt inside the 56pt container, giving the
+    // category its own visual weight separate from the picker's
+    // smaller alert-circle. No negative margin since the detail glyph
+    // is wider and reads better aligned with the title text edge.
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   titleEmphasized: {
     ...typography.title1Emphasized,
     color: colors.black,
   },
-  titleRegular: {
-    ...typography.title1Regular,
-    color: colors.black,
-  },
   subtitle: {
-    ...typography.bodyEmphasized,
+    // bodyRegular per v2 Figma (1112:8319 / 1112:8900). Softer than the
+    // earlier bodyEmphasized — the subtitle is the supporting line, not
+    // the prompt itself. Per .cursorrules "In-modal user prompts use
+    // Title1 Regular," the *supporting* body line should match in tone.
+    ...typography.bodyRegular,
     color: colors.labelTertiary,
   },
   anonymousNote: {
@@ -672,12 +707,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.systemGroupedBackground,
     alignItems: 'center',
     justifyContent: 'center',
-    // Approximates Figma M3 Elevation Light/1.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // Theme tier — same depth as the safety modal tiles and the
+    // home browse card.
+    ...shadows.e1,
   },
   tileLabel: {
     ...typography.subheadlineEmphasized,
@@ -687,8 +719,13 @@ const styles = StyleSheet.create({
   },
 
   // --- Detail form ---
+  // v2 Figma (1112:8900): 16pt gap between form-block children (label →
+  // input → label → photo). Bumped from 12 to match. The borderRadius
+  // on the detail input + photo dropzone also moves to 16 — v2 uses
+  // rounded-16, more in line with the popup's 20pt corner radius than
+  // the earlier 8pt boxy feel.
   formBlock: {
-    gap: 12,
+    gap: 16,
   },
   fieldLabel: {
     ...typography.subheadlineRegular,
@@ -698,10 +735,10 @@ const styles = StyleSheet.create({
     minHeight: 61,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    ...typography.subheadlineRegular,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    ...typography.bodyRegular,
     color: colors.black,
     textAlignVertical: 'top',
   },
@@ -710,7 +747,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
     borderStyle: 'dashed',
-    borderRadius: 8,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -764,25 +801,22 @@ const styles = StyleSheet.create({
   },
 
   // --- Thank-You title block ---
-  // Centered alignment + smaller subtitle metrics distinguish this from
-  // the picker/detail blocks. Per Figma 992:3982: items-center on the
-  // wrapper, Title1 Regular 28pt centered, Subheadline Regular 15pt
-  // centered #3D3D3D for the body line. The picker/detail screens
-  // intentionally keep left-aligned, larger-subtitle style — different
-  // emotional register.
+  // v2 Figma (1114:7584): items-start, Title1 Emphasized for the
+  // headline + Body Regular for the supporting line, both left-aligned
+  // and matching the picker/detail typography. The earlier center-
+  // aligned Title1 Regular version was a different visual register;
+  // v2 consolidates the three phases to one consistent layout family.
   thankYouTitleBlock: {
     gap: 16,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   thankYouTitle: {
-    ...typography.title1Regular,
+    ...typography.title1Emphasized,
     color: colors.black,
-    textAlign: 'center',
   },
   thankYouSubtitle: {
-    ...typography.subheadlineRegular,
+    ...typography.bodyRegular,
     color: colors.labelTertiary,
-    textAlign: 'center',
   },
 
   // iOS InputAccessoryView toolbar — small bar that sits directly
