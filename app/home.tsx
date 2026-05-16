@@ -1210,6 +1210,15 @@ export default function Home() {
           // touches correctly between the outer vertical scroller
           // and the inner horizontal carousel.
           <ScrollView
+            // `flex: 1` (via style) lets the ScrollView shrink to the
+            // space available inside the sheet's maxHeight. Without it
+            // the ScrollView expands to its content height, which is
+            // taller than the capped SafeAreaView — the inner cards
+            // visibly hang below the sheet's bottom edge instead of
+            // scrolling internally. `flex: 1` makes the ScrollView the
+            // bounded region; cards inside scroll vertically when they
+            // exceed it.
+            style={styles.sheetScrollFlex}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
             contentContainerStyle={styles.sheetScrollContent}
@@ -1597,12 +1606,22 @@ const styles = StyleSheet.create({
   bottomSheetContent: {
     gap: 24,
   },
-  // Vertical scroller inside the sheet (browse mode). No
-  // paddingBottom — HomeBrowseSheet's own `content.paddingBottom`
-  // and the SafeAreaView edges={['bottom']} on the sheet provide
-  // the gutter.
+  // Vertical scroller inside the sheet (browse mode).
+  // `sheetScrollFlex` constrains the ScrollView to the available
+  // height inside the sheet's maxHeight; `sheetScrollContent`
+  // controls the inner content layout. Splitting style from
+  // contentContainerStyle is the RN-canonical pattern — style is
+  // the scroll viewport, contentContainerStyle is the scrolled
+  // content. Mixing them collapses the constraint.
+  sheetScrollFlex: {
+    flex: 1,
+  },
   sheetScrollContent: {
     flexGrow: 1,
+    // Extra bottom padding so the last card's shadow + its 16pt
+    // marker breathe past the safe-area edge — without this the
+    // shadow renders clipped at the bottom-most scroll position.
+    paddingBottom: 24,
   },
   headers: {
     gap: 8,
