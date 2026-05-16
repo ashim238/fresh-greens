@@ -8,7 +8,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
+import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
@@ -31,6 +31,7 @@ import TurnMic from '../assets/illustrations/turn-mic.svg';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
+import { ClusterMarker } from '../components/ClusterMarker';
 import { DestinationMarker } from '../components/DestinationMarker';
 import { DragHandle } from '../components/DragHandle';
 import { EnRouteZone } from '../components/EnRouteZone';
@@ -700,12 +701,11 @@ export default function EnRoute() {
           if (item.kind === 'cluster') {
             const { cluster } = item;
             return (
-              <Marker
+              <ClusterMarker
                 key={cluster.id}
-                coordinate={cluster.center}
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-                accessibilityLabel={`${cluster.count} community reports nearby — tap to zoom in`}
+                latitude={cluster.center.latitude}
+                longitude={cluster.center.longitude}
+                count={cluster.count}
                 onPress={() => {
                   Haptics.selectionAsync();
                   const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
@@ -724,11 +724,7 @@ export default function EnRoute() {
                     400,
                   );
                 }}
-              >
-                <View style={styles.clusterMarker}>
-                  <Text style={styles.clusterCount}>{cluster.count}</Text>
-                </View>
-              </Marker>
+              />
             );
           }
           const { zone } = item;
@@ -1521,24 +1517,5 @@ const styles = StyleSheet.create({
   endTripText: {
     ...typography.subheadlineEmphasized,
     color: colors.wiltedgreen,
-  },
-  clusterMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.orange,
-    borderWidth: 2,
-    borderColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  clusterCount: {
-    ...typography.footnoteEmphasized,
-    color: colors.white,
   },
 });
