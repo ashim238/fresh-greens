@@ -613,13 +613,19 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   photoWrap: {
-    // 1:1 per v2 Figma (1114:9047). The earlier 4:3 override was a
-    // sheet-overflow workaround; that's resolved now that the outer
-    // sheet wraps content in a vertical ScrollView with flex:1
-    // (see home.tsx sheetScrollFlex), so the square photo + body can
-    // exceed the visible sheet window and scroll into view.
+    // 4:3 (intentional override of v2 Figma 1114:9047's 1:1 photo).
+    // Trade-off rationale:
+    //  - 1:1 makes cards ~70pt taller; on a 6.1" iPhone the body
+    //    (title + tag rows) gets pushed below the visible sheet edge
+    //    and requires an extra inner-scroll to read. 4:3 keeps the
+    //    full card at a glance.
+    //  - Google Places photos are typically horizontal compositions;
+    //    they frame better at 4:3 than they crop at 1:1.
+    // The sheet does have a vertical ScrollView now (#179), so 1:1
+    // is technically possible — but "scrollable" isn't the same as
+    // "readable at a glance." Density wins here.
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 4 / 3,
     borderRadius: 8,
     overflow: 'hidden',
     alignSelf: 'center',
