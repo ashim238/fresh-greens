@@ -54,6 +54,7 @@ export function HomeBrowseSheet({
   collapsed,
   onToggleCollapsed,
   onSelectRecommendation,
+  onEmptyTap,
 }: {
   /** Display name for the eyebrow; falls back to "Local" if undefined. */
   firstName?: string;
@@ -70,6 +71,13 @@ export function HomeBrowseSheet({
   onToggleCollapsed: () => void;
   /** Caller routes to /home with the destination params set. */
   onSelectRecommendation: (rec: Recommendation) => void;
+  /**
+   * Tapping the empty-state card invokes this. Wired by the parent
+   * (typically to /report) so a category with no community-submitted
+   * spots converts that gap into a direct "be the first" CTA rather
+   * than a dead "coming soon" panel.
+   */
+  onEmptyTap?: () => void;
 }) {
   const [category, setCategory] = useState<RecommendationCategory>('black-owned');
   const { recommendations, loading } = useRecommendations({ category, userLocation });
@@ -189,7 +197,7 @@ export function HomeBrowseSheet({
           </ScrollView>
         ) : (
           <View style={styles.cardWrap}>
-            <EmptyState categoryLabel={categoryLabel} />
+            <EmptyState category={category} onTap={onEmptyTap} />
           </View>
         )
       )}
@@ -469,17 +477,69 @@ function RecommendationCardSkeleton() {
 
 // --- Empty state ---------------------------------------------------------
 
-function EmptyState({ categoryLabel }: { categoryLabel: string }) {
+// Per-category invitations. The previous generic "More X coming soon"
+// read as an apology; framing each empty as a specific ask converts
+// the gap into the most direct contribution path in the app.
+const EMPTY_STATE_COPY: Record<
+  RecommendationCategory,
+  { title: string; body: string }
+> = {
+  'black-owned': {
+    title: 'Be the first to put a Black-owned spot on the map here',
+    body: 'Tap to drop a report — yours could anchor this category for the neighborhood.',
+  },
+  'women-owned': {
+    title: 'No women-owned spots logged here yet',
+    body: 'Tap to add the one you trust — others searching this area will see it.',
+  },
+  'lgbtq-welcoming': {
+    title: 'Know a spot that genuinely welcomes everyone here?',
+    body: 'Tap to mark it — community-vetted reads stronger than a generic flag.',
+  },
+  'restroom': {
+    title: 'No publicly-vouched restrooms in this area yet',
+    body: 'Tap to add one — the next person caught short will thank you.',
+  },
+  'late-night-warm-welcome': {
+    title: 'No 2 a.m. safe havens logged here yet',
+    body: 'Tap to mark a place that stays open and stays warm to walk into late.',
+  },
+};
+
+function EmptyState({
+  category,
+  onTap,
+}: {
+  category: RecommendationCategory;
+  onTap?: () => void;
+}) {
+  const copy = EMPTY_STATE_COPY[category];
+  const a11yLabel = `${copy.title}. ${copy.body}`;
+  const content = (
+    <>
+      <PhotoPlaceholderGlyph category={category} />
+      <Text style={styles.emptyTitle}>{copy.title}</Text>
+      <Text style={styles.emptyBody}>{copy.body}</Text>
+    </>
+  );
+  if (!onTap) {
+    return (
+      <View style={styles.empty} accessible accessibilityLabel={a11yLabel}>
+        {content}
+      </View>
+    );
+  }
   return (
-    <View style={styles.empty} accessible>
-      <Text style={styles.emptyTitle}>
-        More {categoryLabel.toLowerCase()} coming soon
-      </Text>
-      <Text style={styles.emptyBody}>
-        We're still collecting community-trusted spots in your area.
-        Submit a report from the map and yours could land here.
-      </Text>
-    </View>
+    <Pressable
+      style={({ pressed }) => [styles.empty, pressed && pressedDim]}
+      onPress={onTap}
+      accessible
+      accessibilityLabel={a11yLabel}
+      accessibilityHint="Adds a community report for this category"
+      accessibilityRole="button"
+    >
+      {content}
+    </Pressable>
   );
 }
 

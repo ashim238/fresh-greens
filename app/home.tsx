@@ -680,15 +680,37 @@ export default function Home() {
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // First-home flag captured *before* the Alert so the post-confirm
+    // path can tell a milestone save (first home, ever) apart from a
+    // re-save / update. Button label, success-notification haptic, and
+    // camera settle only fire on the milestone — re-saves stay quiet,
+    // and the button reads "Update home" so the user isn't promised
+    // milestone feedback they won't get.
+    const wasFirstHome = home == null;
     Alert.alert(
       'Save as home',
       'Add this location to your saved places? Your home appears on the map and as an off-screen indicator when you pan away.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Save',
+          text: wasFirstHome ? 'Make it home' : 'Update home',
           onPress: () => {
             void addSavedPlace({ kind: 'home', name: 'Home', latitude, longitude });
+            // Re-check `home` at confirm time — defense in depth
+            // against a hypothetical concurrent save (no current path
+            // creates one, but the snapshot is cheap to harden).
+            if (wasFirstHome && home == null) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+              // Re-center on the new home so the just-dropped pin
+              // is unambiguously visible. Reduce-Motion path uses
+              // duration=0 so the camera still lands on the pin
+              // (the "where did it land?" question still matters)
+              // but the animation itself is skipped.
+              mapRef.current?.animateToRegion(
+                { latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+                reduceMotion ? 0 : 600,
+              );
+            }
           },
         },
       ],
@@ -1295,6 +1317,14 @@ export default function Home() {
                     destName: rec.name,
                   },
                 });
+              }}
+              onEmptyTap={() => {
+                // Empty-state CTA — taps route to the report flow
+                // (same entry point as the Report FAB). Light haptic
+                // marks the transition; the report flow's own success
+                // notification handles the commit feedback.
+                Haptics.selectionAsync().catch(() => {});
+                router.push('/report');
               }}
             />
           </ScrollView>
