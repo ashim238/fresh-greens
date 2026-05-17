@@ -13,8 +13,8 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 
 ## Interaction polish
 
-- ~~**Drag-and-drop icon swap**~~ — shipped in #184. Canonical `DragAndDrop` SVG from Figma `1114:10979`; old `WarningCircle` removed. Validated by code-reviewer + mobile-ux-optimizer retrospectively.
-- **Drag-and-drop pressure** — tap-then-drag report placement is too "sticky" to begin moving. Likely needs `Marker.draggable={true}` + a `delayLongPress` tweak, or move from native draggable to a pan-responder-tracked custom marker.
+- ~~**Drag-and-drop icon swap**~~ — shipped in #184 (canonical `DragAndDrop` SVG from Figma `1114:10979`) + revised in #187 to a single clean teardrop pin after the canonical asset's two-pin stylization read as duplicate markers on a real map.
+- ~~**Drag-and-drop pressure**~~ — shipped in #187. Replaced MapKit's native `Marker.draggable` (~500ms long-press to start) with a PanResponder on the pin's inner View — drag tracks the finger 1:1 from touch-down. Also removed the secondary "hint" marker that overlay-cued draggability; the immediate-drag mechanics make it redundant.
 - **Zone preferences dropdown doesn't collapse** — `app/menu.tsx` Zone Settings accordion. Tapping the row should collapse it; currently it stays open or only one-way-expands. Check the `LayoutAnimation` toggle.
 - ~~**Map pin on-tap functionality**~~ — shipped. All variants wired: community report → `ReportDetailCard` (`home.tsx:818`), saved-home → recenter + selection haptic (`handleHomeMarkerPress`), trusted-friend → Call/Text Alert (`handleTrustedFriendMarkerPress`), cluster → fit-bounds zoom (`home.tsx:783`).
 - ~~**Hold-to-delete on community-report markers**~~ — shipped. Author-only (`reportSubmittedBy === user.id`) long-press via `MapView.onLongPress` proximity hit-test → heavy haptic → destructive Alert confirm → `removeCommunityReport(id)`. `Zone` gained `reportSubmittedBy` field threaded from `CommunityReport.submittedBy`.
