@@ -7,15 +7,15 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 - **Safety page matches v2 Figma + confirmation modal popup** — `app/safety.tsx` against current Figma node; confirmation modal pattern likely lives on a new tap path off one of the four tiles.
 - **Home bottom sheet matches the v2 version** — `components/HomeBrowseSheet.tsx`, Figma `1133:13690`. Current shipped form is structural; v2 has photo, quote callout, tag rows in a card-shaped layout that the placeholder doesn't fully implement.
 - **Report modals match v2 design** — `app/report.tsx`. Currently still v1 design per `docs/architecture.md`.
-- **Edge markers match Figma (not placeholders)** — `components/EdgeIndicator.tsx`; the 32pt pill currently renders a generic glyph. Figma has a specific edge-indicator design — find the node, swap.
-- **Trusted contact text → body regular, not emphasized** — `app/pulled-over.tsx` ContactPhase block; likely a one-token swap (`bodyEmphasized` → `bodyRegular`).
-- **Guidance flow has 24px padding** — `app/pulled-over.tsx` guidance phase styles; current padding likely 16pt (modal-grid convention) where 24pt is wanted.
+- ~~**Edge markers match Figma (not placeholders)**~~ — shipped across #134–138 (`EdgeIndicator.tsx` cites Figma `1133:13250`). Component implements the full layered composition (42×62 polygon + 36pt disk + 24pt counter-rotated glyph, per-category routing). The "32pt pill with generic glyph" description here hasn't matched reality since the redesign rounds.
+- ~~**Trusted contact text → body regular, not emphasized**~~ — already there. `ContactView` styles (`pulled-over.tsx:1669-1727`) use `title1Regular`/`subheadlineRegular`/`title2Regular`. No `bodyEmphasized` left to swap.
+- ~~**Guidance flow has 24px padding**~~ — already there, via composition. `guidanceStyles.page` uses `paddingHorizontal: 8` inside the modal's 16pt safe-area gutter → 24pt effective. Inline comment at `pulled-over.tsx:1546-1550` explains the math.
 
 ## Interaction polish
 
 - ~~**Drag-and-drop icon swap**~~ — shipped in #184 (canonical `DragAndDrop` SVG from Figma `1114:10979`) + revised in #187 to a single clean teardrop pin after the canonical asset's two-pin stylization read as duplicate markers on a real map.
 - ~~**Drag-and-drop pressure**~~ — closed. Drag attempted in #187 (PanResponder rewrite) then reverted: combining a drag gesture with the map's own pan recognizer made the interaction feel ambiguous. Tap-to-move is the only placement gesture now — friction-free for the common case, and the cancel/confirm row handles abort.
-- **Zone preferences dropdown doesn't collapse** — `app/menu.tsx` Zone Settings accordion. Tapping the row should collapse it; currently it stays open or only one-way-expands. Check the `LayoutAnimation` toggle.
+- ~~**Zone preferences dropdown doesn't collapse**~~ — re-verified, tapping the row *does* collapse it (`menu.tsx:370` flips state). The original complaint was about the missing close animation: `LayoutAnimation.configureNext` is intentionally fired only on the expand direction because firing it on collapse can prevent the state update from registering (see comment at `menu.tsx:364-366`). Functional behavior is correct; the unanimated collapse is a deliberate workaround. Revisit only if it bothers anyone in practice.
 - ~~**Map pin on-tap functionality**~~ — shipped. All variants wired: community report → `ReportDetailCard` (`home.tsx:818`), saved-home → recenter + selection haptic (`handleHomeMarkerPress`), trusted-friend → Call/Text Alert (`handleTrustedFriendMarkerPress`), cluster → fit-bounds zoom (`home.tsx:783`).
 - ~~**Hold-to-delete on community-report markers**~~ — shipped. Author-only (`reportSubmittedBy === user.id`) long-press via `MapView.onLongPress` proximity hit-test → heavy haptic → destructive Alert confirm → `removeCommunityReport(id)`. `Zone` gained `reportSubmittedBy` field threaded from `CommunityReport.submittedBy`.
 
@@ -27,7 +27,7 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 
 ## Copy
 
-- **Update "thanks for recording" copy** — final post-dismiss screen / toast after /pulled-over closes. Current copy is placeholder; needs a final pass with the rest of the safety-flow register.
+- ~~**Update "thanks for recording" copy**~~ — there's no post-dismiss screen or toast to write copy for. The /pulled-over flow exits via iOS swipe-down directly back to /safety with no intermediate surface. Reframe as a feature (add a post-dismiss surface) if the safety-flow register would benefit from one — otherwise close.
 
 ## Round 4 — Discovery experiments
 
