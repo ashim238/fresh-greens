@@ -984,36 +984,6 @@ export default function Home() {
           </Marker>
         )}
         {/*
-          Floating hint marker — same DragAndDrop SVG at smaller size,
-          offset southeast of the placement pin as a secondary "you
-          can drag this" cue. The offset is computed in pixel-space
-          via the current degrees-per-pixel ratio so the hint stays a
-          consistent visual distance from the pin at any zoom level,
-          and the hint follows the pin in real time because both
-          coordinates derive from `placementPin` on every render.
-        */}
-        {placingReport && placementPin && mapRegion && mapSize && (() => {
-          const HINT_OFFSET_PX = 28;
-          const degPerPxLat = mapRegion.latitudeDelta / mapSize.height;
-          const degPerPxLng = mapRegion.longitudeDelta / mapSize.width;
-          return (
-            <Marker
-              coordinate={{
-                latitude: placementPin.latitude - HINT_OFFSET_PX * degPerPxLat,
-                longitude: placementPin.longitude + HINT_OFFSET_PX * degPerPxLng,
-              }}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tappable={false}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            >
-              <View style={styles.placementHintFrame}>
-                <DragAndDrop width={32} height={32} />
-              </View>
-            </Marker>
-          );
-        })()}
-        {/*
           Saved home — green teardrop pin (positive variant) with the
           Figma house glyph. Matches the LandmarkMarker system; green
           preserves the "home as welcoming" association from the
@@ -1902,15 +1872,6 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  placementHintFrame: {
-    // 32pt secondary glyph; 0.6 opacity lets it read as a hint rather
-    // than a second pin competing for attention. Per v2 1109:8139.
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.6,
   },
   placementBar: {
     position: 'absolute',
