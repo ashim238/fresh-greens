@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { colors } from '../theme/colors';
+import { shadows } from '../theme/shadows';
 
 /**
  * Custom user-location marker — replaces react-native-maps'
@@ -32,10 +34,20 @@ export function UserLocationMarker({
 }) {
   // Pulse on the outer accuracy ring — gentle "this is live" cue
   // without overwhelming the dot. Scale 1 → 1.4, opacity 0.35 → 0,
-  // 1.6s loop, native driver.
+  // 1.6s loop, native driver. Gated on Reduce Motion: when on, the
+  // pulse is pinned to value=1 (end-of-cycle = scale 1.4, opacity 0),
+  // which renders as no visible ring at all. The dot itself is the
+  // load-bearing "you-are-here" affordance; pinning to value=0
+  // instead would leave a frozen semi-visible (opacity 0.35) ring
+  // that reads as a rendering artifact.
+  const reduceMotion = useReduceMotion();
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      pulse.setValue(1);
+      return;
+    }
     const loop = Animated.loop(
       Animated.timing(pulse, {
         toValue: 1,
@@ -46,7 +58,7 @@ export function UserLocationMarker({
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse]);
+  }, [pulse, reduceMotion]);
 
   const pulseScale = pulse.interpolate({
     inputRange: [0, 1],
@@ -98,8 +110,6 @@ export function UserLocationMarker({
   );
 }
 
-const DOT_BLUE = '#007AFF'; // iOS systemBlue — matches the native MKUserLocation tint
-
 const styles = StyleSheet.create({
   // 40×40 frame so the pulsing ring has room to expand without
   // getting clipped by the marker's bounding box. Bumped from 32×32
@@ -117,7 +127,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: DOT_BLUE,
+    backgroundColor: colors.systemBlue,
   },
   outerRing: {
     width: 24,
@@ -126,16 +136,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 2,
-    elevation: 2,
+    ...shadows.dot,
   },
   innerDot: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: DOT_BLUE,
+    backgroundColor: colors.systemBlue,
   },
 });

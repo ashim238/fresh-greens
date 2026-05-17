@@ -1798,12 +1798,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    // Approximates Figma M3 Elevation Light/1.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // e1 = chrome over map per shadows.ts. Previously inlined as an
+    // exact duplicate of e1's values.
+    ...shadows.e1,
   },
   goText: {
     // bodyEmphasized (17pt) — primary CTA should outweigh Schedule's

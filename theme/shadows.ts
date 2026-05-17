@@ -62,6 +62,21 @@ const e3: ShadowTier = {
 };
 
 /**
+ * dot — tiny circular markers like the user-location blue dot. e3 is
+ * proportionally too heavy on a 24pt circle (the shadow footprint
+ * would be half the marker's). Tighter radius + the same darker
+ * opacity gives a crisp, perceivable lift without the shadow eating
+ * the marker visually.
+ */
+const dot: ShadowTier = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.25,
+  shadowRadius: 2,
+  elevation: 2,
+};
+
+/**
  * Sheet shadow — bottom sheet's shadow points *up* (negative height)
  * because the sheet rises out of the bottom edge. Kept separate from
  * e1/e2/e3 since it's directional, not just elevated.
@@ -82,5 +97,5 @@ const sheet: ShadowTier = {
 // design requires divergent iOS/Android elevations.
 void Platform; // keep the import alive in case a future divergence needs it.
 
-export const shadows = { e1, e2, e3, sheet } as const;
+export const shadows = { e1, e2, e3, dot, sheet } as const;
 export type ShadowName = keyof typeof shadows;

@@ -29,6 +29,7 @@ import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg'
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
 import { colors } from '../theme/colors';
+import { shadows } from '../theme/shadows';
 
 /**
  * Map landmark marker — based on Figma `1044:2667` (Draft tab).
@@ -334,11 +335,10 @@ const styles = StyleSheet.create({
   frame: {
     width: 96,
     height: 96,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    // e3 is the canonical tier for "markers and pins" per shadows.ts.
+    // Previously inlined with elevation: 3 (vs e3's 4) — Android-only
+    // delta of 1, drift not divergence.
+    ...shadows.e3,
   },
   frameUnselected: {
     transformOrigin: 'bottom',

@@ -24,6 +24,11 @@ export const colors = {
   white: '#FFFFFF',
   black: '#000000',
 
+  // iOS system blue — the canonical MKUserLocation tint. Used by
+  // UserLocationMarker's pulse + inner dot so the custom marker reads
+  // as a familiar "iOS blue dot" rather than a brand-themed pin.
+  systemBlue: '#007AFF',
+
   // iOS system labels — semantic grays used for secondary/tertiary text,
   // icon tints, and placeholder copy. Tokenized here so screens don't
   // scatter raw rgba/hex values for the same semantic role.
