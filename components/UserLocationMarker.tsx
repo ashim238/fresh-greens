@@ -101,25 +101,28 @@ export function UserLocationMarker({
 const DOT_BLUE = '#007AFF'; // iOS systemBlue — matches the native MKUserLocation tint
 
 const styles = StyleSheet.create({
-  // 32×32 frame so the pulsing ring has room to expand without
-  // getting clipped by the marker's bounding box.
+  // 40×40 frame so the pulsing ring has room to expand without
+  // getting clipped by the marker's bounding box. Bumped from 32×32
+  // alongside the dot/ring resize so the user-location marker reads
+  // at proportional weight to LandmarkMarker (~52pt visible) and the
+  // 48pt placement pin — was getting visually lost between them.
   frame: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pulse: {
     position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: DOT_BLUE,
   },
   outerRing: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -130,9 +133,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   innerDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: DOT_BLUE,
   },
 });

@@ -13,10 +13,10 @@ import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
-import { WarningCircle } from 'phosphor-react-native/src/icons/WarningCircle';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
+import DragAndDrop from '../assets/illustrations/drag-and-drop.svg';
 import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
@@ -828,7 +828,16 @@ export default function Home() {
             />
           );
         })}
-        {/* Placement pin — draggable marker for tap-then-drag report entry. */}
+        {/*
+          Placement pin — draggable marker for tap-then-drag report entry.
+          v2 (Figma 1109:8139 + the canonical 1114:10979 "Drag and Drop"
+          asset): swap the previous white-circle + WarningCircle for the
+          self-contained DragAndDrop SVG. The asset already includes the
+          pin shape + a faint ground-shadow — wrapping it in another
+          white circle would be redundant. Sized at 48pt to match the
+          LandmarkMarker family's visual weight (those render ~52pt
+          visible).
+        */}
         {placingReport && placementPin && (
           <Marker
             coordinate={placementPin}
@@ -842,8 +851,34 @@ export default function Home() {
             anchor={{ x: 0.5, y: 1 }}
             accessibilityLabel="Report location — tap the map to move, or drag to fine-tune"
           >
-            <View style={styles.placementPin}>
-              <WarningCircle size={24} color={colors.orange} weight="fill" />
+            <View style={styles.placementPinFrame}>
+              <DragAndDrop width={48} height={48} />
+            </View>
+          </Marker>
+        )}
+        {/*
+          Floating hint marker — same DragAndDrop SVG at smaller size,
+          offset slightly southeast of the placement pin to read as a
+          secondary "you can drag this" cue. Per v2 1109:8139 which
+          shows the hint as a separate map overlay near the pin. Lower
+          opacity + tappable=false so taps fall through to the map.
+        */}
+        {placingReport && placementPin && (
+          <Marker
+            coordinate={{
+              // ~20pt southeast of the pin at typical zoom — small
+              // enough that the two glyphs read as related, not as
+              // two separate pins.
+              latitude: placementPin.latitude - 0.0002,
+              longitude: placementPin.longitude + 0.0001,
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tappable={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <View style={styles.placementHintFrame}>
+              <DragAndDrop width={32} height={32} />
             </View>
           </Marker>
         )}
@@ -1728,20 +1763,23 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   // --- Placement mode ---
-  placementPin: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.white,
+  // The pin frame just centers the SVG inside an alignment box; the
+  // pin shape + shadow are part of the SVG itself, so we don't draw
+  // a wrapping circle or border anymore.
+  placementPinFrame: {
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.orange,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  placementHintFrame: {
+    // 32pt secondary glyph; 0.6 opacity lets it read as a hint rather
+    // than a second pin competing for attention. Per v2 1109:8139.
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.6,
   },
   placementBar: {
     position: 'absolute',
