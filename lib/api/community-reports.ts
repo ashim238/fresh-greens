@@ -296,6 +296,7 @@ function reportToZone(report: CommunityReport): Zone {
     reportDetail: report.detail,
     reportTimestamp: report.timestamp,
     reportPlaceName: report.placeName,
+    reportSubmittedBy: report.submittedBy,
   };
 }
 

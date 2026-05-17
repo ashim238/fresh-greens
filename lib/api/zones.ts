@@ -164,6 +164,9 @@ export type Zone = {
    * Surfaces as the title in ReportDetailCard when present.
    */
   reportPlaceName?: string;
+  /** Author id (`CommunityReport.submittedBy`) — used by hold-to-delete
+   *  to gate deletion to the report's author. */
+  reportSubmittedBy?: string;
 };
 
 /**
