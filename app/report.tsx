@@ -29,6 +29,7 @@ import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg'
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 
 import { Button } from '../components/Button';
+import { useUser } from '../hooks/useUser';
 import {
   addCommunityReport,
   CATEGORIES,
@@ -67,6 +68,7 @@ type Mode = 'picker' | 'detail' | 'thank-you';
 
 export default function Report() {
   const router = useRouter();
+  const { user } = useUser();
   const params = useLocalSearchParams<{ latitude?: string; longitude?: string }>();
   const [mode, setMode] = useState<Mode>('picker');
   const [category, setCategory] = useState<ReportCategory | null>(null);
@@ -145,10 +147,7 @@ export default function Report() {
         detail: detailText.trim() || undefined,
         subTag: selectedSubTag,
         placeName: nearest?.name,
-        // Anonymous categories never persist a submitter; for non-
-        // anonymous, the real implementation would attach the auth
-        // user's id once auth lands. Mock placeholder for now.
-        submittedBy: category.anonymous ? undefined : 'mock-user',
+        submittedBy: category.anonymous ? undefined : user?.id,
       });
       // Success haptic on submission — the contribution lands as a
       // tactile confirmation, matching the visual transition into the

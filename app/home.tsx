@@ -38,6 +38,7 @@ import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
 import {
   getCommunityReportsAsZones,
+  removeCommunityReport,
   type ReportCategoryId,
 } from '../lib/api/community-reports';
 import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
@@ -616,21 +617,59 @@ export default function Home() {
     };
   }, [userLocation, neighborhoodLabel]);
 
-  // Long-press on the map saves that location as the user's home.
-  // Goes through Alert so the user confirms before persistence —
-  // accidental long-presses on a navigation map shouldn't silently
-  // overwrite a real saved home.
   function handleLongPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
-    // In placement mode the long-press is silenced — the user is
-    // already focused on positioning a report pin; surfacing a
-    // "Save as home" prompt mid-flow would be jarring. Tap-to-move
-    // (handlePlacementTap below) handles the placement gesture.
     if (placingReport) return;
     const { latitude, longitude } = e.nativeEvent.coordinate;
-    // Light impact when the long-press fires — confirms the gesture
-    // registered before the Alert appears, same way iOS Maps thumps
-    // when you long-press to drop a pin. Without it, the gesture
-    // feels uncertain (did the press hold long enough?).
+
+    // Check if the long-press landed on an author-owned community
+    // report marker. MapView.onLongPress fires even when the finger
+    // is over a Marker, so we convert the marker's visual radius to
+    // degrees at the current zoom and hit-test each report point.
+    if (mapRegion && mapSize && mapSize.width > 0) {
+      const degPerPxLat = mapRegion.latitudeDelta / mapSize.height;
+      const degPerPxLng = mapRegion.longitudeDelta / mapSize.width;
+      const hitLat = degPerPxLat * 30;
+      const hitLng = degPerPxLng * 30;
+
+      const hit = reportZones
+        .filter((z) => {
+          if (z.geometry !== 'point' || z.reportSubmittedBy !== user?.id) return false;
+          const pt = z.coordinates[0];
+          return Math.abs(pt.latitude - latitude) < hitLat && Math.abs(pt.longitude - longitude) < hitLng;
+        })
+        .sort((a, b) => {
+          const da = Math.abs(a.coordinates[0].latitude - latitude) + Math.abs(a.coordinates[0].longitude - longitude);
+          const db = Math.abs(b.coordinates[0].latitude - latitude) + Math.abs(b.coordinates[0].longitude - longitude);
+          return da - db;
+        })[0];
+
+      if (hit) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+        Alert.alert(
+          'Remove report?',
+          'This will remove your community report from the map.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Remove',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await removeCommunityReport(hit.id);
+                  const refreshed = await getCommunityReportsAsZones();
+                  setReportZones(refreshed);
+                } catch {
+                  Alert.alert('Could not remove', 'Please try again.');
+                }
+                if (selectedReport?.zoneId === hit.id) setSelectedReport(null);
+              },
+            },
+          ],
+        );
+        return;
+      }
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     Alert.alert(
       'Save as home',
