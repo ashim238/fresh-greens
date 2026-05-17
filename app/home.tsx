@@ -370,6 +370,9 @@ export default function Home() {
 
   function handleReportButtonPress() {
     if (!userLocation) return;
+    // Clear any open report detail card so it doesn't linger behind
+    // the placement confirm bar during the placement flow.
+    setSelectedReport(null);
     setPlacingReport(true);
     setPlacementPin({ ...userLocation });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -399,6 +402,10 @@ export default function Home() {
    */
   function handleHomeMarkerPress() {
     if (!home) return;
+    // Inert during placement mode — taps that visually land on map
+    // markers should fall through to handleMapPress so the placement
+    // pin relocates, not open recenter/detail surfaces.
+    if (placingReport) return;
     Haptics.selectionAsync().catch(() => {});
     mapRef.current?.animateToRegion(
       {
@@ -421,6 +428,7 @@ export default function Home() {
    */
   function handleTrustedFriendMarkerPress() {
     if (!trustedContact?.phoneNumber) return;
+    if (placingReport) return;
     Haptics.selectionAsync().catch(() => {});
     const name = trustedContact.name ?? 'your trusted contact';
     Alert.alert(
@@ -819,6 +827,7 @@ export default function Home() {
                 longitude={cluster.center.longitude}
                 count={cluster.count}
                 onPress={() => {
+                  if (placingReport) return;
                   Haptics.selectionAsync();
                   const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
                   const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
@@ -853,7 +862,8 @@ export default function Home() {
               subTag={zone.reportSubTag}
               accessibilityLabel={zone.label}
               selected={selectedReport?.zoneId === zone.id}
-              onPress={() =>
+              onPress={() => {
+                if (placingReport) return;
                 setSelectedReport({
                   zoneId: zone.id,
                   categoryId: zone.reportCategoryId as ReportCategoryId,
@@ -861,8 +871,8 @@ export default function Home() {
                   subTag: zone.reportSubTag,
                   placeName: zone.reportPlaceName,
                   timestamp: zone.reportTimestamp ?? Date.now(),
-                })
-              }
+                });
+              }}
             />
           );
         })}
@@ -1562,8 +1572,11 @@ export default function Home() {
         </SafeAreaView>
       )}
 
-      {/* Report detail card — appears when tapping an on-map marker. */}
-      {selectedReport && (
+      {/* Report detail card — appears when tapping an on-map marker.
+          Suppressed during placement mode so it doesn't sit behind
+          the confirm bar (the marker onPress handlers are also gated,
+          but this is the defensive render-level guard). */}
+      {selectedReport && !placingReport && (
         <ReportDetailCard
           categoryId={selectedReport.categoryId}
           detail={selectedReport.detail}
