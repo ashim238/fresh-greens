@@ -16,7 +16,7 @@ import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
-import DragAndDrop from '../assets/illustrations/drag-and-drop.svg';
+import PlacementPin from '../assets/illustrations/drag-and-drop.svg';
 import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
@@ -194,20 +194,13 @@ export default function Home() {
   // FABs are not.
   const [fabAnchorHeight, setFabAnchorHeight] = useState(0);
 
-  // --- Report placement mode (tap-to-move + drag fine-tune) ---
-  // When true, a placement marker appears at the user's location. Two
-  // gestures move it: tap anywhere on the map to relocate (primary,
-  // friction-free), or touch the pin and drag for fine adjustment
-  // (PanResponder — drag starts on touch-down, no long-press delay).
-  // Confirm opens /report with the chosen coords; Cancel exits.
-  //
-  // Drag mechanics: replaced MapKit's native draggable Marker (which
-  // requires a ~500ms long-press to begin) with a PanResponder on the
-  // pin's inner View. Pan deltas (`dx`/`dy` in screen pixels) are
-  // converted to degree deltas using the current viewport's pixel-to-
-  // degree ratio, so the pin tracks the finger 1:1 from the first
-  // frame of touch. Refs hold the latest pin/region/size so the
-  // responder is created once and reads fresh values every gesture.
+  // --- Report placement mode (tap-to-move) ---
+  // When true, a placement marker appears at the user's location.
+  // Tap anywhere on the map to relocate it; Confirm opens /report
+  // with the chosen coords; Cancel exits. Drag was tried (PanResponder
+  // rewrite in #187) but reverted: combining a drag gesture with the
+  // map's own pan recognizer made the interaction feel ambiguous, and
+  // tap-to-move alone is already friction-free for the common case.
   const [placingReport, setPlacingReport] = useState(false);
   const [placementPin, setPlacementPin] = useState<Coordinate | null>(null);
 
@@ -335,88 +328,6 @@ export default function Home() {
     [reduceMotion],
   );
 
-  // Refs feed the placement-pin PanResponder (created once below) so
-  // the responder doesn't have to be recreated when pin/region/size
-  // change — recreating mid-drag would drop the gesture. `placementPin`
-  // is read once per gesture (at touch-down, to anchor `dragStartCoord`);
-  // `mapRegion`/`mapSize` are read every move frame for px→deg conversion.
-  // `movedRef` distinguishes a real drag from a stray tap so we can skip
-  // the release haptic and let the map's tap-to-move handler win on
-  // taps that never moved.
-  const placementPinRef = useRef<Coordinate | null>(null);
-  const mapRegionRef = useRef<Region | null>(null);
-  const mapSizeRef = useRef<{ width: number; height: number } | null>(null);
-  const dragStartCoordRef = useRef<Coordinate | null>(null);
-  const placementPinDraggingRef = useRef(false);
-  const placementPinMovedRef = useRef(false);
-
-  // Track-then-settle so the SVG paints into MapKit's snapshot at
-  // least once after each mount. Mirrors LandmarkMarker's 50ms
-  // settle — react-native-svg's paint races MapKit's snapshot if we
-  // mount with tracksViewChanges={false}.
-  const [placementPinTracking, setPlacementPinTracking] = useState(true);
-  useEffect(() => {
-    if (!placingReport) return;
-    setPlacementPinTracking(true);
-    const id = setTimeout(() => setPlacementPinTracking(false), 50);
-    return () => clearTimeout(id);
-  }, [placingReport]);
-
-  useEffect(() => { placementPinRef.current = placementPin; }, [placementPin]);
-  useEffect(() => { mapRegionRef.current = mapRegion; }, [mapRegion]);
-  useEffect(() => { mapSizeRef.current = mapSize; }, [mapSize]);
-
-  const placementPinResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        // Let the system reclaim the gesture (Control Center, incoming
-        // call UI, etc.) — the placement pin doesn't need exclusivity.
-        // `onPanResponderTerminate` cleans up the in-flight state.
-        onPanResponderTerminationRequest: () => true,
-        onPanResponderGrant: () => {
-          dragStartCoordRef.current = placementPinRef.current;
-          placementPinDraggingRef.current = true;
-          placementPinMovedRef.current = false;
-          // Medium impact on grab-start matches the iOS convention for
-          // beginning a continuous spatial drag (Spring Board reorder,
-          // Reminders reorder) — firmer than selection, lighter than
-          // a destructive confirm.
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        },
-        onPanResponderMove: (_, g) => {
-          const start = dragStartCoordRef.current;
-          const region = mapRegionRef.current;
-          const size = mapSizeRef.current;
-          if (!start || !region || !size || size.width <= 0 || size.height <= 0) return;
-          if (!placementPinMovedRef.current && Math.hypot(g.dx, g.dy) > 4) {
-            placementPinMovedRef.current = true;
-          }
-          const degPerPxLat = region.latitudeDelta / size.height;
-          const degPerPxLng = region.longitudeDelta / size.width;
-          setPlacementPin({
-            latitude: start.latitude - g.dy * degPerPxLat,
-            longitude: start.longitude + g.dx * degPerPxLng,
-          });
-        },
-        onPanResponderRelease: () => {
-          // Only haptic on an actual drag — a tap-without-move would
-          // double-fire with the map's tap-to-move haptic otherwise.
-          if (placementPinMovedRef.current) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-          }
-          dragStartCoordRef.current = null;
-          placementPinDraggingRef.current = false;
-        },
-        onPanResponderTerminate: () => {
-          dragStartCoordRef.current = null;
-          placementPinDraggingRef.current = false;
-        },
-      }),
-    [],
-  );
-
   // Suggested departure for the "Schedule for X:XX AM" chip. Only set
   // when leaving later actually buys more daylight (currently: pre-dawn
   // departures). `null` hides the chip — see lib/daylight.ts for rules.
@@ -459,6 +370,9 @@ export default function Home() {
 
   function handleReportButtonPress() {
     if (!userLocation) return;
+    // Clear any open report detail card so it doesn't linger behind
+    // the placement confirm bar during the placement flow.
+    setSelectedReport(null);
     setPlacingReport(true);
     setPlacementPin({ ...userLocation });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -488,6 +402,10 @@ export default function Home() {
    */
   function handleHomeMarkerPress() {
     if (!home) return;
+    // Inert during placement mode — taps that visually land on map
+    // markers should fall through to handleMapPress so the placement
+    // pin relocates, not open recenter/detail surfaces.
+    if (placingReport) return;
     Haptics.selectionAsync().catch(() => {});
     mapRef.current?.animateToRegion(
       {
@@ -510,6 +428,7 @@ export default function Home() {
    */
   function handleTrustedFriendMarkerPress() {
     if (!trustedContact?.phoneNumber) return;
+    if (placingReport) return;
     Haptics.selectionAsync().catch(() => {});
     const name = trustedContact.name ?? 'your trusted contact';
     Alert.alert(
@@ -778,24 +697,15 @@ export default function Home() {
 
   /**
    * Tap-to-move for the report placement pin. While placing a report,
-   * any tap on the map relocates the pin to the tap location — a
-   * fast, friction-free gesture that sidesteps MapKit's ~500ms
-   * long-press requirement for native Marker drags. The pin is still
-   * `draggable` for fine adjustment after the tap, so users get both
-   * patterns: tap to roughly place, drag to nudge.
+   * any tap on the map (including taps that visually land on the pin
+   * itself — the Marker is `tappable={false}` so they fall through)
+   * relocates the pin to the tap location.
    *
    * Outside of placement mode the handler is a no-op — taps in
    * normal browse mode shouldn't accidentally move anything.
    */
   function handleMapPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
     if (!placingReport) return;
-    // If the user just released a pin-drag, MapKit can still propagate
-    // a tap to the map underneath — skip it so we don't snap the pin
-    // back or double-fire the haptic.
-    if (placementPinDraggingRef.current || placementPinMovedRef.current) {
-      placementPinMovedRef.current = false;
-      return;
-    }
     const { latitude, longitude } = e.nativeEvent.coordinate;
     Haptics.selectionAsync().catch(() => {});
     setPlacementPin({ latitude, longitude });
@@ -917,6 +827,7 @@ export default function Home() {
                 longitude={cluster.center.longitude}
                 count={cluster.count}
                 onPress={() => {
+                  if (placingReport) return;
                   Haptics.selectionAsync();
                   const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
                   const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
@@ -951,7 +862,8 @@ export default function Home() {
               subTag={zone.reportSubTag}
               accessibilityLabel={zone.label}
               selected={selectedReport?.zoneId === zone.id}
-              onPress={() =>
+              onPress={() => {
+                if (placingReport) return;
                 setSelectedReport({
                   zoneId: zone.id,
                   categoryId: zone.reportCategoryId as ReportCategoryId,
@@ -959,27 +871,31 @@ export default function Home() {
                   subTag: zone.reportSubTag,
                   placeName: zone.reportPlaceName,
                   timestamp: zone.reportTimestamp ?? Date.now(),
-                })
-              }
+                });
+              }}
             />
           );
         })}
         {/*
-          Placement pin — PanResponder-driven drag for friction-free
-          fine adjustment. Touch-down starts the drag immediately
-          (no ~500ms long-press wait like MapKit's native draggable).
-          The DragAndDrop SVG (Figma 1114:10979) carries its own
-          pin shape + ground-shadow; the frame just centers it.
+          Placement pin — purely decorative. `tappable={false}` so a
+          tap on the pin glyph itself falls through to the MapView's
+          onPress (handleMapPress relocates the pin). Without that,
+          the 48pt pin frame becomes a dead zone at the most likely
+          re-tap location. `tracksViewChanges={false}` stops MapKit
+          from re-snapshotting the static SVG every frame.
+          Asset (still filed as drag-and-drop.svg for git blame
+          continuity) is the single-pin variant from #187.
         */}
         {placingReport && placementPin && (
           <Marker
             coordinate={placementPin}
             anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={placementPinTracking}
-            accessibilityLabel="Report location — tap the map to move, or drag to fine-tune"
+            tappable={false}
+            tracksViewChanges={false}
+            accessibilityLabel="Report location — tap the map to move"
           >
-            <View style={styles.placementPinFrame} {...placementPinResponder.panHandlers}>
-              <DragAndDrop width={48} height={48} />
+            <View style={styles.placementPinFrame}>
+              <PlacementPin width={48} height={48} />
             </View>
           </Marker>
         )}
@@ -1624,9 +1540,9 @@ export default function Home() {
             {/*
               v2 Figma (1109:8139) drops the "Tap the map to move the pin"
               hint text from the bottom sheet — the orange placement pin
-              + the drag-and-drop glyph on the map carry the affordance
-              visually. Layout: Confirm (flex:1 freshgreen pill) left,
-              circular X close FAB right (48pt, matching the FAB family).
+              on the map carries the affordance visually. Layout: Confirm
+              (flex:1 freshgreen pill) left, circular X close FAB right
+              (48pt, matching the FAB family).
             */}
             <View style={styles.placementActions}>
               <Pressable
@@ -1656,8 +1572,11 @@ export default function Home() {
         </SafeAreaView>
       )}
 
-      {/* Report detail card — appears when tapping an on-map marker. */}
-      {selectedReport && (
+      {/* Report detail card — appears when tapping an on-map marker.
+          Suppressed during placement mode so it doesn't sit behind
+          the confirm bar (the marker onPress handlers are also gated,
+          but this is the defensive render-level guard). */}
+      {selectedReport && !placingReport && (
         <ReportDetailCard
           categoryId={selectedReport.categoryId}
           detail={selectedReport.detail}
