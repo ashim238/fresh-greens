@@ -313,6 +313,139 @@ async function getCommunityRecommendations(
   }
 }
 
+// --- Trusted by your community (Round 4 — multi-row Row 1) --------------
+
+/**
+ * Cross-category community-only feed for the browse-mode "Trusted by
+ * your community" row. The differentiator the spec calls for: not
+ * "what's nearby" but "what's actively trusted right now."
+ *
+ * Scoring is a weighted blend, recency-dominant:
+ *
+ *   score = 0.7 * recency + 0.3 * count
+ *
+ *   recency = 1 / (1 + daysSince/7)      // 7-day half-life
+ *   count   = log10(reports+1) / log10(11)  // saturates near 10 reports
+ *
+ * Why these weights:
+ *   - Recency carries the "actively trusted" framing — the row should
+ *     turn over as the community moves. A 30-day-old report with 10
+ *     submissions shouldn't outrank a fresh one.
+ *   - Count is the corroboration signal — multiple independent
+ *     submissions on the same spot are stronger than one.
+ *   - There is no curator-override term: CommunityReport has no
+ *     curator field. If that becomes a product need, add a
+ *     `curatorBoost?: number` field to CommunityReport and fold a
+ *     third weighted term in here.
+ *
+ * Reports are grouped by ~50m proximity (matching the existing
+ * dedupByProximity radius) so two reports on the same storefront
+ * compound their count instead of competing as separate entries.
+ * The most-recent report's metadata wins the group's display
+ * (freshest placeName / subTag / detail).
+ *
+ * Returns up to 7 entries, distance-annotated. Empty when no reports
+ * route to a known category — caller handles the empty state.
+ */
+const TRUSTED_RECENCY_WEIGHT = 0.7;
+const TRUSTED_COUNT_WEIGHT = 0.3;
+const TRUSTED_RECENCY_HALF_LIFE_DAYS = 7;
+const TRUSTED_COUNT_SATURATION = 10;
+const TRUSTED_GROUP_PROXIMITY_MILES = 50 / 1609.34; // ~50m
+const TRUSTED_RESULT_LIMIT = 7;
+
+export async function getTrustedByCommunity(
+  query: { userLocation?: { latitude: number; longitude: number } } = {},
+): Promise<Recommendation[]> {
+  try {
+    const reports = await getCommunityReports();
+    if (reports.length === 0) return [];
+
+    // Step 1: map each report to a candidate { rec, timestamp } if it
+    // routes to a known recommendation category, with proximity gate.
+    type Candidate = { rec: Recommendation; timestamp: number };
+    const candidates: Candidate[] = [];
+    for (const r of reports) {
+      const recCategory = recCategoryForReport(r.categoryId, r.subTag);
+      if (!recCategory) continue;
+      if (query.userLocation) {
+        const miles = distanceMilesBetween(query.userLocation, r.location);
+        if (miles > COMMUNITY_PROXIMITY_RADIUS_MILES) continue;
+      }
+      candidates.push({
+        rec: {
+          id: `community-${r.id}`,
+          source: 'community',
+          category: recCategory,
+          name: r.placeName ?? r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[recCategory],
+          address: '',
+          latitude: r.location.latitude,
+          longitude: r.location.longitude,
+          categoryLabel: r.subTag ?? 'Place',
+          region: 'detected',
+          reportDetail: r.detail,
+        },
+        timestamp: r.timestamp,
+      });
+    }
+    if (candidates.length === 0) return [];
+
+    // Step 2: group by ~50m proximity. The `anchor` (first report's
+    // location) is the fixed reference for distance checks; the `rec`
+    // is the freshest report's display metadata. Decoupling these
+    // fixes an order-dependent merging bug — if we re-anchored on
+    // every "freshest metadata wins" update, three reports A↔B↔C
+    // where A↔C exceeds 50m but A↔B and B↔C don't could end up in
+    // one group OR two depending on insertion order. With a fixed
+    // anchor, C either lands in A's group (if A is the anchor and
+    // A↔C>50m → no) or starts its own — deterministic regardless
+    // of arrival order.
+    type Group = {
+      anchor: { latitude: number; longitude: number };
+      rec: Recommendation;
+      count: number;
+      mostRecentTs: number;
+    };
+    const groups: Group[] = [];
+    for (const { rec, timestamp } of candidates) {
+      const existing = groups.find(
+        (g) => distanceMilesBetween(g.anchor, rec) <= TRUSTED_GROUP_PROXIMITY_MILES,
+      );
+      if (existing) {
+        existing.count += 1;
+        if (timestamp > existing.mostRecentTs) {
+          existing.mostRecentTs = timestamp;
+          existing.rec = rec; // freshest metadata wins the display
+        }
+      } else {
+        groups.push({
+          anchor: { latitude: rec.latitude, longitude: rec.longitude },
+          rec,
+          count: 1,
+          mostRecentTs: timestamp,
+        });
+      }
+    }
+
+    // Step 3: score and rank.
+    const now = Date.now();
+    const countNorm = Math.log10(TRUSTED_COUNT_SATURATION + 1);
+    const scored = groups.map((g) => {
+      const daysSince = (now - g.mostRecentTs) / (1000 * 60 * 60 * 24);
+      const recency = 1 / (1 + daysSince / TRUSTED_RECENCY_HALF_LIFE_DAYS);
+      const count = Math.min(1, Math.log10(g.count + 1) / countNorm);
+      const score = TRUSTED_RECENCY_WEIGHT * recency + TRUSTED_COUNT_WEIGHT * count;
+      return { rec: g.rec, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+
+    const top = scored.slice(0, TRUSTED_RESULT_LIMIT).map((s) => s.rec);
+    return annotateDistance(top, query.userLocation);
+  } catch {
+    return [];
+  }
+}
+
 // --- Source 3: External feed (v2 integration point) ----------------------
 
 /**

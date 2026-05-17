@@ -36,6 +36,18 @@ export function useRecommendations(opts: {
   const gridLng = userLocation ? Math.round(userLocation.longitude * 200) / 200 : null;
 
   useEffect(() => {
+    // No category = no fetch. `getRecommendations` will technically
+    // return a merged-catalog shape when category is undefined, but
+    // no caller of this hook wants that shape — the only consumer
+    // (HomeBrowseSheet) renders per-category carousels in focus mode
+    // and reads from `useTrustedByCommunity` in browse mode. Firing
+    // a pointless community-reports read on every browse-mode mount
+    // was a real perf wart caught in the Round 4 PR-A audit.
+    if (!category) {
+      setRecommendations([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     (async () => {
