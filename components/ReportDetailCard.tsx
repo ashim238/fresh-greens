@@ -19,6 +19,7 @@ import {
   type ReportCategoryId,
 } from '../lib/api/community-reports';
 import { colors } from '../theme/colors';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 import { DragHandle } from './DragHandle';
@@ -211,15 +212,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 16,
-    paddingBottom: 24,
+    // 32pt bottom padding per .cursorrules static-content-modal rule
+    // (16pt = tab/grid modals, 32pt = static content). The card has
+    // no grid or tab layout, so it's static content.
+    paddingBottom: 32,
     gap: 16,
-    // M3 Elevation 3 — matches /home and /en-route's bottom sheets so
-    // every bottom-anchored card in the app casts the same drop.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    // shadows.sheet bundles the directional upward offset (-4y) used
+    // by every bottom-anchored card in the app.
+    ...shadows.sheet,
   },
   headerRow: {
     flexDirection: 'row',

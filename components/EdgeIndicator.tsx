@@ -15,6 +15,7 @@ import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg'
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 import { type Variant } from './LandmarkMarker';
@@ -89,7 +90,7 @@ export function EdgeIndicator({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      hitSlop={8}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={({ pressed }) => [
         styles.wrap,
         { left: x - 36, top: y - 36 },
@@ -229,11 +230,13 @@ const styles = StyleSheet.create({
     height: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 3,
+    // e3 = "markers and pins" per shadows.ts. The edge marker is a
+    // directional pin pointing toward off-screen content — same
+    // weight class as LandmarkMarker (which also uses e3) and needs
+    // to read distinctly against busy basemap tiles. Previously
+    // inlined as a hand-tuned (h:1, op:0.25, r:3, e:3) block that
+    // matched e3's opacity exactly but used a smaller radius.
+    ...shadows.e3,
   },
   // The 36pt colored disk that sits at the polygon's "head" position.
   // translateY:9 (applied inline) shifts it into the lower half of
