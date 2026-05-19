@@ -54,6 +54,45 @@ Files likely touched: `app/safety.tsx` (already at v2 from `1133:13908`; revisit
 **Route-preview "Default" state (the late addition):**
 - [Figma `1109:3264`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1109-3264&m=dev) — "Route (Default)". The /home view after the user has picked a destination but before tapping Go. The bottom card shows: duration ("12 min"), street name ("Via Government St."), daylight strip (sun→moon gradient indicator), conditions tagline ("Safest route with current conditions, Moderate traffic"), zone-warning chips ("1 police zone" + "1 low light zone"), and "Schedule for X:XX" + "Go" CTAs. Files likely touched: `app/home.tsx` (the route preview / route-sheet section, post-destination), `components/HomeBrowseSheet.tsx` (or whatever sheet swaps in when a destination is set), and possibly a new zone-warning-chip component derived from the existing edge-marker/zone palette. Scope check: does this conflict with anything we just built? The Round 4 multi-row work touches the *browse-mode* sheet (no destination); this redesigns the *route-preview* sheet (destination set). Independent surfaces, no overlap. Confirm on second pass with `get_design_context` to see the actual component definitions.
 
+## Scaffolded-but-not-real (named preemptively at thesis defense)
+
+Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These are the gaps a thesis reviewer or a code walkthrough would notice. Better to name them in advance than be ambushed.
+
+- **Turn-by-turn instructions are static placeholder copy** — `app/en-route.tsx:86-89, 271-272`. OSRM provides geometry, not steps. v1.5 cheap path: OSRM `steps=true` parameter gives a minimal maneuver list (`Turn left in 0.3 mi`). v2: Mapbox Directions or Google Directions for production-quality narration.
+- **Weather card is mocked at "66° / Moderate"** — `components/HomeBrowseSheet.tsx`. `lib/api/weather.ts` is the documented v2 swap-in.
+- **/safety modal has 3 of 4 tiles inert** — `app/safety.tsx`. "Roadside assistance," "Unfamiliar area," "Share my location" have `href: null` and silently no-op. Only "I was pulled over" is wired.
+- **/menu has inert rows + Quick Tiles** — "Settings," "Schedule a drive," "Theme" rows; Quick Tiles carousel is decorative. The "replaces vs. augments Safety row" call from Round 5 PR C will land here.
+- **Reports submit as `'mock-user'`** — `app/report.tsx`. No auth wiring. AsyncStorage is device-local — "the community" is functionally one anonymous user per phone, and reports don't sync across devices.
+
+## Accessibility gaps
+
+- **ScrollView snap doesn't respect Reduce Motion** — `snapToInterval` + `decelerationRate="fast"` not gated on `useReduceMotion()` in the home browse carousel.
+- **Carousel container has no `accessibilityRole="list"`** — screen readers don't announce "list of N" on entry to the recommendations row.
+- **`cardTitle` doesn't truncate at AX5** — `numberOfLines` is missing; long names + max Dynamic Type push layout.
+- **Saved-home + trusted-friend markers don't get a `selected` state** — tapping them fires handlers but no visual feedback.
+- **Cluster marker + placement pin missing `accessibilityRole`** — both have `accessibilityLabel` but no role.
+- **Dynamic Type expansion** — only ~3 `dynamicType()` invocations across the codebase. Needs broader application + breakpoint testing.
+- **Daylight gradient is color-only signaling (WCAG 1.4.1 failure)** — the route polyline encodes daylight via orange → mauve → indigo. Colorblind users (deuteranopia ~8% of men, tritanopia, monochromacy) can't read the transitions. Two layered fixes: (1) non-color cue along the polyline via `lineDashPattern` (solid = day, dashed = twilight, dotted = night) or width changes; (2) accessibility label / inline legend overlay calling out the transitions explicitly ("Daylight for first 12 mi, twilight from mile 12 to mile 18…"). Same problem applies to the bottom-sheet daylight strip key.
+
+## Visual / polish nits
+
+- **Cold-start map shows Mobile, AL until GPS resolves** — `app/home.tsx`. Hardcoded `initialRegion`. Defer the centering until first location fix, or animate to user location ASAP.
+- **EdgeIndicator count="1" pill** — single-item edge groups still render a "1" badge. Should suppress.
+- **Cluster marker missing `tracksViewChanges` lifecycle** — hardcoded to `false` from t=0. Inconsistent with the LandmarkMarker pattern (track-then-settle).
+- **Curated-fallback distance pill is jarring** — when a user in NYC and curated (Mobile-only) fires, cards show "1186 mi away." Suppress, or relabel as "Demo content — Mobile, AL."
+- **Rapid chip tapping causes flicker** — each chip-tap triggers `LayoutAnimation` AND a fresh async fetch; cards animate out / empty pops in / new cards animate in. Debounce.
+- **"Coming soon" Alert mid-report flow** — `app/report.tsx` (photo capture) and `app/home.tsx` (Schedule). Breaks the rhythm. v2: inline disabled-state copy instead of modal Alert.
+
+## Architecture / data v2
+
+- **User auth + report sync** — currently device-local AsyncStorage. v2 needs Supabase / Firebase / similar so community reports persist across phones. Unlocks real `submittedBy` IDs (the hold-to-delete and Round-4 weighted-recency work would benefit).
+- **Real photo capture in /report** — `app/report.tsx` photo button currently `Alert.alert` stub. Needs `expo-camera` or `expo-image-picker`.
+- **Schedule CTA → expo-notifications** — `/home` "Schedule for X" button is scaffolded but only shows an Alert. v2 wires local notifications fired at the suggested departure.
+- **Curated catalog as catastrophic fallback feels invisible** — only fires when external + community both empty. With Google Places returning worldwide results, curated rarely runs. Consider letting curated participate when it's category-appropriate AND user is near the curated entry's region.
+- **Demo-mode toggle / offline seed** — a `/menu` switch that swaps the external adapter for a richer curated catalog (more cities, more cards, real photos) would let you demo without internet anxiety.
+- **Bespoke SVG glyphs for v2 sub-tags** — currently Phosphor fallbacks (HandHeart / Heart / Toilet / MoonStars). Swap when Figma exports land. Track alongside the Round-4 custom community-signal icon.
+- **Yelp / EatOkra adapter** — Yelp went paid; EatOkra has no public API. Deferred until either landscape changes.
+
 ## Workflow note
 
 The `v1.0-thesis` tag marks the submitted state. Any of these items can land in iteration commits past that tag without affecting the submitted snapshot — `git checkout v1.0-thesis` always returns reviewers to exactly what was submitted.

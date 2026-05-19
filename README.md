@@ -19,11 +19,13 @@ Scan the QR code with the Camera app on a physical iPhone running Expo Go. A Map
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) — full project orientation: tech stack, three-layer architecture, design rules, and the running punch list of shipped vs. deferred work.
+- [`CLAUDE.md`](CLAUDE.md) — agent orientation (Claude Code auto-loads this). Maps to the rulebooks below; doesn't restate them.
+- [`.cursorrules`](.cursorrules) — canonical design rulebook (color tokens, reserved-color rule, tap targets, anti-slop checks). Read by Cursor on every session and referenced by `CLAUDE.md`.
 - [`docs/workflow.md`](docs/workflow.md) — per-PR rhythm and recipe.
+- [`docs/architecture.md`](docs/architecture.md) — full project orientation: tech stack, three-layer architecture, design rules, and the running punch list of shipped vs. deferred work.
+- [`docs/next-session.md`](docs/next-session.md) — the live backlog. Open items, struck-through closures, named rounds.
 - [`docs/learnings.md`](docs/learnings.md) — running journal of decisions and gotchas, newest at top.
 - [`fresh-greens-specimen/index.html`](fresh-greens-specimen/index.html) — design system specimen (colors, typography, design rules, references) generated from the theme tokens.
-- [`.cursorrules`](.cursorrules) — canonical design rulebook, read by Cursor on every session.
 
 ## License
 
