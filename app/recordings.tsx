@@ -9,16 +9,19 @@ import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Pause } from 'phosphor-react-native/src/icons/Pause';
 import { Play } from 'phosphor-react-native/src/icons/Play';
 import { Trash } from 'phosphor-react-native/src/icons/Trash';
+import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { EmptyState as EmptyStateCard } from '../components/StateCard';
 import { useRecordings } from '../hooks/useRecordings';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -39,6 +42,20 @@ export default function Recordings() {
   const router = useRouter();
   const { recordings, loading, removeRecording } = useRecordings();
   const [playingId, setPlayingId] = useState<string | null>(null);
+  // In-app destructive confirm per Figma 1133:12674. Built as an
+  // overlay <Modal> rather than `Alert.alert` so the body can render
+  // an inline emphasized "cannot" — native iOS Alert doesn't support
+  // mid-sentence bold. Tap-outside or the X close in the top-right
+  // both dismiss; only "Yes, I'm sure" proceeds.
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  // Latched while the deletion is in flight. Keeps the modal open
+  // with the confirm button in a loading state, disables the
+  // trigger button so a fast double-tap can't re-fire the same
+  // deletion, and stays true through the closure so unmount-during-
+  // await is harmless (we just don't setShowDeleteAllConfirm(false)
+  // on an unmounted component — React warns, but the work completed).
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const reduceMotion = useReduceMotion();
 
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
@@ -91,7 +108,17 @@ export default function Recordings() {
     await removeRecording(id);
   }
 
-  async function handleDeleteAll() {
+  function handleRequestDeleteAll() {
+    setShowDeleteAllConfirm(true);
+  }
+
+  function handleCancelDeleteAll() {
+    setShowDeleteAllConfirm(false);
+  }
+
+  async function handleConfirmDeleteAll() {
+    if (isDeletingAll) return;
+    setIsDeletingAll(true);
     if (playingId) {
       try {
         player.pause();
@@ -101,6 +128,8 @@ export default function Recordings() {
       setPlayingId(null);
     }
     await Promise.all(recordings.map((r) => removeRecording(r.id)));
+    setShowDeleteAllConfirm(false);
+    setIsDeletingAll(false);
   }
 
   const showEmptyState = !loading && recordings.length === 0;
@@ -169,13 +198,82 @@ export default function Recordings() {
               type="primary"
               fill="fill"
               text="Delete all recordings"
-              onPress={handleDeleteAll}
+              onPress={handleRequestDeleteAll}
               accessibilityLabel="Delete all recordings"
+              disabled={isDeletingAll}
               style={styles.deleteAllBtn}
             />
           </View>
         )}
       </SafeAreaView>
+
+      {/*
+        Destructive-confirm overlay per Figma 1133:12674. Built as a
+        transparent <Modal> with a tap-anywhere-to-dismiss scrim plus
+        an X close in the top-right of the card. `animationType` is
+        gated on Reduce Motion — fade is gentle but the principle
+        matches the rest of the app's animations-respect-accessibility
+        rhythm.
+      */}
+      <Modal
+        visible={showDeleteAllConfirm}
+        transparent
+        animationType={reduceMotion ? 'none' : 'fade'}
+        onRequestClose={handleCancelDeleteAll}
+        statusBarTranslucent
+      >
+        {/*
+          Outer Pressable = the scrim. Tapping it dismisses.
+          `accessible={false}` so VoiceOver doesn't announce the scrim
+          as its own button — the modal's content (title, body, CTA)
+          is what users hear. `accessibilityViewIsModal` is hoisted
+          here (the topmost view inside <Modal>) so the entire subtree
+          is scoped, not just the card.
+        */}
+        <Pressable
+          style={styles.confirmScrim}
+          onPress={handleCancelDeleteAll}
+          accessible={false}
+          accessibilityViewIsModal
+        >
+          {/*
+            Inner Pressable swallows taps so they don't propagate up
+            to the scrim's onPress. Without this, tapping the card
+            itself would close the modal.
+          */}
+          <Pressable style={styles.confirmCard} onPress={() => {}}>
+            <Pressable
+              onPress={handleCancelDeleteAll}
+              disabled={isDeletingAll}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+              style={({ pressed }) => [
+                styles.confirmCloseBtn,
+                pressed && pressedDim,
+              ]}
+            >
+              <X size={20} color={colors.labelSecondary} weight="bold" />
+            </Pressable>
+            <Text style={styles.confirmTitle}>
+              Are you sure you want to delete all recordings?
+            </Text>
+            <Text style={styles.confirmBody}>
+              Deleted files{' '}
+              <Text style={styles.confirmBodyEmphasis}>cannot</Text> be recovered.
+            </Text>
+            <Button
+              type="primary"
+              fill="fill"
+              text="Yes, I'm sure"
+              onPress={handleConfirmDeleteAll}
+              accessibilityLabel="Yes, I'm sure — delete all recordings"
+              loading={isDeletingAll}
+              style={styles.confirmActionBtn}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -371,5 +469,65 @@ const styles = StyleSheet.create({
   deleteAllBtn: {
     alignSelf: 'center',
     width: 326,
+  },
+  // --- Destructive-confirm overlay (Figma 1133:12674) ---
+  confirmScrim: {
+    flex: 1,
+    backgroundColor: colors.modalScrim,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  // Centered card. 28pt radius matches the project's "sheet/card"
+  // surface convention (ReportDetailCard, placement pin frame).
+  // shadows.e2 — the elevation tier shadows.ts names for "content
+  // above map" surfaces; a modal-over-scrim sits in the same class.
+  confirmCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: colors.white,
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 24,
+    gap: 16,
+    ...shadows.e2,
+  },
+  confirmCloseBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    // Subtle iOS-style fill so the X reads as an affordance against
+    // the white card. fillsTertiary (12% gray) is enough contrast to
+    // signal "tappable" without competing with the title for
+    // attention.
+    backgroundColor: colors.fillsTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmTitle: {
+    ...typography.title3Emphasized,
+    color: colors.black,
+    // Reserve room under the absolutely-positioned X — without this
+    // the title would visually collide with the close target.
+    paddingRight: 32,
+  },
+  confirmBody: {
+    ...typography.bodyRegular,
+    color: colors.labelSecondary,
+  },
+  confirmBodyEmphasis: {
+    // Inline emphasized run inside an otherwise-regular body sentence.
+    // bodyEmphasized carries the weight (typography token already
+    // defines fontWeight/fontFamily), so we just spread it.
+    ...typography.bodyEmphasized,
+    color: colors.black,
+  },
+  confirmActionBtn: {
+    alignSelf: 'stretch',
+    marginTop: 8,
   },
 });
