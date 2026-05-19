@@ -14,6 +14,7 @@ import { Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View }
 
 import { useRecommendations } from '../hooks/useRecommendations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useTrustedByCommunity } from '../hooks/useTrustedByCommunity';
 import { useWeather } from '../hooks/useWeather';
 import { formatDistanceAway } from '../lib/format';
 import { PROXY_PHOTO_URL } from '../lib/proxy';
@@ -79,13 +80,23 @@ export function HomeBrowseSheet({
    */
   onEmptyTap?: () => void;
 }) {
-  const [category, setCategory] = useState<RecommendationCategory>('black-owned');
-  const { recommendations, loading } = useRecommendations({ category, userLocation });
-  // Multi-card variant per Figma 1133:13551 — horizontal scroll of
-  // up to 5 cards. `getRecommendations` already orders them
-  // (community first, then external, curated only as catastrophic
-  // fallback) and computes `distanceMiles`, so this consumes the
-  // list as-is.
+  // null = browse mode ("All" chip selected, shows the "Trusted by
+  // your community" cross-category row per Round 4 spec). Any
+  // category = focus mode (single-category carousel — the pre-Round-4
+  // behavior, preserved verbatim). Default is browse mode so the
+  // differentiator row is the first thing users see.
+  const [category, setCategory] = useState<RecommendationCategory | null>(null);
+  const { recommendations, loading } = useRecommendations({
+    // Skip the focus-mode fetch when in browse mode — useRecommendations
+    // returns the merged catalog when no category is set, which is the
+    // wrong shape for the per-category carousel. Browse mode reads from
+    // useTrustedByCommunity instead.
+    category: category ?? undefined,
+    userLocation,
+  });
+  const { recommendations: trusted, loading: trustedLoading } = useTrustedByCommunity({
+    userLocation,
+  });
   const reduceMotion = useReduceMotion();
 
   // Eyebrow copy — when we have the user's first name, render the
@@ -96,7 +107,8 @@ export function HomeBrowseSheet({
     ? `${firstName}'s Local Recs 💃🏾`
     : 'Local Recs 💃🏾';
 
-  const categoryLabel = CATEGORY_LABELS[category];
+  const browseMode = category === null;
+  const categoryLabel = category ? CATEGORY_LABELS[category] : 'All';
 
   return (
     <View style={styles.content}>
@@ -114,10 +126,6 @@ export function HomeBrowseSheet({
       <CategoryChips
         category={category}
         onChange={(next) => {
-          // Smooth re-layout when the card refreshes with a different
-          // category's recommendation. Skip the animation when the
-          // user has Reduce Motion on — the state change still
-          // happens, only the transition is suppressed.
           if (!reduceMotion) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           }
@@ -125,83 +133,219 @@ export function HomeBrowseSheet({
         }}
       />
 
-      <Pressable
-        onPress={() => {
-          if (!reduceMotion) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          }
-          onToggleCollapsed();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={collapsed ? `Show ${categoryLabel} recommendations` : `Hide ${categoryLabel} recommendations`}
-        accessibilityState={{ expanded: !collapsed }}
-        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-        style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
-      >
-        <Text style={styles.sectionTitle}>Around Me: {categoryLabel}</Text>
-        {collapsed ? (
-          <CaretDown size={16} color={colors.black} weight="fill" />
-        ) : (
-          <CaretUp size={16} color={colors.black} weight="fill" />
-        )}
-      </Pressable>
-
-      {!collapsed && (
-        loading && recommendations.length === 0 ? (
-          // First-render path while the proxy resolves. Renders 3
-          // skeleton cards in the same horizontal scroller so the
-          // user doesn't see the EmptyState flash before content
-          // lands. Without this, every chip-tap shows "More <cat>
-          // coming soon" for ~50–500ms while the network call is
-          // in flight.
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cardsRowContent}
-            scrollEnabled={false}
-            accessible
-            accessibilityLabel={`Loading ${categoryLabel} recommendations`}
-          >
-            <View style={styles.carouselLeadingSpacer} />
-            {[0, 1, 2].map((i) => (
-              <RecommendationCardSkeleton key={`skel-${i}`} />
-            ))}
-            <View style={styles.carouselTrailingSpacer} />
-          </ScrollView>
-        ) : recommendations.length > 0 ? (
-          // Snap math note: padding lives on leading/trailing spacer
-          // Views, NOT on `contentContainerStyle.paddingHorizontal`.
-          // Padding on the contentContainer offsets x=0 in scroll
-          // coordinates but doesn't shift snap points, so cards 2+
-          // misalign. Spacer views participate in the layout and the
-          // snap interval lines up with each card's left edge.
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cardsRowContent}
-            decelerationRate={reduceMotion ? 'normal' : 'fast'}
-            snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
-            snapToAlignment="start"
-            accessibilityRole={'list' as any}
-            accessibilityLabel={`${categoryLabel} recommendations`}
-          >
-            <View style={styles.carouselLeadingSpacer} />
-            {recommendations.map((rec) => (
-              <RecommendationCard
-                key={rec.id}
-                recommendation={rec}
-                onPress={() => onSelectRecommendation(rec)}
-              />
-            ))}
-            <View style={styles.carouselTrailingSpacer} />
-          </ScrollView>
-        ) : (
-          <View style={styles.cardWrap}>
-            <EmptyState category={category} onTap={onEmptyTap} />
+      {browseMode ? (
+        // --- Browse mode: "Trusted by your community" Row 1 ---
+        // No caret/Pressable on the section title — collapsing the
+        // only row in browse mode would leave the user with chips and
+        // nothing else (no in-place re-expand affordance, and the
+        // visual cue would be misleading). Full-sheet collapse is the
+        // bottom-sheet drag handle's job (app/home.tsx). The parent's
+        // `collapsed` master toggle is still honored so the drag-
+        // handle path keeps working.
+        <>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Trusted by your community</Text>
           </View>
-        )
+          {!collapsed && (
+            <TrustedByCommunityRow
+              recommendations={trusted}
+              loading={trustedLoading}
+              reduceMotion={reduceMotion}
+              onSelectRecommendation={onSelectRecommendation}
+              onEmptyTap={onEmptyTap}
+            />
+          )}
+        </>
+      ) : (
+        // --- Focus mode: per-category carousel (pre-Round-4 path) ---
+        <>
+          <Pressable
+            onPress={() => {
+              if (!reduceMotion) {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              }
+              onToggleCollapsed();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={collapsed ? `Show ${categoryLabel} recommendations` : `Hide ${categoryLabel} recommendations`}
+            accessibilityState={{ expanded: !collapsed }}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
+          >
+            <Text style={styles.sectionTitle}>Around Me: {categoryLabel}</Text>
+            {collapsed ? (
+              <CaretDown size={16} color={colors.black} weight="fill" />
+            ) : (
+              <CaretUp size={16} color={colors.black} weight="fill" />
+            )}
+          </Pressable>
+
+          {!collapsed && category && (
+            loading && recommendations.length === 0 ? (
+              // First-render path while the proxy resolves. Renders 3
+              // skeleton cards in the same horizontal scroller so the
+              // user doesn't see the EmptyState flash before content
+              // lands. Without this, every chip-tap shows "More <cat>
+              // coming soon" for ~50–500ms while the network call is
+              // in flight.
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsRowContent}
+                scrollEnabled={false}
+                accessible
+                accessibilityLabel={`Loading ${categoryLabel} recommendations`}
+              >
+                <View style={styles.carouselLeadingSpacer} />
+                {[0, 1, 2].map((i) => (
+                  <RecommendationCardSkeleton key={`skel-${i}`} />
+                ))}
+                <View style={styles.carouselTrailingSpacer} />
+              </ScrollView>
+            ) : recommendations.length > 0 ? (
+              // Multi-card variant per Figma 1133:13551 — horizontal
+              // scroll of up to 5 cards. `getRecommendations` already
+              // orders them (community first, then external, curated
+              // only as catastrophic fallback) and computes
+              // `distanceMiles`, so this consumes the list as-is.
+              //
+              // Snap math note: padding lives on leading/trailing spacer
+              // Views, NOT on `contentContainerStyle.paddingHorizontal`.
+              // Padding on the contentContainer offsets x=0 in scroll
+              // coordinates but doesn't shift snap points, so cards 2+
+              // misalign. Spacer views participate in the layout and the
+              // snap interval lines up with each card's left edge.
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsRowContent}
+                decelerationRate={reduceMotion ? 'normal' : 'fast'}
+                snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
+                snapToAlignment="start"
+                accessibilityRole={'list' as any}
+                accessibilityLabel={`${categoryLabel} recommendations`}
+              >
+                <View style={styles.carouselLeadingSpacer} />
+                {recommendations.map((rec) => (
+                  <RecommendationCard
+                    key={rec.id}
+                    recommendation={rec}
+                    onPress={() => onSelectRecommendation(rec)}
+                  />
+                ))}
+                <View style={styles.carouselTrailingSpacer} />
+              </ScrollView>
+            ) : (
+              <View style={styles.cardWrap}>
+                <EmptyState category={category} onTap={onEmptyTap} />
+              </View>
+            )
+          )}
+        </>
       )}
     </View>
+  );
+}
+
+// --- Trusted-by-community row (Round 4 Row 1) ---------------------------
+
+function TrustedByCommunityRow({
+  recommendations,
+  loading,
+  reduceMotion,
+  onSelectRecommendation,
+  onEmptyTap,
+}: {
+  recommendations: Recommendation[];
+  loading: boolean;
+  reduceMotion: boolean;
+  onSelectRecommendation: (rec: Recommendation) => void;
+  onEmptyTap?: () => void;
+}) {
+  if (loading && recommendations.length === 0) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.cardsRowContent}
+        scrollEnabled={false}
+        accessible
+        accessibilityLabel="Loading trusted-by-your-community recommendations"
+      >
+        <View style={styles.carouselLeadingSpacer} />
+        {[0, 1, 2].map((i) => (
+          <RecommendationCardSkeleton key={`trusted-skel-${i}`} />
+        ))}
+        <View style={styles.carouselTrailingSpacer} />
+      </ScrollView>
+    );
+  }
+  if (recommendations.length === 0) {
+    return (
+      <View style={styles.cardWrap}>
+        <TrustedByCommunityEmpty onTap={onEmptyTap} />
+      </View>
+    );
+  }
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.cardsRowContent}
+      decelerationRate={reduceMotion ? 'normal' : 'fast'}
+      snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
+      snapToAlignment="start"
+      accessibilityRole={'list' as any}
+      accessibilityLabel="Trusted by your community"
+    >
+      <View style={styles.carouselLeadingSpacer} />
+      {recommendations.map((rec) => (
+        <RecommendationCard
+          key={rec.id}
+          recommendation={rec}
+          onPress={() => onSelectRecommendation(rec)}
+        />
+      ))}
+      <View style={styles.carouselTrailingSpacer} />
+    </ScrollView>
+  );
+}
+
+function TrustedByCommunityEmpty({ onTap }: { onTap?: () => void }) {
+  // Cross-category empty — the per-category EmptyState component is
+  // keyed by RecommendationCategory and routes to a category-specific
+  // glyph, which doesn't apply here. Same visual register (Star glyph
+  // matches the "trusted" semantic), same typography tokens, same
+  // pressedDim treatment so it feels like the same family of card.
+  const title = 'Be the first community signal';
+  const body =
+    'No spots have been vouched near you yet. Drop a report and let neighbors know where the community shows up.';
+  const a11yLabel = `${title}. ${body}`;
+  const content = (
+    <>
+      <Star size={64} color={colors.burntgreen} weight="duotone" />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyBody}>{body}</Text>
+    </>
+  );
+  if (!onTap) {
+    return (
+      <View style={styles.empty} accessible accessibilityLabel={a11yLabel}>
+        {content}
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.empty, pressed && pressedDim]}
+      onPress={onTap}
+      accessible
+      accessibilityLabel={a11yLabel}
+      accessibilityHint="Opens the report screen"
+      accessibilityRole="button"
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -228,8 +372,8 @@ function CategoryChips({
   category,
   onChange,
 }: {
-  category: RecommendationCategory;
-  onChange: (next: RecommendationCategory) => void;
+  category: RecommendationCategory | null;
+  onChange: (next: RecommendationCategory | null) => void;
 }) {
   return (
     <ScrollView
@@ -237,6 +381,35 @@ function CategoryChips({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.chipsRow}
     >
+      {/*
+        "Browse" pill leads the row — selected = browse mode (Row 1
+        visible, no per-category focus). Tap any other chip to enter
+        focus mode; tap "Browse" to come back out. Named "Browse"
+        rather than "All" because the latter is semantically ambiguous
+        ("all categories"? "all locations"? "all results"?) — "Browse"
+        names the mode it puts you in, pairing naturally with the
+        section title "Trusted by your community".
+      */}
+      <Pressable
+        onPress={() => onChange(null)}
+        accessibilityRole="button"
+        accessibilityLabel="Browse mode — recommendations across all categories"
+        accessibilityState={{ selected: category === null }}
+        style={({ pressed }) => [
+          styles.chip,
+          category === null && styles.chipSelected,
+          pressed && pressedDim,
+        ]}
+      >
+        <Text
+          style={[
+            styles.chipText,
+            category === null && styles.chipTextSelected,
+          ]}
+        >
+          Browse
+        </Text>
+      </Pressable>
       {CATEGORY_ORDER.map((cat) => {
         const selected = cat === category;
         return (
