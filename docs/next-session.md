@@ -7,6 +7,7 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 - **Safety page matches v2 Figma + confirmation modal popup** — `app/safety.tsx` against current Figma node; confirmation modal pattern likely lives on a new tap path off one of the four tiles.
 - **Home bottom sheet matches the v2 version** — `components/HomeBrowseSheet.tsx`, Figma `1133:13690`. Current shipped form is structural; v2 has photo, quote callout, tag rows in a card-shaped layout that the placeholder doesn't fully implement.
 - **Report modals match v2 design** — `app/report.tsx`. Currently still v1 design per `docs/architecture.md`.
+- **Custom "community signal" icon for Round 4 surfaces** — Phosphor doesn't have a clean fit for "trusted by your community" semantics. Star (currently used in Row 1 empty state, `HomeBrowseSheet.tsx` `TrustedByCommunityEmpty`) reads as "favorites/saved" — forward-collision with any save-spot feature, and visually inconsistent with the row's framing. Two assets to design, both burntgreen (`#003F04`) single-color SVG so they theme-tint cleanly: (1) **64×64pt** for the Row 1 empty-state card (drops in next to the per-category `PhotoPlaceholderGlyph` family in `HomeBrowseSheet.tsx`); (2) **24×24pt** for section-header glyphs in Round 4 PR B's multi-row layout (matches the section-title row pattern Apple Maps uses for collection rows). Visual directions worth exploring: overlapping silhouettes/hands cradling a pin, a pin with concentric ripples (signal echoing outward), or a chorus of small markers converging on one spot. File names: `community-signal.svg` (slots next to existing `mapmarker-glyph-*` family). The other rows in PR B can keep Phosphor: existing `PhotoPlaceholderGlyph` mappings for the 5 category rows, `Clock` or `Storefront` for "Open Now" — only Trusted needs custom.
 - ~~**Edge markers match Figma (not placeholders)**~~ — shipped across #134–138 (`EdgeIndicator.tsx` cites Figma `1133:13250`). Component implements the full layered composition (42×62 polygon + 36pt disk + 24pt counter-rotated glyph, per-category routing). The "32pt pill with generic glyph" description here hasn't matched reality since the redesign rounds.
 - ~~**Trusted contact text → body regular, not emphasized**~~ — already there. `ContactView` styles (`pulled-over.tsx:1669-1727`) use `title1Regular`/`subheadlineRegular`/`title2Regular`. No `bodyEmphasized` left to swap.
 - ~~**Guidance flow has 24px padding**~~ — already there, via composition. `guidanceStyles.page` uses `paddingHorizontal: 8` inside the modal's 16pt safe-area gutter → 24pt effective. Inline comment at `pulled-over.tsx:1546-1550` explains the math.
@@ -39,15 +40,19 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
   - Watch: data-load cost (5+ parallel proxy calls on mount), empty-state proliferation in low-density areas, total scroll height inside the capped sheet (~360pt × 5 rows = 1800pt inside a ~720pt sheet — vertical sheet scroll already exists, but UX needs validation on device).
   - Implementation hint: a `useRecommendationsBatch()` hook that fires the per-category requests in parallel with shared cache, vs. firing N copies of `useRecommendations`.
 
-## Round 5 — Safety + recording redesign
+## Round 5 — Safety surfaces + route-preview departure card
 
-Three Figma nodes covering the v2 design pass for the safety / recording surfaces. Group these together; they share visual register and likely overlap on components (audio control row, trusted-contact footer, drag handle).
+Four Figma nodes covering the v2 design pass for the safety surfaces AND the /home route-preview state. The route-preview node was added late and stretches the round's original "safety + recording" framing — but it shares thematic surface area (zone-warning chips on the route card are safety-adjacent), so group with the rest rather than splitting into a separate round.
 
+**Safety / recording (the original three):**
 - [Figma `1128:5284`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1128-5284&m=dev)
 - [Figma `1133:12323`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1133-12323&m=dev)
 - [Figma `1133:12674`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1133-12674&m=dev)
 
 Files likely touched: `app/safety.tsx` (already at v2 from `1133:13908`; revisit if these supersede), `app/pulled-over.tsx` (the recording widget + the four phases), `app/recordings.tsx` (the recordings list), `components/TrustedContactStatus.tsx`. Fetch the nodes via the Figma MCP at the start of the round to confirm what each one is before scoping the PR(s).
+
+**Route-preview "Default" state (the late addition):**
+- [Figma `1109:3264`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1109-3264&m=dev) — "Route (Default)". The /home view after the user has picked a destination but before tapping Go. The bottom card shows: duration ("12 min"), street name ("Via Government St."), daylight strip (sun→moon gradient indicator), conditions tagline ("Safest route with current conditions, Moderate traffic"), zone-warning chips ("1 police zone" + "1 low light zone"), and "Schedule for X:XX" + "Go" CTAs. Files likely touched: `app/home.tsx` (the route preview / route-sheet section, post-destination), `components/HomeBrowseSheet.tsx` (or whatever sheet swaps in when a destination is set), and possibly a new zone-warning-chip component derived from the existing edge-marker/zone palette. Scope check: does this conflict with anything we just built? The Round 4 multi-row work touches the *browse-mode* sheet (no destination); this redesigns the *route-preview* sheet (destination set). Independent surfaces, no overlap. Confirm on second pass with `get_design_context` to see the actual component definitions.
 
 ## Workflow note
 
