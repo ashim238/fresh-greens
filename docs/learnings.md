@@ -4,6 +4,24 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/recordings-delete-confirm (2026-05-19)
+
+First destructive-confirm overlay in the app, built as a transparent `<Modal>` with a tap-anywhere-to-dismiss scrim. Two patterns that wouldn't have been obvious without the pre-merge audit catching them.
+
+- **VoiceOver scoping on overlays: `accessibilityViewIsModal` belongs on the topmost view *inside* the `<Modal>`, not on the inner card.** Putting it on the card sort-of works (the scrim is a sibling outside that subtree) but the more reliable iOS behavior is to mark the scrim Pressable as the modal root, and `accessible={false}` on the scrim itself so VoiceOver doesn't announce a useless "Dismiss confirm button" wrapper around the card content. Worth keeping: when building an overlay, the scrim is the modal's outermost view from VoiceOver's perspective — scope and silence it there.
+- **Disable-during-async beats close-then-await for destructive flows.** First pass closed the modal immediately and `await`-ed the deletion in the background. The race: trigger button stayed visible until `recordings` state updated post-delete, so a fast double-tap could re-fire the deletion on a stale snapshot. Fix is to keep the modal open with the confirm CTA in a `loading={true}` state, latch an `isDeletingAll` boolean that disables both the trigger and the confirm's onPress, and close the modal *after* the await resolves. Worth keeping: any async destructive flow needs a latched flag + visible loading state, not just an optimistic state-flip. The "close instantly, finish quietly" pattern works for non-destructive saves; it doesn't for deletes.
+
+---
+
+## feat/multi-row-trusted-community (2026-05-17)
+
+Round 4 PR A — the Trusted-by-your-community row at the top of the home browse sheet. Two findings that wouldn't have shown up in a "did it compile" pass.
+
+- **Linear `groups.find(g => distance <= proximity)` is order-dependent if you mutate the group's anchor.** First pass merged reports into groups by checking distance against the group's current `rec`, then re-anchored on every "freshest metadata wins" update. The bug case: three reports A, B, C where A↔B and B↔C are within 50m but A↔C exceeds 50m. Order A→B→C merges all three; order A→C→B (where B arrives last and overwrites the A-anchored group's location to B's coords) leaves two groups. Worth keeping: when grouping by proximity in a linear scan, keep an *immutable* anchor field for the distance check, separate from any display fields you want to update.
+- **A hook that doesn't short-circuit on falsy inputs does real work.** `useRecommendations({ category: undefined })` was firing a community-reports read on every browse-mode mount because the underlying `getRecommendations` doesn't return early for an undefined category — it returns a merged-catalog shape no caller actually wants. Only consumer is the home sheet. Worth keeping: when a hook accepts an optional dimension and the only caller throws away the result for the optional-absent case, short-circuit *inside* the hook rather than hoping the underlying adapter is cheap. "Hooks always fire" is the React reality; cheap-when-unused is the hook's job, not the adapter's.
+
+---
+
 ## chore/figma-fidelity-audit-8 (2026-05-17)
 
 Eighth periodic audit per workflow Step 12, after the Round 3 placement-pin + whimsy work. Caught one accessibility gap (UserLocationMarker's `Animated.loop` ran without `useReduceMotion` — disconnected from the rest of the safety-flow's pulse system which uses the shared `usePulseOpacity` hook that gates correctly), plus a cluster of inline shadow blocks that had drifted away from the `shadows.ts` tiers since the consolidation. Also added a new `shadows.dot` tier for tiny circular markers like the user-location blue dot — e3 is proportionally too heavy on a 24pt circle (the shadow footprint would be half the marker's), so naming the divergence is more honest than living with an inline override or an over-shadow.
