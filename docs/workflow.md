@@ -65,17 +65,24 @@ Description template:
 Different mode of reading than Cursor — easier to spot mistakes when the diff is rendered as a webpage. Worth doing every time.
 
 ## 10. Merge, sync, clean up
-On GitHub: **Merge pull request** → **Confirm**. Optionally delete the branch.
 
-Locally:
+**Default rhythm (added 2026-05-19):** merge once Step 13's pre-merge audit is clean, OR once substantive findings have been addressed in the same branch. The audit is the gate; don't queue up a separate wait-for-explicit-approval step on top. Squash-merge with `--delete-branch`. Surface what shipped + pull main + report. The author reviews on main and flags issues as follow-ups.
+
+Hold the merge only when: (1) the audit surfaces critical findings that the author needs to triage, (2) the author has explicitly asked to wait ("don't merge until I device-test"), (3) destructive remote ops outside the merge itself (force-push to main, deleting branches with unmerged work).
+
+Docs-only PRs that skip the audit (per Step 13's "no code surface" exception) still merge by default.
+
+Mechanics:
 ```
+gh pr merge <num> --squash --delete-branch
 git checkout main
-git pull
-git branch -d feat/<screen-name>
+git pull --ff-only
 ```
 
 ## 11. Add a learnings entry
 If this PR taught you something — a new RN quirk, a layout trick, a tooling gotcha — add a one-liner to `docs/learnings.md`. Future-you reading them weekly is how you check that the work is sticking.
+
+Bias toward writing one. The check is "did something here take two tries to get right, or surprise me at audit?" If yes, it earns an entry. Standard refactors, copy changes, and mechanical token swaps don't unless they uncovered a recurring habit worth naming. Append before the audit pass (Step 13) so a future "no learning, skipped" decision is conscious rather than accidental. Format mirrors the existing entries: `## branch-name (YYYY-MM-DD)` heading + 1–3 bullets each ending with "Worth keeping: <generalizable rule>" so the entry transcends the specific PR.
 
 ## 12. Periodic Figma fidelity audit (every ~5 PRs, or after any heavy one)
 
