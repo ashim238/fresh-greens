@@ -12,6 +12,8 @@ import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { useState } from 'react';
 import { Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import CommunitySignalGlyph from '../assets/illustrations/trustedbycommunity-empty.svg';
+
 import { useRecommendations } from '../hooks/useRecommendations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedByCommunity } from '../hooks/useTrustedByCommunity';
@@ -314,16 +316,18 @@ function TrustedByCommunityRow({
 function TrustedByCommunityEmpty({ onTap }: { onTap?: () => void }) {
   // Cross-category empty — the per-category EmptyState component is
   // keyed by RecommendationCategory and routes to a category-specific
-  // glyph, which doesn't apply here. Same visual register (Star glyph
-  // matches the "trusted" semantic), same typography tokens, same
-  // pressedDim treatment so it feels like the same family of card.
+  // glyph, which doesn't apply here. Custom `community-signal` mark
+  // (an open-book illustration referencing the Negro Motorist Green
+  // Book — the thesis's load-bearing historical anchor) replaces the
+  // earlier Star placeholder, which carried "favorites/saved"
+  // semantics and didn't match the row's framing.
   const title = 'Be the first community signal';
   const body =
     'No spots have been vouched near you yet. Drop a report and let neighbors know where the community shows up.';
   const a11yLabel = `${title}. ${body}`;
   const content = (
     <>
-      <Star size={64} color={colors.burntgreen} weight="duotone" />
+      <CommunitySignalGlyph width={64} height={64} />
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyBody}>{body}</Text>
     </>
