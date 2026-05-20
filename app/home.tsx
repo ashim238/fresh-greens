@@ -738,6 +738,16 @@ export default function Home() {
   // and the dismissal of /report after a successful submission. The
   // second path is what makes a freshly-submitted report appear on the
   // map within a frame of the user closing the modal.
+  // Ticks every time /home regains focus. Threaded down to
+  // HomeBrowseSheet so useTrustedByCommunity can re-read AsyncStorage
+  // after the user submits a fresh report and returns here — without
+  // this, the "Trusted by your community" row stays stale until the
+  // user crosses a ~0.5mi geo-grid boundary (which is what currently
+  // re-triggers the hook via gridLat/gridLng deps). The map's report
+  // markers refresh via setReportZones below, but the recommendations
+  // row reads from its own hook that doesn't share that signal.
+  const [focusRefreshKey, setFocusRefreshKey] = useState(0);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -745,6 +755,7 @@ export default function Home() {
         const fetched = await getCommunityReportsAsZones();
         if (cancelled) return;
         setReportZones(fetched);
+        setFocusRefreshKey((k) => k + 1);
       })();
       return () => {
         cancelled = true;
@@ -1301,6 +1312,7 @@ export default function Home() {
               firstName={userFirstName}
               neighborhoodLabel={neighborhoodLabel}
               userLocation={userLocation}
+              refreshKey={focusRefreshKey}
               collapsed={thingsToDoCollapsed}
               onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
               onSelectRecommendation={(rec) => {

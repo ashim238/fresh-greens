@@ -54,6 +54,7 @@ export function HomeBrowseSheet({
   firstName,
   neighborhoodLabel,
   userLocation,
+  refreshKey,
   collapsed,
   onToggleCollapsed,
   onSelectRecommendation,
@@ -70,6 +71,13 @@ export function HomeBrowseSheet({
    * short-circuits to []; the sheet then falls back to curated.
    */
   userLocation?: { latitude: number; longitude: number } | null;
+  /**
+   * Parent-driven refetch trigger — ticks on /home focus so the
+   * Trusted-by-your-community row re-reads AsyncStorage after a
+   * report submission. Without this, the row stays stale until the
+   * user crosses a ~0.5mi grid boundary.
+   */
+  refreshKey?: number;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   /** Caller routes to /home with the destination params set. */
@@ -98,6 +106,7 @@ export function HomeBrowseSheet({
   });
   const { recommendations: trusted, loading: trustedLoading } = useTrustedByCommunity({
     userLocation,
+    refreshKey,
   });
   const reduceMotion = useReduceMotion();
 
