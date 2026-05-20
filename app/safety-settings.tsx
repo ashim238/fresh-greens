@@ -40,11 +40,13 @@ export default function SafetySettings() {
   // both against `contact` existing-but-empty (stale stored contact
   // saved with name=undefined; defensive whitespace strip).
   const trustedContactName = contact?.name?.trim();
-  // Sub-line copy: actual name when set, "Not set" as a stable
-  // placeholder otherwise. Always-rendered so the row doesn't change
-  // height when a contact is first saved (the layout shift on
-  // return-from-/trusted-contact-setup read as a glitch).
-  const trustedContactValue = trustedContactName ?? 'Not set';
+  // Sub-line copy: actual name when set, "Add someone you trust"
+  // as a warm placeholder otherwise. Mirrors the entry copy on
+  // /trusted-contact-setup ("Tap to add someone you trust.") so the
+  // user sees continuity between the row sub-line and the screen it
+  // pushes to. Always-rendered so the row doesn't change height
+  // when a contact is first saved.
+  const trustedContactValue = trustedContactName ?? 'Add someone you trust';
   // Recordings count is no longer surfaced visually per Figma v2,
   // but VoiceOver users benefit from hearing it before they tap in.
   const recordingsA11yCount =
@@ -119,7 +121,7 @@ export default function SafetySettings() {
               accessibilityLabel={
                 trustedContactName
                   ? `Trusted contact: ${trustedContactName}. Tap to change.`
-                  : 'No trusted contact set. Tap to set one.'
+                  : 'No trusted contact yet. Tap to add someone you trust.'
               }
             >
               <UserCircle size={28} color={colors.black} weight="duotone" />

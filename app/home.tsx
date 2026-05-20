@@ -13,6 +13,7 @@ import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
+import { Check } from 'phosphor-react-native/src/icons/Check';
 import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
@@ -1396,20 +1397,28 @@ export default function Home() {
           recordings delete-confirm modal X.
         */}
         <View style={styles.bottomSheetContent}>
-          <Pressable
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              // router.replace with no params clears destLat/destLng/
-              // destName from the URL; /home re-renders in browse mode.
-              router.replace({ pathname: '/home', params: {} });
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Clear destination and return to browsing"
-            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
-            style={({ pressed }) => [styles.routeClearBtn, pressed && pressedDim]}
-          >
-            <X size={16} color={colors.labelSecondary} weight="bold" />
-          </Pressable>
+          {/*
+            Clear-destination row — right-aligned 44pt X above the
+            headline. Previously absolute-positioned, but the 44pt
+            footprint overlapped the moon glyph at the right edge of
+            the daylight strip. Dedicated row clears the conflict and
+            gives the affordance explicit layout space.
+          */}
+          <View style={styles.routeTopRow}>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                // router.replace with no params clears destLat/destLng/
+                // destName from the URL; /home re-renders in browse mode.
+                router.replace({ pathname: '/home', params: {} });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear destination and return to browsing"
+              style={({ pressed }) => [styles.routeClearBtn, pressed && pressedDim]}
+            >
+              <X size={16} color={colors.labelSecondary} weight="bold" />
+            </Pressable>
+          </View>
 
           <View style={styles.routeHeadlineRow}>
             <Text style={styles.routeMinutes}>
@@ -1471,43 +1480,59 @@ export default function Home() {
             Safest route with current conditions.
           </Text>
 
-          {(routeZoneCounts.police > 0 || routeZoneCounts.lowLight > 0) && (
+          {recommended && allZones.length > 0 && (
             <View style={styles.routeChipsBlock}>
               {/*
-                "Along this route:" header reframes the chips from
-                alarm to briefing. WarningDiamond + orange border
-                still pattern-match to hazard, but the header
-                positions the chips as "here is what you'll pass
-                through" rather than "here is what's wrong."
+                Two render paths:
+                  - Warnings present → "Along this route:" header
+                    + chips (orange WarningDiamond, briefing register).
+                  - Warnings absent → All-clear chip alone, no header
+                    ("Along this route: All clear" reads bureaucratic
+                    for what should feel like a light exhale).
+                The outer block is gated on allZones.length > 0 —
+                without it the All-clear chip flashes during the OSM
+                zone-fetch race, giving false reassurance before the
+                zones have actually arrived.
               */}
-              <Text style={styles.routeChipsHeader}>Along this route:</Text>
-              <View
-                style={styles.routeChipsRow}
-                accessibilityLabel={[
-                  routeZoneCounts.police > 0
-                    ? `${routeZoneCounts.police} police ${routeZoneCounts.police === 1 ? 'zone' : 'zones'}`
-                    : null,
-                  routeZoneCounts.lowLight > 0
-                    ? `${routeZoneCounts.lowLight} low-light ${routeZoneCounts.lowLight === 1 ? 'zone' : 'zones'}`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(' and ')
-                  .concat(' along this route.')}
-              >
-                {routeZoneCounts.police > 0 && (
-                  <RouteWarningChip
-                    count={routeZoneCounts.police}
-                    label={routeZoneCounts.police === 1 ? 'police zone' : 'police zones'}
-                  />
-                )}
-                {routeZoneCounts.lowLight > 0 && (
-                  <RouteWarningChip
-                    count={routeZoneCounts.lowLight}
-                    label={routeZoneCounts.lowLight === 1 ? 'low light zone' : 'low light zones'}
-                  />
-                )}
-              </View>
+              {routeZoneCounts.police > 0 || routeZoneCounts.lowLight > 0 ? (
+                <>
+                  <Text style={styles.routeChipsHeader}>Along this route:</Text>
+                  <View
+                    style={styles.routeChipsRow}
+                    accessibilityLabel={[
+                      routeZoneCounts.police > 0
+                        ? `${routeZoneCounts.police} police ${routeZoneCounts.police === 1 ? 'zone' : 'zones'}`
+                        : null,
+                      routeZoneCounts.lowLight > 0
+                        ? `${routeZoneCounts.lowLight} low-light ${routeZoneCounts.lowLight === 1 ? 'zone' : 'zones'}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' and ')
+                      .concat(' along this route.')}
+                  >
+                    {routeZoneCounts.police > 0 && (
+                      <RouteWarningChip
+                        count={routeZoneCounts.police}
+                        label={routeZoneCounts.police === 1 ? 'police zone' : 'police zones'}
+                      />
+                    )}
+                    {routeZoneCounts.lowLight > 0 && (
+                      <RouteWarningChip
+                        count={routeZoneCounts.lowLight}
+                        label={routeZoneCounts.lowLight === 1 ? 'low light zone' : 'low light zones'}
+                      />
+                    )}
+                  </View>
+                </>
+              ) : (
+                <View
+                  style={styles.routeChipsRow}
+                  accessibilityLabel="No reported zones along this route."
+                >
+                  <RouteAllClearChip />
+                </View>
+              )}
             </View>
           )}
 
@@ -1730,6 +1755,23 @@ function RouteWarningChip({ count, label }: { count: number; label: string }) {
   );
 }
 
+/**
+ * Positive counterpart to RouteWarningChip. Renders when the route
+ * has zero police/low-light intersections — the most reassuring
+ * read on the route-preview card is "we checked and you're clear,"
+ * and an absent chips row reads as "feature not loaded." Single
+ * fadedgreen pill with a check glyph, same row position as the
+ * warning chips so the slot stays consistent across route variants.
+ */
+function RouteAllClearChip() {
+  return (
+    <View style={styles.routeAllClearChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Check size={16} color={colors.burntgreen} weight="bold" />
+      <Text style={styles.routeAllClearText}>All clear</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -1752,7 +1794,7 @@ const styles = StyleSheet.create({
     // SafeAreaView's edges=['top'] adds the system inset (~47pt on
     // iPhone X+). Adding 23pt on top of that brings the search bar to
     // ~70pt from screen top, matching Figma's pt-[70px].
-    paddingTop: 23,
+    paddingTop: 24,
     gap: 24,
     alignItems: 'center',
     // No horizontal padding — children set their own widths so the menu
@@ -1867,7 +1909,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   routeChipsBlock: {
-    gap: 6,
+    gap: 8,
   },
   routeChipsHeader: {
     // Briefing-framing header above the chips ("Along this route:")
@@ -1883,28 +1925,30 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
   },
-  // Top-right floating clear-destination X. Absolutely positioned
-  // inside bottomSheetContent (the relative offset anchor by RN
-  // default). Same fillsTertiary circular treatment as the recordings
-  // delete-confirm modal X for visual consistency.
+  // Clear-destination row — dedicated top slot so the 44pt X doesn't
+  // overlap the daylight strip's moon glyph below.
+  routeTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 8,
+  },
+  // 44pt painted tap target per HIG, same fillsTertiary circular
+  // treatment as the recordings delete-confirm modal X for visual
+  // consistency across destructive-or-dismissal affordances.
   routeClearBtn: {
-    position: 'absolute',
-    top: 0,
-    right: 16,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1,
   },
   routeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: colors.orange,
@@ -1913,6 +1957,24 @@ const styles = StyleSheet.create({
   routeChipText: {
     ...typography.footnoteRegular,
     color: colors.black,
+  },
+  // Positive variant — the "we scanned, you're clear" chip. Same
+  // pill shape as RouteWarningChip but in the safety-green register
+  // (fadedgreen fill + burntgreen text/glyph) so the affordance
+  // reads as affirmative rather than informational. No border —
+  // the green fill carries the affordance on its own.
+  routeAllClearChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
+    backgroundColor: colors.fadedgreen,
+  },
+  routeAllClearText: {
+    ...typography.footnoteEmphasized,
+    color: colors.burntgreen,
   },
   daylightBar: {
     height: 4,
