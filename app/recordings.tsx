@@ -55,6 +55,13 @@ export default function Recordings() {
   // await is harmless (we just don't setShowDeleteAllConfirm(false)
   // on an unmounted component — React warns, but the work completed).
   const [isDeletingAll, setIsDeletingAll] = useState(false);
+  // Latched true for the rest of the session after a successful
+  // delete-all so the empty state reads "Cleared." instead of the
+  // cold-start "No recordings yet." Resets only on unmount / next
+  // navigation away — a fresh visit to /recordings starts back at
+  // the cold-start framing. Differentiates intentional deletion
+  // from never-had-recordings.
+  const [justDeletedAll, setJustDeletedAll] = useState(false);
   const reduceMotion = useReduceMotion();
 
   const player = useAudioPlayer();
@@ -130,6 +137,7 @@ export default function Recordings() {
     await Promise.all(recordings.map((r) => removeRecording(r.id)));
     setShowDeleteAllConfirm(false);
     setIsDeletingAll(false);
+    setJustDeletedAll(true);
   }
 
   const showEmptyState = !loading && recordings.length === 0;
@@ -169,8 +177,12 @@ export default function Recordings() {
               icon={
                 <Microphone size={56} color={colors.freshgreen} weight="duotone" />
               }
-              headline="No recordings yet"
-              text="Audio captures from your safety flow appear here."
+              headline={justDeletedAll ? 'All deleted.' : 'No recordings yet'}
+              text={
+                justDeletedAll
+                  ? 'Your recordings have been removed. New captures from your safety flow will appear here.'
+                  : 'Audio captures from your safety flow appear here.'
+              }
             />
           ) : (
             <View style={styles.recordingsList}>
@@ -325,7 +337,6 @@ function RecordingCard({
         style={({ pressed }) => [styles.deleteButton, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel={`Delete recording from ${formatTimestamp(recording.createdAt)}`}
-        hitSlop={12}
       >
         <Trash size={24} color={colors.labelTertiary} weight="regular" />
       </Pressable>
@@ -453,9 +464,13 @@ const styles = StyleSheet.create({
     ...typography.subheadlineRegular,
     color: colors.labelTertiary,
   },
+  // 44pt painted surface per HIG. Was 32pt + hitSlop:12 which met
+  // the touch-area floor but violated the cursorrules "visual on the
+  // painted surface, not just hit area" rule — sub-44pt visuals
+  // train users to tap "near" rather than "on" the affordance.
   deleteButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -466,9 +481,12 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
+  // Stretch so the button adapts to device width — the prior
+  // hardcoded 326 overflowed iPhone SE (320pt logical width minus
+  // 2×32pt deleteAllWrap padding = 256pt available). The
+  // deleteAllWrap already provides 32pt horizontal padding.
   deleteAllBtn: {
-    alignSelf: 'center',
-    width: 326,
+    alignSelf: 'stretch',
   },
   // --- Destructive-confirm overlay (Figma 1133:12674) ---
   confirmScrim: {

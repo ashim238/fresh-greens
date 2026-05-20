@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/whimsy-round-2-quick-wins (2026-05-20)
+
+End-of-Round-5 batch — whimsy quick wins + fidelity audit-9 catches. Two patterns worth keeping.
+
+- **An end-of-round audit can catch a critical bug in code that shipped an hour earlier.** Fidelity audit-9 caught `routeClearBtn` at 28×28pt — below the 44pt HIG minimum — in PR #202, which I'd just shipped under the merge-by-default policy. The per-PR audit didn't flag it (it focused on the load-bearing changes); the periodic audit, looking at the file fresh against the .cursorrules tap-target rule, did. The merge-by-default policy is faster but it raises the value of the periodic sweep — that's the safety net for the "small thing I overlooked while staring at the big thing." Worth keeping: don't think of the per-PR audit and the periodic audit as redundant; they answer different questions and both earn their cost.
+- **"Empty" can mean two opposite things — the copy should disambiguate.** Recordings' empty state was identical whether the user had never recorded ("No recordings yet") OR had just performed a deliberate delete-all. The former is cold-start onboarding copy; the latter is post-intentional-action and deserves acknowledgment. Latching a `justDeletedAll` boolean to branch the copy ("Cleared.") costs ~3 lines and changes the read from "your work disappeared" to "your work was processed." Worth keeping: when an empty state can be reached from "never had it" OR "just had it," branch the copy — the same screen serves two distinct user states.
+
+---
+
 ## feat/route-preview-card (2026-05-20)
 
 Round 5 PR B. Added zone-warning chips ("1 police zone" / "1 low light zone") to the /home route-preview departure card. Two patterns worth capturing.
