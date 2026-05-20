@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/route-preview-card (2026-05-20)
+
+Round 5 PR B. Added zone-warning chips ("1 police zone" / "1 low light zone") to the /home route-preview departure card. Two patterns worth capturing.
+
+- **Reuse existing geometry helpers; don't re-derive proximity.** `lib/scoring.ts` already exports `isPointInZone(point, zone)` which handles polygon (ray-casting), polyline (near-line proximity), and point (point-to-point distance) uniformly. Computing "is this zone on the route" is just `route.coordinates.some(coord => isPointInZone(coord, zone))` — no new helper, no copy-pasted proximity math. The downside is sparse polylines could miss zones that cross between waypoints, but OSRM's city-scale geometry is dense enough that this is fine for v1. Worth keeping: when adding a new "X near route" feature, check `lib/scoring.ts` first — the proximity primitive is probably already there.
+- **Compose-don't-restrict an enum into virtual sub-categories.** "Low light zone" isn't a `ZoneCategory` value — it's `category === 'lighting' && type === 'avoid'` (the `lit=no` Overpass mapping per lib/api/zones.ts). The instinct is to add a new category like `'low-light'`, but that fragments the taxonomy and forces the adapter to know about display categories. Keeping the filter local to the consumer (`zone.category === 'lighting' && zone.type === 'avoid'`) keeps the data model clean and lets each surface decide what "low light" means for its own framing. Worth keeping: prefer consumer-side filters over data-model enum bloat when the slicing is presentation-specific.
+
+---
+
 ## feat/trusted-contact-setup-white-variant (2026-05-20)
 
 Added a white-on-light variant of /trusted-contact-setup when reached from /safety-settings. Two things caught by the audit that wouldn't have shown up without it.
