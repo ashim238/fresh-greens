@@ -361,27 +361,45 @@ export async function getTrustedByCommunity(
     const reports = await getCommunityReports();
     if (reports.length === 0) return [];
 
-    // Step 1: map each report to a candidate { rec, timestamp } if it
-    // routes to a known recommendation category, with proximity gate.
+    // Step 1: map each report to a candidate { rec, timestamp } with
+    // proximity gate. Trusted-by-community is intentionally more
+    // permissive than `getCommunityRecommendations` (the focus-mode
+    // adapter): a felt-welcome report without an identity subTag
+    // *does* belong here. The row's job is to surface community
+    // vouches — "this place felt welcoming" is the most fundamental
+    // vouch in the app, and excluding it because the user opted out
+    // of an identity tag would silently drop the strongest signal we
+    // have. Subtag-less felt-welcome (and felt-welcome with a place-
+    // type subTag like Restaurant) falls through to 'lgbtq-welcoming'
+    // as the display category — Heart glyph reads as warm welcome
+    // without claiming a specific identity. The category enum is
+    // internal-only here, not surfaced to the user. Per-chip focus
+    // mode stays strict via `recCategoryForReport`.
+    //
+    // Black-owned reports always route via `recCategoryForReport`'s
+    // first branch, so they don't need a defensive fallback here.
     type Candidate = { rec: Recommendation; timestamp: number };
     const candidates: Candidate[] = [];
     for (const r of reports) {
-      const recCategory = recCategoryForReport(r.categoryId, r.subTag);
-      if (!recCategory) continue;
+      const routedCategory = recCategoryForReport(r.categoryId, r.subTag);
+      const isGeneralFeltWelcome =
+        !routedCategory && r.categoryId === 'felt-welcome';
+      if (!routedCategory && !isGeneralFeltWelcome) continue;
       if (query.userLocation) {
         const miles = distanceMilesBetween(query.userLocation, r.location);
         if (miles > COMMUNITY_PROXIMITY_RADIUS_MILES) continue;
       }
+      const displayCategory = routedCategory ?? 'lgbtq-welcoming';
       candidates.push({
         rec: {
           id: `community-${r.id}`,
           source: 'community',
-          category: recCategory,
-          name: r.placeName ?? r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[recCategory],
+          category: displayCategory,
+          name: r.placeName ?? r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[displayCategory],
           address: '',
           latitude: r.location.latitude,
           longitude: r.location.longitude,
-          categoryLabel: r.subTag ?? 'Place',
+          categoryLabel: r.subTag ?? 'Felt welcome',
           region: 'detected',
           reportDetail: r.detail,
         },
