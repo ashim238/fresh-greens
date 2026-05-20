@@ -247,7 +247,11 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingBottom: 34,
+    // 32pt per 4pt grid. Was 34 — likely a transcription drift from
+    // a 32 + 2 calc. iOS bottom-safe-area inset is added on top of
+    // this by SafeAreaView so the final clear above the home-bar is
+    // ~64pt either way.
+    paddingBottom: 32,
   },
   content: {
     flex: 1,
