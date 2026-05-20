@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/trusted-contact-setup-white-variant (2026-05-20)
+
+Added a white-on-light variant of /trusted-contact-setup when reached from /safety-settings. Two things caught by the audit that wouldn't have shown up without it.
+
+- **Brand colors can be WCAG-safe on one background and unsafe on another — re-check at every register switch.** Freshgreen (`#41AD49`) clears WCAG AA on wiltedgreen (the onboarding register) but fails on white at **2.88:1** — below the 3.0:1 floor for UI components (WCAG 1.4.11, non-text contrast). The fix isn't to compromise the brand — it's to re-anchor the page-level palette: wiltedgreen on white gives 6.54:1, well above the floor. Worth keeping: when a screen flips background register, run every brand-color-on-new-bg pair through a contrast check, not just text-on-bg. Filled buttons and outlined buttons both need ≥3.0:1 between their fill/stroke and the page bg they sit on.
+- **`Button` component variants are typed but their text-color logic isn't obvious from the prop names.** `type="primary" fill="outline"` gives freshgreen text; `type="secondary" fill="outline"` gives wiltedgreen text. I'd assumed "outline" meant "use the type's secondary color" — actually the type discriminates the COLOR FAMILY (primary=freshgreen, secondary=wiltedgreen), and fill discriminates the STYLE (filled bg vs outlined bg vs transparent). Audit caught me writing a comment that said "wiltedgreen text per Button.tsx logic" when the code would actually produce freshgreen. Worth keeping: when reaching for a Button variant, read the component's `textColor` ternary directly — don't infer from prop names.
+
+---
+
 ## feat/recordings-delete-confirm (2026-05-19)
 
 First destructive-confirm overlay in the app, built as a transparent `<Modal>` with a tap-anywhere-to-dismiss scrim. Two patterns that wouldn't have been obvious without the pre-merge audit catching them.
