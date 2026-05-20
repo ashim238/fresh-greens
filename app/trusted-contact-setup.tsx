@@ -2,13 +2,14 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { EmptyState } from '../components/StateCard';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -53,9 +54,50 @@ export default function TrustedContactSetup() {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: EntryPoint }>();
   const fromSettings = params.from === 'settings';
-  const { contact, pickContact } = useTrustedContact();
+  const { contact, loading: contactLoading, pickContact } = useTrustedContact();
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const reduceMotion = useReduceMotion();
+
+  // Avatar entrance — fire a success notification haptic + a small
+  // spring on the avatar block when `contact` first transitions from
+  // unset → set (or changes to a new ID, signalling a contact swap).
+  //
+  // The trusted-contact store hydrates async from AsyncStorage, so
+  // we can't capture the initial id at component-define time — at
+  // that moment `contact` is always undefined regardless of what's
+  // persisted. Instead, on the first post-hydrate render (`loading
+  // === false`) we capture the hydrated id into the ref, then start
+  // comparing future changes against it. The `undefined` sentinel
+  // distinguishes "not yet captured" from "captured as null."
+  const avatarScale = useRef(new Animated.Value(1)).current;
+  const initialContactIdRef = useRef<string | null | undefined>(undefined);
+  const lastAnimatedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (contactLoading) return;
+    if (initialContactIdRef.current === undefined) {
+      // First post-hydrate render — capture the baseline and return.
+      // A pre-existing contact at mount doesn't fire the animation.
+      initialContactIdRef.current = contact?.id ?? null;
+      return;
+    }
+    if (!contact?.id) return;
+    if (contact.id === initialContactIdRef.current) return;
+    if (contact.id === lastAnimatedIdRef.current) return;
+    lastAnimatedIdRef.current = contact.id;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {},
+    );
+    if (!reduceMotion) {
+      avatarScale.setValue(0.85);
+      Animated.spring(avatarScale, {
+        toValue: 1,
+        tension: 180,
+        friction: 12,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [contact?.id, contactLoading, reduceMotion, avatarScale]);
 
   async function handlePickContact() {
     if (picking) return;
@@ -118,11 +160,15 @@ export default function TrustedContactSetup() {
 
           {contact ? (
             <View style={[styles.preview, fromSettings && stylesWhite.preview]}>
-              <View
-                style={[styles.avatar, fromSettings && stylesWhite.avatar]}
+              <Animated.View
+                style={[
+                  styles.avatar,
+                  fromSettings && stylesWhite.avatar,
+                  { transform: [{ scale: avatarScale }] },
+                ]}
               >
                 <Text style={styles.avatarInitials}>{contact.initials}</Text>
-              </View>
+              </Animated.View>
               <View style={styles.previewText}>
                 <Text
                   style={[
