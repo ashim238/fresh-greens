@@ -767,7 +767,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsQuaternary,
     borderRadius: 8,
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 8,
     gap: 8,
   },
   weatherRow: {
@@ -783,11 +783,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 8,
   },
+  // 44pt painted tap target per HIG. paddingVertical:13 + the chip
+  // text's 18pt lineHeight (footnoteRegular) lands at ~44pt. Was 6
+  // (~30pt) — that passed the touch floor with no hitSlop but
+  // violated the .cursorrules "44pt on the painted surface, not
+  // just hit area" rule. Adds ~14pt to the chip-row height; the
+  // sheet has room for it.
   chip: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 13,
+    borderRadius: 22,
     backgroundColor: colors.fillsTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipSelected: {
     // wiltedgreen for AA contrast on the white chip label.
@@ -902,7 +910,13 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   quoteText: {
-    ...typography.caption1Regular,
+    // footnoteRegular (13pt) gives the curator-quote copy headroom
+    // off the caption1 12pt WCAG 1.4.4 floor for informational
+    // content. The quote is a primary qualitative signal on the
+    // card (the curator voice — see the Green Book editorial
+    // parallel in the README) and shouldn't sit at the minimum
+    // allowed size when one tier up is available.
+    ...typography.footnoteRegular,
     color: colors.black,
     flex: 1,
   },

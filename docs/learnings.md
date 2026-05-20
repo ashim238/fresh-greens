@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit-9 (2026-05-21)
+
+Periodic audit #9 — 5 tap-target / grid / contrast / token-discipline fixes. One pattern worth keeping.
+
+- **Reserved-color exceptions are documentation hygiene, not loopholes.** The `.cursorrules` reserved-color rule (orange/red/yellow/navy = signaling, not decoration) is strict by design — but several legitimate uses had accumulated without being documented in the exception list. Route-preview zone-warning chips (orange WarningDiamond for police/low-light along the route) carry hazard-class signal. Inline form-validation errors (red error copy) are a universal iOS/web convention. Both *are* signaling, just not the same kind as the safety-flow surfaces the rule was originally written for. Adding the exceptions makes the rule's intent clearer (reserved colors = safety-significant signaling, expanded via documented cases) rather than weaker (reserved colors = strict, then ignored where inconvenient). Worth keeping: when you find yourself reaching for a reserved color for a real signaling use, write the exception into the rulebook rather than just using it and moving on — the exception list IS the rule's working definition.
+
+---
+
 ## feat/whimsy-round-2-quick-wins (2026-05-20)
 
 End-of-Round-5 batch — whimsy quick wins + fidelity audit-9 catches. Two patterns worth keeping.
