@@ -13,6 +13,7 @@ import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
+import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
@@ -58,7 +59,7 @@ import {
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
-import { pickWinner } from '../lib/scoring';
+import { isPointInZone, pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
@@ -339,6 +340,38 @@ export default function Home() {
     () => (recommended ? suggestedDepartureForDaylight(recommended) : null),
     [recommended],
   );
+
+  // Route-preview zone-warning chip counts per Figma 1109:3264. Two
+  // categories surface on the departure card: "police zones" (any
+  // zone tagged `category: 'police'`) and "low light zones" (zones
+  // tagged `category: 'lighting'` AND `type: 'avoid'` — per the
+  // lib/api/zones.ts comment, `lit=no` maps to type=avoid). A zone
+  // counts as "on the route" if any waypoint along the recommended
+  // polyline falls inside it (uses `isPointInZone` which already
+  // handles polygon/polyline/point geometry with the project's
+  // standard proximity thresholds).
+  //
+  // Recomputes only when the recommended route or allZones change —
+  // not on every pan/zoom (mapRegion is intentionally not a dep).
+  // For sparse polylines this could miss a zone that crosses the
+  // route between waypoints; OSRM's geometry is dense enough at the
+  // city scale that this is acceptable for v1.
+  const routeZoneCounts = useMemo(() => {
+    if (!recommended) return { police: 0, lowLight: 0 };
+    let police = 0;
+    let lowLight = 0;
+    for (const zone of allZones) {
+      if (zone.category !== 'police' && zone.category !== 'lighting') continue;
+      if (zone.category === 'lighting' && zone.type !== 'avoid') continue;
+      const hit = recommended.coordinates.some((coord) =>
+        isPointInZone(coord, zone),
+      );
+      if (!hit) continue;
+      if (zone.category === 'police') police += 1;
+      else lowLight += 1;
+    }
+    return { police, lowLight };
+  }, [recommended, allZones]);
 
   // Clustered report markers — groups nearby points at low zoom to
   // prevent overlapping pins in dense neighborhoods. Recomputes on
@@ -1342,84 +1375,141 @@ export default function Home() {
           </ScrollView>
         ) : (
           <>
-        <View style={styles.bottomSheetContent}>
-          <View style={styles.headers}>
-            <View style={styles.greetingRow}>
-              {/*
-                TODO: personalized greeting once auth lands. Figma copy is
-                "Mornin' Jordan. Ready to face the day?" — first half is
-                user-name + time-of-day, second half is the static prompt.
-              */}
-              <Text style={styles.greeting} numberOfLines={1}>
-                Ready to face the day?
-              </Text>
+        {/*
+          Route-preview card per Figma 1109:3264 ("Route (Default)").
+          Layout top-to-bottom: "{N} min" headline (wiltedgreen) on the
+          left + daylight strip on the right, "Via {street}" sub-row,
+          conditions caption, zone-warning chips, then the actions row.
+          The pre-Round-5 "Ready to face the day?" greeting is dropped
+          from this state — Figma replaces it with the trip headline.
 
-              {/*
-                Daylight strip — gradient bar + sun/moon icons showing
-                daylight progression across the day. Purely visual
-                metadata; the bottom-sheet copy below already announces
-                arrival context (estimated time + destination), so the
-                strip is redundant for VoiceOver users — hide to keep
-                the announcement order clean.
-              */}
-              <View
-                style={styles.daylightStrip}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                accessibilityIgnoresInvertColors
-              >
-                {/*
-                  Daylight progression: orange dawn → mauve dusk → indigo
-                  night. Per Figma 825:3647 (gradient stops match the
-                  swatch colors there). expo-linear-gradient renders this
-                  natively — RN core has no gradient primitive.
-                */}
-                <LinearGradient
-                  colors={[
-                    colors.daylightDawn,
-                    colors.daylightDusk,
-                    colors.daylightNight,
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.daylightBar}
-                />
-                <View style={styles.daylightIcons}>
-                  <DaylightSun width={16} height={16} />
-                  <DaylightMoon width={16} height={16} />
-                </View>
+          Street-name extraction (real OSRM step data) is a follow-up.
+          For now `params.destName` is used as the "Via" target — for
+          most cases it's the destination POI name rather than the
+          actual street, but the row reads naturally either way.
+
+          Clear-destination X sits absolutely at the top-right of the
+          card content. Figma doesn't show it in the actions row, but
+          dropping the affordance entirely leaves no one-tap escape
+          back to browse mode — search-bar + pick-new-dest is too
+          many steps. Same fillsTertiary circular pattern as the
+          recordings delete-confirm modal X.
+        */}
+        <View style={styles.bottomSheetContent}>
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              // router.replace with no params clears destLat/destLng/
+              // destName from the URL; /home re-renders in browse mode.
+              router.replace({ pathname: '/home', params: {} });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Clear destination and return to browsing"
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+            style={({ pressed }) => [styles.routeClearBtn, pressed && pressedDim]}
+          >
+            <X size={16} color={colors.labelSecondary} weight="bold" />
+          </Pressable>
+
+          <View style={styles.routeHeadlineRow}>
+            <Text style={styles.routeMinutes}>
+              {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
+            </Text>
+            {/*
+              Daylight strip — moved inline-right of the headline per
+              Figma. Hidden from accessibility tree (the conditions
+              caption below carries the arrival context for VoiceOver).
+            */}
+            <View
+              style={styles.daylightStripInline}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              accessibilityIgnoresInvertColors
+            >
+              <LinearGradient
+                colors={[
+                  colors.daylightDawn,
+                  colors.daylightDusk,
+                  colors.daylightNight,
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.daylightBar}
+              />
+              <View style={styles.daylightIcons}>
+                <DaylightSun width={16} height={16} />
+                <DaylightMoon width={16} height={16} />
               </View>
             </View>
-
-            <View style={styles.mainCopyRow}>
-              {/*
-                Figma copy: "You've made a few early morning trips to
-                300 N Water lately. Heading there now?" — the
-                destination underline is reserved for *recurring*
-                destinations (a save-as-home/work invitation), so it
-                only shows when the trip is recognized as regular.
-                Hard-coded false until feat/recent-trips lands a real
-                trip-frequency signal; right now every destination
-                renders plain.
-
-                Clear-destination X moved out of this row — it now
-                sits at the top-right of the sheet (see clearDestBtn
-                render below the drag handle) so it's clearly
-                separate from the Go CTA in the actions row.
-              */}
-              <Text style={styles.mainCopy}>
-                About{' '}
-                <Text style={styles.minutes}>
-                  {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
-                </Text>
-                {' '}to{' '}
-                <Text style={isRegularDestination ? styles.destination : undefined}>
-                  {params.destName ?? 'your destination'}
-                </Text>
-                .
-              </Text>
-            </View>
           </View>
+
+          {/*
+            Destination underline is reserved for *recurring*
+            destinations (a save-as-home/work invitation) — gated on
+            `isRegularDestination`, hard-coded false until feat/
+            recent-trips lands a real trip-frequency signal.
+          */}
+          <Text
+            style={[
+              styles.routeViaLabel,
+              isRegularDestination && styles.destination,
+            ]}
+            numberOfLines={1}
+          >
+            Via {params.destName ?? 'your destination'}
+          </Text>
+
+          {/*
+            Conditions caption — "Safest route…" framing is real (the
+            recommended route IS the safest). Figma shows a trailing
+            "Moderate traffic" sentence, but OSRM has no traffic
+            signal; shipping that as fact would set an expectation
+            the system can't back. Dropped until a Mapbox-Directions
+            or Google-Directions adapter lands.
+          */}
+          <Text style={styles.routeConditionsCaption}>
+            Safest route with current conditions.
+          </Text>
+
+          {(routeZoneCounts.police > 0 || routeZoneCounts.lowLight > 0) && (
+            <View style={styles.routeChipsBlock}>
+              {/*
+                "Along this route:" header reframes the chips from
+                alarm to briefing. WarningDiamond + orange border
+                still pattern-match to hazard, but the header
+                positions the chips as "here is what you'll pass
+                through" rather than "here is what's wrong."
+              */}
+              <Text style={styles.routeChipsHeader}>Along this route:</Text>
+              <View
+                style={styles.routeChipsRow}
+                accessibilityLabel={[
+                  routeZoneCounts.police > 0
+                    ? `${routeZoneCounts.police} police ${routeZoneCounts.police === 1 ? 'zone' : 'zones'}`
+                    : null,
+                  routeZoneCounts.lowLight > 0
+                    ? `${routeZoneCounts.lowLight} low-light ${routeZoneCounts.lowLight === 1 ? 'zone' : 'zones'}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' and ')
+                  .concat(' along this route.')}
+              >
+                {routeZoneCounts.police > 0 && (
+                  <RouteWarningChip
+                    count={routeZoneCounts.police}
+                    label={routeZoneCounts.police === 1 ? 'police zone' : 'police zones'}
+                  />
+                )}
+                {routeZoneCounts.lowLight > 0 && (
+                  <RouteWarningChip
+                    count={routeZoneCounts.lowLight}
+                    label={routeZoneCounts.lowLight === 1 ? 'low light zone' : 'low light zones'}
+                  />
+                )}
+              </View>
+            </View>
+          )}
 
           {suggestedDeparture && (
             <View style={styles.tradeoffRow}>
@@ -1431,31 +1521,19 @@ export default function Home() {
           )}
         </View>
 
+        {/*
+          Actions row — Schedule (outline wiltedgreen) on the left,
+          Go (filled freshgreen) on the right per Figma 1109:3264.
+          When suggestedDeparture is null, the Schedule slot collapses
+          and Go takes the full width.
+
+          Clear-destination X was dropped from this row in the v2
+          redesign. To return to browse mode, the user taps the search
+          bar at the top and picks a different destination, or system-
+          back out of /home. A floating X may return as a future polish
+          PR if the loss of affordance bites in practice.
+        */}
         <View style={styles.actionsRow}>
-          {/*
-            Clear-destination X — first child of the actions row,
-            matching the placement-bar pattern (44pt cancel circle on
-            the left, primary CTA flex:1 to the right). Same X-icon-
-            in-a-grey-circle visual register as the report-placement
-            Cancel button (styles.placementCancel) so the two
-            "back out of this mode" gestures look identical.
-          */}
-          <Pressable
-            style={({ pressed }) => [styles.placementCancel, pressed && pressedDim]}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              // router.replace with no params clears destLat/destLng/
-              // destName from the URL; /home re-renders in browse
-              // mode. We DON'T router.back() — the back stack may
-              // have /search or other screens we don't want to
-              // revisit.
-              router.replace({ pathname: '/home', params: {} });
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Clear destination and return to browsing"
-          >
-            <X size={20} color={colors.labelSecondary} weight="bold" />
-          </Pressable>
           {suggestedDeparture && (
             <Pressable
               style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
@@ -1632,6 +1710,26 @@ export default function Home() {
   );
 }
 
+/**
+ * Inline chip for the route-preview card's zone-warning row (Figma
+ * 1109:3264). Each chip is a light pill with an orange WarningDiamond
+ * icon on the left and a count-prefixed label on the right
+ * ("1 police zone"). Rendered conditionally — chips never show with
+ * count=0. The accessibilityLabel is provided at the row level (so
+ * VoiceOver reads "1 police zone and 1 low-light zone along this
+ * route" once, not per-chip).
+ */
+function RouteWarningChip({ count, label }: { count: number; label: string }) {
+  return (
+    <View style={styles.routeChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <WarningDiamond size={16} color={colors.orange} weight="fill" />
+      <Text style={styles.routeChipText}>
+        {count} {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -1730,20 +1828,91 @@ const styles = StyleSheet.create({
   headers: {
     gap: 8,
   },
-  greetingRow: {
+  // v1 route-preview styles removed in Round 5 (greeting / greetingRow
+  // / daylightStrip / mainCopyRow / mainCopy / minutes). See git blame.
+  // `destination` kept — new layout still uses it for the
+  // recurring-destination underline.
+  // --- Route-preview card (Figma 1109:3264) ---
+  // Top row: "12 min" headline on the left, daylight strip on the
+  // right. The strip is narrower than the standalone v1 placement
+  // (96pt) because it shares the row with the headline now.
+  routeHeadlineRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 16,
-    alignItems: 'flex-start',
     paddingHorizontal: 16,
   },
-  greeting: {
-    ...typography.footnoteRegular,
-    flex: 1,
-    color: colors.mutedTertiary,
+  routeMinutes: {
+    // wiltedgreen Title2Emphasized per Figma — the "12 min" anchor.
+    // Distinct from the v1 inline "About X min to Y" sentence: this
+    // is the headline number on its own line, not embedded in copy.
+    ...typography.title2Emphasized,
+    color: colors.wiltedgreen,
   },
-  daylightStrip: {
+  daylightStripInline: {
+    // Same daylight strip structure as the standalone variant above,
+    // sized to share the headline row's right column.
     width: 96,
     gap: 4,
+  },
+  routeViaLabel: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    paddingHorizontal: 16,
+  },
+  routeConditionsCaption: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    paddingHorizontal: 16,
+  },
+  routeChipsBlock: {
+    gap: 6,
+  },
+  routeChipsHeader: {
+    // Briefing-framing header above the chips ("Along this route:")
+    // — reframes the orange WarningDiamond chips from alarm to
+    // informational, per the mobile-ux audit on PR B.
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    paddingHorizontal: 16,
+  },
+  routeChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  // Top-right floating clear-destination X. Absolutely positioned
+  // inside bottomSheetContent (the relative offset anchor by RN
+  // default). Same fillsTertiary circular treatment as the recordings
+  // delete-confirm modal X for visual consistency.
+  routeClearBtn: {
+    position: 'absolute',
+    top: 0,
+    right: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.fillsTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  routeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: colors.orange,
+    backgroundColor: colors.white,
+  },
+  routeChipText: {
+    ...typography.footnoteRegular,
+    color: colors.black,
   },
   daylightBar: {
     height: 4,
@@ -1752,17 +1921,6 @@ const styles = StyleSheet.create({
   daylightIcons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  mainCopyRow: {
-    paddingHorizontal: 16,
-  },
-  mainCopy: {
-    ...typography.bodyEmphasized,
-    color: colors.black,
-  },
-  minutes: {
-    // freshgreen — primary heading number, in-flow accent per cursorrules.
-    color: colors.freshgreen,
   },
   destination: {
     // freshgreen — underlined in-flow link, cursorrules explicitly names
