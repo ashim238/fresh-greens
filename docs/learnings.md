@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/whimsy-animations (2026-05-21)
+
+Three deferred animation moments from the end-of-Round-5 whimsy pass: minutes-headline fade-in, trusted-contact avatar spring, new-card scroll-to-leading. One pattern caught by audit that's worth keeping.
+
+- **`useRef(initial)` captures at component-define time, not after async hydration.** Twice in this PR I wrote `useRef(<value-from-hook>)` to capture a "what was set at mount?" baseline — meaning to skip the animation on the very first paint. Both broke for the same reason: the hooks (`useTrustedContact`, `useTrustedByCommunity`) load their state async from AsyncStorage, so the value at component-define time is always undefined/empty regardless of what's persisted. When the hydrated value arrived, the effect saw "the ref says null, now we have something different" → fired the animation as if it were a fresh change. The fix is to capture the baseline on the first *post-hydrate* render: read `loading` from the hook, return early until it goes false, then capture into the ref using `undefined` as the "not-yet-captured" sentinel (distinguishable from `null` which means "captured as no-value"). Worth keeping: any "skip animation on initial paint" pattern that consumes an async-hydrated value needs to gate ref-capture on `loading === false`, not on first render. The bug only surfaces on cold start, which is exactly the path that should NOT fire the animation.
+
+---
+
 ## chore/figma-fidelity-audit-9 (2026-05-21)
 
 Periodic audit #9 — 5 tap-target / grid / contrast / token-discipline fixes. One pattern worth keeping.

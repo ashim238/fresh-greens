@@ -9,8 +9,8 @@ import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { Star } from 'phosphor-react-native/src/icons/Star';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
-import { useState } from 'react';
-import { Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import CommunitySignalGlyph from '../assets/illustrations/trustedbycommunity-empty.svg';
 
@@ -273,6 +273,46 @@ function TrustedByCommunityRow({
   onSelectRecommendation: (rec: Recommendation) => void;
   onEmptyTap?: () => void;
 }) {
+  // New-submission callback — when the leading recommendation
+  // changes (a fresh community report just landed via the refresh-
+  // on-focus signal from #199), scroll the carousel to leading and
+  // fade-in the first card. The /report flow's success notification
+  // haptic already fired; no second haptic here.
+  //
+  // The recommendations array hydrates async from AsyncStorage, so
+  // we can't capture the leading id at component-define time — it's
+  // always `undefined` then regardless of what's persisted. Instead,
+  // on the first post-hydrate render (`loading === false`) we
+  // capture the leading id into the ref. Then subsequent leading-id
+  // changes trigger the animation. The `undefined` sentinel
+  // distinguishes "not yet captured" from "captured as null."
+  const scrollViewRef = useRef<ScrollView>(null);
+  const firstCardOpacity = useRef(new Animated.Value(1)).current;
+  const initialLeadingIdRef = useRef<string | null | undefined>(undefined);
+  const lastAnimatedLeadingIdRef = useRef<string | null>(null);
+  const leadingId = recommendations[0]?.id ?? null;
+  useEffect(() => {
+    if (loading) return;
+    if (initialLeadingIdRef.current === undefined) {
+      initialLeadingIdRef.current = leadingId;
+      return;
+    }
+    if (!leadingId) return;
+    if (leadingId === initialLeadingIdRef.current) return;
+    if (leadingId === lastAnimatedLeadingIdRef.current) return;
+    lastAnimatedLeadingIdRef.current = leadingId;
+    scrollViewRef.current?.scrollTo({ x: 0, animated: !reduceMotion });
+    if (!reduceMotion) {
+      firstCardOpacity.setValue(0.4);
+      Animated.timing(firstCardOpacity, {
+        toValue: 1,
+        duration: 320,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [leadingId, loading, reduceMotion, firstCardOpacity]);
+
   if (loading && recommendations.length === 0) {
     return (
       <ScrollView
@@ -300,6 +340,7 @@ function TrustedByCommunityRow({
   }
   return (
     <ScrollView
+      ref={scrollViewRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.cardsRowContent}
@@ -310,13 +351,22 @@ function TrustedByCommunityRow({
       accessibilityLabel="Trusted by your community"
     >
       <View style={styles.carouselLeadingSpacer} />
-      {recommendations.map((rec) => (
-        <RecommendationCard
-          key={rec.id}
-          recommendation={rec}
-          onPress={() => onSelectRecommendation(rec)}
-        />
-      ))}
+      {recommendations.map((rec, idx) =>
+        idx === 0 ? (
+          <Animated.View key={rec.id} style={{ opacity: firstCardOpacity }}>
+            <RecommendationCard
+              recommendation={rec}
+              onPress={() => onSelectRecommendation(rec)}
+            />
+          </Animated.View>
+        ) : (
+          <RecommendationCard
+            key={rec.id}
+            recommendation={rec}
+            onPress={() => onSelectRecommendation(rec)}
+          />
+        ),
+      )}
       <View style={styles.carouselTrailingSpacer} />
     </ScrollView>
   );

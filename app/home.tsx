@@ -8,7 +8,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Dimensions, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Dimensions, Easing, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -373,6 +373,38 @@ export default function Home() {
     }
     return { police, lowLight };
   }, [recommended, allZones]);
+
+  // Route-preview headline reveal — fire a single light haptic + a
+  // 240ms opacity fade on the "{N} min" text the first time a given
+  // destination's route resolves. The em-dash → minutes transition
+  // is the most important moment on the card and previously had no
+  // entrance. Keyed on destination+minutes so it doesn't refire on
+  // every re-render. Reduce Motion → skip the fade, fire the haptic
+  // (the haptic doesn't depend on motion).
+  const minutesOpacity = useRef(new Animated.Value(1)).current;
+  const lastMinutesRevealKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!recommended || !params.destLat || !params.destLng) return;
+    const key = `${params.destLat}|${params.destLng}|${recommended.estimatedMinutes}`;
+    if (lastMinutesRevealKeyRef.current === key) return;
+    const isFirstReveal = lastMinutesRevealKeyRef.current === null;
+    lastMinutesRevealKeyRef.current = key;
+    Haptics.selectionAsync().catch(() => {});
+    // Skip the fade on the very first reveal — without this, the
+    // card briefly renders the "—" placeholder, fades to "12 min",
+    // then the user sees the entrance. Better entrance is just
+    // "appears" on first paint; subsequent route-changes get the
+    // fade as a "we recalculated" cue.
+    if (!isFirstReveal && !reduceMotion) {
+      minutesOpacity.setValue(0);
+      Animated.timing(minutesOpacity, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [recommended, params.destLat, params.destLng, reduceMotion, minutesOpacity]);
 
   // Clustered report markers — groups nearby points at low zoom to
   // prevent overlapping pins in dense neighborhoods. Recomputes on
@@ -1421,9 +1453,9 @@ export default function Home() {
           </View>
 
           <View style={styles.routeHeadlineRow}>
-            <Text style={styles.routeMinutes}>
+            <Animated.Text style={[styles.routeMinutes, { opacity: minutesOpacity }]}>
               {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
-            </Text>
+            </Animated.Text>
             {/*
               Daylight strip — moved inline-right of the headline per
               Figma. Hidden from accessibility tree (the conditions
