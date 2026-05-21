@@ -410,6 +410,7 @@ function GenericBrowseRow({
               key={rec.id}
               recommendation={rec}
               onPress={() => onSelectRecommendation(rec)}
+              topline={spec.kind === 'open-now' ? 'closing-soon' : undefined}
             />
           ))}
           <View style={styles.carouselTrailingSpacer} />
@@ -577,11 +578,13 @@ function TrustedByCommunityRow({
             <RecommendationCard
               recommendation={rec}
               onPress={() => onSelectRecommendation(rec)}
+              topline="curator-attribution"
             />
           </Animated.View>
         ) : (
           <RecommendationCard
             key={rec.id}
+            topline="curator-attribution"
             recommendation={rec}
             onPress={() => onSelectRecommendation(rec)}
           />
@@ -779,15 +782,85 @@ function PhotoPlaceholderGlyph({ category }: { category: RecommendationCategory 
   }
 }
 
+/**
+ * Per-row emphasis variant for the card's photo-top overlay. The
+ * standard card already surfaces distance + open-state + hours in
+ * the body tag rows, but on the Open Now and Trusted-by-Community
+ * rows the row's *reason for existing* is one of those signals —
+ * surfacing it as a photo-top pill (mirroring the bottom `quoteCallout`)
+ * gives the row a visual differentiator without forking the card.
+ *
+ *  - `closing-soon`: Clock + `hoursLabel` ("Open until midnight").
+ *    The Open Now row's contract is "right now"; the time horizon
+ *    is the row's load-bearing signal, not the boolean isOpen tag.
+ *  - `curator-attribution`: avatar circle + "{curator}'s pick".
+ *    The Trusted-by-Community row's contract is "someone vouched";
+ *    the WHO is the row's load-bearing signal, not the rating.
+ *  - undefined (per-category rows): no topline. The category context
+ *    is already in the row header, so adding a topline would be noise.
+ */
+type CardTopline = 'closing-soon' | 'curator-attribution';
+
+type ToplinePayload =
+  | { kind: 'closing-soon'; text: string; a11yPrefix: string }
+  // `initial` is optional — community-source entries with no curator
+  // name skip the avatar and render text-only ("Community pick"). A
+  // placeholder dot/glyph read as a typo in code review, and "Community
+  // pick" already carries the meaning on its own.
+  | { kind: 'curator-attribution'; initial?: string; text: string; a11yPrefix: string };
+
+function resolveToplinePayload(
+  variant: CardTopline | undefined,
+  r: Recommendation,
+): ToplinePayload | null {
+  if (!variant) return null;
+  if (variant === 'closing-soon') {
+    // Open Now's row contract is "right now" — the hoursLabel
+    // ("Open until midnight", "Closes 4 PM") carries the time
+    // horizon. Skip silently if the entry never set one.
+    if (!r.hoursLabel) return null;
+    return {
+      kind: 'closing-soon',
+      text: r.hoursLabel,
+      a11yPrefix: r.hoursLabel,
+    };
+  }
+  // curator-attribution: WHO vouched is the row's load-bearing signal.
+  // Community-source entries don't carry a curator name; fall back to
+  // a text-only "Community pick" so the slot doesn't collapse mid-row.
+  const name = r.curatorName;
+  if (!name) {
+    if (r.source !== 'community') return null;
+    return {
+      kind: 'curator-attribution',
+      text: 'Community pick',
+      a11yPrefix: 'Community pick',
+    };
+  }
+  return {
+    kind: 'curator-attribution',
+    initial: name.charAt(0).toUpperCase(),
+    text: `${name}'s pick`,
+    a11yPrefix: `${name}'s pick`,
+  };
+}
+
 function RecommendationCard({
   recommendation,
   onPress,
+  topline,
 }: {
   recommendation: Recommendation;
   onPress: () => void;
+  topline?: CardTopline;
 }) {
   const r = recommendation;
   const quoteText = r.curatorQuote ?? r.reportDetail;
+  // Resolve the topline variant against the entry's actual data —
+  // if the variant's payload is missing (e.g. closing-soon on an
+  // entry with no `hoursLabel`), skip the topline rather than
+  // render an empty pill.
+  const toplinePayload = resolveToplinePayload(topline, r);
   // Photo load tracking — when the proxy's /api/photo returns
   // 4xx/5xx (rate limit, missing photo, Google upstream error),
   // <Image> stays empty and the card reads as broken. `photoFailed`
@@ -802,6 +875,8 @@ function RecommendationCard({
   // truncated to "{name} recommendation — tap to route" which
   // stripped 5+ data points.
   const a11yLabel = [
+    // Topline reads first when present — it's also visually first.
+    toplinePayload?.a11yPrefix,
     r.name,
     r.categoryLabel,
     r.rating != null
@@ -836,6 +911,33 @@ function RecommendationCard({
             <PhotoPlaceholderGlyph category={r.category} />
           </View>
         )}
+        {toplinePayload ? (
+          <View style={styles.toplineCallout}>
+            {toplinePayload.kind === 'closing-soon' ? (
+              <>
+                {/* 14pt duotone matches the topline's tighter pill scale
+                    (vs the bottom quote's 16pt fill ChatCircle in the
+                    chunkier `quoteCallout`). Different pill, different
+                    family weight — both stay in the green ramp. */}
+                <Clock size={14} color={colors.wiltedgreen} weight="duotone" />
+                <Text style={styles.toplineText} numberOfLines={1}>
+                  {toplinePayload.text}
+                </Text>
+              </>
+            ) : (
+              <>
+                {toplinePayload.initial ? (
+                  <View style={styles.toplineAvatar}>
+                    <Text style={styles.toplineAvatarText}>{toplinePayload.initial}</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.toplineText} numberOfLines={1}>
+                  {toplinePayload.text}
+                </Text>
+              </>
+            )}
+          </View>
+        ) : null}
         {quoteText ? (
           <View style={styles.quoteCallout}>
             <ChatCircle size={16} color={colors.wiltedgreen} weight="fill" />
@@ -1205,6 +1307,48 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 8,
     ...shadows.e1,
+  },
+  // Top-of-photo emphasis pill. Mirrors `quoteCallout`'s white-pill +
+  // e1 shadow visual language but pinned to the top-left only (not
+  // edge-to-edge — the topline is a one-liner badge, the quote is
+  // narrative copy that wants the full width). `alignSelf: 'flex-start'`
+  // keeps the pill tight to its content; `maxWidth` prevents a long
+  // hoursLabel from running into the right edge of the photo.
+  toplineCallout: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    maxWidth: '85%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    ...shadows.e1,
+  },
+  toplineText: {
+    ...typography.footnoteEmphasized,
+    color: colors.black,
+    flexShrink: 1,
+  },
+  // 20pt avatar circle for curator-attribution variant. fadedgreen
+  // backing matches the openPill family — keeps "community-trust"
+  // signaling in the green ramp rather than introducing a fresh
+  // surface color. Initial sits in burntgreen for the AA contrast
+  // boost over freshgreen-on-fadedgreen (which fails).
+  toplineAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.fadedgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toplineAvatarText: {
+    ...typography.caption1Emphasized,
+    color: colors.burntgreen,
   },
   quoteText: {
     // footnoteRegular (13pt) gives the curator-quote copy headroom
