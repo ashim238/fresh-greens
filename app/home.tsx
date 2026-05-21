@@ -100,20 +100,16 @@ export default function Home() {
   // fall back to undefined so HomeBrowseSheet drops the possessive
   // and renders "Local Recs 💃🏾" plain.
   const userFirstName = user?.displayName?.split(' ')[0];
-  // Browse-mode "Things to Do" section starts COLLAPSED — the
-  // expanded recommendation card is ~280pt tall and combined with
-  // the eyebrow/title/weather rows would eat most of the screen on
-  // iPhone-sized devices, crowding the Report FAB against the search
-  // bar. Collapsed by default leaves the map breathing room; user
-  // expands via the chevron when they want recommendations.
-  // Default EXPANDED so the carousel is visible on first paint —
-  // the thesis claim ("community knowledge is the backbone") lives
-  // in the Around Me cards; hiding them behind a chevron the user
-  // has to discover undercuts the framing. Earlier default was
-  // collapsed to leave map breathing room, but the multi-card
-  // variant is sheet-anchored and doesn't crowd the map the same
-  // way the old single-card variant did.
-  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(false);
+  // Browse-mode "Things to Do" section starts COLLAPSED. An earlier
+  // default of expanded surfaced the thesis claim immediately
+  // ("community knowledge is the backbone" via the recommendations
+  // row), but on app entry it dominated the screen — the carousel
+  // + eyebrow + chips combine to ~360pt before the map shows. Users
+  // need to see the map first to orient themselves; the chevron
+  // lets them opt into recommendations when ready. Validated on
+  // device — the expanded default didn't give users a chance to
+  // explore.
+  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
   // Neighborhood label for the browse-mode sheet header. Derived
   // from a one-shot `Location.reverseGeocodeAsync` against the
   // user's first GPS fix. Picks `subregion + city` (most natural
