@@ -27,6 +27,7 @@ import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welco
 import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
+import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { Button } from '../components/Button';
 import { useUser } from '../hooks/useUser';
@@ -326,14 +327,17 @@ function PickerView({
 
       <View style={styles.titleBlock}>
         {/*
-          Orange alert-circle is the documented exception to the
-          reserved-color rule (see .cursorrules rule #4 — "Report flow
-          identity icon"). Keep as Ionicons; this glyph is the modal's
-          identity mark, intentionally consistent across the project's
-          report entry points.
+          The Report identity glyph is the canonical orange-disc SVG
+          shared with the /home and /en-route Report FABs (sidebtn-
+          report.svg). Was previously an Ionicons `alert-circle`,
+          which is a different visual (filled circle WITH an
+          interior exclamation glyph) — the FAB and modal title
+          read as different entry points to the same flow. Now
+          aligned. Documented exception to the reserved-color
+          rule per .cursorrules #4.
         */}
         <View style={styles.identityIcon}>
-          <Ionicons name="alert-circle" size={32} color={colors.orange} />
+          <SidebtnReport width={32} height={32} />
         </View>
         <Text style={styles.titleEmphasized}>Report</Text>
         <Text style={styles.subtitle}>

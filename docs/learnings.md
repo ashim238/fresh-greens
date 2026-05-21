@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/round-6-polish-batch (2026-05-21)
+
+User-reported batch — 5 small fixes shipped together. One pattern worth keeping.
+
+- **A "free border" can resolve a contrast vs. brand tension at the component level instead of the call-site level.** The `Button` component's primary+fill variant (freshgreen) failed WCAG AA contrast on white surfaces (2.88:1, below the 3.0:1 UI-component floor) but was correct on the green onboarding surfaces (passes against wiltedgreen). Two obvious-but-wrong fixes: (a) swap to wiltedgreen everywhere on white — erases the primary-vs-secondary brand distinction; (b) per-call-site `contrastBorder` prop — every caller has to remember to set it correctly. The fix that actually works: ship a wiltedgreen 1pt border on `primary+fill` *unconditionally*. On wiltedgreen page bgs the border is the same color as the page → invisible. On white page bgs the border becomes the visible affordance → lifts contrast from 2.88:1 to 6.54:1. Same component, two contexts, both correct, no caller burden. Worth keeping: when a component's brand color and a page-bg contrast requirement are in tension, look for a tertiary surface (border, outline, shadow) that's neutral on one context and load-bearing on the other — better than forking the component or pushing the decision to callers.
+
+---
+
 ## feat/whimsy-animations (2026-05-21)
 
 Three deferred animation moments from the end-of-Round-5 whimsy pass: minutes-headline fade-in, trusted-contact avatar spring, new-card scroll-to-leading. One pattern caught by audit that's worth keeping.

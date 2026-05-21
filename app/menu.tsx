@@ -213,6 +213,7 @@ export default function Menu() {
             <Image
               source={AvatarPng}
               style={styles.profileAvatar}
+              resizeMode="cover"
               accessibilityIgnoresInvertColors
             />
             <View style={styles.profileTextStack}>
@@ -488,12 +489,22 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   profileAvatar: {
-    // The avatar SVG carries its own 80pt freshgreen circle bg per
-    // Figma 1120:7476 — wrapper is just a layout slot, no fill/radius
-    // needed here. (Was a circle wrapper around the Phosphor User
-    // placeholder before the real SVG was exported.)
+    // 80pt circular slot per Figma 1120:7476. Defensive fill +
+    // borderRadius ensure a visible circle even when the PNG fails
+    // to load or has a transparent background — the previous
+    // setup (no fill, no radius) made a missing image read as a
+    // blank space rather than a placeholder. Image fills via
+    // resizeMode='cover' at the JSX site.
+    //
+    // Future: real-photo support is a v2 feature gated on auth
+    // (expo-image-picker for camera roll; persisted path via the
+    // user adapter). Tracked in docs/next-session.md under
+    // "Architecture / data v2."
     width: 80,
     height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.freshgreen,
+    overflow: 'hidden',
   },
   profileTextStack: {
     flex: 1,
@@ -608,5 +619,9 @@ const styles = StyleSheet.create({
   signOutText: {
     ...typography.subheadlineRegular,
     color: colors.labelTertiary,
+    // Underline reads as the canonical destructive-link signal —
+    // matches the pattern Button uses on fill="transparent" labels.
+    // Without it the row reads as another rowLabel item.
+    textDecorationLine: 'underline',
   },
 });

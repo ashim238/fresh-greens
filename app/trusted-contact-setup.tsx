@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -140,11 +141,30 @@ export default function TrustedContactSetup() {
 
       <SafeAreaView style={styles.safe}>
         {/*
-          Step 5 of 5 — final onboarding step before /home. Hidden when
-          reached from /menu since the user isn't progressing through
-          onboarding; they're editing settings.
+          Onboarding shows the 5-of-5 PageControl as the forward
+          progress affordance. Settings entry shows a back caret
+          instead — onboarding is forward-only, settings is reachable
+          from /safety-settings and needs an explicit return path.
+          Mirrors /safety-settings + /recordings header pattern.
         */}
-        {!fromSettings && <PageControl total={5} activeIndex={4} />}
+        {fromSettings ? (
+          <View style={styles.backHeader}>
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.backBtn,
+                pressed && pressedDim,
+              ]}
+            >
+              <Ionicons name="chevron-back" size={28} color={colors.black} />
+            </Pressable>
+          </View>
+        ) : (
+          <PageControl total={5} activeIndex={4} />
+        )}
 
         <View style={styles.content}>
           <View style={styles.copy}>
@@ -218,49 +238,28 @@ export default function TrustedContactSetup() {
           {error && <Text style={styles.errorText}>{error}</Text>}
 
           {/*
-            Action hierarchy diverges by register because the brand
-            primary green (freshgreen #41AD49) clears WCAG AA on
-            wiltedgreen but fails on white (2.88:1 — below the 3.0:1
-            UI-component threshold). On the white settings register
-            the buttons re-anchor to wiltedgreen (6.54:1 on white).
-            - Onboarding (green page):
-                Continue = Primary Fill (freshgreen on wiltedgreen)
-                Skip    = Primary Transparent (white text)
-            - Settings (white page):
-                Continue = Secondary Fill (wiltedgreen on white)
-                Skip    = Secondary Outline (wiltedgreen border+text)
-            Either way Continue is the filled primary CTA and Skip is
-            the lighter secondary option; only the color identity
-            shifts to keep contrast safe.
+            Action hierarchy is now consistent across registers because
+            the Button component's primary+fill variant ships with a
+            wiltedgreen 1pt border (invisible on green-onboarding, lifts
+            contrast on white-settings — see Button.tsx primaryFill).
+            Continue is primary+fill on both. Skip needs to swap on the
+            white register because primary+transparent renders white
+            text — invisible on white. Settings flips Skip to
+            secondary+outline so the wiltedgreen text reads cleanly.
           */}
           <View style={styles.actions}>
-            {fromSettings ? (
-              <Button
-                type="secondary"
-                fill="fill"
-                text="Continue"
-                onPress={handleContinue}
-                accessibilityLabel={
-                  contact
-                    ? 'Continue with this trusted contact'
-                    : 'Continue without a trusted contact'
-                }
-                style={styles.btnStretch}
-              />
-            ) : (
-              <Button
-                type="primary"
-                fill="fill"
-                text="Continue"
-                onPress={handleContinue}
-                accessibilityLabel={
-                  contact
-                    ? 'Continue with this trusted contact'
-                    : 'Continue without a trusted contact'
-                }
-                style={styles.btnStretch}
-              />
-            )}
+            <Button
+              type="primary"
+              fill="fill"
+              text="Continue"
+              onPress={handleContinue}
+              accessibilityLabel={
+                contact
+                  ? 'Continue with this trusted contact'
+                  : 'Continue without a trusted contact'
+              }
+              style={styles.btnStretch}
+            />
             {fromSettings ? (
               <Button
                 type="secondary"
@@ -298,6 +297,22 @@ const styles = StyleSheet.create({
     // this by SafeAreaView so the final clear above the home-bar is
     // ~64pt either way.
     paddingBottom: 32,
+  },
+  // Back-caret row (settings entry only). 32pt outer left-align
+  // matches the safe area's paddingHorizontal so the caret reads
+  // as gutter-anchored rather than inset.
+  backHeader: {
+    // -16 offset pulls the back-button row to the left edge of the
+    // page (the SafeAreaView's paddingHorizontal:32 would otherwise
+    // double-indent the caret relative to the title block below).
+    marginLeft: -16,
+    marginBottom: 8,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     flex: 1,

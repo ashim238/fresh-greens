@@ -151,15 +151,19 @@ const styles = StyleSheet.create({
   // (0,1,3,1 @ 15% + 0,1,2,0 @ 30%); RN renders only one per view, so
   // we use the bigger soft layer that carries the visible elevation.
   primaryFill: {
-    // freshgreen — brand-exception per cursorrules ("primary CTA, in-flow
-    // links"). Figma specifies freshgreen bg + white text for Primary/Fill.
-    // White-on-freshgreen is 2.9:1, below WCAG AA (4.5:1) but close to the
-    // 3:1 large-text threshold and defensible at 17pt bold. Using wiltedgreen
-    // here (PR #148) erased the primary-vs-secondary visual distinction —
-    // both variants looked identical. Brand expression at the primary CTA
-    // level outweighs the marginal contrast shortfall; wiltedgreen stays
-    // reserved for secondary CTAs and atmospheric surfaces.
+    // freshgreen brand fill + wiltedgreen 1pt border. The border is
+    // invisible on green-onboarding surfaces (wiltedgreen border on
+    // wiltedgreen page bg blends), but on white surfaces it lifts
+    // the button-to-page contrast from freshgreen's 2.88:1 (below
+    // WCAG AA 3.0:1 for UI components) into the 6.54:1 wiltedgreen
+    // range. Lets us keep the primary brand vibrance app-wide
+    // without forcing a wiltedgreen swap on every white-surface
+    // CTA — see the audit-9 contrast catch + the user-confirmed
+    // "(c) freshgreen with wiltedgreen border" decision in
+    // docs/learnings.md feat/whimsy-animations entry's followup.
     backgroundColor: colors.freshgreen,
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
