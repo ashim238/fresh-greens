@@ -115,6 +115,16 @@ export const typography = {
     fontWeight: '400',
     letterSpacing: 0,
   },
+  // Figma's "Caption1/Emphasized" is 12pt at Medium (510), not
+  // Semibold (590). RN doesn't accept 510; 500 is the nearest valid
+  // 100-step weight and renders visually identical to 510. Used on
+  // the route-preview zone-warning chips per Figma 1109:3264.
+  caption1Emphasized: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
   // caption2 sits at 11pt — below WCAG 1.4.4's 12pt floor for
   // informational content. Reserved for ornamental use (legal fine
   // print, timestamps, copyright lines). Informational content

@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/figma-fidelity-audit-9-followups (2026-05-21)
+
+Verification-pass follow-ups against Figma 1109:3264 + 1114:9047. Most type/padding deltas were silent drift; one — the recommendation-card curator quote — was an intentional Figma decision we chose to push back on.
+
+- **"Figma is canonical" is a default, not an absolute — push back when a Figma decision undermines a load-bearing product signal.** The audit-9 mobile-ux agent flagged `quoteText` at 12pt as below the WCAG 1.4.4 floor and bumped it to 13pt. My verification pass against Figma showed Figma intentionally uses Caption1/Regular (12pt) for the curator quote, which made the audit-9 change look like drift. But thinking about WHY Figma set 12pt — to fit more content per card — the choice trades the load-bearing differentiator (the curator's editorial voice, the Green Book parallel) against information density. Defensible design call, but it sacrifices the asset that does the product's differentiating work. The user agreed to keep 13pt (pushback on Figma) and ship Figma-fidelity for everything else. Worth keeping: when a design source's choice optimizes one axis (density, layout fit) at the cost of the asset doing the differentiating work, that's a legitimate place to push back — not every Figma decision is a constraint, some are tradeoffs worth re-litigating with eyes on the product framing.
+- **A type token that doesn't exist isn't a license to skip the Figma value — it's a token to add.** The route-preview zone chips spec Caption1/Emphasized in Figma (12pt Medium 510 weight). `theme/typography.ts` didn't have that token — only `caption1Regular`. The shipped code used `footnoteRegular` (13pt) as the closest available, which is wrong on both size and weight. The right move is to ADD the missing token (with the RN-valid 500 weight in place of Figma's 510) rather than substitute a near-miss from the existing ramp. Worth keeping: when the typography file is missing a token Figma uses, the gap is the bug — fill it; don't substitute.
+
+---
+
 ## fix/search-country-and-route-distance-guard (2026-05-21)
 
 User reported "search isn't surfacing anything — keywords or addresses — while I'm in Spain." Two patterns worth keeping.

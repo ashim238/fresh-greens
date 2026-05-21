@@ -1775,7 +1775,7 @@ export default function Home() {
 function RouteWarningChip({ count, label }: { count: number; label: string }) {
   return (
     <View style={styles.routeChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <WarningDiamond size={16} color={colors.orange} weight="fill" />
+      <WarningDiamond size={24} color={colors.orange} weight="fill" />
       <Text style={styles.routeChipText}>
         {count} {label}
       </Text>
@@ -1794,7 +1794,7 @@ function RouteWarningChip({ count, label }: { count: number; label: string }) {
 function RouteAllClearChip() {
   return (
     <View style={styles.routeAllClearChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Check size={16} color={colors.burntgreen} weight="bold" />
+      <Check size={24} color={colors.burntgreen} weight="bold" />
       <Text style={styles.routeAllClearText}>All clear</Text>
     </View>
   );
@@ -1911,7 +1911,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    paddingHorizontal: 16,
+    // 24pt content-sheet gutter per Figma 1109:3264 (`px-[24px]`).
+    // Was 16pt — the tighter chrome-sheet default that slipped in
+    // by matching the browse-mode sheet without re-reading the
+    // Figma source for route-preview specifically.
+    paddingHorizontal: 24,
   },
   routeMinutes: {
     // wiltedgreen Title2Emphasized per Figma — the "12 min" anchor.
@@ -1929,12 +1933,16 @@ const styles = StyleSheet.create({
   routeViaLabel: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
   },
   routeConditionsCaption: {
-    ...typography.footnoteRegular,
+    // Caption1/Regular per Figma 1109:3264 — supplementary status
+    // copy that doesn't compete with the headline + Via row above.
+    // 12pt is intentional (Figma's "the headline does the work"
+    // information hierarchy); was 13pt footnoteRegular.
+    ...typography.caption1Regular,
     color: colors.labelTertiary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
   },
   routeChipsBlock: {
     gap: 8,
@@ -1945,20 +1953,22 @@ const styles = StyleSheet.create({
     // informational, per the mobile-ux audit on PR B.
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
   },
   routeChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
   },
   // Clear-destination row — dedicated top slot so the 44pt X doesn't
-  // overlap the daylight strip's moon glyph below.
+  // overlap the daylight strip's moon glyph below. 24pt right gutter
+  // matches the content-sheet padding so the X aligns to the same
+  // vertical edge as the daylight strip + chip rows below.
   routeTopRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 8,
+    paddingHorizontal: 24,
   },
   // 44pt painted tap target per HIG, same fillsTertiary circular
   // treatment as the recordings delete-confirm modal X for visual
@@ -1983,7 +1993,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   routeChipText: {
-    ...typography.footnoteRegular,
+    // Caption1/Emphasized per Figma 1109:3264 (12pt Medium 510 →
+    // RN's 500 weight). The 24pt WarningDiamond + orange border do
+    // the heavy lifting on chip recognizability; the text reads as
+    // count + label at the smaller size without competing with the
+    // glyph for emphasis.
+    ...typography.caption1Emphasized,
     color: colors.black,
   },
   // Positive variant — the "we scanned, you're clear" chip. Same
@@ -2001,7 +2016,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fadedgreen,
   },
   routeAllClearText: {
-    ...typography.footnoteEmphasized,
+    // Match RouteWarningChip's caption1Emphasized so the two chip
+    // variants read as a family — same row slot, same type register,
+    // different palette for the binary watch/clear semantic.
+    ...typography.caption1Emphasized,
     color: colors.burntgreen,
   },
   daylightBar: {
