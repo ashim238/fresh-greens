@@ -43,10 +43,36 @@ export type Route = {
  * non-OK status, no routes found). Console-warns on fallback so we can
  * see in dev when the real API isn't responding.
  */
+/**
+ * Maximum origin→destination straight-line distance the app will
+ * attempt to route, in miles. Anything beyond this is cross-continent
+ * territory the safety/daylight optimization doesn't sensibly apply
+ * to — single-day road trips top out around here (LA↔SF is ~380mi,
+ * NYC↔Boston ~215mi, Houston↔Dallas ~240mi). Catches the case where
+ * a recent-searches entry from a prior trip (e.g. NYC) is re-tapped
+ * after the user has traveled abroad (e.g. Spain) — the search query
+ * itself is bbox-gated to ~140mi, but persisted entries bypass that.
+ */
+const MAX_ROUTE_DISTANCE_MILES = 500;
+
 export async function getRoutesBetween(
   origin: Coordinate,
   destination: Coordinate,
 ): Promise<Route[]> {
+  // Guard against unroutable origin/destination pairs before hitting
+  // OSRM. Beyond MAX_ROUTE_DISTANCE_MILES the optimization is moot
+  // (and the OSRM call would return a multi-thousand-mile polyline
+  // that no one wants to drive). Caller (/home route-preview) already
+  // handles the "no recommended route" empty state gracefully.
+  const distance = haversineMiles(origin, destination);
+  if (distance > MAX_ROUTE_DISTANCE_MILES) {
+    console.warn(
+      `[routes] origin→destination ${distance.toFixed(0)}mi exceeds ` +
+        `${MAX_ROUTE_DISTANCE_MILES}mi guard; returning no routes.`,
+    );
+    return [];
+  }
+
   try {
     const response = await fetch(buildOSRMUrl(origin, destination));
     if (!response.ok) {
@@ -244,6 +270,26 @@ async function getRoutesBetweenMock(
  * lngToMeters scaled by cos(latitude)). Used only for the mock fallback —
  * OSRM returns distance directly.
  */
+/**
+ * Haversine distance in miles between two lat/lng points. Used by the
+ * MAX_ROUTE_DISTANCE_MILES guard above. Inlined here rather than
+ * imported from `recommendations.ts` (which has its own private
+ * `distanceMilesBetween`) — the math is small and the duplication
+ * keeps `routes.ts` self-contained.
+ */
+function haversineMiles(a: Coordinate, b: Coordinate): number {
+  const R = 3958.8; // Earth's radius in miles
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
 function estimatePathMeters(path: Coordinate[]): number {
   let total = 0;
   for (let i = 0; i < path.length - 1; i++) {
