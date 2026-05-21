@@ -464,6 +464,59 @@ export async function getTrustedByCommunity(
   }
 }
 
+// --- Open now (Round 4 PR B — multi-row Row 2) ---------------------------
+
+/**
+ * Utility row for the multi-row browse sheet. Fans across all 5
+ * recommendation categories in parallel (reusing the per-category
+ * external cache — no extra cost when each category's row also
+ * shows below), filters to entries with `isOpen === true`, dedups
+ * by ~50m proximity (a place open under multiple chips, e.g. a
+ * Black-owned LGBTQ+-welcoming cafe, shouldn't appear twice), and
+ * returns top `OPEN_NOW_RESULT_LIMIT` by distance.
+ *
+ * `isOpen` is currently per-entry static data the curator/external
+ * adapter populated; a v2 swap to live-hours would happen at the
+ * adapter layer and this row would pick up the change for free.
+ */
+const OPEN_NOW_RESULT_LIMIT = 7;
+
+const ALL_REC_CATEGORIES: RecommendationCategory[] = [
+  'black-owned',
+  'women-owned',
+  'lgbtq-welcoming',
+  'restroom',
+  'late-night-warm-welcome',
+];
+
+export async function getOpenNow(
+  query: { userLocation?: { latitude: number; longitude: number } } = {},
+): Promise<Recommendation[]> {
+  const { userLocation } = query;
+  if (!userLocation) return [];
+
+  try {
+    // allSettled — one flaky category (network blip, proxy 502) shouldn't
+    // blank the entire Open Now row; partial results still surface signal.
+    const settled = await Promise.allSettled(
+      ALL_REC_CATEGORIES.map((category) =>
+        getExternalRecommendations({ category, userLocation }),
+      ),
+    );
+    const flat: Recommendation[] = settled.flatMap((r) =>
+      r.status === 'fulfilled' ? r.value : [],
+    );
+    const openOnly = flat.filter((r) => r.isOpen === true);
+    if (openOnly.length === 0) return [];
+    const sorted = sortByDistance(openOnly, userLocation);
+    const deduped = dedupByProximity(sorted);
+    const top = deduped.slice(0, OPEN_NOW_RESULT_LIMIT);
+    return annotateDistance(top, userLocation);
+  } catch {
+    return [];
+  }
+}
+
 // --- Source 3: External feed (v2 integration point) ----------------------
 
 /**

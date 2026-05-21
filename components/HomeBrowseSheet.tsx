@@ -20,10 +20,13 @@ import GlyphLgbtq from '../assets/illustrations/mapmarker-glyph-lgbtq.svg';
 import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg';
 import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
 
+import { Clock } from 'phosphor-react-native/src/icons/Clock';
 import { useRecommendations } from '../hooks/useRecommendations';
+import { useRecommendationsBatch, type BrowseRowSpec } from '../hooks/useRecommendationsBatch';
 import { useReduceMotion } from '../hooks/useReduceMotion';
-import { useTrustedByCommunity } from '../hooks/useTrustedByCommunity';
 import { useWeather } from '../hooks/useWeather';
+
+import CommunitySignalGlyph24 from '../assets/illustrations/trustedbycommunity-empty-24.svg';
 import { formatDistanceAway } from '../lib/format';
 import { PROXY_PHOTO_URL } from '../lib/proxy';
 import type {
@@ -106,14 +109,23 @@ export function HomeBrowseSheet({
     // Skip the focus-mode fetch when in browse mode — useRecommendations
     // returns the merged catalog when no category is set, which is the
     // wrong shape for the per-category carousel. Browse mode reads from
-    // useTrustedByCommunity instead.
+    // useRecommendationsBatch instead.
     category: category ?? undefined,
     userLocation,
   });
-  const { recommendations: trusted, loading: trustedLoading } = useTrustedByCommunity({
+  // All 7 browse-mode rows batched in parallel. Trusted-by-community
+  // is row[0]; the result for it is consumed by TrustedByCommunityRow
+  // (which keeps its scroll-to-leading + first-card-fade animation
+  // for new submissions). Rows 2–7 render via a generic carousel
+  // helper below.
+  const { byKey: browseRowResults } = useRecommendationsBatch({
+    rows: BROWSE_ROW_SPECS,
     userLocation,
     refreshKey,
   });
+  const trustedRowResult = browseRowResults['trusted-community'];
+  const trusted = trustedRowResult?.recommendations ?? [];
+  const trustedLoading = trustedRowResult?.loading ?? true;
   const reduceMotion = useReduceMotion();
 
   // Eyebrow copy — when we have the user's first name, render the
@@ -151,15 +163,14 @@ export function HomeBrowseSheet({
       />
 
       {browseMode ? (
-        // --- Browse mode: "Trusted by your community" Row 1 ---
-        // Pressable section row with caret — mirrors the focus-mode
-        // pattern below. Previously a non-interactive View with no
-        // caret on the reasoning that "collapsing the only row leaves
-        // chips with no re-expand affordance"; but the sheet now
-        // defaults to COLLAPSED on app entry (PR #206), so users
-        // need the chevron to expand from within the sheet content.
-        // The drag handle still toggles the same state; the caret
-        // gives a second, in-place affordance.
+        // --- Browse mode: multi-row recommendations stack ---
+        // Row 1 (Trusted by your community) keeps its Pressable
+        // header with chevron — drives sheet collapse + carries the
+        // canonical 24pt community-signal glyph as a visual anchor
+        // for the differentiator row. Rows 2–7 render below when
+        // expanded (no per-row collapse — the sheet-level toggle is
+        // the single source of truth; chip = focus mode, Browse = full
+        // multi-row).
         <>
           <Pressable
             onPress={() => {
@@ -178,7 +189,10 @@ export function HomeBrowseSheet({
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
           >
-            <Text style={styles.sectionTitle}>Trusted by your community</Text>
+            <View style={styles.sectionTitleGroup}>
+              <CommunitySignalGlyph24 width={24} height={24} />
+              <Text style={styles.sectionTitle}>Trusted by your community</Text>
+            </View>
             {collapsed ? (
               <CaretDown size={16} color={colors.black} weight="fill" />
             ) : (
@@ -186,13 +200,31 @@ export function HomeBrowseSheet({
             )}
           </Pressable>
           {!collapsed && (
-            <TrustedByCommunityRow
-              recommendations={trusted}
-              loading={trustedLoading}
-              reduceMotion={reduceMotion}
-              onSelectRecommendation={onSelectRecommendation}
-              onEmptyTap={onEmptyTap}
-            />
+            <>
+              <TrustedByCommunityRow
+                recommendations={trusted}
+                loading={trustedLoading}
+                reduceMotion={reduceMotion}
+                onSelectRecommendation={onSelectRecommendation}
+                onEmptyTap={onEmptyTap}
+              />
+              {/* Rows 2–7: Open Now + 5 per-category. Each row is
+                  header (glyph + title) + carousel body. */}
+              {BROWSE_ROW_SPECS.slice(1).map((spec) => {
+                const result = browseRowResults[spec.key];
+                return (
+                  <GenericBrowseRow
+                    key={spec.key}
+                    spec={spec}
+                    recommendations={result?.recommendations ?? []}
+                    loading={result?.loading ?? true}
+                    reduceMotion={reduceMotion}
+                    onSelectRecommendation={onSelectRecommendation}
+                    onEmptyTap={onEmptyTap}
+                  />
+                );
+              })}
+            </>
           )}
         </>
       ) : (
@@ -292,6 +324,158 @@ export function HomeBrowseSheet({
       )}
     </View>
   );
+}
+
+// --- Multi-row browse stack (Round 4 PR B) ------------------------------
+
+/**
+ * Browse-mode row order per the Round 4 spec. Row 1 (Trusted) is
+ * rendered separately above so its scroll-to-leading animation +
+ * sheet-collapse Pressable header are preserved verbatim. Rows 2–7
+ * render below via `GenericBrowseRow`. Keys are stable strings —
+ * the batch hook uses them to track per-row state across reorders.
+ */
+const BROWSE_ROW_SPECS: BrowseRowSpec[] = [
+  { key: 'trusted-community', kind: 'trusted-community' },
+  { key: 'open-now', kind: 'open-now' },
+  { key: 'cat-black-owned', kind: 'category', category: 'black-owned' },
+  { key: 'cat-women-owned', kind: 'category', category: 'women-owned' },
+  { key: 'cat-lgbtq', kind: 'category', category: 'lgbtq-welcoming' },
+  { key: 'cat-restroom', kind: 'category', category: 'restroom' },
+  { key: 'cat-late-night', kind: 'category', category: 'late-night-warm-welcome' },
+];
+
+/**
+ * Per-row header glyph (24pt) + display title. Centralized here so the
+ * row-render loop can dispatch off the spec without per-call branching.
+ * The Trusted-by-community + per-category glyphs reuse the bespoke
+ * illustrations from /report's marker family; Open Now uses Phosphor
+ * `Clock` for the "right now" semantic (no bespoke asset needed —
+ * utility row).
+ */
+function GenericBrowseRow({
+  spec,
+  recommendations,
+  loading,
+  reduceMotion,
+  onSelectRecommendation,
+  onEmptyTap,
+}: {
+  spec: BrowseRowSpec;
+  recommendations: Recommendation[];
+  loading: boolean;
+  reduceMotion: boolean;
+  onSelectRecommendation: (rec: Recommendation) => void;
+  onEmptyTap?: () => void;
+}) {
+  const { glyph, title } = headerForRow(spec);
+  const isLoading = loading && recommendations.length === 0;
+  return (
+    <View style={styles.browseRow}>
+      <View style={styles.sectionRow}>
+        <View style={styles.sectionTitleGroup}>
+          {glyph}
+          <Text style={styles.sectionTitle}>{title}</Text>
+        </View>
+      </View>
+      {isLoading ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cardsRowContent}
+          scrollEnabled={false}
+          accessible
+          accessibilityLabel={`Loading ${title} recommendations`}
+        >
+          <View style={styles.carouselLeadingSpacer} />
+          {[0, 1, 2].map((i) => (
+            <RecommendationCardSkeleton key={`${spec.key}-skel-${i}`} />
+          ))}
+          <View style={styles.carouselTrailingSpacer} />
+        </ScrollView>
+      ) : recommendations.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cardsRowContent}
+          decelerationRate={reduceMotion ? 'normal' : 'fast'}
+          snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
+          snapToAlignment="start"
+          accessibilityRole={'list' as any}
+          accessibilityLabel={title}
+        >
+          <View style={styles.carouselLeadingSpacer} />
+          {recommendations.map((rec) => (
+            <RecommendationCard
+              key={rec.id}
+              recommendation={rec}
+              onPress={() => onSelectRecommendation(rec)}
+            />
+          ))}
+          <View style={styles.carouselTrailingSpacer} />
+        </ScrollView>
+      ) : spec.kind === 'category' ? (
+        // Per-category empty — the empty IS the contribution CTA.
+        // Re-uses the existing per-category EmptyState component
+        // (warm copy + bespoke glyph + tap-to-report).
+        <View style={styles.cardWrap}>
+          <EmptyState category={spec.category} onTap={onEmptyTap} />
+        </View>
+      ) : (
+        // Open Now empty — render a thin placeholder line instead of
+        // silently hiding the row. Silent-vanish made "nothing open"
+        // visually identical to "feature broken"; a worded line keeps
+        // the row's intent legible and tells the user the check ran.
+        <View style={styles.cardWrap}>
+          <Text style={styles.browseEmptyLine}>
+            Nothing open right now within 10 mi.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function headerForRow(spec: BrowseRowSpec): { glyph: React.ReactNode; title: string } {
+  switch (spec.kind) {
+    case 'trusted-community':
+      // Unreachable — trusted-community renders above via
+      // TrustedByCommunityRow with its own header. Defensive only.
+      return {
+        glyph: <CommunitySignalGlyph24 width={24} height={24} />,
+        title: 'Trusted by your community',
+      };
+    case 'open-now':
+      return {
+        glyph: <Clock size={24} color={colors.wiltedgreen} weight="duotone" />,
+        title: 'Open now',
+      };
+    case 'category':
+      return {
+        glyph: <CategoryGlyph24 category={spec.category} />,
+        title: `Around Me: ${CATEGORY_LABELS[spec.category]}`,
+      };
+  }
+}
+
+/**
+ * 24pt version of the bespoke category illustrations — same files as
+ * the 64pt empty-state cards (`PhotoPlaceholderGlyph`), rendered at
+ * section-header scale. SVGs scale cleanly via `width`/`height`.
+ */
+function CategoryGlyph24({ category }: { category: RecommendationCategory }) {
+  switch (category) {
+    case 'black-owned':
+      return <GlyphBlackOwned width={24} height={24} />;
+    case 'women-owned':
+      return <GlyphWomenOwned width={24} height={24} />;
+    case 'lgbtq-welcoming':
+      return <GlyphLgbtq width={24} height={24} />;
+    case 'restroom':
+      return <GlyphRestroom width={24} height={24} />;
+    case 'late-night-warm-welcome':
+      return <GlyphLateNight width={24} height={24} />;
+  }
 }
 
 // --- Trusted-by-community row (Round 4 Row 1) ---------------------------
@@ -900,10 +1084,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 16,
+    // justifyContent: space-between via flex:1 on the inner title
+    // group below — keeps the chevron right-anchored when present
+    // and lets the title-group take the remaining width.
+    justifyContent: 'space-between',
+  },
+  // Leading-glyph + title combo for multi-row section headers.
+  // Per-row 24pt glyph (community-signal, Clock, or bespoke category
+  // illustration) reads as the row's visual identity; title sits to
+  // its right. flex:1 so a long title can wrap if needed before the
+  // chevron edge (Row 1 only).
+  sectionTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
   sectionTitle: {
     ...typography.subheadlineEmphasized,
     color: colors.black,
+    flexShrink: 1,
+  },
+  // One row block inside the multi-row stack — gap:8 between header
+  // and carousel, plus the outer browse-content gap handles spacing
+  // between rows.
+  browseRow: {
+    gap: 8,
+  },
+  browseEmptyLine: {
+    ...typography.footnoteRegular,
+    color: colors.mutedTertiary,
+    paddingVertical: 4,
   },
   cardWrap: {
     paddingHorizontal: 16,
