@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/multi-row-recommendations-pr-b (2026-05-21)
+
+Round 4 PR B — split browse-mode's single recommendations row into 7 parallel-fetched rows. Two patterns worth keeping (both flagged by code-reviewer pre-merge).
+
+- **A batched-fetch hook that unconditionally flips `loading: true` on every refresh defeats its own caching.** First-draft `useRecommendationsBatch` had the effect body mark *every* row as `loading: true` at the top of each cycle, with the per-row async closures replacing the data when it resolves. That's a fine pattern for *fresh* mounts, but on grid-key refresh (user moves ~0.5mi → all 7 rows re-fetch) it makes every cached row skeleton-flash for 200–800ms before re-showing the same data the user was already looking at. Fix is one line: gate the `loading: true` flip on `prevRecs.length === 0` so rows with cached data hold their current cards through the refetch and only swap when new data lands. Skeleton-on-cold, hold-on-warm. Worth keeping: "mark loading at the top of the effect" is the lazy default — but if you already have data to show, *showing it* through the refresh is almost always better than flashing a placeholder over it. The flag's job is to bridge a content gap, not announce that work is in progress.
+- **A "silently hide when empty" branch reads identically to a broken feature.** I'd defaulted Open Now to render `null` when nothing came back, reasoning that the per-category rows below cover the same data and a "no open spots" line was content-free. But "nothing open right now" and "feature broken / never loaded" produce the same UI (no row at all) — the user has no way to tell whether the check ran and came back empty, or whether the section silently failed. Worth a thin worded line — "Nothing open right now within 10 mi." — even when there's no actionable next step, because the line itself communicates *the system checked*. Worth keeping: any state branch that returns `null` on an empty result for a section the user expects to see is a candidate for the "silent vs. broken" smell — if you can't distinguish them by looking, the user can't either. Default to a wee text line over a vanish.
+
+---
+
 ## feat/subtag-glyphs-plus-asset-drops (2026-05-22)
 
 Wired up the 4 bespoke identity-tag glyphs the user designed (Women-owned / LGBTQ+ welcoming / Restroom / Late-night) + restored the missing chevron on the browse-mode recommendation row. One pattern worth keeping.
