@@ -183,6 +183,14 @@ export function HomeBrowseSheet({
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
           >
+            {/*
+              Figma 1114:9047 specifies "Things to Do: {category}".
+              Shipped uses "Around Me" — the user's explicit call to
+              keep "Around Me" as a deliberate Figma deviation. Locator
+              framing (where the recs are relative to me) reads more
+              honest than activity framing for a community-data app.
+              Don't auto-revert in fidelity audits.
+            */}
             <Text style={styles.sectionTitle}>Around Me: {categoryLabel}</Text>
             {collapsed ? (
               <CaretDown size={16} color={colors.black} weight="fill" />
