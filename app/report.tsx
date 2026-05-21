@@ -473,48 +473,75 @@ function DetailView({
         />
 
         {/*
-          Place-type chips — only render for categories that define
-          a `subTags` whitelist (the place categories: black-owned
-          and felt-welcome). Tap toggles the selection: tapping the
-          active chip again clears it.
+          SubTag chips — only render for categories that define a
+          `subTags` whitelist (the place categories: black-owned,
+          felt-welcome). When the category declares `subTagGroups`,
+          each group renders as its own labeled section so users see
+          the semantic distinction (e.g. felt-welcome splits
+          place-type chips from identity chips). Otherwise the chips
+          render as a single flat row with the default
+          "(Optional) What kind of place?" header. Tap toggles the
+          selection: tapping the active chip again clears it.
         */}
-        {category.subTags && category.subTags.length > 0 && (
-          <>
-            <Text style={styles.fieldLabel}>(Optional) What kind of place?</Text>
-            <View style={styles.chipsWrap}>
-              {category.subTags.map((tag) => {
-                const active = selectedSubTag === tag;
-                return (
-                  <Pressable
-                    key={tag}
-                    onPress={() =>
-                      onChangeSubTag(active ? undefined : tag)
-                    }
-                    disabled={submitting}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
-                    style={({ pressed }) => [
-                      styles.chip,
-                      active && styles.chipActive,
-                      pressed && !submitting && pressedDim,
-                    ]}
-                  >
+        {category.subTags && category.subTags.length > 0 && (() => {
+          // Normalize to subTagGroups shape so the render loop is
+          // single-path. If the category didn't declare groups, wrap
+          // its flat subTags in a single default-labeled group.
+          const groups = category.subTagGroups ?? [
+            { label: '(Optional) What kind of place?', tags: category.subTags },
+          ];
+          return (
+            <>
+              {groups.map((group, groupIdx) => (
+                <View
+                  key={group.label ?? `group-${groupIdx}`}
+                  style={styles.subTagGroup}
+                >
+                  {group.label && (
                     <Text
-                      style={[
-                        styles.chipLabel,
-                        active && styles.chipLabelActive,
-                      ]}
+                      style={styles.fieldLabel}
+                      accessibilityRole="header"
                     >
-                      {tag}
+                      {group.label}
                     </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        )}
+                  )}
+                  <View style={styles.chipsWrap}>
+                    {group.tags.map((tag) => {
+                      const active = selectedSubTag === tag;
+                      return (
+                        <Pressable
+                          key={tag}
+                          onPress={() =>
+                            onChangeSubTag(active ? undefined : tag)
+                          }
+                          disabled={submitting}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
+                          style={({ pressed }) => [
+                            styles.chip,
+                            active && styles.chipActive,
+                            pressed && !submitting && pressedDim,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.chipLabel,
+                              active && styles.chipLabelActive,
+                            ]}
+                          >
+                            {tag}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </>
+          );
+        })()}
 
         {category.hasPhoto && (
           <>
@@ -756,6 +783,14 @@ const styles = StyleSheet.create({
   },
 
   // --- Place-type chips (sub-tag picker) ---
+  // Each subTag group gets its own labeled block. 12pt internal
+  // gap between the label and the chip row. Inter-group spacing
+  // is handled by the parent form's gap (avoids double-stacking
+  // margin + gap, which made the last group's trailing space
+  // collide with the photo dropzone below).
+  subTagGroup: {
+    gap: 12,
+  },
   // Wraps so the 6-item chip set lays out across two rows on a
   // narrow 351pt popup. 8pt gap matches the field-label-to-control
   // rhythm elsewhere in the form block.

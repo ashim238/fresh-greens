@@ -81,6 +81,30 @@ export type ReportCategory = {
    * undefined.
    */
   subTags?: string[];
+  /**
+   * Optional structured grouping of `subTags` for the picker UI.
+   * When set, the /report detail screen renders each group as its
+   * own labeled chip row instead of one flat row, which is useful
+   * when the subTag whitelist mixes semantic categories (e.g.,
+   * felt-welcome combines place-type tags like "Restaurant" with
+   * identity tags like "LGBTQ+ welcoming" — different reasons a
+   * place can earn a felt-welcome vote, deserving their own
+   * subsection headers).
+   *
+   * Each group's `tags` must be a subset of `subTags`. The picker
+   * concatenates groups in order. A group with no `label` renders
+   * its chips without a header (for catch-all rows like "Other").
+   *
+   * Data-layer routing (recCategoryForReport in recommendations.ts)
+   * still reads the flat `subTags` field; this is purely a
+   * presentation enrichment.
+   */
+  subTagGroups?: Array<{
+    /** Optional header label rendered above this group's chips. */
+    label?: string;
+    /** Whitelist subset for this group, in chip-render order. */
+    tags: string[];
+  }>;
 };
 
 export const CATEGORIES: ReportCategory[] = [
@@ -165,6 +189,26 @@ export const CATEGORIES: ReportCategory[] = [
       'Open restroom',
       'Late-night welcome',
       'Other',
+    ],
+    // Picker grouping — place-type tags answer "what kind of place,"
+    // identity tags answer "what about it earned the vote." Without
+    // a header users skim a single flat row and miss the distinction;
+    // with headers the choice frames itself.
+    subTagGroups: [
+      {
+        label: 'What kind of place is it?',
+        tags: ['Restaurant', 'Bar/Cafe', 'Retail', 'Park/Public space', 'Personal'],
+      },
+      {
+        label: 'What made it welcoming?',
+        tags: ['Women-owned', 'LGBTQ+ welcoming', 'Open restroom', 'Late-night welcome'],
+      },
+      // Catch-all row gets its own header ("Doesn't quite fit?")
+      // instead of dangling unlabeled below the identity group —
+      // without it, the "Other" chip reads as a sixth identity
+      // chip rather than a fallback. Using "Other" both as the
+      // label and the chip would be visually redundant.
+      { label: "Doesn't quite fit?", tags: ['Other'] },
     ],
   },
   {
