@@ -40,7 +40,7 @@ export function useRecommendations(opts: {
     // return a merged-catalog shape when category is undefined, but
     // no caller of this hook wants that shape — the only consumer
     // (HomeBrowseSheet) renders per-category carousels in focus mode
-    // and reads from `useTrustedByCommunity` in browse mode. Firing
+    // and reads from `useRecommendationsBatch` in browse mode. Firing
     // a pointless community-reports read on every browse-mode mount
     // was a real perf wart caught in the Round 4 PR-A audit.
     if (!category) {

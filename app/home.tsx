@@ -801,13 +801,14 @@ export default function Home() {
   // second path is what makes a freshly-submitted report appear on the
   // map within a frame of the user closing the modal.
   // Ticks every time /home regains focus. Threaded down to
-  // HomeBrowseSheet so useTrustedByCommunity can re-read AsyncStorage
+  // HomeBrowseSheet so useRecommendationsBatch can re-read AsyncStorage
   // after the user submits a fresh report and returns here — without
-  // this, the "Trusted by your community" row stays stale until the
-  // user crosses a ~0.5mi geo-grid boundary (which is what currently
-  // re-triggers the hook via gridLat/gridLng deps). The map's report
-  // markers refresh via setReportZones below, but the recommendations
-  // row reads from its own hook that doesn't share that signal.
+  // this, the "Trusted by your community" row (and any per-category
+  // row the report routes to) stays stale until the user crosses a
+  // ~0.5mi geo-grid boundary (which is what currently re-triggers
+  // the hook via gridLat/gridLng deps). The map's report markers
+  // refresh via setReportZones below, but the recommendations rows
+  // read from their own hook that doesn't share that signal.
   const [focusRefreshKey, setFocusRefreshKey] = useState(0);
 
   useFocusEffect(
