@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/search-country-and-route-distance-guard (2026-05-21)
+
+User reported "search isn't surfacing anything — keywords or addresses — while I'm in Spain." Two patterns worth keeping.
+
+- **A "narrow the search" filter and an "exclude foreign results" filter are not the same thing.** Mapbox's `country=us` parameter on `searchPlaces` was added at some point as "make sure US users only see US results." But the adapter also passes a `bbox` parameter that hard-caps results to ~140mi of the user. With both filters on, the bbox is the only one doing real work for US-located users (since the bbox already excludes Mexico/Canada at that radius), AND the country filter silently breaks the entire feature when the user is outside the US — every query returns zero results. The right shape was bbox-only: the proximity-based filter naturally inherits "no foreign results when you're far from the border" without needing a second filter that's wrong everywhere else. Worth keeping: when stacking geographic filters, ask "what does each one prevent that the others don't?" If a filter is purely redundant under common cases AND silently destructive in uncommon ones, drop it.
+- **Persisted-state filters need their own time-of-use guard.** The `bbox` on the search query prevented the user from *picking* a far-away destination from Spain — but `lib/api/recent-searches.ts` is local-device storage. A NYC destination saved during a US trip survives the user's move to Spain and re-appears on /home if re-tapped, bypassing the search-time bbox entirely. The fix is a guard *at routing time* (`MAX_ROUTE_DISTANCE_MILES` in `routes.ts`): if origin↔destination exceeds the threshold, return [] without hitting OSRM. Same principle applies anywhere a search/filter feeds persisted state — the filter only protects the moment of selection, not the moment of use. Worth keeping: when adding a geographic/temporal filter, ask "where does this state persist after the filter runs?" If anywhere, you need a second guard at the moment-of-use side.
+
+---
+
 ## feat/round-6-polish-batch (2026-05-21)
 
 User-reported batch — 5 small fixes shipped together. One pattern worth keeping.

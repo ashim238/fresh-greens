@@ -98,7 +98,6 @@ export async function searchPlaces(
     access_token: MAPBOX_TOKEN,
     proximity: `${lng},${lat}`,
     bbox,
-    country: 'us',
     limit: '10',
     // Include both POIs and street addresses. Was `poi` only, which
     // meant typing a specific street address ("123 Main St") returned
@@ -106,6 +105,16 @@ export async function searchPlaces(
     // Both types share the Feature shape; the address branch fills
     // `name` with the street number+name, and `place_formatted` with
     // the rest, so the existing card render works for both.
+    //
+    // `country` filter intentionally NOT set. Previously hardcoded to
+    // 'us' which returned zero results when the user was anywhere
+    // outside the US (Spain, Canada, Mexico, etc.) — the `bbox`
+    // already enforces a ~140mi proximity gate that's a tighter
+    // upper bound than a country filter would be, so the country
+    // filter was redundant for in-country users and broken for
+    // everyone else. Users near a US border (San Diego/Tijuana,
+    // Detroit/Windsor, etc.) now get cross-border POIs within bbox,
+    // which is more useful than the pre-fix US-only filter.
     types: 'poi,address',
   });
 
