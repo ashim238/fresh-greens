@@ -1449,14 +1449,42 @@ export default function Home() {
             </Pressable>
           </View>
 
+          {/*
+            "12 min" headline stands alone per Figma 1109:3264 — the
+            arrival duration is the headline number; pairing it with
+            the daylight strip diluted both signals. Daylight strip
+            moves down to share the via-row below (context grouped
+            with context).
+          */}
           <View style={styles.routeHeadlineRow}>
             <Animated.Text style={[styles.routeMinutes, { opacity: minutesOpacity }]}>
               {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
             </Animated.Text>
+          </View>
+
+          {/*
+            Via + daylight share a row — both secondary context. The
+            via label flexes to fill the left column, daylight strip
+            anchors the right at its fixed 96pt width.
+            Destination underline is reserved for *recurring*
+            destinations (a save-as-home/work invitation) — gated on
+            `isRegularDestination`, hard-coded false until feat/
+            recent-trips lands a real trip-frequency signal.
+          */}
+          <View style={styles.routeViaRow}>
+            <Text
+              style={[
+                styles.routeViaLabel,
+                isRegularDestination && styles.destination,
+              ]}
+              numberOfLines={1}
+            >
+              Via {params.destName ?? 'your destination'}
+            </Text>
             {/*
-              Daylight strip — moved inline-right of the headline per
-              Figma. Hidden from accessibility tree (the conditions
-              caption below carries the arrival context for VoiceOver).
+              Daylight strip — paired with the via line per Figma.
+              Hidden from accessibility tree (the conditions caption
+              below carries the arrival context for VoiceOver).
             */}
             <View
               style={styles.daylightStripInline}
@@ -1480,22 +1508,6 @@ export default function Home() {
               </View>
             </View>
           </View>
-
-          {/*
-            Destination underline is reserved for *recurring*
-            destinations (a save-as-home/work invitation) — gated on
-            `isRegularDestination`, hard-coded false until feat/
-            recent-trips lands a real trip-frequency signal.
-          */}
-          <Text
-            style={[
-              styles.routeViaLabel,
-              isRegularDestination && styles.destination,
-            ]}
-            numberOfLines={1}
-          >
-            Via {params.destName ?? 'your destination'}
-          </Text>
 
           {/*
             Conditions caption — "Safest route…" framing is real (the
@@ -1904,18 +1916,10 @@ const styles = StyleSheet.create({
   // `destination` kept — new layout still uses it for the
   // recurring-destination underline.
   // --- Route-preview card (Figma 1109:3264) ---
-  // Top row: "12 min" headline on the left, daylight strip on the
-  // right. The strip is narrower than the standalone v1 placement
-  // (96pt) because it shares the row with the headline now.
+  // Headline row: "12 min" stands alone — full-width slot, headline
+  // gets the full visual weight without competing with the daylight
+  // strip. 24pt content-sheet gutter per Figma (`px-[24px]`).
   routeHeadlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-    // 24pt content-sheet gutter per Figma 1109:3264 (`px-[24px]`).
-    // Was 16pt — the tighter chrome-sheet default that slipped in
-    // by matching the browse-mode sheet without re-reading the
-    // Figma source for route-preview specifically.
     paddingHorizontal: 24,
   },
   routeMinutes: {
@@ -1925,16 +1929,28 @@ const styles = StyleSheet.create({
     ...typography.title2Emphasized,
     color: colors.wiltedgreen,
   },
+  // Via + daylight strip share a row per Figma — both are secondary
+  // context (street name + arrival-light forecast). Via flexes to
+  // fill, daylight strip anchors right at its fixed 96pt width.
+  routeViaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 24,
+  },
   daylightStripInline: {
-    // Same daylight strip structure as the standalone variant above,
-    // sized to share the headline row's right column.
+    // Fixed 96pt right-column width per Figma. The width is shared
+    // with the v1 standalone placement — only the parent row context
+    // changed (now paired with via, not the headline).
     width: 96,
     gap: 4,
   },
   routeViaLabel: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-    paddingHorizontal: 24,
+    // flex into the left column so the daylight strip on the right
+    // gets its fixed 96pt while the via text takes whatever's left.
+    flex: 1,
   },
   routeConditionsCaption: {
     // Caption1/Regular per Figma 1109:3264 — supplementary status
