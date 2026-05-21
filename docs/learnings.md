@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/subtag-glyphs-plus-asset-drops (2026-05-22)
+
+Wired up the 4 bespoke identity-tag glyphs the user designed (Women-owned / LGBTQ+ welcoming / Restroom / Late-night) + restored the missing chevron on the browse-mode recommendation row. One pattern worth keeping.
+
+- **When swapping a Phosphor placeholder for a multi-color bespoke SVG, the dispatch needs two paths, not one.** The LandmarkMarker had a single `phosphorForSubTag(subTag) → Phosphor component` dispatch consumed via `<PhosphorIcon size={size} color={color} weight="duotone" />`. Phosphor icons accept a `color` prop and adapt to the surface (white on green pin, freshgreen on black-owned pin). The bespoke illustrative SVGs have baked-in colors and ignore color props. Swapping them in-place via the same dispatch breaks the variant-coloring. The right shape is a two-path dispatch: try the bespoke-SVG switch first (returns a fully-rendered JSX element); if no match, fall back to the Phosphor switch (returns a component class to be wrapped with color). Each path owns its own rendering API. Worth keeping: when introducing assets with a different "give me color" contract than the existing dispatch assumed, split the dispatch by contract — don't try to unify under a single component class that expects a color it can't honor.
+
+---
+
 ## chore/figma-fidelity-audit-9-followups (2026-05-21)
 
 Verification-pass follow-ups against Figma 1109:3264 + 1114:9047. Most type/padding deltas were silent drift; one — the recommendation-card curator quote — was an intentional Figma decision we chose to push back on.
