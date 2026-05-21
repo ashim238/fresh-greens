@@ -2,17 +2,23 @@ import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
 import { CloudSun } from 'phosphor-react-native/src/icons/CloudSun';
-import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
-import { HandHeart } from 'phosphor-react-native/src/icons/HandHeart';
-import { Heart } from 'phosphor-react-native/src/icons/Heart';
-import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { Star } from 'phosphor-react-native/src/icons/Star';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
-import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import CommunitySignalGlyph from '../assets/illustrations/trustedbycommunity-empty.svg';
+// Bespoke category glyphs — multi-color illustrative SVGs that
+// replace the Phosphor placeholders (Coffee/HandHeart/Heart/Toilet/
+// MoonStars) on the recommendation-card empty-state placeholder
+// surface. Black-owned reuses the existing mapmarker glyph;
+// women-owned / LGBTQ+ / restroom / late-night each ship as their
+// own bespoke illustration (Figma 1255:1060).
+import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-black-owned.svg';
+import GlyphLateNight from '../assets/illustrations/mapmarker-glyph-late-night.svg';
+import GlyphLgbtq from '../assets/illustrations/mapmarker-glyph-lgbtq.svg';
+import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg';
+import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
 
 import { useRecommendations } from '../hooks/useRecommendations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -146,17 +152,39 @@ export function HomeBrowseSheet({
 
       {browseMode ? (
         // --- Browse mode: "Trusted by your community" Row 1 ---
-        // No caret/Pressable on the section title — collapsing the
-        // only row in browse mode would leave the user with chips and
-        // nothing else (no in-place re-expand affordance, and the
-        // visual cue would be misleading). Full-sheet collapse is the
-        // bottom-sheet drag handle's job (app/home.tsx). The parent's
-        // `collapsed` master toggle is still honored so the drag-
-        // handle path keeps working.
+        // Pressable section row with caret — mirrors the focus-mode
+        // pattern below. Previously a non-interactive View with no
+        // caret on the reasoning that "collapsing the only row leaves
+        // chips with no re-expand affordance"; but the sheet now
+        // defaults to COLLAPSED on app entry (PR #206), so users
+        // need the chevron to expand from within the sheet content.
+        // The drag handle still toggles the same state; the caret
+        // gives a second, in-place affordance.
         <>
-          <View style={styles.sectionRow}>
+          <Pressable
+            onPress={() => {
+              if (!reduceMotion) {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              }
+              onToggleCollapsed();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              collapsed
+                ? 'Show trusted-by-your-community recommendations'
+                : 'Hide trusted-by-your-community recommendations'
+            }
+            accessibilityState={{ expanded: !collapsed }}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
+          >
             <Text style={styles.sectionTitle}>Trusted by your community</Text>
-          </View>
+            {collapsed ? (
+              <CaretDown size={16} color={colors.black} weight="fill" />
+            ) : (
+              <CaretUp size={16} color={colors.black} weight="fill" />
+            )}
+          </Pressable>
           {!collapsed && (
             <TrustedByCommunityRow
               recommendations={trusted}
@@ -555,15 +583,15 @@ function WeatherDrivingCard({
 function PhotoPlaceholderGlyph({ category }: { category: RecommendationCategory }) {
   switch (category) {
     case 'black-owned':
-      return <Coffee size={64} color={colors.burntgreen} weight="duotone" />;
+      return <GlyphBlackOwned width={64} height={64} />;
     case 'women-owned':
-      return <HandHeart size={64} color={colors.burntgreen} weight="duotone" />;
+      return <GlyphWomenOwned width={64} height={64} />;
     case 'lgbtq-welcoming':
-      return <Heart size={64} color={colors.burntgreen} weight="duotone" />;
+      return <GlyphLgbtq width={64} height={64} />;
     case 'restroom':
-      return <Toilet size={64} color={colors.burntgreen} weight="duotone" />;
+      return <GlyphRestroom width={64} height={64} />;
     case 'late-night-warm-welcome':
-      return <MoonStars size={64} color={colors.burntgreen} weight="duotone" />;
+      return <GlyphLateNight width={64} height={64} />;
   }
 }
 

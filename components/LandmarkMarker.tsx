@@ -1,12 +1,8 @@
 import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
 import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
-import { HandHeart } from 'phosphor-react-native/src/icons/HandHeart';
-import { Heart } from 'phosphor-react-native/src/icons/Heart';
 import { House } from 'phosphor-react-native/src/icons/House';
-import { MoonStars } from 'phosphor-react-native/src/icons/MoonStars';
 import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
 import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
-import { Toilet } from 'phosphor-react-native/src/icons/Toilet';
 import { Tree } from 'phosphor-react-native/src/icons/Tree';
 import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { useEffect, useState } from 'react';
@@ -22,9 +18,13 @@ import GlyphFeltUnsafe from '../assets/illustrations/mapmarker-glyph-felt-unsafe
 import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welcome.svg';
 import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
+import GlyphLateNight from '../assets/illustrations/mapmarker-glyph-late-night.svg';
+import GlyphLgbtq from '../assets/illustrations/mapmarker-glyph-lgbtq.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
+import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg';
 import GlyphTrustedFriend from '../assets/illustrations/mapmarker-glyph-trusted-friend.svg';
+import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
@@ -116,17 +116,12 @@ function phosphorForSubTag(subTag: string | undefined) {
       return Tree;
     case 'Personal':
       return House;
-    // Identity / context sub-tags under felt-welcome — same icons
-    // HomeBrowseSheet uses on the chip strip, so chip / picker /
-    // marker glyphs all line up.
-    case 'Women-owned':
-      return HandHeart;
-    case 'LGBTQ+ welcoming':
-      return Heart;
-    case 'Open restroom':
-      return Toilet;
-    case 'Late-night welcome':
-      return MoonStars;
+    // Identity / context sub-tags (Women-owned, LGBTQ+ welcoming,
+    // Open restroom, Late-night welcome) used to dispatch here to
+    // Phosphor icons (HandHeart / Heart / Toilet / MoonStars). They
+    // now dispatch to bespoke SVG glyphs upstream — see the SVG
+    // switch in `glyphFor` above. Don't add them back unless you've
+    // also removed that branch.
     default:
       return null;
   }
@@ -159,6 +154,22 @@ function GlyphForCategory({
   variant: Variant;
   size?: number;
 }) {
+  // Identity-tag bespoke SVGs (multi-color illustrative, per Figma
+  // 1255:1060). Take precedence over the Phosphor place-type
+  // dispatch when the user picked an identity subTag — same icons
+  // HomeBrowseSheet uses in the recommendation-card placeholder, so
+  // chip / picker / marker glyphs all line up visually.
+  switch (subTag) {
+    case 'Women-owned':
+      return <GlyphWomenOwned width={size} height={size} />;
+    case 'LGBTQ+ welcoming':
+      return <GlyphLgbtq width={size} height={size} />;
+    case 'Open restroom':
+      return <GlyphRestroom width={size} height={size} />;
+    case 'Late-night welcome':
+      return <GlyphLateNight width={size} height={size} />;
+  }
+
   const PhosphorIcon = phosphorForSubTag(subTag);
   if (PhosphorIcon) {
     const color = variant === 'black-owned' ? colors.freshgreen : colors.white;
