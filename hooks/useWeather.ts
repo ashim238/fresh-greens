@@ -12,8 +12,8 @@ import { getCurrentWeather, type CurrentWeather } from '../lib/api/weather';
  * the card never disappears).
  *
  * Re-fetches on a ~0.5mi geo-grid bucket (same rounding strategy as
- * useRecommendations) so jittery GPS doesn't trigger redundant API
- * calls.
+ * useRecommendationsBatch) so jittery GPS doesn't trigger redundant
+ * API calls.
  */
 export function useWeather(
   userLocation: { latitude: number; longitude: number } | null | undefined,

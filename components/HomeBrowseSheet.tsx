@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
@@ -21,7 +22,6 @@ import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg'
 import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
 
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
-import { useRecommendations } from '../hooks/useRecommendations';
 import { useRecommendationsBatch, type BrowseRowSpec } from '../hooks/useRecommendationsBatch';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useWeather } from '../hooks/useWeather';
@@ -68,6 +68,7 @@ export function HomeBrowseSheet({
   onToggleCollapsed,
   onSelectRecommendation,
   onEmptyTap,
+  onScrollToRow,
 }: {
   /** Display name for the eyebrow; falls back to "Local" if undefined. */
   firstName?: string;
@@ -98,21 +99,19 @@ export function HomeBrowseSheet({
    * than a dead "coming soon" panel.
    */
   onEmptyTap?: () => void;
+  /**
+   * Parent-owned vertical scroll-to handler. The category chips
+   * function as jump-links into the multi-row stack — tapping a chip
+   * calls this with the target row's Y offset (measured via per-row
+   * onLayout). Parent (app/home.tsx) calls ScrollView.scrollTo on its
+   * outer sheet scroller.
+   *
+   * Optional — if the host doesn't wire it, chips silently no-op
+   * (the scroll-to-row affordance just isn't available, the rows
+   * are still all visible).
+   */
+  onScrollToRow?: (y: number) => void;
 }) {
-  // null = browse mode ("All" chip selected, shows the "Trusted by
-  // your community" cross-category row per Round 4 spec). Any
-  // category = focus mode (single-category carousel — the pre-Round-4
-  // behavior, preserved verbatim). Default is browse mode so the
-  // differentiator row is the first thing users see.
-  const [category, setCategory] = useState<RecommendationCategory | null>(null);
-  const { recommendations, loading } = useRecommendations({
-    // Skip the focus-mode fetch when in browse mode — useRecommendations
-    // returns the merged catalog when no category is set, which is the
-    // wrong shape for the per-category carousel. Browse mode reads from
-    // useRecommendationsBatch instead.
-    category: category ?? undefined,
-    userLocation,
-  });
   // All 7 browse-mode rows batched in parallel. Trusted-by-community
   // is row[0]; the result for it is consumed by TrustedByCommunityRow
   // (which keeps its scroll-to-leading + first-card-fade animation
@@ -128,6 +127,70 @@ export function HomeBrowseSheet({
   const trustedLoading = trustedRowResult?.loading ?? true;
   const reduceMotion = useReduceMotion();
 
+  // Per-row Y offsets captured via onLayout — used by the chip-tap
+  // jump-link handler. Ref (not state) because reads happen
+  // imperatively at tap-time; layout writes shouldn't trigger
+  // re-renders.
+  const rowYsRef = useRef<Record<string, number>>({});
+  // When a chip is tapped before its target row has been laid out
+  // (sheet collapsed, or first-render race), we stash the target
+  // here — the next onLayout pass for that row will fire the scroll.
+  const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null);
+
+  // Clear the cached row Ys when the sheet collapses — the rows
+  // unmount, and their cached Y values are now stale (next expand
+  // could lay them out at different offsets if sheet content
+  // changed, e.g. a new community report bumped Row 1's height).
+  // Fresh measurements arrive via onLayout on the post-expand pass.
+  useEffect(() => {
+    if (collapsed) {
+      rowYsRef.current = {};
+    }
+  }, [collapsed]);
+
+  function recordRowY(key: string, y: number) {
+    rowYsRef.current[key] = y;
+    if (pendingScrollKey === key) {
+      onScrollToRow?.(y);
+      setPendingScrollKey(null);
+    }
+  }
+
+  function jumpToCategory(category: RecommendationCategory | null) {
+    // Browse chip (null) → top of the sheet. Category chip → its row.
+    const key = category ? categoryToRowKey(category) : 'trusted-community';
+    Haptics.selectionAsync().catch(() => {});
+    // Try the cached Y first regardless of collapsed state — covers
+    // the case where rows are already laid out (e.g. user collapsed
+    // then re-tapped a chip without the rowYsRef having been cleared
+    // mid-frame, or the LayoutAnimation race the code-reviewer flagged
+    // where onLayout fired before this tap landed).
+    const cachedY = rowYsRef.current[key];
+    if (cachedY !== undefined) {
+      // If currently collapsed, expand AND scroll — onScrollToRow
+      // runs against the parent's ScrollView which is still mounted,
+      // so the scroll target survives the expansion animation.
+      if (collapsed) {
+        if (!reduceMotion) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        }
+        onToggleCollapsed();
+      }
+      onScrollToRow?.(cachedY);
+      return;
+    }
+    // No cached Y — use the pending pattern: stash the target and
+    // expand. The post-expand onLayout pass fires the scroll once Y
+    // is known.
+    setPendingScrollKey(key);
+    if (collapsed) {
+      if (!reduceMotion) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+      onToggleCollapsed();
+    }
+  }
+
   // Eyebrow copy — when we have the user's first name, render the
   // possessive ("Jordan's Local Recs 💃🏾"). With no name (signed-out
   // or pre-displayName Apple sign-in), drop the possessive entirely
@@ -135,9 +198,6 @@ export function HomeBrowseSheet({
   const eyebrowCopy = firstName
     ? `${firstName}'s Local Recs 💃🏾`
     : 'Local Recs 💃🏾';
-
-  const browseMode = category === null;
-  const categoryLabel = category ? CATEGORY_LABELS[category] : 'All';
 
   return (
     <View style={styles.content}>
@@ -152,178 +212,101 @@ export function HomeBrowseSheet({
         </View>
       </View>
 
-      <CategoryChips
-        category={category}
-        onChange={(next) => {
+      {/*
+        Chips are jump-links into the multi-row stack below — tap
+        a chip to scroll to that category's row. The pre-Round-4
+        focus mode (chip = single-category filter) was retired
+        because users couldn't see other rows while drilled in;
+        scroll-to-row keeps the full stack in view and lets chips
+        function as a table-of-contents. "Browse" chip → scroll to
+        top (the Trusted-by-your-community row).
+      */}
+      <CategoryChips onJump={jumpToCategory} />
+
+      <Pressable
+        onPress={() => {
           if (!reduceMotion) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           }
-          setCategory(next);
+          onToggleCollapsed();
         }}
-      />
-
-      {browseMode ? (
-        // --- Browse mode: multi-row recommendations stack ---
-        // Row 1 (Trusted by your community) keeps its Pressable
-        // header with chevron — drives sheet collapse + carries the
-        // canonical 24pt community-signal glyph as a visual anchor
-        // for the differentiator row. Rows 2–7 render below when
-        // expanded (no per-row collapse — the sheet-level toggle is
-        // the single source of truth; chip = focus mode, Browse = full
-        // multi-row).
+        accessibilityRole="button"
+        accessibilityLabel={
+          collapsed
+            ? 'Show trusted-by-your-community recommendations'
+            : 'Hide trusted-by-your-community recommendations'
+        }
+        accessibilityState={{ expanded: !collapsed }}
+        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+        style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
+        onLayout={(e) => recordRowY('trusted-community', e.nativeEvent.layout.y)}
+      >
+        <View style={styles.sectionTitleGroup}>
+          <CommunitySignalGlyph24 width={24} height={24} />
+          <Text style={styles.sectionTitle}>Trusted by your community</Text>
+        </View>
+        {collapsed ? (
+          <CaretDown size={16} color={colors.black} weight="fill" />
+        ) : (
+          <CaretUp size={16} color={colors.black} weight="fill" />
+        )}
+      </Pressable>
+      {!collapsed && (
         <>
-          <Pressable
-            onPress={() => {
-              if (!reduceMotion) {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              }
-              onToggleCollapsed();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              collapsed
-                ? 'Show trusted-by-your-community recommendations'
-                : 'Hide trusted-by-your-community recommendations'
-            }
-            accessibilityState={{ expanded: !collapsed }}
-            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-            style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
-          >
-            <View style={styles.sectionTitleGroup}>
-              <CommunitySignalGlyph24 width={24} height={24} />
-              <Text style={styles.sectionTitle}>Trusted by your community</Text>
-            </View>
-            {collapsed ? (
-              <CaretDown size={16} color={colors.black} weight="fill" />
-            ) : (
-              <CaretUp size={16} color={colors.black} weight="fill" />
-            )}
-          </Pressable>
-          {!collapsed && (
-            <>
-              <TrustedByCommunityRow
-                recommendations={trusted}
-                loading={trustedLoading}
-                reduceMotion={reduceMotion}
-                onSelectRecommendation={onSelectRecommendation}
-                onEmptyTap={onEmptyTap}
-              />
-              {/* Rows 2–7: Open Now + 5 per-category. Each row is
-                  header (glyph + title) + carousel body. */}
-              {BROWSE_ROW_SPECS.slice(1).map((spec) => {
-                const result = browseRowResults[spec.key];
-                return (
-                  <GenericBrowseRow
-                    key={spec.key}
-                    spec={spec}
-                    recommendations={result?.recommendations ?? []}
-                    loading={result?.loading ?? true}
-                    reduceMotion={reduceMotion}
-                    onSelectRecommendation={onSelectRecommendation}
-                    onEmptyTap={onEmptyTap}
-                  />
-                );
-              })}
-            </>
-          )}
-        </>
-      ) : (
-        // --- Focus mode: per-category carousel (pre-Round-4 path) ---
-        <>
-          <Pressable
-            onPress={() => {
-              if (!reduceMotion) {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              }
-              onToggleCollapsed();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={collapsed ? `Show ${categoryLabel} recommendations` : `Hide ${categoryLabel} recommendations`}
-            accessibilityState={{ expanded: !collapsed }}
-            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-            style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
-          >
-            {/*
-              Figma 1114:9047 specifies "Things to Do: {category}".
-              Shipped uses "Around Me" — the user's explicit call to
-              keep "Around Me" as a deliberate Figma deviation. Locator
-              framing (where the recs are relative to me) reads more
-              honest than activity framing for a community-data app.
-              Don't auto-revert in fidelity audits.
-            */}
-            <Text style={styles.sectionTitle}>Around Me: {categoryLabel}</Text>
-            {collapsed ? (
-              <CaretDown size={16} color={colors.black} weight="fill" />
-            ) : (
-              <CaretUp size={16} color={colors.black} weight="fill" />
-            )}
-          </Pressable>
-
-          {!collapsed && category && (
-            loading && recommendations.length === 0 ? (
-              // First-render path while the proxy resolves. Renders 3
-              // skeleton cards in the same horizontal scroller so the
-              // user doesn't see the EmptyState flash before content
-              // lands. Without this, every chip-tap shows "More <cat>
-              // coming soon" for ~50–500ms while the network call is
-              // in flight.
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsRowContent}
-                scrollEnabled={false}
-                accessible
-                accessibilityLabel={`Loading ${categoryLabel} recommendations`}
+          <TrustedByCommunityRow
+            recommendations={trusted}
+            loading={trustedLoading}
+            reduceMotion={reduceMotion}
+            onSelectRecommendation={onSelectRecommendation}
+            onEmptyTap={onEmptyTap}
+          />
+          {/* Rows 2–7: Open Now + 5 per-category. Each row is
+              header (glyph + title) + carousel body. Wrap each in
+              a View with onLayout so its Y is captured for chip
+              jump-links. */}
+          {BROWSE_ROW_SPECS.slice(1).map((spec) => {
+            const result = browseRowResults[spec.key];
+            return (
+              <View
+                key={spec.key}
+                onLayout={(e) => recordRowY(spec.key, e.nativeEvent.layout.y)}
               >
-                <View style={styles.carouselLeadingSpacer} />
-                {[0, 1, 2].map((i) => (
-                  <RecommendationCardSkeleton key={`skel-${i}`} />
-                ))}
-                <View style={styles.carouselTrailingSpacer} />
-              </ScrollView>
-            ) : recommendations.length > 0 ? (
-              // Multi-card variant per Figma 1133:13551 — horizontal
-              // scroll of up to 5 cards. `getRecommendations` already
-              // orders them (community first, then external, curated
-              // only as catastrophic fallback) and computes
-              // `distanceMiles`, so this consumes the list as-is.
-              //
-              // Snap math note: padding lives on leading/trailing spacer
-              // Views, NOT on `contentContainerStyle.paddingHorizontal`.
-              // Padding on the contentContainer offsets x=0 in scroll
-              // coordinates but doesn't shift snap points, so cards 2+
-              // misalign. Spacer views participate in the layout and the
-              // snap interval lines up with each card's left edge.
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsRowContent}
-                decelerationRate={reduceMotion ? 'normal' : 'fast'}
-                snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
-                snapToAlignment="start"
-                accessibilityRole={'list' as any}
-                accessibilityLabel={`${categoryLabel} recommendations`}
-              >
-                <View style={styles.carouselLeadingSpacer} />
-                {recommendations.map((rec) => (
-                  <RecommendationCard
-                    key={rec.id}
-                    recommendation={rec}
-                    onPress={() => onSelectRecommendation(rec)}
-                  />
-                ))}
-                <View style={styles.carouselTrailingSpacer} />
-              </ScrollView>
-            ) : (
-              <View style={styles.cardWrap}>
-                <EmptyState category={category} onTap={onEmptyTap} />
+                <GenericBrowseRow
+                  spec={spec}
+                  recommendations={result?.recommendations ?? []}
+                  loading={result?.loading ?? true}
+                  reduceMotion={reduceMotion}
+                  onSelectRecommendation={onSelectRecommendation}
+                  onEmptyTap={onEmptyTap}
+                />
               </View>
-            )
-          )}
+            );
+          })}
         </>
       )}
     </View>
   );
+}
+
+/**
+ * Maps a chip's recommendation category to the BROWSE_ROW_SPECS key
+ * for the matching per-category row. Kept as a single-source-of-truth
+ * helper so chip-tap routing and any future "highlight current row"
+ * affordance share the same key derivation.
+ */
+function categoryToRowKey(category: RecommendationCategory): string {
+  switch (category) {
+    case 'black-owned':
+      return 'cat-black-owned';
+    case 'women-owned':
+      return 'cat-women-owned';
+    case 'lgbtq-welcoming':
+      return 'cat-lgbtq';
+    case 'restroom':
+      return 'cat-restroom';
+    case 'late-night-warm-welcome':
+      return 'cat-late-night';
+  }
 }
 
 // --- Multi-row browse stack (Round 4 PR B) ------------------------------
@@ -654,12 +637,17 @@ const CATEGORY_ORDER: RecommendationCategory[] = [
   'late-night-warm-welcome',
 ];
 
+/**
+ * Chip row — each chip is a jump-link to its row in the multi-row
+ * stack below. No persistent selection state: the chips aren't a
+ * filter (no "current" category), they're a table of contents.
+ * "Browse" chip scrolls back to the top (the Trusted-by-your-community
+ * row); category chips scroll to their respective row.
+ */
 function CategoryChips({
-  category,
-  onChange,
+  onJump,
 }: {
-  category: RecommendationCategory | null;
-  onChange: (next: RecommendationCategory | null) => void;
+  onJump: (next: RecommendationCategory | null) => void;
 }) {
   return (
     <ScrollView
@@ -667,58 +655,27 @@ function CategoryChips({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.chipsRow}
     >
-      {/*
-        "Browse" pill leads the row — selected = browse mode (Row 1
-        visible, no per-category focus). Tap any other chip to enter
-        focus mode; tap "Browse" to come back out. Named "Browse"
-        rather than "All" because the latter is semantically ambiguous
-        ("all categories"? "all locations"? "all results"?) — "Browse"
-        names the mode it puts you in, pairing naturally with the
-        section title "Trusted by your community".
-      */}
       <Pressable
-        onPress={() => onChange(null)}
+        onPress={() => onJump(null)}
         accessibilityRole="button"
-        accessibilityLabel="Browse mode — recommendations across all categories"
-        accessibilityState={{ selected: category === null }}
-        style={({ pressed }) => [
-          styles.chip,
-          category === null && styles.chipSelected,
-          pressed && pressedDim,
-        ]}
+        accessibilityLabel="Browse"
+        accessibilityHint="Scrolls to the top of the recommendations"
+        style={({ pressed }) => [styles.chip, pressed && pressedDim]}
       >
-        <Text
-          style={[
-            styles.chipText,
-            category === null && styles.chipTextSelected,
-          ]}
-        >
-          Browse
-        </Text>
+        <Text style={styles.chipText}>Browse</Text>
       </Pressable>
-      {CATEGORY_ORDER.map((cat) => {
-        const selected = cat === category;
-        return (
-          <Pressable
-            key={cat}
-            onPress={() => onChange(cat)}
-            accessibilityRole="button"
-            accessibilityLabel={`${CATEGORY_LABELS[cat]} category`}
-            accessibilityState={{ selected }}
-            style={({ pressed }) => [
-              styles.chip,
-              selected && styles.chipSelected,
-              pressed && pressedDim,
-            ]}
-          >
-            <Text
-              style={[styles.chipText, selected && styles.chipTextSelected]}
-            >
-              {CATEGORY_LABELS[cat]}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {CATEGORY_ORDER.map((cat) => (
+        <Pressable
+          key={cat}
+          onPress={() => onJump(cat)}
+          accessibilityRole="button"
+          accessibilityLabel={CATEGORY_LABELS[cat]}
+          accessibilityHint="Scrolls to that section"
+          style={({ pressed }) => [styles.chip, pressed && pressedDim]}
+        >
+          <Text style={styles.chipText}>{CATEGORY_LABELS[cat]}</Text>
+        </Pressable>
+      ))}
     </ScrollView>
   );
 }
@@ -1169,17 +1126,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipSelected: {
-    // wiltedgreen for AA contrast on the white chip label.
-    backgroundColor: colors.wiltedgreen,
-  },
   chipText: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-  },
-  chipTextSelected: {
-    ...typography.footnoteEmphasized,
-    color: colors.white,
   },
   sectionRow: {
     flexDirection: 'row',
