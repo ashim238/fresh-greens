@@ -110,6 +110,10 @@ export default function Home() {
   // device — the expanded default didn't give users a chance to
   // explore.
   const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
+  // ScrollView ref for the browse sheet's vertical scroller — used by
+  // HomeBrowseSheet's chip jump-links (chip tap → scroll to that row's
+  // Y offset, measured per-row inside the sheet via onLayout).
+  const sheetScrollRef = useRef<ScrollView>(null);
   // Neighborhood label for the browse-mode sheet header. Derived
   // from a one-shot `Location.reverseGeocodeAsync` against the
   // user's first GPS fix. Picks `subregion + city` (most natural
@@ -1366,6 +1370,7 @@ export default function Home() {
             // scrolling internally. `flex: 1` makes the ScrollView the
             // bounded region; cards inside scroll vertically when they
             // exceed it.
+            ref={sheetScrollRef}
             style={styles.sheetScrollFlex}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
@@ -1378,6 +1383,16 @@ export default function Home() {
               refreshKey={focusRefreshKey}
               collapsed={thingsToDoCollapsed}
               onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+              onScrollToRow={(y) => {
+                // Chip jump-link target. Subtract a small offset so
+                // the row's section header isn't flush to the
+                // viewport top — leaves breathing room and matches
+                // Apple Maps' "scroll-to-section" pattern.
+                sheetScrollRef.current?.scrollTo({
+                  y: Math.max(0, y - 8),
+                  animated: true,
+                });
+              }}
               onSelectRecommendation={(rec) => {
                 // Tapping a recommendation card routes to /home with
                 // the destination params set, same way a search-result
