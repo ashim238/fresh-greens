@@ -279,6 +279,7 @@ export function LandmarkMarker({
         coordinate={{ latitude, longitude }}
         anchor={{ x: 4 / 62, y: 45.26 / 51 }}
         onPress={onPress}
+        accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         tracksViewChanges={tracking}
       >
@@ -294,6 +295,7 @@ export function LandmarkMarker({
       coordinate={{ latitude, longitude }}
       anchor={{ x: 0.5, y: 1 }}
       onPress={onPress}
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       tracksViewChanges={tracking}
     >

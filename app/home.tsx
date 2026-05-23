@@ -52,7 +52,11 @@ import {
   zoneDashPattern,
 } from '../lib/api/zones';
 import { clusterPointZones } from '../lib/clustering';
-import { gradientSegments, suggestedDepartureForDaylight } from '../lib/daylight';
+import {
+  DAYLIGHT_DASH_PATTERN,
+  gradientSegments,
+  suggestedDepartureForDaylight,
+} from '../lib/daylight';
 import { formatDuration, formatTimeOfDay } from '../lib/format';
 import {
   edgePositionForPoint,
@@ -65,6 +69,7 @@ import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
 import { shadows } from '../theme/shadows';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 // Zone-overlay rendering is now a real user preference (toggled from
@@ -284,6 +289,14 @@ export default function Home() {
               coordinates={segment.coordinates}
               strokeColor={segment.color}
               strokeWidth={routeColors.recommended.width}
+              // WCAG 1.4.1 non-color cue: pair the daylight color
+              // gradient with a dash pattern so day/twilight/night
+              // reads through deuteranopia/tritanopia/monochromacy.
+              // Solid = day, medium dashes = twilight, short dashes
+              // = night. The bottom-sheet daylight legend has the
+              // same color anchors so the polyline + legend tell
+              // the same story two ways.
+              lineDashPattern={DAYLIGHT_DASH_PATTERN[segment.band]}
             />
           ));
         }
@@ -1022,6 +1035,12 @@ export default function Home() {
             anchor={{ x: 0.5, y: 1 }}
             tappable={false}
             tracksViewChanges={false}
+            // role="none" — the pin is a coordinate indicator that
+            // moves on map tap, not a labeled image. The
+            // accessibilityLabel carries the semantic ("here, and
+            // here's how to move it") without over-promising
+            // image-content semantics.
+            accessibilityRole="none"
             accessibilityLabel="Report location — tap the map to move"
           >
             <View style={styles.placementPinFrame}>
@@ -1624,7 +1643,12 @@ export default function Home() {
 
           {suggestedDeparture && (
             <View style={styles.tradeoffRow}>
-              <Text style={styles.tradeoffCopy}>
+              <Text
+                style={[
+                  styles.tradeoffCopy,
+                  dynamicType(relaxedLineHeight(typography.footnoteRegular)),
+                ]}
+              >
                 Heads up! You can leave in a bit and still make it on time with
                 some added daylight on your route.
               </Text>

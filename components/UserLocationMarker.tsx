@@ -94,6 +94,8 @@ export function UserLocationMarker({
       // turn-by-turn next-step arrow).
       zIndex={1000}
       tracksViewChanges={tracking}
+      accessibilityRole="image"
+      accessibilityLabel="Your location"
     >
       <View style={styles.frame}>
         <Animated.View

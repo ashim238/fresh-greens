@@ -34,6 +34,7 @@ import type {
   RecommendationCategory,
 } from '../lib/api/recommendations';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
@@ -898,7 +899,23 @@ function RecommendationCard({
         {quoteText ? (
           <View style={styles.quoteCallout}>
             <ChatCircle size={16} color={colors.wiltedgreen} weight="fill" />
-            <Text style={styles.quoteText} numberOfLines={4}>
+            {/*
+              Dynamic Type wrap: the curator quote is multi-line
+              editorial copy — the load-bearing differentiator on the
+              card. `relaxedLineHeight` opens line spacing to 1.6×
+              fontSize for the longest-read text on the card (4 lines
+              max); `dynamicType` then scales both fontSize and
+              line-height in proportion when the user has bumped iOS
+              Dynamic Type. The numberOfLines={4} cap absorbs overflow
+              at large scales gracefully. WCAG 1.4.4 + 1.4.12.
+            */}
+            <Text
+              style={[
+                styles.quoteText,
+                dynamicType(relaxedLineHeight(typography.footnoteRegular)),
+              ]}
+              numberOfLines={4}
+            >
               {quoteText}
             </Text>
           </View>
