@@ -621,16 +621,24 @@ export default function Home() {
       // mode shows zero polylines on the map.
       const routePromise = destination
         ? getRoutesBetween(center, destination)
-        : Promise.resolve([]);
+        : Promise.resolve({ routes: [] as Route[], source: 'osrm' as const });
       const zonePromise = getZonesForRegion(center);
 
-      const fetchedRoutes = await routePromise;
+      const fetchedResult = await routePromise;
       if (cancelled) return;
       // Routes appear immediately with whatever zones we already have
       // (likely community reports from useFocusEffect, possibly empty).
       // The useMemo handles re-ranking when osmZones lands a moment
       // later — no second setRoutes needed.
-      setRawRoutes(fetchedRoutes);
+      //
+      // We ignore `fetchedResult.source` here — /home's route preview
+      // shows the polyline regardless of provenance. The offline UX
+      // surfaces on /en-route where it actually matters mid-trip.
+      // Pre-warming the cache happens inside getRoutesBetween itself
+      // (every successful OSRM fetch writes to AsyncStorage), so this
+      // /home route-preview call IS what populates the cache for the
+      // future /en-route mount if the user drives into dead signal.
+      setRawRoutes(fetchedResult.routes);
 
       const fetchedZones = await zonePromise;
       if (cancelled) return;
