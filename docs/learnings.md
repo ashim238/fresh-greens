@@ -4,6 +4,22 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/osrm-steps-real-turn-by-turn (2026-05-23)
+
+Swapped the static "Heading toward {destName}" placeholder on /en-route for real turn-by-turn from OSRM's `steps=true` payload. One pattern worth keeping (caught by code-reviewer pre-merge as critical).
+
+- **"Closest" over an ordered sequence the user is progressing through needs a monotonic clamp.** First-draft `findNextStep(steps, userLocation)` picked the closest-by-GPS step as "current target." Looked clean. Failure mode: after the user passes a maneuver but is still close-ish to it (GPS jitter ±10-30m, slow city traffic, red light at the corner, wide turn radius keeping you 35-80m off the point), it stays the closest step and gets re-selected. The card reads "Turn left onto Main" when the turn is already complete and the next instruction should be live. The 30m advance gate hid this only when the user threaded exactly through the maneuver point — almost never in practice. Fix: track the highest-index step ever reached in a ref and never regress; `findNextStep` takes a `minStepIndex` parameter and only searches forward from there. Worth keeping: any time you're picking "the current one" from a sequence the user is moving through (steps, queue items, scroll positions, route segments), check whether "closest at time T" can re-select an earlier item once T+1 noise enters its radius. If yes, you need a monotonic clamp, not a distance comparison. The cheap fix is a ref + a min-index parameter; the architectural fix is along-the-progress-axis distance, not Euclidean.
+
+---
+
+## feat/a11y-batch-colorblind-reducemotion-roles-dynamictype (2026-05-23)
+
+Four-item a11y batch: WCAG 1.4.1 colorblind dash pattern on the daylight polyline, reduce-motion gating, marker roles, Dynamic Type sweep. One pattern worth keeping (caught by code-reviewer pre-merge).
+
+- **WCAG 1.4.1 non-color cues must be evaluated at the render scale the user actually sees, not in isolation.** First-draft `DAYLIGHT_DASH_PATTERN` was `day: undefined, twilight: [10, 6], night: [3, 5]`. The values were "obviously different" in the JSDoc and in isolation — 10pt vs 3pt dashes — but `react-native-maps` Polyline draws those at the *map zoom level*. At typical drive-overview zoom, a 10pt dash already starts to look like a dot, and a 3pt dash compresses into nearly the same visual texture as that already-dotty 10pt. The reviewer caught it; the fix was proportional spread: `twilight: [8, 4]` (mark > gap, reads as dashes) vs `night: [2, 8]` (gap >> mark, reads as true dots). The mental model is right (dash → dot progression mirroring daylight diminishing), the numbers needed to enforce it under render compression. Worth keeping: any non-color cue (dashes, opacity gradients, shape thickness deltas) needs a render-scale sanity check, not just a "these numbers are different" check. The differentiation must survive whatever transformation the rendering layer applies — map zoom, font-scaling, color-filter accessibility modes, dark mode. "Different in the source" ≠ "perceivably different on screen."
+
+---
+
 ## feat/multi-row-recommendations-pr-b (2026-05-21)
 
 Round 4 PR B — split browse-mode's single recommendations row into 7 parallel-fetched rows. Two patterns worth keeping (both flagged by code-reviewer pre-merge).
