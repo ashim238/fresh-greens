@@ -15,6 +15,7 @@
 // Directions — the function signature stays the same; only the body
 // changes.
 
+import { loadActiveRoute, saveActiveRoute } from './route-cache';
 import type { Coordinate } from './zones';
 
 export type RouteType = 'recommended' | 'alternate';
@@ -96,10 +97,35 @@ export type Route = {
  */
 const MAX_ROUTE_DISTANCE_MILES = 500;
 
+/**
+ * Provenance of the returned routes — drives the /en-route UX:
+ *  - `osrm`:  live response from OSRM. Default happy path.
+ *  - `cache`: pulled from the AsyncStorage active-route cache because
+ *             OSRM was unreachable. /en-route surfaces an "Offline
+ *             route" pill so the driver knows there's no live
+ *             recalculation. A background poll attempts OSRM
+ *             periodically to swap back to live data non-jarringly.
+ *  - `mock`:  network was down AND cache had nothing for this
+ *             destination. Last-resort synthetic route — the driver
+ *             still sees a polyline + ETA, but it isn't real road
+ *             geometry. Same UX consideration: /en-route surfaces
+ *             the offline pill in this case too.
+ */
+export type RouteSource = 'osrm' | 'cache' | 'mock';
+
+export type RoutesResult = {
+  routes: Route[];
+  source: RouteSource;
+  /** Present only when source === 'cache' — how stale the cached
+      routes are in ms. Lets /en-route surface "Offline route · 3h
+      old" so the driver knows the data isn't live. */
+  cacheAgeMs?: number;
+};
+
 export async function getRoutesBetween(
   origin: Coordinate,
   destination: Coordinate,
-): Promise<Route[]> {
+): Promise<RoutesResult> {
   // Guard against unroutable origin/destination pairs before hitting
   // OSRM. Beyond MAX_ROUTE_DISTANCE_MILES the optimization is moot
   // (and the OSRM call would return a multi-thousand-mile polyline
@@ -111,7 +137,7 @@ export async function getRoutesBetween(
       `[routes] origin→destination ${distance.toFixed(0)}mi exceeds ` +
         `${MAX_ROUTE_DISTANCE_MILES}mi guard; returning no routes.`,
     );
-    return [];
+    return { routes: [], source: 'osrm' };
   }
 
   try {
@@ -132,18 +158,38 @@ export async function getRoutesBetween(
     // overshoots the destination on the map. Trim each route to the
     // point closest to the requested destination so the polyline
     // ends where the user expects to arrive.
-    return data.routes
+    const routes = data.routes
       .map(parseOSRMRoute)
       .map((route) => ({
         ...route,
         coordinates: trimToDestination(route.coordinates, destination),
       }));
+    // Best-effort cache write — saveActiveRoute already has its own
+    // try/catch + warn log, so no redundant outer .catch needed.
+    // This is what enables the offline-fallback path: every
+    // successful OSRM fetch warms the cache so a subsequent
+    // dead-signal /en-route mount has data to hydrate from.
+    void saveActiveRoute(routes, destination);
+    return { routes, source: 'osrm' };
   } catch (error) {
     console.warn(
-      '[routes] OSRM fetch failed, falling back to mock:',
+      '[routes] OSRM fetch failed, trying cache:',
       error,
     );
-    return getRoutesBetweenMock(origin, destination);
+    const cached = await loadActiveRoute(destination);
+    if (cached) {
+      console.info(
+        `[routes] hydrated from cache (age: ${Math.round(cached.ageMs / 1000)}s)`,
+      );
+      return {
+        routes: cached.routes,
+        source: 'cache',
+        cacheAgeMs: cached.ageMs,
+      };
+    }
+    console.warn('[routes] no cache for this destination, falling back to mock');
+    const mockRoutes = await getRoutesBetweenMock(origin, destination);
+    return { routes: mockRoutes, source: 'mock' };
   }
 }
 

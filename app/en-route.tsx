@@ -19,6 +19,7 @@ import { ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise
 import { ArrowsMerge } from 'phosphor-react-native/src/icons/ArrowsMerge';
 import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
+import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
@@ -55,6 +56,7 @@ import {
   type ManeuverKind,
   type NextStepInfo,
   type Route,
+  type RouteSource,
   routeColors,
 } from '../lib/api/routes';
 import {
@@ -194,6 +196,20 @@ function a11yLabelForTurnCard(
   return `${info.step.instruction}, in ${formatStepDistance(dist)}`;
 }
 
+/**
+ * Coarse cache-age stamp for the "Offline route" pill. Keeps the
+ * pill tight — buckets to "minutes" / "hours" / "23h" so the pill
+ * width doesn't dance as the clock ticks. Floors so the user never
+ * sees a more-recent number than reality.
+ */
+function formatCacheAge(ms: number | null): string {
+  if (ms == null || ms < 60_000) return 'just now';
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h`;
+}
+
 // Sentence-form hazard copy for the Full bottom-sheet hazard panel
 // (Figma 1133:13329). `humanReadableHazard` returns labels for
 // VoiceOver interpolation; this returns the full-sentence variant
@@ -239,6 +255,16 @@ export default function EnRoute() {
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  // Provenance of the rendered routes — drives the "Offline route" /
+  // "Demo route" pill on the turn card. 'osrm' = live; 'cache' =
+  // AsyncStorage hydration after OSRM failure; 'mock' = last-resort
+  // synthetic (network down AND no cache for this destination). The
+  // background refetch loop tries to swap 'cache' → 'osrm' non-jarringly.
+  const [routeSource, setRouteSource] = useState<RouteSource>('osrm');
+  // Cache age stamp at hydration time — displayed inside the offline
+  // pill ("Offline route · 3h old") so the driver knows how stale the
+  // saved data is. Null for 'osrm' and 'mock' sources.
+  const [cacheAgeMs, setCacheAgeMs] = useState<number | null>(null);
   // Tapped community-report state — mirrors /home so the marker
   // grows in place (LandmarkMarker `selected` prop) and the
   // ReportDetailCard surfaces the report's detail/timestamp. Same
@@ -635,8 +661,11 @@ export default function EnRoute() {
       // a sub-second visual blip; the 12s blank route was a sign
       // of complete failure.
       getRoutesBetween(center, destination)
-        .then((routes) => {
-          if (!cancelled) setRawRoutes(routes);
+        .then(({ routes, source, cacheAgeMs: ageMs }) => {
+          if (cancelled) return;
+          setRawRoutes(routes);
+          setRouteSource(source);
+          setCacheAgeMs(ageMs ?? null);
         })
         .catch(() => {
           // Silent failure → route polyline stays empty; the
@@ -658,6 +687,91 @@ export default function EnRoute() {
       cancelled = true;
     };
   }, [params.destLat, params.destLng]);
+
+  // Silent background refresh — when running on cached or mock data,
+  // poll OSRM every 90s and swap to live data on success. The swap is
+  // non-jarring because we seed the monotonic step index to the NEW
+  // route's closest-by-GPS step (not 0) — without that, findNextStep
+  // would briefly show "Head out on Main" mid-trip until the user
+  // moves past the new depart step's 50m guard.
+  //
+  // userLocation is read via ref so live GPS ticks don't restart the
+  // interval. destination IS in the deps because it's URL-derived and
+  // doesn't change mid-trip — if the user picks a new destination,
+  // the effect resets cleanly.
+  const userLocationRef = useRef(userLocation);
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+  }, [userLocation]);
+  useEffect(() => {
+    if (routeSource === 'osrm') return;
+    if (!params.destLat || !params.destLng) return;
+    const dest = {
+      latitude: parseFloat(params.destLat),
+      longitude: parseFloat(params.destLng),
+    };
+    if (Number.isNaN(dest.latitude) || Number.isNaN(dest.longitude)) return;
+    // `cancelled` guards against state writes after unmount or after
+    // the effect tears down (destination changes, user backs out of
+    // /en-route mid-fetch). clearInterval stops FUTURE fires; this
+    // flag covers the in-flight promise that already started.
+    let cancelled = false;
+    const id = setInterval(() => {
+      const liveLocation = userLocationRef.current;
+      if (!liveLocation) return;
+      getRoutesBetween(liveLocation, dest)
+        .then((result) => {
+          if (cancelled) return;
+          if (result.source !== 'osrm') return; // still offline
+          // Seed minStepIndex to the new route's closest-by-GPS step
+          // so the swap doesn't visually regress to "Head out on Main."
+          // Guard: only seed when closest-by-GPS distance is < 150m —
+          // if the new route diverged topologically (detour around a
+          // closure, different recommendation), closest could be a
+          // turn the driver has physically passed but hasn't reached
+          // on the new geometry, surfacing a ghost instruction. When
+          // closest is far, leave the ref at 0 and let findNextStep's
+          // 50m depart guard advance naturally as the user moves.
+          const newRecommended = result.routes[0];
+          if (newRecommended?.steps?.length && liveLocation) {
+            let closestIdx = 0;
+            let closestDist = Number.POSITIVE_INFINITY;
+            const latToM = 111000;
+            const lngToM =
+              111000 * Math.cos((liveLocation.latitude * Math.PI) / 180);
+            for (let i = 0; i < newRecommended.steps.length; i++) {
+              const s = newRecommended.steps[i];
+              const dLat =
+                (s.maneuverLocation.latitude - liveLocation.latitude) * latToM;
+              const dLng =
+                (s.maneuverLocation.longitude - liveLocation.longitude) *
+                lngToM;
+              const d = Math.hypot(dLat, dLng);
+              if (d < closestDist) {
+                closestDist = d;
+                closestIdx = i;
+              }
+            }
+            if (closestDist < 150) {
+              minStepIndexRef.current = closestIdx;
+            }
+          }
+          setRawRoutes(result.routes);
+          setRouteSource('osrm');
+          setCacheAgeMs(null);
+          console.info(
+            '[en-route] silently swapped offline → live OSRM',
+          );
+        })
+        .catch(() => {
+          // Still offline; keep showing cached data + offline pill.
+        });
+    }, 90_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [routeSource, params.destLat, params.destLng]);
 
   // Subscribe to live GPS for the EnRouteCarMarker (heading-driven
   // car glyph). Same setup as /home — high accuracy, 1s/5m thresholds,
@@ -995,6 +1109,32 @@ export default function EnRoute() {
                 {turnHazards.map((category) => (
                   <Hazard key={category} category={category} size={24} />
                 ))}
+              </View>
+            )}
+            {routeSource !== 'osrm' && (
+              <View
+                style={styles.offlinePill}
+                accessibilityRole="text"
+                accessibilityLabel={
+                  routeSource === 'cache'
+                    ? `Offline route, saved ${formatCacheAge(cacheAgeMs)} ago. No live recalculation.`
+                    : 'Demo route — network and saved route both unavailable. Approximate path shown.'
+                }
+              >
+                <WifiSlash size={14} color={colors.white} weight="duotone" />
+                <Text style={styles.offlinePillText}>
+                  {/* Cache → "Offline route" with age stamp ("· 3h old")
+                      when available; mock → "Demo route" to distinguish
+                      real-but-stale OSRM geometry from last-resort
+                      synthetic. Both keep the pill same visual register
+                      (translucent white, WifiSlash) — degraded states,
+                      not alarm. */}
+                  {routeSource === 'cache'
+                    ? cacheAgeMs != null
+                      ? `Offline route · ${formatCacheAge(cacheAgeMs)} old`
+                      : 'Offline route'
+                    : 'Demo route'}
+                </Text>
               </View>
             )}
           </View>
@@ -1420,6 +1560,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  // "Offline route" pill — surfaced on the turn card when route
+  // source is 'cache' or 'mock'. Translucent dark backing reads as
+  // muted status, not alarm — offline navigation is a degraded state
+  // but not an error, and the alarmist palette (orange/red) is
+  // reserved for actual hazards per .cursorrules.
+  offlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'flex-start',
+  },
+  offlinePillText: {
+    ...typography.caption1Emphasized,
+    color: colors.white,
   },
   // Half-opacity treatment for the Volume + Help FABs (coming-soon
   // side buttons). Matches the /safety + /menu coming-soon register.
