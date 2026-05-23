@@ -20,6 +20,43 @@ import type { Coordinate } from './zones';
 export type RouteType = 'recommended' | 'alternate';
 
 /**
+ * Coarse maneuver kind for icon picking + instruction templating.
+ * 11 buckets covering the ~95% of city/highway driving — anything
+ * OSRM emits outside this set falls through to 'straight'.
+ */
+export type ManeuverKind =
+  | 'depart'
+  | 'arrive'
+  | 'straight'
+  | 'left'
+  | 'right'
+  | 'slight-left'
+  | 'slight-right'
+  | 'sharp-left'
+  | 'sharp-right'
+  | 'merge'
+  | 'on-ramp'
+  | 'off-ramp'
+  | 'roundabout';
+
+/**
+ * One maneuver in a route. Built from an OSRM step; mock-fallback
+ * routes don't carry steps (consumer falls back to "Heading toward
+ * {destination}" copy when steps is undefined or empty).
+ */
+export type RouteStep = {
+  /** Pre-built English instruction. OSRM doesn't return one; we
+      template from maneuver kind + street name. */
+  instruction: string;
+  /** Length of this step in meters (from maneuver to next maneuver). */
+  distanceMeters: number;
+  /** GPS point where the maneuver happens (= step start). */
+  maneuverLocation: Coordinate;
+  /** Coarse classifier for icon dispatch + instruction templating. */
+  kind: ManeuverKind;
+};
+
+/**
  * A candidate route from origin to destination. Note there is no `type`
  * field here — the adapter doesn't pre-classify which route is best.
  * That decision belongs to scoring (see lib/scoring.ts), not to the
@@ -34,6 +71,10 @@ export type Route = {
   distanceMeters: number;
   /** Polyline of lat/lng waypoints from origin to destination */
   coordinates: Coordinate[];
+  /** Turn-by-turn maneuvers. Empty when adapter returned mock data
+      (no OSRM steps available) — consumers should fall back to a
+      neutral "Heading toward destination" copy. */
+  steps?: RouteStep[];
 };
 
 /**
@@ -140,6 +181,33 @@ type OSRMRoute = {
     /** GeoJSON LineString — array of [longitude, latitude] pairs */
     coordinates: [number, number][];
   };
+  /** Present only when the request includes `steps=true`. A single
+      multi-leg trip would split here; we always single-leg (origin →
+      destination, no waypoints), so we read legs[0] only. */
+  legs?: OSRMLeg[];
+};
+
+type OSRMLeg = {
+  steps?: OSRMStep[];
+};
+
+type OSRMStep = {
+  /** Length of this step in meters */
+  distance: number;
+  duration: number;
+  /** Street name being entered (empty string for unnamed roads — OSM
+      gaps are common on rural side-streets). */
+  name: string;
+  maneuver: {
+    /** "turn" | "depart" | "arrive" | "continue" | "merge" | "roundabout" | ... */
+    type: string;
+    /** "left" | "right" | "slight left" | "slight right" |
+        "sharp left" | "sharp right" | "straight" | "uturn" — present
+        on most types, absent on depart/arrive/continue. */
+    modifier?: string;
+    /** [longitude, latitude] — the GPS point the maneuver happens at. */
+    location: [number, number];
+  };
 };
 
 /**
@@ -210,7 +278,10 @@ function buildOSRMUrl(origin: Coordinate, destination: Coordinate): string {
   // OSRM expects coordinates as `lng,lat;lng,lat` (longitude first — opposite
   // of our internal { latitude, longitude } convention). Easy bug to make.
   const coords = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
-  return `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=true`;
+  // `steps=true` requests the leg→steps array used for turn-by-turn.
+  // No additional cost on OSRM's public demo; payload grows by ~1-2KB
+  // per city trip (well under 100 steps typical).
+  return `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=true&steps=true`;
 }
 
 function parseOSRMRoute(osrmRoute: OSRMRoute, index: number): Route {
@@ -221,13 +292,225 @@ function parseOSRMRoute(osrmRoute: OSRMRoute, index: number): Route {
     ([longitude, latitude]) => ({ latitude, longitude }),
   );
 
+  // We always single-leg (origin → destination, no waypoints), so
+  // legs[0].steps carries the maneuver list. Missing/empty falls
+  // through to undefined — consumers must handle that case.
+  const osrmSteps = osrmRoute.legs?.[0]?.steps ?? [];
+  const parsed = osrmSteps
+    .map(parseOSRMStep)
+    .filter((s): s is RouteStep => s !== null);
+  const steps: RouteStep[] | undefined = parsed.length > 0 ? parsed : undefined;
+
   return {
     id: `osrm-route-${index}`,
     label: index === 0 ? 'Primary route' : `Alternative ${index}`,
     estimatedMinutes: Math.max(1, Math.round(osrmRoute.duration / 60)),
     distanceMeters: osrmRoute.distance,
     coordinates,
+    steps,
   };
+}
+
+function parseOSRMStep(s: OSRMStep): RouteStep | null {
+  // Defensive guard: malformed OSRM responses (rare but possible from
+  // the public demo server) would crash the downstream destructure.
+  // Returning null lets the caller filter-out and degrade to the
+  // mock fallback instead of taking down /en-route.
+  if (!s?.maneuver?.location || s.maneuver.location.length < 2) return null;
+  const kind = classifyManeuver(s.maneuver.type, s.maneuver.modifier);
+  return {
+    instruction: buildInstruction(kind, s.name ?? ''),
+    distanceMeters: s.distance,
+    maneuverLocation: {
+      latitude: s.maneuver.location[1],
+      longitude: s.maneuver.location[0],
+    },
+    kind,
+  };
+}
+
+/**
+ * Maps OSRM's (type, modifier) → ManeuverKind. Anything not enumerated
+ * (e.g. "rotary", "fork", "exit roundabout") falls through to
+ * 'straight' which renders the neutral NavigationArrow icon and a
+ * "Continue" instruction — degraded but never broken.
+ */
+function classifyManeuver(type: string, modifier?: string): ManeuverKind {
+  if (type === 'depart') return 'depart';
+  if (type === 'arrive') return 'arrive';
+  if (type === 'merge') return 'merge';
+  if (type === 'on ramp') return 'on-ramp';
+  if (type === 'off ramp') return 'off-ramp';
+  if (type === 'roundabout' || type === 'rotary' || type === 'roundabout turn') {
+    return 'roundabout';
+  }
+  if (type === 'turn' || type === 'end of road' || type === 'fork') {
+    switch (modifier) {
+      case 'left':
+        return 'left';
+      case 'right':
+        return 'right';
+      case 'slight left':
+        return 'slight-left';
+      case 'slight right':
+        return 'slight-right';
+      case 'sharp left':
+        return 'sharp-left';
+      case 'sharp right':
+        return 'sharp-right';
+    }
+  }
+  // 'continue', 'new name', 'notification', 'use lane', etc. — all
+  // collapse to 'straight'. They're advisory (road name change, lane
+  // hint) and don't require a directional cue; the neutral icon +
+  // "Continue on {name}" copy is honest for all of them.
+  return 'straight';
+}
+
+/**
+ * Templates an English instruction from maneuver kind + street name.
+ * Street name comes from OSM `name` tag; rural side-streets often
+ * have none ('' empty string) — the fallback copy ("Turn left",
+ * "Continue") still reads cleanly without the street.
+ */
+function buildInstruction(kind: ManeuverKind, name: string): string {
+  const onto = name ? ` onto ${name}` : '';
+  const on = name ? ` on ${name}` : '';
+  switch (kind) {
+    case 'depart':
+      return name ? `Head out on ${name}` : 'Head out';
+    case 'arrive':
+      return 'Arrive at destination';
+    case 'left':
+      return `Turn left${onto}`;
+    case 'right':
+      return `Turn right${onto}`;
+    case 'slight-left':
+      return `Slight left${onto}`;
+    case 'slight-right':
+      return `Slight right${onto}`;
+    case 'sharp-left':
+      return `Sharp left${onto}`;
+    case 'sharp-right':
+      return `Sharp right${onto}`;
+    case 'merge':
+      return `Merge${onto}`;
+    case 'on-ramp':
+      return name ? `Take the on-ramp to ${name}` : 'Take the on-ramp';
+    case 'off-ramp':
+      return name ? `Take the exit toward ${name}` : 'Take the exit';
+    case 'roundabout':
+      return name ? `At the roundabout, take ${name}` : 'Enter the roundabout';
+    case 'straight':
+    default:
+      return `Continue${on}`;
+  }
+}
+
+/** Status of the current navigation pass — drives the turn-card render. */
+export type NextStepStatus = 'upcoming' | 'arrived' | 'off-route';
+
+export type NextStepInfo = {
+  step: RouteStep;
+  /** Step index in the source array — caller uses this to maintain
+      monotonic progress (see `minStepIndex` parameter). */
+  index: number;
+  /** Haversine distance from user to step's maneuverLocation, meters. */
+  distanceMeters: number;
+  status: NextStepStatus;
+};
+
+/**
+ * Picks the next maneuver the user needs to act on.
+ *
+ * Strategy: closest-by-GPS step from the (minStepIndex …) slice is
+ * the candidate; advance to next step when user is within 30m AND
+ * that step isn't `depart` at trip start.
+ *
+ * `minStepIndex` enforces monotonic progress — the caller tracks the
+ * highest index ever reached and passes it back here, preventing
+ * regression to an already-completed maneuver. Without this, GPS
+ * jitter or a slow turn (red light at the corner) made the closest-
+ * by-GPS pick re-select the maneuver the user just completed.
+ *
+ * Terminal states:
+ *   - `arrived`: closest maneuver is `arrive` and user is within 30m.
+ *   - `off-route`: even the closest maneuver is > 150m away — the
+ *     closest-by-GPS pick is unreliable, surface a recalculating UX
+ *     instead of confidently displaying a wrong maneuver.
+ *
+ * Returns null when steps is empty/undefined (mock fallback path) —
+ * caller renders neutral "Heading toward {destination}" copy.
+ */
+export function findNextStep(
+  steps: RouteStep[] | undefined,
+  userLocation: Coordinate,
+  minStepIndex: number = 0,
+): NextStepInfo | null {
+  if (!steps || steps.length === 0) return null;
+  // Search from minStepIndex forward — never regress.
+  let closestIdx = Math.min(minStepIndex, steps.length - 1);
+  let closestDist = Number.POSITIVE_INFINITY;
+  for (let i = Math.max(0, minStepIndex); i < steps.length; i++) {
+    const d = haversineMeters(userLocation, steps[i].maneuverLocation);
+    if (d < closestDist) {
+      closestDist = d;
+      closestIdx = i;
+    }
+  }
+  // Off-route guard: when even the closest maneuver is far, the
+  // closest-by-GPS heuristic is unreliable. 150m is a conservative
+  // threshold — urban GPS accuracy is ~10-30m, suburban ~30-50m;
+  // 150m says "the user is genuinely not near any maneuver point."
+  if (closestDist > 150) {
+    return {
+      step: steps[closestIdx],
+      index: closestIdx,
+      distanceMeters: closestDist,
+      status: 'off-route',
+    };
+  }
+  // Arrival: closest step IS the arrive step and we're at it.
+  const current = steps[closestIdx];
+  if (
+    closestIdx === steps.length - 1 &&
+    current.kind === 'arrive' &&
+    closestDist < 30
+  ) {
+    return {
+      step: current,
+      index: closestIdx,
+      distanceMeters: closestDist,
+      status: 'arrived',
+    };
+  }
+  // Advance past completed maneuvers. Special-case depart: the depart
+  // step's maneuverLocation IS the origin; user is always within 30m
+  // at trip start, so the canonical < 30m advance would immediately
+  // skip "Head out on {street}." Hold on depart until user has
+  // actually moved >50m away from origin.
+  const shouldAdvance =
+    current.kind === 'depart' ? closestDist > 50 : closestDist < 30;
+  if (shouldAdvance && closestIdx + 1 < steps.length) {
+    const next = steps[closestIdx + 1];
+    return {
+      step: next,
+      index: closestIdx + 1,
+      distanceMeters: haversineMeters(userLocation, next.maneuverLocation),
+      status: 'upcoming',
+    };
+  }
+  return {
+    step: current,
+    index: closestIdx,
+    distanceMeters: closestDist,
+    status: 'upcoming',
+  };
+}
+
+/** Haversine distance in meters between two GPS coords. */
+function haversineMeters(a: Coordinate, b: Coordinate): number {
+  return haversineMiles(a, b) * 1609.344;
 }
 
 // --- Mock fallback ---------------------------------------------------------
