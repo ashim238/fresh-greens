@@ -424,8 +424,9 @@ export type NextStepInfo = {
  * Picks the next maneuver the user needs to act on.
  *
  * Strategy: closest-by-GPS step from the (minStepIndex …) slice is
- * the candidate; advance to next step when user is within 30m AND
- * that step isn't `depart` at trip start.
+ * the candidate; advance to next step when user is within the
+ * step-length-scaled advance threshold AND that step isn't `depart`
+ * at trip start.
  *
  * `minStepIndex` enforces monotonic progress — the caller tracks the
  * highest index ever reached and passes it back here, preventing
@@ -433,11 +434,19 @@ export type NextStepInfo = {
  * jitter or a slow turn (red light at the corner) made the closest-
  * by-GPS pick re-select the maneuver the user just completed.
  *
+ * Thresholds scale with the current step's length (see body comment)
+ * so urban precision (~30m advance / 150m off-route) doesn't regress
+ * AND rural highway driving (multi-mile steps, naturally large GPS-to-
+ * maneuver distances mid-segment) doesn't trigger false "off-route"
+ * or advance too eagerly on wide rural turn radii.
+ *
  * Terminal states:
- *   - `arrived`: closest maneuver is `arrive` and user is within 30m.
- *   - `off-route`: even the closest maneuver is > 150m away — the
- *     closest-by-GPS pick is unreliable, surface a recalculating UX
- *     instead of confidently displaying a wrong maneuver.
+ *   - `arrived`: closest maneuver is `arrive` and user is within 30m
+ *     (static threshold — arrive's step has distanceMeters=0).
+ *   - `off-route`: closest maneuver is past the (scaled) off-route
+ *     threshold — closest-by-GPS pick is unreliable, surface a
+ *     recalculating UX instead of confidently displaying a wrong
+ *     maneuver.
  *
  * Returns null when steps is empty/undefined (mock fallback path) —
  * caller renders neutral "Heading toward {destination}" copy.
@@ -458,20 +467,43 @@ export function findNextStep(
       closestIdx = i;
     }
   }
+  const current = steps[closestIdx];
+  // Dynamic thresholds — Fresh Greens explicitly serves Black drivers
+  // navigating rural areas, where OSRM steps can be 5+ miles apart
+  // and GPS sampling is noisier. The earlier urban-tuned 30m advance
+  // / 150m off-route would have triggered "off-route" constantly on
+  // highway driving (the user is naturally > 150m from any maneuver
+  // for most of a long step), and would have advanced too late on a
+  // wide rural turn radius. Both thresholds scale with the current
+  // step's length:
+  //   advance: max(30, stepLen / 25) capped at 200m
+  //     → urban grid (~150m steps): 30m (urban-tight, no regression)
+  //     → suburban (~1km steps): 40m
+  //     → rural highway (~10km steps): 200m (capped — long enough
+  //       that GPS sampling can land on the maneuver without missing)
+  //   off-route: max(150, stepLen / 6) capped at 1000m
+  //     → urban: 150m (urban-tight, no regression)
+  //     → suburban: 167m
+  //     → rural highway: 1000m (capped — genuine off-route still
+  //       fires; 1km is well past "natural mid-step GPS distance")
+  const stepLen = current.distanceMeters;
+  const advanceThreshold = Math.min(200, Math.max(30, stepLen / 25));
+  const offRouteThreshold = Math.min(1000, Math.max(150, stepLen / 6));
+
   // Off-route guard: when even the closest maneuver is far, the
-  // closest-by-GPS heuristic is unreliable. 150m is a conservative
-  // threshold — urban GPS accuracy is ~10-30m, suburban ~30-50m;
-  // 150m says "the user is genuinely not near any maneuver point."
-  if (closestDist > 150) {
+  // closest-by-GPS heuristic is unreliable. Surface a recalculating
+  // UX instead of confidently displaying a wrong maneuver.
+  if (closestDist > offRouteThreshold) {
     return {
-      step: steps[closestIdx],
+      step: current,
       index: closestIdx,
       distanceMeters: closestDist,
       status: 'off-route',
     };
   }
-  // Arrival: closest step IS the arrive step and we're at it.
-  const current = steps[closestIdx];
+  // Arrival: closest step IS the arrive step and we're at it. Uses
+  // the static 30m advance threshold (arrival doesn't benefit from
+  // the dynamic scale — arrive's step has distanceMeters=0).
   if (
     closestIdx === steps.length - 1 &&
     current.kind === 'arrive' &&
@@ -485,12 +517,12 @@ export function findNextStep(
     };
   }
   // Advance past completed maneuvers. Special-case depart: the depart
-  // step's maneuverLocation IS the origin; user is always within 30m
-  // at trip start, so the canonical < 30m advance would immediately
-  // skip "Head out on {street}." Hold on depart until user has
-  // actually moved >50m away from origin.
+  // step's maneuverLocation IS the origin; user is always within
+  // advanceThreshold at trip start, so the canonical advance would
+  // immediately skip "Head out on {street}." Hold on depart until
+  // user has actually moved >50m away from origin.
   const shouldAdvance =
-    current.kind === 'depart' ? closestDist > 50 : closestDist < 30;
+    current.kind === 'depart' ? closestDist > 50 : closestDist < advanceThreshold;
   if (shouldAdvance && closestIdx + 1 < steps.length) {
     const next = steps[closestIdx + 1];
     return {
