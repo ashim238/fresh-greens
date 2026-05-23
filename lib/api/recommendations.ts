@@ -189,15 +189,28 @@ function sortByDistance(
   );
 }
 
+// Curated entries are catastrophic-fallback demo content seeded for
+// Mobile, AL. A user in NYC firing curated (because external +
+// community both came back empty) sees "1186 mi away" on each card —
+// reads as broken data, not signal. Suppress the distance pill for
+// curated entries beyond this radius from the user; nearby
+// (Mobile-area) users still see a useful "12 mi away" read.
+const CURATED_DISTANCE_DROP_MILES = 50;
+
 function annotateDistance(
   recs: Recommendation[],
   userLocation: { latitude: number; longitude: number } | undefined,
 ): Recommendation[] {
   if (!userLocation) return recs;
-  return recs.map((r) => ({
-    ...r,
-    distanceMiles: distanceMilesBetween(userLocation, r),
-  }));
+  return recs.map((r) => {
+    const distance = distanceMilesBetween(userLocation, r);
+    if (r.source === 'curated' && distance > CURATED_DISTANCE_DROP_MILES) {
+      // Leave `distanceMiles` undefined — the card already gates the
+      // distance pill on `r.distanceMiles != null`.
+      return r;
+    }
+    return { ...r, distanceMiles: distance };
+  });
 }
 
 // --- Source 1: Curated catalog -------------------------------------------
