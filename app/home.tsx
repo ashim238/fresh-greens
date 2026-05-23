@@ -141,6 +141,15 @@ export default function Home() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  // One-shot guard: animate the map to the user's first GPS fix.
+  // Without this, `initialRegion` (Mobile, AL) stays parked on the
+  // viewport until the user does something that calls
+  // animateToRegion (set a destination, tap Recenter, etc) — cold
+  // start reads as "wrong city, app is broken" for users far from
+  // Mobile. Flips true after the first animation so subsequent GPS
+  // updates don't yank the map around (Recenter is the canonical
+  // user-initiated re-centering).
+  const hasAnimatedToInitialFixRef = useRef(false);
   // Viewport size in pt. Measured once via the MapView's onLayout —
   // edge-indicator positioning needs screen-space pixels, not lat/lng.
   const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(
@@ -691,6 +700,27 @@ export default function Home() {
       cancelled = true;
     };
   }, [userLocation, neighborhoodLabel]);
+
+  // Cold-start centering: animate to the user's first GPS fix exactly
+  // once. The Mobile, AL `initialRegion` is a build-time default; for
+  // any user not in Mobile it reads as "wrong city" until something
+  // else triggers a re-center. Fires only on the first non-null
+  // userLocation so subsequent GPS updates don't disrupt the user's
+  // own pan/zoom. reduceMotion → instant pan (0ms) for vestibular-
+  // sensitive users, matching the gating pattern used elsewhere in
+  // this file.
+  useEffect(() => {
+    if (!userLocation || hasAnimatedToInitialFixRef.current) return;
+    hasAnimatedToInitialFixRef.current = true;
+    mapRef.current?.animateToRegion(
+      {
+        ...userLocation,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      },
+      reduceMotion ? 0 : 1000,
+    );
+  }, [userLocation, reduceMotion]);
 
   function handleLongPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
     if (placingReport) return;
