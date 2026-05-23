@@ -76,11 +76,11 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 
 ## Visual / polish nits
 
-- **Cold-start map shows Mobile, AL until GPS resolves** — `app/home.tsx`. Hardcoded `initialRegion`. Defer the centering until first location fix, or animate to user location ASAP.
-- **EdgeIndicator count="1" pill** — single-item edge groups still render a "1" badge. Should suppress.
+- ~~**Cold-start map shows Mobile, AL until GPS resolves**~~ — shipped in #217. One-shot useEffect watches `userLocation` and `animateToRegion`s on first non-null fix (1000ms, instant under Reduce Motion). Ref-guarded so subsequent GPS updates don't yank the user's pan/zoom.
+- ~~**EdgeIndicator count="1" pill**~~ — already handled at `EdgeIndicator.tsx:85` via `showCount = count != null && count > 1`. Singletons fall through to the category glyph. Backlog entry was stale.
 - **Cluster marker missing `tracksViewChanges` lifecycle** — hardcoded to `false` from t=0. Inconsistent with the LandmarkMarker pattern (track-then-settle).
-- **Curated-fallback distance pill is jarring** — when a user in NYC and curated (Mobile-only) fires, cards show "1186 mi away." Suppress, or relabel as "Demo content — Mobile, AL."
-- **Rapid chip tapping causes flicker** — each chip-tap triggers `LayoutAnimation` AND a fresh async fetch; cards animate out / empty pops in / new cards animate in. Debounce.
+- ~~**Curated-fallback distance pill is jarring**~~ — shipped in #217. `annotateDistance` leaves `distanceMiles` undefined for curated entries beyond 50mi from the user; the card already gates the pill on `!= null`. Mobile-area users keep the useful read.
+- ~~**Rapid chip tapping causes flicker**~~ — closed by #216 (chips-as-jump-links). Chips no longer trigger per-tap fetches or `LayoutAnimation`; rapid taps just animate the vertical scroller to the latest target.
 - **"Coming soon" Alert mid-report flow** — `app/report.tsx` (photo capture) and `app/home.tsx` (Schedule). Breaks the rhythm. v2: inline disabled-state copy instead of modal Alert.
 
 ## Architecture / data v2
