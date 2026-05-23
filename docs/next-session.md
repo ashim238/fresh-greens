@@ -42,17 +42,25 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 
 ## Round 5 — Safety surfaces + route-preview departure card
 
-Four Figma nodes covering the v2 design pass for the safety surfaces AND the /home route-preview state. The route-preview node was added late and stretches the round's original "safety + recording" framing — but it shares thematic surface area (zone-warning chips on the route card are safety-adjacent), so group with the rest rather than splitting into a separate round.
+~~Four Figma nodes covering the v2 design pass for the safety surfaces AND the /home route-preview state.~~ **Round 5 closed (verified 2026-05-23).** All four nodes are shipped:
 
-**Safety / recording (the original three):**
-- [Figma `1128:5284`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1128-5284&m=dev)
-- [Figma `1133:12323`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1133-12323&m=dev)
-- [Figma `1133:12674`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1133-12674&m=dev)
+- ~~[Figma `1128:5284`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1128-5284&m=dev)~~ → `app/safety-settings.tsx` cites the node directly; shipped in Round 5 PR A.
+- ~~[Figma `1133:12323`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1133-12323&m=dev)~~ → `app/recordings.tsx` main view; shipped in Round 5 PR A.
+- ~~[Figma `1133:12674`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1133-12674&m=dev)~~ → `app/recordings.tsx` delete-all confirm modal; shipped in Round 5 PR A.
+- ~~[Figma `1109:3264`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1109-3264&m=dev)~~ → `app/home.tsx` route-preview card; shipped across audit-9 + #215 (row pairing).
 
-Files likely touched: `app/safety.tsx` (already at v2 from `1133:13908`; revisit if these supersede), `app/pulled-over.tsx` (the recording widget + the four phases), `app/recordings.tsx` (the recordings list), `components/TrustedContactStatus.tsx`. Fetch the nodes via the Figma MCP at the start of the round to confirm what each one is before scoping the PR(s).
+`app/pulled-over.tsx` 5-phase state machine + audio recording + trusted-contact footer + firearm-guidance ACLU copy all shipped previously. Backlog entry was stale.
 
-**Route-preview "Default" state (the late addition):**
-- [Figma `1109:3264`](https://www.figma.com/design/7DDh6c7tk7OKF4WiA7pEkp/Thesis_Draft_Final?node-id=1109-3264&m=dev) — "Route (Default)". The /home view after the user has picked a destination but before tapping Go. The bottom card shows: duration ("12 min"), street name ("Via Government St."), daylight strip (sun→moon gradient indicator), conditions tagline ("Safest route with current conditions, Moderate traffic"), zone-warning chips ("1 police zone" + "1 low light zone"), and "Schedule for X:XX" + "Go" CTAs. Files likely touched: `app/home.tsx` (the route preview / route-sheet section, post-destination), `components/HomeBrowseSheet.tsx` (or whatever sheet swaps in when a destination is set), and possibly a new zone-warning-chip component derived from the existing edge-marker/zone palette. Scope check: does this conflict with anything we just built? The Round 4 multi-row work touches the *browse-mode* sheet (no destination); this redesigns the *route-preview* sheet (destination set). Independent surfaces, no overlap. Confirm on second pass with `get_design_context` to see the actual component definitions.
+## Formalized deviations (documented, not drift)
+
+The following ship in code with no Figma backing — captured here so future fidelity audits don't auto-revert them:
+
+- **All-clear chip + "Along this route:" preamble** on the route-preview card. Extension over Figma `1109:3264` (which only shows warning chips). The "we checked, you're clear" read is load-bearing for trust; an absent chips row read as "feature not loaded."
+- **Topline variants on `RecommendationCard`** (`closing-soon`, `curator-attribution`). Top-left pill mirroring the existing bottom quote callout. Surfaces the row's load-bearing signal (hours / curator identity) on rows where it's the row's reason for existing.
+- **Scroll-to-row chip behavior** (chips are jump-links, not filters). Focus mode retired. See #216.
+- **Clear-destination X on route-preview** (top-right). Extension over Figma `1109:3264`; the affordance is needed in practice.
+- **Round 6 `Button` border for AA contrast** (`primary+fill` variant). Documented brand exception so freshgreen-on-white passes the 3:1 UI-component contrast floor.
+- **"Around Me: {category}" copy** on the focus-mode header — pinned per #210 as a deliberate Figma deviation (locator framing beats activity framing for community-data).
 
 ## Scaffolded-but-not-real (named preemptively at thesis defense)
 
