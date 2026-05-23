@@ -193,12 +193,14 @@ export function HomeBrowseSheet({
   }
 
   // Eyebrow copy — when we have the user's first name, render the
-  // possessive ("Jordan's Local Recs 💃🏾"). With no name (signed-out
-  // or pre-displayName Apple sign-in), drop the possessive entirely
-  // rather than substituting a generic placeholder.
+  // possessive ("Jordan's Local Recs 💃🏾"). Without a name (Apple
+  // sign-in only returns displayName on the first sign-in IF the
+  // user grants FULL_NAME — most don't), fall back to "Your" so the
+  // possessive structure holds and the eyebrow still reads as
+  // personal, not generic.
   const eyebrowCopy = firstName
     ? `${firstName}'s Local Recs 💃🏾`
-    : 'Local Recs 💃🏾';
+    : 'Your Local Recs 💃🏾';
 
   return (
     <View style={styles.content}>
@@ -436,9 +438,14 @@ function headerForRow(spec: BrowseRowSpec): { glyph: React.ReactNode; title: str
         title: 'Open now',
       };
     case 'category':
+      // Bare category label — no "Around Me:" prefix. With 5 category
+      // rows in the stack, the prefix repeated 5× was clutter; the
+      // chips above already convey what each row is, and the
+      // neighborhood eyebrow at the top of the sheet covers the
+      // geographic framing once for the whole stack.
       return {
         glyph: <CategoryGlyph24 category={spec.category} />,
-        title: `Around Me: ${CATEGORY_LABELS[spec.category]}`,
+        title: CATEGORY_LABELS[spec.category],
       };
   }
 }
