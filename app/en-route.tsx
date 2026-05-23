@@ -13,7 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
+import { ArrowBendUpLeft } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
 import { ArrowBendUpRight } from 'phosphor-react-native/src/icons/ArrowBendUpRight';
+import { ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise';
+import { ArrowsMerge } from 'phosphor-react-native/src/icons/ArrowsMerge';
+import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
@@ -45,7 +49,14 @@ import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
 } from '../lib/api/community-reports';
-import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
+import {
+  findNextStep,
+  getRoutesBetween,
+  type ManeuverKind,
+  type NextStepInfo,
+  type Route,
+  routeColors,
+} from '../lib/api/routes';
 import {
   getZonesForRegion,
   type Zone,
@@ -114,6 +125,73 @@ function humanReadableHazard(category: HazardCategory): string {
 function formatHazardMiles(miles: number): string {
   if (miles < 10) return `${miles.toFixed(1)} mi.`;
   return `${Math.round(miles)} mi.`;
+}
+
+/**
+ * Phosphor duotone glyph dispatch for the turn-card. Maps the OSRM
+ * maneuver kind → an icon that visually communicates the direction.
+ * `undefined` (no steps from adapter) renders NavigationArrow, same
+ * neutral indicator the v1 placeholder used.
+ */
+function maneuverIcon(kind: ManeuverKind | undefined, size: number, color: string) {
+  switch (kind) {
+    case 'left':
+    case 'slight-left':
+    case 'sharp-left':
+      return <ArrowBendUpLeft size={size} color={color} weight="duotone" />;
+    case 'right':
+    case 'slight-right':
+    case 'sharp-right':
+      return <ArrowBendUpRight size={size} color={color} weight="duotone" />;
+    case 'arrive':
+      return <FlagCheckered size={size} color={color} weight="duotone" />;
+    case 'roundabout':
+      return <ArrowsClockwise size={size} color={color} weight="duotone" />;
+    case 'merge':
+      return <ArrowsMerge size={size} color={color} weight="duotone" />;
+    case 'depart':
+    case 'straight':
+    default:
+      return <NavigationArrow size={size} color={color} weight="duotone" />;
+  }
+}
+
+/**
+ * Formats step distance for the turn-card subtitle:
+ *   < 30m: "now" (visible UI only — a11y label drops "in" entirely)
+ *   < 1000m: "120 m" (rounded to nearest 10m)
+ *   ≥ 1000m: "1.2 mi" (US units, one decimal)
+ * Sub-30m short-circuits because GPS jitter at the maneuver point
+ * makes "5 m" / "12 m" reads dance distractingly — at that range the
+ * driver is on top of the turn and reading "now" instead.
+ */
+function formatStepDistance(meters: number): string {
+  if (meters < 30) return 'now';
+  if (meters < 1000) return `${Math.round(meters / 10) * 10} m`;
+  const miles = meters / 1609.344;
+  return `${miles.toFixed(1)} mi`;
+}
+
+/**
+ * VoiceOver-friendly turn-card label. Commas instead of "in" before
+ * the distance (natural beat for screen readers); special-cased "now"
+ * since "Turn left, in now" reads ungrammatically.
+ *
+ * Terminal states get their own copy:
+ *   - arrived: "You've arrived at your destination"
+ *   - off-route: "Recalculating route"
+ *   - null (mock fallback): "Heading toward {destination}"
+ */
+function a11yLabelForTurnCard(
+  info: NextStepInfo | null,
+  destName: string | undefined,
+): string {
+  if (!info) return `Heading toward ${destName ?? 'your destination'}`;
+  if (info.status === 'arrived') return "You've arrived at your destination";
+  if (info.status === 'off-route') return 'Recalculating route';
+  const dist = info.distanceMeters;
+  if (dist < 30) return `${info.step.instruction}, now`;
+  return `${info.step.instruction}, in ${formatStepDistance(dist)}`;
 }
 
 // Sentence-form hazard copy for the Full bottom-sheet hazard panel
@@ -267,21 +345,49 @@ export default function EnRoute() {
     return inside;
   }, [enRouteZones, userLocation]);
 
+  // Monotonic step-progress tracker — prevents `findNextStep` from
+  // regressing to a completed maneuver when GPS jitter or slow city
+  // traffic keeps the user near a passed turn-point. Resets on new
+  // route (recommended.id change).
+  const minStepIndexRef = useRef(0);
+  useEffect(() => {
+    minStepIndexRef.current = 0;
+  }, [recommended?.id]);
+
+  // Next maneuver the driver should act on — closest-by-GPS step from
+  // OSRM's `steps=true` payload, advancing past completed maneuvers
+  // when user is within 30m. Carries terminal states ('arrived',
+  // 'off-route') the turn card renders distinctly. Null when steps
+  // weren't returned (mock fallback path) — the turn card falls back
+  // to a neutral "Heading toward {destination}" header in that case.
+  const nextStepInfo = useMemo<NextStepInfo | null>(() => {
+    if (!recommended || !userLocation) return null;
+    return findNextStep(
+      recommended.steps,
+      userLocation,
+      minStepIndexRef.current,
+    );
+  }, [recommended, userLocation]);
+
+  // Track the highest step index ever reached so subsequent
+  // findNextStep calls can't regress.
+  useEffect(() => {
+    if (nextStepInfo && nextStepInfo.index > minStepIndexRef.current) {
+      minStepIndexRef.current = nextStepInfo.index;
+    }
+  }, [nextStepInfo?.index]);
+
   // Hazards crossing threshold near the next turn — surfaces up to 2
-  // glyphs on the turn card, worst-first. v1 uses the route's first
-  // coordinate as the "next turn" stand-in because OSRM gives geometry
-  // but not turn-by-turn instructions; the static "Turn left onto
-  // South Cedar Street" copy is also a placeholder for the same
-  // reason. The hazards rendered are honestly "near the start of this
-  // route" — which is also where the upcoming turn would be at trip
-  // start, so the demo reads correctly for the most common driver
-  // case (just-departed). A real navigation engine would pass the
-  // actual next-turn coordinate here. Capped at 2 — three glyphs
-  // degrade into noise faster than a driver can parse mid-drive.
+  // glyphs on the turn card, worst-first. Uses the next-step's
+  // maneuver location when OSRM steps are present; falls back to the
+  // route's first coordinate for the mock path. Capped at 2 — three
+  // glyphs degrade into noise faster than a driver can parse mid-drive.
   const turnHazards = useMemo(() => {
     if (!recommended || recommended.coordinates.length === 0) return [];
-    return hazardsNearTurn(recommended.coordinates[0], allZones).slice(0, 2);
-  }, [recommended, allZones]);
+    const turnPoint =
+      nextStepInfo?.step.maneuverLocation ?? recommended.coordinates[0];
+    return hazardsNearTurn(turnPoint, allZones).slice(0, 2);
+  }, [recommended, nextStepInfo, allZones]);
 
   // What the Full bottom-sheet hazard panel should show. Entered-zone
   // hazards take priority over next-turn hazards — when the driver
@@ -829,35 +935,55 @@ export default function EnRoute() {
           <View
             style={styles.turnDirection}
             accessible
-            accessibilityLabel={`Heading toward ${params.destName ?? 'your destination'}`}
+            accessibilityLabel={a11yLabelForTurnCard(nextStepInfo, params.destName)}
           >
             {/*
               Turn maneuver glyph — informational, not a button.
               Phosphor duotone per Figma `825:3754`'s Turn Icon
-              register.
-              v1 doesn't have real turn-by-turn (OSRM gives geometry,
-              not steps), so we render a neutral "Heading toward
-              <destName>" instead of the placeholder "Turn left onto
-              South Cedar Street" that read as a flat lie regardless
-              of where you actually were. v1.5 cheap path: OSRM
-              `steps=true` gives a minimal maneuver list; render
-              that here when it lands.
-              NavigationArrow points up (forward motion) without
-              claiming a specific maneuver direction, since we don't
-              know one yet.
+              register. When OSRM steps are present, the icon
+              dispatches off the maneuver kind ("turn left" →
+              ArrowBendUpLeft, etc.). Off-route renders the neutral
+              NavigationArrow so we're not asserting a direction
+              while the user isn't on the route. Mock-fallback path
+              (no steps) also lands on NavigationArrow via the
+              undefined-kind default.
             */}
-            <NavigationArrow
-              size={56}
-              color={colors.white}
-              weight="duotone"
-            />
+            {maneuverIcon(
+              nextStepInfo?.status === 'off-route'
+                ? undefined
+                : nextStepInfo?.step.kind,
+              56,
+              colors.white,
+            )}
           </View>
 
           <View style={styles.turnText}>
-            <Text style={styles.turnInstruction}>
-              Heading toward{'\n'}
-              <Text style={styles.turnStreet}>{params.destName ?? 'your destination'}</Text>
-            </Text>
+            {nextStepInfo?.status === 'arrived' ? (
+              <Text style={styles.turnInstruction}>You&apos;ve arrived</Text>
+            ) : nextStepInfo?.status === 'off-route' ? (
+              <Text style={styles.turnInstruction}>Recalculating…</Text>
+            ) : nextStepInfo?.step ? (
+              <Text style={styles.turnInstruction}>
+                {nextStepInfo.step.instruction}
+                {'\n'}
+                <Text style={styles.turnStreet}>
+                  {/* Special-case "now" so the visible UI doesn't
+                      read "in now" — the formatStepDistance helper
+                      returns "now" inside the <30m bucket; drop the
+                      "in" prefix in that case. */}
+                  {nextStepInfo.distanceMeters < 30
+                    ? 'now'
+                    : `in ${formatStepDistance(nextStepInfo.distanceMeters)}`}
+                </Text>
+              </Text>
+            ) : (
+              <Text style={styles.turnInstruction}>
+                Heading toward{'\n'}
+                <Text style={styles.turnStreet}>
+                  {params.destName ?? 'your destination'}
+                </Text>
+              </Text>
+            )}
             {turnHazards.length > 0 && (
               <View
                 style={styles.hazardRow}
