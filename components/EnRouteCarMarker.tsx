@@ -58,6 +58,8 @@ export function EnRouteCarMarker({
       anchor={{ x: 0.5, y: 0.5 }}
       zIndex={1000}
       tracksViewChanges={tracking}
+      accessibilityRole="image"
+      accessibilityLabel="Your car along the route"
     >
       <View
         style={[styles.frame, { transform: [{ rotate: `${rotation}deg` }] }]}

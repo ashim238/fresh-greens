@@ -23,9 +23,47 @@ import { colors } from '../theme/colors';
 import type { Route } from './api/routes';
 import type { Coordinate } from './api/zones';
 
+/**
+ * Coarse daylight band a segment falls into — separate from the
+ * (finer-grained) color anchor because consumers that style the
+ * polyline non-redundantly (e.g. WCAG 1.4.1 dash patterns for
+ * colorblind users) need a small enumerated set, not a five-stop
+ * color ramp. `day` = full daylight, `twilight` = golden hour /
+ * dusk transition, `night` = past sunset.
+ */
+export type DaylightBand = 'day' | 'twilight' | 'night';
+
 export type RouteSegment = {
   coordinates: Coordinate[];
   color: string;
+  band: DaylightBand;
+};
+
+/**
+ * react-native-maps `Polyline.lineDashPattern` per band. Pairs with
+ * the daylight color anchors so colorblind users (deuteranopia,
+ * tritanopia, monochromacy — collectively ~8% of men) can read the
+ * day → twilight → night transitions via stroke style as well as
+ * hue. Solid for day, dash-dominant for twilight, gap-dominant
+ * (true dots) for night.
+ *
+ * Values are deliberately proportionally distant — `[8,4]` reads as
+ * dashes (mark > gap), `[2,8]` reads as dots (gap >> mark). Earlier
+ * draft used `[10,6]` and `[3,5]` which compressed to similar visual
+ * texture at zoomed-out drive-overview scales, defeating the WCAG
+ * 1.4.1 differentiation. The dash → dot progression visually mirrors
+ * the daylight diminishing.
+ *
+ * Platform note: react-native-maps' `lineDashPattern` is honored on
+ * iOS (Apple MapKit). Android support has historically been spotty;
+ * the gradient color anchors carry the signal there.
+ *
+ * WCAG 1.4.1: color is never the only means of conveying information.
+ */
+export const DAYLIGHT_DASH_PATTERN: Record<DaylightBand, number[] | undefined> = {
+  day: undefined,
+  twilight: [8, 4],
+  night: [2, 8],
 };
 
 /**
@@ -113,10 +151,35 @@ export function gradientSegments(
     segments.push({
       coordinates: segmentCoords,
       color: colorForMinutesToSunset(minutesToSunset),
+      band: bandForMinutesToSunset(minutesToSunset),
     });
   }
 
   return segments;
+}
+
+/**
+ * Shared band thresholds — single source of truth so the band
+ * classifier and the color-ramp picker can't drift out of sync.
+ */
+const DAY_THRESHOLD_MIN = 60;
+const TWILIGHT_THRESHOLD_MIN = 0;
+
+/**
+ * Coarse classifier — 3-band reduction of the 5-stop color ramp for
+ * styling that needs a small enumerated set. Pre-dawn segments
+ * already carry `minutes = -1`, so they fall into `night` here too.
+ * NaN (polar extreme edge case) defaults to `day` to match
+ * `colorForMinutesToSunset`.
+ *
+ * Exported so the band logic is unit-testable independently of
+ * `gradientSegments`.
+ */
+export function bandForMinutesToSunset(minutes: number): DaylightBand {
+  if (Number.isNaN(minutes)) return 'day';
+  if (minutes > DAY_THRESHOLD_MIN) return 'day';
+  if (minutes > TWILIGHT_THRESHOLD_MIN) return 'twilight';
+  return 'night';
 }
 
 /**

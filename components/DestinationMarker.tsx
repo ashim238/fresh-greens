@@ -67,6 +67,7 @@ export function DestinationMarker({
       anchor={anchor}
       tracksViewChanges={tracking}
       zIndex={500}
+      accessibilityRole="image"
       accessibilityLabel={name ? `Destination: ${name}` : 'Destination'}
     >
       <View style={styles.frame} accessibilityIgnoresInvertColors>

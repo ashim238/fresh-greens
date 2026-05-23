@@ -31,6 +31,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useReduceMotion } from '../hooks/useReduceMotion';
+
 // SVG asset imports — fuel.svg already exists; calendar tile uses the
 // Phosphor Calendar duotone for v1 (queue a custom illustrated SVG
 // for a future bulk-export pass to match the Fuel tile's register).
@@ -139,6 +141,7 @@ export default function Menu() {
   const { width: screenWidth } = useWindowDimensions();
   const [signingOut, setSigningOut] = useState(false);
   const [activeQuickIndex, setActiveQuickIndex] = useState(0);
+  const reduceMotion = useReduceMotion();
 
   // Carousel sizing — same pattern as v1 (each tile ~80% of screen
   // width, peek of next tile at the right edge).
@@ -263,8 +266,12 @@ export default function Menu() {
             data={QUICK_TILES}
             horizontal
             showsHorizontalScrollIndicator={false}
-            decelerationRate="fast"
-            snapToInterval={SNAP_INTERVAL}
+            // reduceMotion: drop the snap + fast deceleration so the
+            // carousel scrolls inertially without the vestibular pull
+            // of the snap animation. Pairs with the HomeBrowseSheet
+            // pattern so /menu and /home share Reduce-Motion behavior.
+            decelerationRate={reduceMotion ? 'normal' : 'fast'}
+            snapToInterval={reduceMotion ? undefined : SNAP_INTERVAL}
             snapToAlignment="start"
             contentContainerStyle={styles.quickContent}
             ItemSeparatorComponent={() => <View style={{ width: TILE_GAP }} />}

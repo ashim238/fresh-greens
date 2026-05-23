@@ -70,6 +70,10 @@ export function EnRouteZone({
       // pattern, we can leave tracking off in both states and avoid
       // the iOS MapKit per-frame snapshot cost.
       tracksViewChanges={false}
+      // role="none" — passive route-segment annotation, not a tappable
+      // surface and not labelable image content. The label carries
+      // the semantic ("zone N ahead"); no role over-promise.
+      accessibilityRole="none"
       accessibilityLabel={
         state === 'extended'
           ? `Entering a zone. ${humanReadableHazard(category)} for ${formatMiles(lengthMiles)}.`
