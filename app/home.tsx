@@ -58,6 +58,7 @@ import {
   suggestedDepartureForDaylight,
 } from '../lib/daylight';
 import { formatDuration, formatTimeOfDay } from '../lib/format';
+import { scheduleDepartureNotification } from '../lib/notifications';
 import {
   edgePositionForPoint,
   groupEdgeIndicators,
@@ -232,6 +233,7 @@ export default function Home() {
     detail?: string;
     subTag?: string;
     placeName?: string;
+    photoUri?: string;
     timestamp: number;
   } | null>(null);
 
@@ -1021,6 +1023,7 @@ export default function Home() {
                   detail: zone.reportDetail,
                   subTag: zone.reportSubTag,
                   placeName: zone.reportPlaceName,
+                  photoUri: zone.reportPhotoUri,
                   timestamp: zone.reportTimestamp ?? Date.now(),
                 });
               }}
@@ -1680,19 +1683,41 @@ export default function Home() {
           {suggestedDeparture && (
             <Pressable
               style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
-              onPress={() => {
-                // Schedule scaffolding for v1: confirm the user's intent
-                // and tell them what'll happen. Real reminder wiring
-                // (expo-notifications local reminder fired at the
-                // suggested time) is a follow-up PR — it needs the
-                // permission flow added to /permissions first.
-                Haptics.selectionAsync();
+              onPress={async () => {
+                Haptics.selectionAsync().catch(() => {});
                 const timeLabel = formatTimeOfDay(suggestedDeparture);
-                Alert.alert(
-                  `Scheduled for ${timeLabel}`,
-                  `We'll remind you when it's time to leave. For now, open the app at ${timeLabel} to start your trip with the extra daylight along your route.`,
-                  [{ text: 'Got it' }],
+                // Real local-notification scheduling via expo-notifications.
+                // The helper requests permission inline on first use; result
+                // shape lets us pick the right Alert per outcome.
+                const result = await scheduleDepartureNotification(
+                  suggestedDeparture,
+                  params.destName,
                 );
+                if (result.ok) {
+                  Haptics.notificationAsync(
+                    Haptics.NotificationFeedbackType.Success,
+                  ).catch(() => {});
+                  Alert.alert(
+                    `Scheduled for ${timeLabel}`,
+                    `We'll send a heads-up at ${timeLabel} so you can leave when the daylight's right.`,
+                    [{ text: 'Got it' }],
+                  );
+                } else if (result.reason === 'permission-denied') {
+                  Alert.alert(
+                    'Notification access needed',
+                    'Allow Notifications in Settings to get a heads-up when it\'s time to leave. You can still leave at the suggested time manually.',
+                  );
+                } else if (result.reason === 'past-time') {
+                  Alert.alert(
+                    "Can't schedule that time",
+                    "That moment has already passed. Try picking a new destination.",
+                  );
+                } else {
+                  Alert.alert(
+                    'Could not schedule',
+                    'Please try again in a moment.',
+                  );
+                }
               }}
               accessibilityRole="button"
               accessibilityLabel={`Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
@@ -1845,6 +1870,7 @@ export default function Home() {
           detail={selectedReport.detail}
           subTag={selectedReport.subTag}
           placeName={selectedReport.placeName}
+          photoUri={selectedReport.photoUri}
           timestamp={selectedReport.timestamp}
           onDismiss={() => setSelectedReport(null)}
         />

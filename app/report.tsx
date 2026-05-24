@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +9,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
@@ -115,17 +118,92 @@ export default function Report() {
     undefined,
   );
 
+  // Optional photo URI from expo-image-picker (camera capture only —
+  // library picks would let a user attach a photo from anywhere,
+  // which breaks the implicit "this is where I am" contract of a
+  // location-tagged community report). Local-device file URI; the
+  // RecommendationCard display path renders it via <Image source={{ uri }} />.
+  const [photoUri, setPhotoUri] = useState<string | undefined>(undefined);
+
   function handlePickCategory(c: ReportCategory) {
     setCategory(c);
     setDetailText('');
     setSelectedSubTag(undefined);
+    setPhotoUri(undefined);
     setMode('detail');
   }
 
   function handleBackFromDetail() {
     setCategory(null);
     setSelectedSubTag(undefined);
+    setPhotoUri(undefined);
     setMode('picker');
+  }
+
+  /**
+   * Camera capture for the optional photo attachment. Requests
+   * camera permission inline (no upfront onboarding ask — the
+   * affordance is buried inside a category-specific report flow,
+   * not on the common path, so eager-prompting at /permissions
+   * would burn permission goodwill for a rarely-used feature).
+   *
+   * After capture, copies the photo from expo-image-picker's
+   * cache directory (which iOS may evict under storage pressure)
+   * into documentDirectory for durability — without this, a
+   * report's photo would show broken-image space after iOS
+   * cleared the cache.
+   *
+   * Permission denied → inline Alert with copy that points to
+   * Settings; the rest of the report still submits without a photo.
+   * Cancel → no-op.
+   */
+  async function handlePickPhoto() {
+    Haptics.selectionAsync().catch(() => {});
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        'Camera access needed',
+        'Allow Camera in Settings to attach a photo. Your report can still submit without one.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      // Mild quality compression — a community-report thumbnail
+      // doesn't need raw camera resolution. 0.7 trades ~40% file
+      // size for a perceptual delta most users won't notice.
+      quality: 0.7,
+      // No editor — for a quick contribution flow, the friction of
+      // a crop/rotate step has outsized cost on completion rates.
+      allowsEditing: false,
+    });
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+    // Copy out of the volatile cache dir into documentDirectory so
+    // the URI survives iOS cache eviction. Best-effort: if the copy
+    // fails, fall back to the cache URI (works until iOS clears it).
+    try {
+      const dir = `${FileSystem.documentDirectory}reports/`;
+      await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(
+        () => {},
+      );
+      // Filename derives from the asset URI's extension to preserve
+      // mime; timestamp + random suffix avoids same-second collisions.
+      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const durableUri = `${dir}${filename}`;
+      await FileSystem.copyAsync({ from: asset.uri, to: durableUri });
+      setPhotoUri(durableUri);
+    } catch (err) {
+      console.warn('[report] photo durable-copy failed, using cache URI:', err);
+      setPhotoUri(asset.uri);
+    }
+  }
+
+  function handleClearPhoto() {
+    Haptics.selectionAsync().catch(() => {});
+    setPhotoUri(undefined);
   }
 
   async function handleSubmit() {
@@ -149,6 +227,7 @@ export default function Report() {
         subTag: selectedSubTag,
         placeName: nearest?.name,
         submittedBy: category.anonymous ? undefined : user?.id,
+        photoUri,
       });
       // Success haptic on submission — the contribution lands as a
       // tactile confirmation, matching the visual transition into the
@@ -226,6 +305,9 @@ export default function Report() {
             onSubmit={handleSubmit}
             submitting={submitting}
             locationKnown={location !== null}
+            photoUri={photoUri}
+            onPickPhoto={handlePickPhoto}
+            onClearPhoto={handleClearPhoto}
           />
         )}
         {mode === 'thank-you' && (
@@ -384,6 +466,9 @@ function DetailView({
   onSubmit,
   submitting,
   locationKnown,
+  photoUri,
+  onPickPhoto,
+  onClearPhoto,
 }: {
   category: ReportCategory;
   detailText: string;
@@ -395,17 +480,10 @@ function DetailView({
   onSubmit: () => void;
   submitting: boolean;
   locationKnown: boolean;
+  photoUri: string | undefined;
+  onPickPhoto: () => void;
+  onClearPhoto: () => void;
 }) {
-  function handlePhotoStubTap() {
-    // Photo capture lands in a future PR. For now the affordance is
-    // visual; tapping acknowledges the intent without leading anywhere
-    // half-built.
-    Alert.alert(
-      'Photo capture coming soon',
-      'For now, descriptions only. Full camera support lands in a future update.',
-    );
-  }
-
   return (
     <>
       <View style={styles.headerRow}>
@@ -546,14 +624,49 @@ function DetailView({
         {category.hasPhoto && (
           <>
             <Text style={styles.fieldLabel}>(Optional) Add a photo</Text>
-            <Pressable
-              style={({ pressed }) => [styles.photoStub, pressed && pressedDim]}
-              onPress={handlePhotoStubTap}
-              accessibilityRole="button"
-              accessibilityLabel="Add a photo (coming soon)"
-            >
-              <Ionicons name="camera-outline" size={32} color={colors.labelTertiary} />
-            </Pressable>
+            {photoUri ? (
+              // Preview state — tap the image to retake (replaces),
+              // tap the X to clear. The retake-on-tap pattern matches
+              // iOS Photos / Instagram capture review screens.
+              <View style={styles.photoPreviewWrap}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.photoPreview,
+                    pressed && pressedDim,
+                  ]}
+                  onPress={onPickPhoto}
+                  accessibilityRole="button"
+                  accessibilityLabel="Photo attached — tap to retake"
+                >
+                  <Image
+                    source={{ uri: photoUri }}
+                    style={styles.photoPreviewImage}
+                    accessibilityIgnoresInvertColors
+                  />
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.photoClearBtn,
+                    pressed && pressedDim,
+                  ]}
+                  onPress={onClearPhoto}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove photo"
+                  hitSlop={8}
+                >
+                  <X size={14} color={colors.white} weight="bold" />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={({ pressed }) => [styles.photoStub, pressed && pressedDim]}
+                onPress={onPickPhoto}
+                accessibilityRole="button"
+                accessibilityLabel="Add a photo"
+              >
+                <Ionicons name="camera-outline" size={32} color={colors.labelTertiary} />
+              </Pressable>
+            )}
           </>
         )}
       </View>
@@ -778,6 +891,36 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorderSubtle,
     borderStyle: 'dashed',
     borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Photo preview after capture. Container is `relative` so the
+  // clear X can absolute-position over the image's top-right corner.
+  photoPreviewWrap: {
+    height: 120,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  photoPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  photoPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  // 24pt translucent dark pill anchored top-right of the preview;
+  // separate Pressable from the retake-on-image-tap so the two
+  // gestures don't fight.
+  photoClearBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },

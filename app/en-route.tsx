@@ -275,6 +275,7 @@ export default function EnRoute() {
     detail?: string;
     subTag?: string;
     placeName?: string;
+    photoUri?: string;
     timestamp: number;
   } | null>(null);
   // Region + viewport size for marker clustering. Without these, dense
@@ -965,6 +966,7 @@ export default function EnRoute() {
                   detail: zone.reportDetail,
                   subTag: zone.reportSubTag,
                   placeName: zone.reportPlaceName,
+                  photoUri: zone.reportPhotoUri,
                   timestamp: zone.reportTimestamp ?? Date.now(),
                 })
               }
@@ -1469,6 +1471,7 @@ export default function EnRoute() {
           detail={selectedReport.detail}
           subTag={selectedReport.subTag}
           placeName={selectedReport.placeName}
+          photoUri={selectedReport.photoUri}
           timestamp={selectedReport.timestamp}
           onDismiss={() => setSelectedReport(null)}
         />

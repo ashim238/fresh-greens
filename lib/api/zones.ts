@@ -167,6 +167,12 @@ export type Zone = {
   /** Author id (`CommunityReport.submittedBy`) — used by hold-to-delete
    *  to gate deletion to the report's author. */
   reportSubmittedBy?: string;
+  /** Local file URI for the optional photo the user attached at
+   *  submit time (`CommunityReport.photoUri`). Lives in
+   *  expo-file-system documentDirectory so it survives cache evictions.
+   *  ReportDetailCard renders it inline when present; absence falls
+   *  back to the category glyph header. */
+  reportPhotoUri?: string;
 };
 
 /**
