@@ -28,6 +28,7 @@ export function FloatingActionButton({
   disabled,
   size = '56',
   accessibilityLabel,
+  accessibilityHint,
   style,
 }: {
   children: ReactNode;
@@ -35,6 +36,11 @@ export function FloatingActionButton({
   disabled?: boolean;
   size?: Size;
   accessibilityLabel?: string;
+  /** Optional VoiceOver hint — pairs with accessibilityLabel to
+      explain *what tapping does*. Useful on FABs whose visual glyph
+      is iconography-only and whose label is a noun ("Change
+      destination") rather than a verb phrase. */
+  accessibilityHint?: string;
   style?: ViewStyle;
 }) {
   const dimensions = size === '56' ? styles.size56 : styles.size48;
@@ -44,6 +50,7 @@ export function FloatingActionButton({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.base,

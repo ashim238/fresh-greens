@@ -1350,7 +1350,22 @@ export default function EnRoute() {
           <View style={styles.etaRow}>
             <FloatingActionButton
               size="48"
-              accessibilityLabel="Search along route (coming soon)"
+              accessibilityLabel="Change destination"
+              accessibilityHint="Opens search to pick a new destination mid-trip"
+              onPress={() => {
+                // Mid-trip destination change. /search reads
+                // ?from=enroute and routes the result back here
+                // instead of /home; the existing destLat/destLng
+                // useEffect refetches the route + steps in place.
+                // The active-route cache from the previous
+                // destination self-replaces on the next successful
+                // OSRM fetch (single-slot, destination-keyed); no
+                // need to clearActiveRoute here, which would race
+                // the new saveActiveRoute and risk leaving the user
+                // with no offline fallback during the swap window.
+                Haptics.selectionAsync().catch(() => {});
+                router.push('/search?from=enroute');
+              }}
             >
               <EnRouteSearch width={24} height={24} />
             </FloatingActionButton>
