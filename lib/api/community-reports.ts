@@ -269,6 +269,16 @@ export type CommunityReport = {
   placeName?: string;
   /** Anonymous-category reports never set this. */
   submittedBy?: string;
+  /**
+   * Local file URI from `expo-image-picker.launchCameraAsync` when
+   * the user attached a photo via /report. Local-device only —
+   * persisting across reinstall would require an upload step the v1
+   * device-local storage model doesn't have. Display path falls back
+   * to the category glyph when undefined (vast majority — most
+   * categories don't expose the photo affordance, and even on
+   * `hasPhoto` categories it's optional).
+   */
+  photoUri?: string;
   /** ms since epoch — used for ordering and stale-cleanup if ever needed. */
   timestamp: number;
 };
@@ -341,6 +351,7 @@ function reportToZone(report: CommunityReport): Zone {
     reportTimestamp: report.timestamp,
     reportPlaceName: report.placeName,
     reportSubmittedBy: report.submittedBy,
+    reportPhotoUri: report.photoUri,
   };
 }
 

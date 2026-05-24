@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // note on why we bypass the package's barrel index.
@@ -94,6 +94,7 @@ export function ReportDetailCard({
   detail,
   subTag,
   placeName,
+  photoUri,
   timestamp,
   onDismiss,
 }: {
@@ -107,6 +108,14 @@ export function ReportDetailCard({
    * subline. Falls back to category.label when not set.
    */
   placeName?: string;
+  /**
+   * Local file URI for the photo the user attached at submit time.
+   * Renders inline above the detail copy when present. Undefined
+   * for the vast majority of reports — most categories don't even
+   * expose the photo affordance, and even on `hasPhoto` categories
+   * it's optional.
+   */
+  photoUri?: string;
   timestamp: number;
   onDismiss: () => void;
 }) {
@@ -187,6 +196,18 @@ export function ReportDetailCard({
           </FloatingActionButton>
         </View>
 
+        {photoUri ? (
+          <View style={styles.photoWrap}>
+            <Image
+              source={{ uri: photoUri }}
+              style={styles.photo}
+              accessibilityIgnoresInvertColors
+              accessibilityRole="image"
+              accessibilityLabel="Photo attached to this report"
+            />
+          </View>
+        ) : null}
+
         {detail ? (
           <View style={styles.detailWrap}>
             <Text style={styles.detail}>{detail}</Text>
@@ -255,6 +276,19 @@ const styles = StyleSheet.create({
     color: colors.mutedSecondary,
     textAlign: 'center',
   } as const,
+  // Photo attachment — 4:3 within the same 24pt gutter as the detail
+  // copy. resizeMode 'cover' so portrait phone photos crop to the
+  // panel's landscape rectangle without letterboxing. Border-radius
+  // 12pt matches the RecommendationCard photo treatment.
+  photoWrap: {
+    paddingHorizontal: 24,
+  },
+  photo: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 12,
+    backgroundColor: colors.fadedgreen, // shows during image load
+  },
   detailWrap: {
     paddingHorizontal: 24,
   },
