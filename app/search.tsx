@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -122,6 +122,22 @@ function formatResultDistance(miles: number): string {
 
 export default function Search() {
   const router = useRouter();
+  // `from=enroute` opts the result-tap into a mid-trip destination
+  // change instead of the default /home route-preview. The /en-route
+  // screen's existing destLat/destLng useEffect detects the param
+  // change and refetches the route + steps; minStepIndexRef resets
+  // are already keyed on recommended.id so monotonic step progress
+  // restarts cleanly on the new route.
+  //
+  // Trust boundary: today the only producer of `from=enroute` is the
+  // EnRouteSearch FAB on /en-route itself. A deep-link with this
+  // param would land the user on /en-route without an active trip
+  // — equivalent to /home → Go (the canonical entry), just skipping
+  // /home. /en-route handles missing destination gracefully (renders
+  // empty polyline; user can back out). No defensive gate needed
+  // today; revisit if new producers of this param land.
+  const params = useLocalSearchParams<{ from?: string }>();
+  const fromEnRoute = params.from === 'enroute';
   const { recents, addRecent, removeRecent, clearRecents } = useRecentSearches();
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('landing');
@@ -286,7 +302,9 @@ export default function Search() {
       longitude: place.longitude,
     });
     router.replace({
-      pathname: '/home',
+      // From /en-route → return to /en-route with new destination
+      // (mid-trip destination change). Default → /home route preview.
+      pathname: fromEnRoute ? '/en-route' : '/home',
       params: {
         destLat: String(place.latitude),
         destLng: String(place.longitude),
@@ -310,7 +328,7 @@ export default function Search() {
       longitude: recent.longitude,
     });
     router.replace({
-      pathname: '/home',
+      pathname: fromEnRoute ? '/en-route' : '/home',
       params: {
         destLat: String(recent.latitude),
         destLng: String(recent.longitude),
