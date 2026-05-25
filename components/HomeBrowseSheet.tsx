@@ -70,6 +70,7 @@ export function HomeBrowseSheet({
   onSelectRecommendation,
   onEmptyTap,
   onScrollToRow,
+  onChipsHeight,
 }: {
   /** Display name for the eyebrow; falls back to "Local" if undefined. */
   firstName?: string;
@@ -112,6 +113,15 @@ export function HomeBrowseSheet({
    * are still all visible).
    */
   onScrollToRow?: (y: number) => void;
+  /**
+   * Reports the measured height of the sticky chips wrapper up to the
+   * parent — the parent uses it to offset chip-jump scrollTo targets
+   * so the target row's section header lands just below the pinned
+   * chips, not behind them. Fires on every layout pass; the parent
+   * should store the latest value in a ref/state and use it the next
+   * time it dispatches a scrollTo.
+   */
+  onChipsHeight?: (height: number) => void;
 }) {
   // All 7 browse-mode rows batched in parallel. Trusted-by-community
   // is row[0]; the result for it is consumed by TrustedByCommunityRow
@@ -203,7 +213,17 @@ export function HomeBrowseSheet({
     : 'Your Local Recs 💃🏾';
 
   return (
-    <View style={styles.content}>
+    // Fragment (not a wrapping View) so the three logical sections
+    // — top headers, chips, row stack — become DIRECT children of
+    // the parent ScrollView in app/home.tsx. That's load-bearing for
+    // `stickyHeaderIndices`: it only sticks immediate children, so a
+    // wrapping View here would hide the chips behind one indirection
+    // and they couldn't pin during scroll.
+    //
+    // The previous wrapping `styles.content` provided `gap: 16` +
+    // `paddingBottom: 16`; both are now applied on `sheetScrollContent`
+    // in home.tsx so vertical rhythm is preserved.
+    <>
       <View style={styles.headers}>
         <Text style={styles.eyebrow}>{eyebrowCopy}</Text>
 
@@ -223,8 +243,20 @@ export function HomeBrowseSheet({
         scroll-to-row keeps the full stack in view and lets chips
         function as a table-of-contents. "Browse" chip → scroll to
         top (the Trusted-by-your-community row).
+
+        Wrapped in a solid-bg View so when the parent ScrollView's
+        stickyHeaderIndices pins this slot during scroll, content
+        scrolling underneath doesn't bleed through the chip row.
+        onLayout reports the wrapper's height up so home.tsx can
+        offset chip-jump scrollTos correctly (target row sits just
+        below the pinned chips, not behind them).
       */}
-      <CategoryChips onJump={jumpToCategory} />
+      <View
+        style={styles.stickyChipsWrap}
+        onLayout={(e) => onChipsHeight?.(e.nativeEvent.layout.height)}
+      >
+        <CategoryChips onJump={jumpToCategory} />
+      </View>
 
       <Pressable
         onPress={() => {
@@ -287,7 +319,7 @@ export function HomeBrowseSheet({
           })}
         </>
       )}
-    </View>
+    </>
   );
 }
 
@@ -1094,9 +1126,16 @@ export const CARD_WIDTH = 280;
 export const CARD_GAP = 12;
 
 const styles = StyleSheet.create({
-  content: {
-    gap: 16,
-    paddingBottom: 16,
+  // Sticky chip wrapper — solid white bg so when the parent ScrollView
+  // pins this slot via stickyHeaderIndices during vertical scroll,
+  // row content scrolling underneath doesn't show through the chip
+  // strip. Vertical padding gives the pinned-state a breathing room
+  // band; horizontal padding is set on CategoryChips' own ScrollView
+  // contentContainerStyle so the leftmost chip aligns to the sheet's
+  // 16pt gutter without double-counting.
+  stickyChipsWrap: {
+    backgroundColor: colors.white,
+    paddingVertical: 8,
   },
   headers: {
     gap: 8,

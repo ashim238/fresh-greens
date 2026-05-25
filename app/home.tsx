@@ -120,6 +120,13 @@ export default function Home() {
   // HomeBrowseSheet's chip jump-links (chip tap → scroll to that row's
   // Y offset, measured per-row inside the sheet via onLayout).
   const sheetScrollRef = useRef<ScrollView>(null);
+  // Sticky-chips height — measured inside HomeBrowseSheet and reported
+  // up via onChipsHeight. Used by the chip-jump scrollTo so the target
+  // row's section header lands JUST below the pinned chips strip
+  // rather than behind it. Ref (not state) because the value isn't
+  // rendered; it just needs to be available the next time scrollTo
+  // fires.
+  const stickyChipsHeightRef = useRef(0);
   // Neighborhood label for the browse-mode sheet header. Derived
   // from a one-shot `Location.reverseGeocodeAsync` against the
   // user's first GPS fix. Picks `subregion + city` (most natural
@@ -1430,10 +1437,20 @@ export default function Home() {
             // scrolling internally. `flex: 1` makes the ScrollView the
             // bounded region; cards inside scroll vertically when they
             // exceed it.
+            //
+            // `stickyHeaderIndices={[1]}` pins the chips wrapper to
+            // the top during inner-sheet scroll (Apple Maps pattern).
+            // Index 1 = the second direct child returned by
+            // HomeBrowseSheet's Fragment: [headers, chips, ...rows].
+            // The fragment flattens into the ScrollView's children
+            // list, so the chip wrapper IS at index 1 regardless of
+            // the collapsed-state branch below it (which only affects
+            // indices ≥ 2).
             ref={sheetScrollRef}
             style={styles.sheetScrollFlex}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
+            stickyHeaderIndices={[1]}
             contentContainerStyle={styles.sheetScrollContent}
           >
             <HomeBrowseSheet
@@ -1443,13 +1460,22 @@ export default function Home() {
               refreshKey={focusRefreshKey}
               collapsed={thingsToDoCollapsed}
               onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+              onChipsHeight={(h) => {
+                // Guard against redundant ref writes on every parent
+                // re-render. The callback fires on each onLayout pass;
+                // the height rarely changes mid-session.
+                if (h !== stickyChipsHeightRef.current) {
+                  stickyChipsHeightRef.current = h;
+                }
+              }}
               onScrollToRow={(y) => {
-                // Chip jump-link target. Subtract a small offset so
-                // the row's section header isn't flush to the
-                // viewport top — leaves breathing room and matches
-                // Apple Maps' "scroll-to-section" pattern.
+                // Chip jump-link target. Offset by the sticky chips'
+                // measured height so the row's section header lands
+                // just below the pinned chip strip (not behind it),
+                // plus 8pt breathing room. Matches Apple Maps' chip-
+                // tap-to-section pattern.
                 sheetScrollRef.current?.scrollTo({
-                  y: Math.max(0, y - 8),
+                  y: Math.max(0, y - stickyChipsHeightRef.current - 8),
                   animated: true,
                 });
               }}
@@ -2006,10 +2032,17 @@ const styles = StyleSheet.create({
   },
   sheetScrollContent: {
     flexGrow: 1,
-    // Extra bottom padding so the last card's shadow + its 16pt
-    // marker breathe past the safe-area edge — without this the
-    // shadow renders clipped at the bottom-most scroll position.
-    paddingBottom: 24,
+    // `gap: 16` previously lived on HomeBrowseSheet's now-removed
+    // outer `content` wrapper View. Moved here so the same vertical
+    // rhythm holds with the Fragment-based child layout that lets
+    // stickyHeaderIndices pin the chips slot. Equivalent stacking
+    // distance, no visual change.
+    gap: 16,
+    // 40pt = 24pt (shadow clearance for the last card) + 16pt (the
+    // bottom padding the old `content` wrapper used to provide
+    // before its View was removed). Preserves the previous total
+    // stacking distance below the last row.
+    paddingBottom: 40,
   },
   headers: {
     gap: 8,
