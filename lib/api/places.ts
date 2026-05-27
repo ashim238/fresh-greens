@@ -56,13 +56,6 @@ const MAPBOX_URL = 'https://api.mapbox.com/search/searchbox/v1/forward';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
-// Bounding box half-width in degrees. ~2.0° ≈ 140 miles at mid-
-// latitudes — generous so rural users still get results. The
-// `proximity` parameter biases toward user location, so closer
-// matches naturally surface first; the bbox enforces a hard upper
-// bound on how far results can drift.
-const BBOX_DEGREES = 2.0;
-
 /**
  * Search for named POIs matching the query, biased toward the user's
  * current location. Returns up to 10 results sorted by distance
@@ -70,6 +63,16 @@ const BBOX_DEGREES = 2.0;
  *
  * `userLocation` is required — feeds Mapbox's `proximity` parameter
  * (the closer-results-first hint) and the client-side distance sort.
+ *
+ * No bbox cap. Earlier versions hard-capped results at ~140mi from
+ * the user, which paired with the old MAX_ROUTE_DISTANCE_MILES=500
+ * routing guard. With routing now accepting 3000mi (PR A) plus the
+ * "No route available" state, the bbox was gating *discoverability*
+ * before *routability* even got to decide — typing "1600 Pennsylvania
+ * Ave" from NYC returned nothing despite the route being trivially
+ * computable. Removing it lets exact-address queries surface their
+ * canonical match cross-country; the `proximity` parameter still
+ * biases nearby results to the top so local searches behave the same.
  */
 export async function searchPlaces(
   query: string,
@@ -86,18 +89,11 @@ export async function searchPlaces(
   }
 
   const { latitude: lat, longitude: lng } = userLocation;
-  const bbox = [
-    lng - BBOX_DEGREES,
-    lat - BBOX_DEGREES,
-    lng + BBOX_DEGREES,
-    lat + BBOX_DEGREES,
-  ].join(',');
 
   const params = new URLSearchParams({
     q: trimmed,
     access_token: MAPBOX_TOKEN,
     proximity: `${lng},${lat}`,
-    bbox,
     limit: '10',
     // Include both POIs and street addresses. Was `poi` only, which
     // meant typing a specific street address ("123 Main St") returned
@@ -108,13 +104,11 @@ export async function searchPlaces(
     //
     // `country` filter intentionally NOT set. Previously hardcoded to
     // 'us' which returned zero results when the user was anywhere
-    // outside the US (Spain, Canada, Mexico, etc.) — the `bbox`
-    // already enforces a ~140mi proximity gate that's a tighter
-    // upper bound than a country filter would be, so the country
-    // filter was redundant for in-country users and broken for
-    // everyone else. Users near a US border (San Diego/Tijuana,
-    // Detroit/Windsor, etc.) now get cross-border POIs within bbox,
-    // which is more useful than the pre-fix US-only filter.
+    // outside the US. The `proximity` parameter biases toward the
+    // user's location, so local results still surface first — but
+    // unconstrained `types: 'poi,address'` lets distant exact matches
+    // surface when they're the canonical answer (e.g., a specific
+    // street address that's only meaningful in another city).
     types: 'poi,address',
   });
 
