@@ -1038,7 +1038,13 @@ function RecommendationCardSkeleton() {
     >
       <View style={[styles.photoWrap, styles.skelBlock]} />
       <View style={styles.cardBody}>
-        <View style={[styles.skelLine, { width: '70%', height: 28 }]} />
+        {/* W1 of PR E review: skeleton title height paired with H7's
+            cardTitle drop. Earlier height: 28 matched title1Emphasized's
+            lineHeight (34) approximately; now title3Emphasized has
+            lineHeight 25, so the skeleton title sized 25 keeps the
+            "no reflow on content land" guarantee the skeleton docstring
+            promises. */}
+        <View style={[styles.skelLine, { width: '70%', height: 25 }]} />
         <View style={[styles.skelLine, { width: '50%', height: 18 }]} />
         <View style={[styles.skelLine, { width: '60%', height: 18 }]} />
       </View>
@@ -1228,7 +1234,11 @@ const styles = StyleSheet.create({
   browseEmptyLine: {
     ...typography.footnoteRegular,
     color: colors.mutedTertiary,
-    paddingVertical: 4,
+    // H11: paddingVertical 4 → 12 so the Open Now empty line gets
+    // minimum row breathing room. Earlier 4pt left it flush against
+    // the section header above. Matches the cadence of other row
+    // empty states (which use padding: 24 via the empty component).
+    paddingVertical: 12,
   },
   cardWrap: {
     paddingHorizontal: 16,
@@ -1377,7 +1387,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitle: {
-    ...typography.title1Emphasized,
+    // H7: dropped from title1Emphasized (28pt) → title3Emphasized (20pt).
+    // title1Emphasized is the guidance-screen register per .cursorrules
+    // ("Guidance/instruction screens: Title1 Emphasized") — overkill on
+    // a 280pt carousel card where it left no weight for the tag rows.
+    // Apple Maps / Google Maps place cards sit at 15-17pt semibold.
+    // The existing adjustsFontSizeToFit + minimumFontScale={0.85} on the
+    // Text element still handles long names gracefully at the new size.
+    ...typography.title3Emphasized,
     color: colors.black,
   },
   tagRow: {
@@ -1404,6 +1421,10 @@ const styles = StyleSheet.create({
     // the "(N reviews)" context resolves any ambiguity. Documented
     // as a brand exception, not an oversight.
     color: colors.freshgreen,
+    // H8: tabular-nums on the rating number ("4.2", "3.8") so carousel
+    // snap doesn't reflow card layouts due to proportional digit widths.
+    // Same finding class as the en-route ETA + distance F7 fix.
+    fontVariant: ['tabular-nums'],
   },
   ratingMeta: {
     ...typography.footnoteRegular,
@@ -1417,6 +1438,10 @@ const styles = StyleSheet.create({
   tagText: {
     ...typography.footnoteRegular,
     color: colors.black,
+    // H8: tabular-nums for the distance tag ("0.3 mi", "1.2 mi") +
+    // any numeric tag content. No-op on alpha-only tags (categoryLabel,
+    // hoursLabel) per the CSS font-variant-numeric spec.
+    fontVariant: ['tabular-nums'],
   },
   openPill: {
     backgroundColor: colors.fadedgreen,

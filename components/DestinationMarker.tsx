@@ -4,6 +4,7 @@ import { Marker } from 'react-native-maps';
 
 import DestinationEnrouteSvg from '../assets/illustrations/destination-enroute.svg';
 import DestinationHomeSvg from '../assets/illustrations/destination-home.svg';
+import { shadows } from '../theme/shadows';
 
 export type DestinationVariant = 'home' | 'enroute';
 
@@ -87,7 +88,17 @@ export function DestinationMarker({
       accessibilityRole="image"
       accessibilityLabel={name ? `Destination: ${name}` : 'Destination'}
     >
-      <View style={styles.frame} accessibilityIgnoresInvertColors>
+      <View
+        // H3: enroute variant gets shadows.e3 so the flag-on-pole lifts
+        // off busy basemap content (the most semantically important
+        // marker when a route is active). The home variant SVG (Figma
+        // 1245:10977) already bakes its own dual drop-shadow filter
+        // into the SVG itself, so adding RN shadow there would
+        // compound. Per-variant shadow keeps both visually consistent
+        // with their canonical Figma sources.
+        style={[styles.frame, variant === 'enroute' && shadows.e3]}
+        accessibilityIgnoresInvertColors
+      >
         <Svg width={48} height={48} />
       </View>
     </Marker>

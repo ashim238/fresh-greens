@@ -1409,7 +1409,12 @@ export default function Home() {
             single SVG.
           */}
           <FloatingActionButton
-            size="56"
+            // H2: size="56" → "48" per FloatingActionButton's docstring
+            // (48 = /home top-row overlay; 56 = /en-route side column).
+            // At 56 the menu FAB matched the search bar's 56pt height and
+            // competed for chrome weight; at 48 it recedes so the search
+            // bar dominates the top-row hierarchy.
+            size="48"
             onPress={() => router.push('/menu')}
             accessibilityLabel="Menu"
           >
@@ -1656,7 +1661,18 @@ export default function Home() {
             with context).
           */}
           <View style={styles.routeHeadlineRow}>
-            <Animated.Text style={[styles.routeMinutes, { opacity: minutesOpacity }]}>
+            <Animated.Text
+              style={[styles.routeMinutes, { opacity: minutesOpacity }]}
+              // S3 of PR E review: defensive numberOfLines at 34pt. The
+              // current longest formatDuration output ("59 hr 59 min")
+              // fits comfortably on SE (~200pt vs 272pt available), but
+              // future copy expansion or localization shouldn't be able
+              // to wrap the headline number to a second line and break
+              // the card's vertical rhythm. Matches the H17 guard.
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
             </Animated.Text>
           </View>
@@ -1860,7 +1876,18 @@ export default function Home() {
               accessibilityRole="button"
               accessibilityLabel={`Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
             >
-              <Text style={styles.scheduleText}>
+              {/*
+                H17: numberOfLines + adjustsFontSizeToFit so "Schedule
+                for 7:30 AM" (~130-135pt at 13pt) doesn't overflow on
+                iPhone SE (per-button width ~120pt at 320pt viewport).
+                accessibilityLabel above retains the full phrase.
+              */}
+              <Text
+                style={styles.scheduleText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 Schedule for {formatTimeOfDay(suggestedDeparture)}
               </Text>
             </Pressable>
@@ -1924,20 +1951,34 @@ export default function Home() {
             so expanding the browse sheet covers the FABs instead of
             shoving them up — Apple Maps / Google Maps convention.
           */}
-          {userLocation && (
-            <FloatingActionButton
-              size="56"
-              onPress={handleRecenter}
-              accessibilityLabel="Recenter map on your location"
-              style={{
-                position: 'absolute',
-                right: 16,
-                bottom: fabAnchorHeight + 24 + 56 + 12,
-              }}
-            >
-              <SidebtnRecenter width={32} height={32} />
-            </FloatingActionButton>
-          )}
+          {/*
+            H6: Recenter renders unconditionally (matching Report's
+            guard pattern: fabAnchorHeight > 0 && !placingReport handled
+            at the outer fragment). Previously gated on userLocation,
+            which meant the button popped into existence ~1-3s after
+            mount when the first GPS fix arrived — and Report jumped
+            up 68pt to make room. Apple Maps shows recenter immediately,
+            just inert until GPS is known. `disabled={!userLocation}`
+            threads VoiceOver's disabled state AND suppresses onPress;
+            FloatingActionButton's pressedDim handles the visual.
+          */}
+          <FloatingActionButton
+            size="56"
+            disabled={!userLocation}
+            onPress={handleRecenter}
+            accessibilityLabel={
+              userLocation
+                ? 'Recenter map on your location'
+                : 'Recenter map (waiting for location)'
+            }
+            style={{
+              position: 'absolute',
+              right: 16,
+              bottom: fabAnchorHeight + 24 + 56 + 12,
+            }}
+          >
+            <SidebtnRecenter width={32} height={32} />
+          </FloatingActionButton>
           <FloatingActionButton
             size="56"
             onPress={handleReportButtonPress}
@@ -2030,7 +2071,10 @@ export default function Home() {
 function RouteWarningChip({ count, label }: { count: number; label: string }) {
   return (
     <View style={styles.routeChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <WarningDiamond size={24} color={colors.orange} weight="fill" />
+      {/* H4: 24pt → 16pt. Chip is ~40pt tall; a 24pt glyph filled 60%
+          of the pill height and dominated the chip's tag-row register.
+          16pt matches the topline-callout chip family's icon weight. */}
+      <WarningDiamond size={16} color={colors.orange} weight="fill" />
       <Text style={styles.routeChipText}>
         {count} {label}
       </Text>
@@ -2049,7 +2093,8 @@ function RouteWarningChip({ count, label }: { count: number; label: string }) {
 function RouteAllClearChip() {
   return (
     <View style={styles.routeAllClearChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Check size={24} color={colors.burntgreen} weight="bold" />
+      {/* H4: 24pt → 16pt to match RouteWarningChip icon sizing. */}
+      <Check size={16} color={colors.burntgreen} weight="bold" />
       <Text style={styles.routeAllClearText}>All clear</Text>
     </View>
   );
@@ -2182,10 +2227,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   routeMinutes: {
-    // wiltedgreen Title2Emphasized per Figma — the "12 min" anchor.
-    // Distinct from the v1 inline "About X min to Y" sentence: this
-    // is the headline number on its own line, not embedded in copy.
-    ...typography.title2Emphasized,
+    // H12: title2Emphasized (22pt) → largeTitleEmphasized (34pt). The
+    // "12 min" is the route card's anchor number — at 22pt it read
+    // as a section header, not as the headline. Waze and Apple Maps
+    // put their ETA in the 34-36pt range. The card already has a
+    // type ladder beneath (footnote Via line, caption1 conditions)
+    // so the 34pt headline doesn't crush anything.
+    ...typography.largeTitleEmphasized,
     color: colors.wiltedgreen,
   },
   // Via + daylight strip share a row per Figma — both are secondary
@@ -2222,6 +2270,11 @@ const styles = StyleSheet.create({
   },
   routeChipsBlock: {
     gap: 8,
+    // H16: lifted paddingHorizontal from each child (routeChipsHeader,
+    // routeChipsRow) to the parent. Earlier pattern had each child
+    // re-declare 24 independently — fragile coupling that would break
+    // if a new chip type was added without copying the value.
+    paddingHorizontal: 24,
   },
   routeChipsHeader: {
     // Briefing-framing header above the chips ("Along this route:")
@@ -2229,13 +2282,11 @@ const styles = StyleSheet.create({
     // informational, per the mobile-ux audit on PR B.
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-    paddingHorizontal: 24,
   },
   routeChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    paddingHorizontal: 24,
   },
   // Clear-destination row — dedicated top slot so the 44pt X doesn't
   // overlap the daylight strip's moon glyph below. 24pt right gutter
@@ -2270,10 +2321,10 @@ const styles = StyleSheet.create({
   },
   routeChipText: {
     // Caption1/Emphasized per Figma 1109:3264 (12pt Medium 510 →
-    // RN's 500 weight). The 24pt WarningDiamond + orange border do
-    // the heavy lifting on chip recognizability; the text reads as
-    // count + label at the smaller size without competing with the
-    // glyph for emphasis.
+    // RN's 500 weight). Post-H4 the 16pt WarningDiamond + orange border
+    // together carry chip recognizability; the text reads as count +
+    // label at the smaller size without competing with the glyph for
+    // emphasis.
     ...typography.caption1Emphasized,
     color: colors.black,
   },
@@ -2313,7 +2364,12 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   tradeoffRow: {
-    paddingHorizontal: 16,
+    // H13: 16 → 24 to match the route card's canonical gutter
+    // (routeHeadlineRow, routeViaRow, routeConditionsCaption,
+    // routeChipsHeader, routeChipsRow, routeTopRow all use 24).
+    // Tradeoff copy was indenting 8pt shallower than everything
+    // else — visible left-gutter misalignment.
+    paddingHorizontal: 24,
   },
   tradeoffCopy: {
     ...typography.footnoteRegular,
@@ -2322,7 +2378,11 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 16,
-    paddingHorizontal: 16,
+    // H14: 16 → 24 to align Schedule/Go button edges with the
+    // route-card content gutter above (Via text + daylight strip end
+    // at 24pt from edge; buttons were ending at 16pt, leaving the Go
+    // pill's right edge 8pt short of the daylight strip's moon glyph).
+    paddingHorizontal: 24,
     paddingBottom: 16,
   },
   scheduleBtn: {
