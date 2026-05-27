@@ -1307,8 +1307,18 @@ export default function EnRoute() {
             still Phosphor — the documented canonical safety-affordance
             (navy duotone) and matches /menu's Safety row register.
           */}
+          {/*
+            F13: Volume + Help are coming-soon buttons. `disabled` on
+            FloatingActionButton suppresses onPress entirely AND threads
+            accessibilityState.disabled to VoiceOver. The FAB's internal
+            `pressedDim` (opacity 0.7) handles the visual inert state
+            uniformly — earlier sideBtnInert (opacity 0.5) was redundant
+            with pressedDim AND was being overridden by it in the style
+            cascade anyway. One canonical "disabled FAB" register.
+          */}
           <FloatingActionButton
             size="56"
+            disabled
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
               Alert.alert('Volume', 'Voice prompt controls land in a future update.', [
@@ -1316,12 +1326,12 @@ export default function EnRoute() {
               ]);
             }}
             accessibilityLabel="Toggle volume (coming soon)"
-            style={styles.sideBtnInert}
           >
             <SidebtnVolume width={32} height={32} />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"
+            disabled
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
               Alert.alert(
@@ -1331,7 +1341,6 @@ export default function EnRoute() {
               );
             }}
             accessibilityLabel="Help (coming soon)"
-            style={styles.sideBtnInert}
           >
             <SidebtnHelp width={32} height={32} />
           </FloatingActionButton>
@@ -1646,6 +1655,11 @@ const styles = StyleSheet.create({
   },
   turnStreet: {
     color: colors.fadedgreen,
+    // F7: tabular-nums prevents glyph-width jitter as the "in 120 m"
+    // distance counts down each second. SF Pro on iOS uses proportional
+    // digits by default; navigation apps switch to tabular for updating
+    // numbers so the text doesn't reflow underneath the instruction.
+    fontVariant: ['tabular-nums'],
   },
   // Hazard row — up to 2 glyphs from `hazardsNearTurn`. 8pt gap per
   // Figma `1109:3527/364:2860`. Only renders when at least one hazard
@@ -1671,13 +1685,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   offlinePillText: {
-    ...typography.caption1Emphasized,
+    // F5: bumped caption1Emphasized (12pt) → footnoteEmphasized (13pt)
+    // to match the 14pt WifiSlash icon's cap-height. Earlier 12pt sat
+    // visually low against the icon inside the compact pill.
+    ...typography.footnoteEmphasized,
     color: colors.white,
-  },
-  // Half-opacity treatment for the Volume + Help FABs (coming-soon
-  // side buttons). Matches the /safety + /menu coming-soon register.
-  sideBtnInert: {
-    opacity: 0.5,
   },
   micBtn: {
     // 56pt pill (Figma specs 48pt as Material 3 icon-button, but the
@@ -1692,11 +1704,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // F4: was inline e1-equivalent values. Swapped to ...shadows.e2 so
+    // the mic pill matches the side-column FABs (which also use e2 via
+    // FloatingActionButton). One canonical "white pill on dark surface"
+    // elevation, applied identically.
+    ...shadows.e2,
   },
   thenFooter: {
     backgroundColor: colors.burntgreen,
@@ -1710,7 +1722,11 @@ const styles = StyleSheet.create({
     // not here — see the comment there for why.
   },
   thenText: {
-    ...typography.title3Regular,
+    // F6: dropped from title3Regular (20pt) → subheadlineRegular (15pt).
+    // "Then" is a low-priority preview that should recede vs the 22pt
+    // emphasized primary instruction. At 20pt it nearly matched the
+    // instruction's weight and broke the hierarchy.
+    ...typography.subheadlineRegular,
     color: colors.fadedgreen,
   },
 
@@ -1719,7 +1735,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     // `bottom` set inline from measured sheet height + 16 offset.
-    gap: 16,
+    // F12: gap 16 → 12. Five 56pt buttons + four 16pt gaps = 344pt of
+    // column height, which on iPhone SE (667pt viewport) left near-zero
+    // clearance from the turn card's bottom edge. 12pt gaps trim 16pt
+    // total → ~37pt clearance on SE without breaking visual rhythm.
+    gap: 12,
   },
   // sideBtn style block retired — the 5 side-column buttons consume
   // the FloatingActionButton component now (size="56").
@@ -1816,7 +1836,12 @@ const styles = StyleSheet.create({
     ...shadows.sheet,
   },
   sheetContent: {
-    gap: 8,
+    // F8: gap 8 → 16 so the sheet's vertical rhythm is consistent with
+    // its outer container (bottomSheet also uses gap: 16). Earlier mix
+    // of 16pt (handle → eta) → 8pt (eta → secondary → endtrip) read as
+    // an oversight, especially when the hazard panel inserted into the
+    // 8pt rhythm on sheet expansion.
+    gap: 16,
     paddingBottom: 8,
   },
   // Drag handle tap target — 8+4+8=20pt of vertical paint; the
@@ -1839,7 +1864,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    // W2 of PR D review: dropped paddingTop: 8. With sheetContent's
+    // gap now at 16 (F8), the extra 8pt here turned the slot above
+    // the hazard panel into 24pt while everything else in the sheet
+    // sits at 16pt — defeating F8's whole point (uniform vertical
+    // rhythm). Without paddingTop, the panel inherits the sheet's
+    // canonical 16pt gap on both edges.
   },
   // Text column inside the hazard panel. Stacks the Title3/Emphasized
   // sentence above an optional Subheadline/Regular "For X mi." line.
@@ -1886,6 +1916,11 @@ const styles = StyleSheet.create({
   eta: {
     ...typography.largeTitleEmphasized,
     color: colors.black,
+    // F7: tabular-nums on the ETA so the arrival time doesn't reflow
+    // each minute as the digits change (e.g. "8:30" → "8:29" shifting
+    // glyph widths under the sun/moon glyph). Mirrors the same fix
+    // applied to turnStreet for the distance counter.
+    fontVariant: ['tabular-nums'],
   },
   // Body/Emphasized 17pt per Figma 364:3133/3135 — bumped from v1's
   // 15pt Subheadline. Distance + duration both emphasized; the "·"
@@ -1912,7 +1947,13 @@ const styles = StyleSheet.create({
   // --- End trip pill ---
   endTripBtn: {
     marginHorizontal: 16,
-    height: 44,
+    // F11: height 44 → 52. 44pt is the HIG floor; End Trip is the most
+    // consequential destructive action on the driving surface and a
+    // driver under stress should hit it first try. 52pt brings it into
+    // the 56pt FAB family register while staying smaller than the
+    // primary CTAs (Go is filled, End Trip is outlined — different
+    // visual weight already).
+    height: 52,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,

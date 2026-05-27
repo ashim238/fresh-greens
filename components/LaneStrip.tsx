@@ -76,9 +76,13 @@ export function LaneStrip({
     wasVisibleRef.current = visible;
   }, [visible, lanes]);
 
+  // F1: bumped from 56 → 64 so cells (40pt + 8pt padding × 2 = 56pt) get
+  // 8pt of vertical breathing room above the maneuver row below. The
+  // previous 56pt cap exactly matched content and risked fractional
+  // clipping at non-1× scale factors.
   const maxHeight = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 56],
+    outputRange: [0, 64],
   });
 
   return (
@@ -207,11 +211,19 @@ const styles = StyleSheet.create({
   strip: {
     overflow: 'hidden',
   },
+  // F2: hairline separator between the lane strip's bottom edge and
+  // the maneuver row below. The border lives on `cells` (not the outer
+  // Animated.View) so when the strip is hidden (maxHeight: 0 + overflow:
+  // hidden on parent), the border is clipped along with the cells —
+  // no stray hairline floating above the maneuver when the strip is
+  // collapsed.
   cells: {
     flexDirection: 'row',
     gap: 4,
     paddingVertical: 8,
     paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.dividerOnDark,
   },
   cell: {
     flex: 1,
