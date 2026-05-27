@@ -21,7 +21,11 @@ type Props = {
  */
 export function PageControl({ total, activeIndex }: Props) {
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      accessibilityRole="text"
+      accessibilityLabel={`Page ${activeIndex + 1} of ${total}`}
+    >
       {Array.from({ length: total }).map((_, i) => (
         <View
           key={i}

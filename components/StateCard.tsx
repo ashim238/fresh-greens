@@ -83,7 +83,12 @@ export function LoadingState({
   style?: ViewStyle;
 }) {
   return (
-    <View style={[styles.card, style]} accessibilityRole="text" accessibilityLabel={text}>
+    <View
+      style={[styles.card, style]}
+      accessibilityRole="progressbar"
+      accessibilityLabel={text}
+      accessibilityState={{ busy: true }}
+    >
       <View style={[styles.content, styles.contentVertical]}>
         <View style={styles.iconWrap}>
           <ActivityIndicator size="large" color={colors.labelTertiary} />

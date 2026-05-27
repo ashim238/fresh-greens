@@ -8,7 +8,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, Easing, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, Dimensions, Easing, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -648,6 +648,13 @@ export default function Home() {
       // /home route-preview call IS what populates the cache for the
       // future /en-route mount if the user drives into dead signal.
       setRawRoutes(fetchedResult.routes);
+
+      if (fetchedResult.routes.length > 0) {
+        const best = fetchedResult.routes[0];
+        AccessibilityInfo.announceForAccessibility(
+          `Route loaded, ${formatDuration(best.estimatedMinutes)} to ${params.destName ?? 'your destination'}.`,
+        );
+      }
 
       const fetchedZones = await zonePromise;
       if (cancelled) return;

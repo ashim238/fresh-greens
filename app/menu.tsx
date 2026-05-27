@@ -217,6 +217,7 @@ export default function Menu() {
               source={AvatarPng}
               style={styles.profileAvatar}
               resizeMode="cover"
+              accessible={false}
               accessibilityIgnoresInvertColors
             />
             <View style={styles.profileTextStack}>

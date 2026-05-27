@@ -545,6 +545,8 @@ function DetailView({
           multiline
           maxLength={280}
           editable={!submitting}
+          accessibilityLabel="Report details"
+          accessibilityState={{ disabled: submitting }}
           inputAccessoryViewID={
             Platform.OS === 'ios' ? DETAIL_INPUT_ACCESSORY_ID : undefined
           }

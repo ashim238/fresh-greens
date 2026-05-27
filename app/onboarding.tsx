@@ -217,6 +217,19 @@ export default function Onboarding() {
         ref={pagerRef}
         data={PANELS}
         keyExtractor={(item) => item.id}
+        accessibilityRole="adjustable"
+        accessibilityLabel={`Onboarding, page ${pagerIndex + 1} of ${PANELS.length}`}
+        accessibilityActions={[
+          { name: 'increment' },
+          { name: 'decrement' },
+        ]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'increment' && pagerIndex < PANELS.length - 1) {
+            pagerRef.current?.scrollToIndex({ index: pagerIndex + 1, animated: true });
+          } else if (event.nativeEvent.actionName === 'decrement' && pagerIndex > 0) {
+            pagerRef.current?.scrollToIndex({ index: pagerIndex - 1, animated: true });
+          }
+        }}
         renderItem={({ item }) => (
           <View style={[styles.panel, { width }]}>
             <View
@@ -269,7 +282,9 @@ export default function Onboarding() {
         ]}
         pointerEvents="box-none"
       >
-        <PageControl total={5} activeIndex={pagerIndex} />
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <PageControl total={5} activeIndex={pagerIndex} />
+        </View>
         <View style={styles.spacer} pointerEvents="none" />
         <View style={styles.actions} pointerEvents="auto">
           <Button
