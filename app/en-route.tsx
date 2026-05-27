@@ -1031,10 +1031,14 @@ export default function EnRoute() {
           );
         })}
         {/*
-          Destination pin — sits at the route endpoint so the driver
+          Destination marker — sits at the route endpoint so the driver
           always sees where the line ends, even when the polyline runs
-          off-screen as the car advances. Same component as /home so
-          the destination reads identically across the trip.
+          off-screen as the car advances. Same component as /home but
+          deliberately a different variant: /home uses the pin-with-
+          checker (Figma 1245:10977 — "this is where we're going");
+          /en-route uses the flag-on-pole (Figma 296:468 — "racing
+          toward the finish"). Shared checker vocabulary, distinct
+          shapes per trip phase.
         */}
         {params.destLat && params.destLng && (
           <DestinationMarker

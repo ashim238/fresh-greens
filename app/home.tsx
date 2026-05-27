@@ -1188,12 +1188,16 @@ export default function Home() {
             latitude={parseFloat(params.destLat)}
             longitude={parseFloat(params.destLng)}
             name={params.destName}
-            // Finish-line flag (was the wiltedgreen pin) — single
-            // destination visual across /home route-preview and
-            // /en-route so the destination reads identically across
-            // the trip lifecycle. Asset already exists in
-            // DestinationMarker as the 'enroute' variant.
-            variant="enroute"
+            // Pin-with-checkered-flag per Figma 1245:10977 ("Home
+            // Destination"). The earlier round used the en-route
+            // flag-on-pole here too for visual unity across the trip
+            // lifecycle, but Figma actually calls for two distinct
+            // registers: a stationary pin on /home (pre-departure
+            // — "this is where we're going") and the flag-on-pole
+            // mid-trip on /en-route ("you're racing toward this").
+            // The checker pattern visually marries the two: same
+            // semantic vocabulary, different shapes for each phase.
+            variant="home"
           />
         )}
         {/*

@@ -10,15 +10,25 @@ export type DestinationVariant = 'home' | 'enroute';
 /**
  * Destination marker — drops at the endpoint of the active route.
  *
- * Two variants, both 48×48 from Figma `296:468`:
- *   - `home`    — wiltedgreen pin with a freshgreen center (pre-departure).
- *   - `enroute` — checkered finish-line flag (mid-trip).
+ * Two variants, both 48×48:
+ *   - `home`    — pin teardrop with a checkered-flag inset + anchor dot
+ *                 (Figma 1245:10977 "Home Destination"). Used on /home
+ *                 route-preview where the trip hasn't started yet —
+ *                 the pin reads as "this is where we're going."
+ *   - `enroute` — checkered finish-line flag on a pole (Figma 296:468).
+ *                 Used on /en-route mid-trip — the flag reads as
+ *                 "racing toward the finish."
+ *
+ * The two variants share a checker-pattern visual vocabulary (so the
+ * destination semantic is consistent across the trip lifecycle) but
+ * use different shapes for each phase.
  *
  * Anchor differs per variant to honor each glyph's natural reference point:
- * the pin variant anchors at its tip (bottom-center) so the coordinate lands
- * exactly where the teardrop points; the flag variant anchors at the
- * pole base (≈ 22%, 85% of the 48×48 frame) so the pole "stands" on the
- * coordinate the way navigation flags conventionally do.
+ * the pin variant anchors at the small anchor-dot center (the SVG's "you
+ * are here" indicator at viewBox y=92 of 96) so the coordinate lands on
+ * the dot the way pin conventions expect; the flag variant anchors at
+ * the pole base (≈ 22%, 85% of the 48×48 frame) so the pole "stands" on
+ * the coordinate the way navigation flags conventionally do.
  *
  * **`tracksViewChanges` lifecycle.** Mounts with `true` so MapKit's
  * snapshot captures the SVG subtree once it paints, then flips to
@@ -45,11 +55,18 @@ export function DestinationMarker({
 }) {
   const Svg = variant === 'home' ? DestinationHomeSvg : DestinationEnrouteSvg;
 
-  // Per-variant anchor: pin tip lands on coord; flag pole base lands on coord.
-  // Fractions of the 48×48 frame — see header note for derivation.
+  // Per-variant anchor:
+  //   - home: anchor-dot center (the SVG explicitly draws a small dot
+  //     at viewBox y=92 of 96 as the "you are here" reference; that's
+  //     where the GPS coord should land, NOT the frame bottom). Was
+  //     y=1.0 originally — the old wiltedgreen pin's tip sat at frame
+  //     bottom — but the new Figma 1245:10977 SVG has the dot 4pt up
+  //     from the bottom edge, so y=1.0 floats the coord below the dot.
+  //   - enroute: flag pole base (≈ 22%, 85% of the 48×48 frame) so
+  //     the pole "stands" on the coordinate.
   const anchor =
     variant === 'home'
-      ? { x: 0.5, y: 1 }
+      ? { x: 0.5, y: 92 / 96 }
       : { x: 10.5 / 48, y: 41 / 48 };
 
   // Track-until-first-paint — see header note for the why. 50ms gives

@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/home-destination-figma-fidelity (2026-05-27)
+
+Swapped /home's destination marker to Figma 1245:10977 (pin-with-checkered-flag inset) — supersedes the old wiltedgreen-pin description in earlier learnings entries. One pattern worth keeping (caught by code-reviewer pre-merge).
+
+- **SVG markers with an explicit anchor-dot need the React Native `anchor` prop tuned to the dot, not the frame edge.** First draft kept the existing `{ x: 0.5, y: 1 }` (frame bottom-center) when swapping in the new SVG. The new Figma asset explicitly draws a small "you are here" dot at viewBox y=92 of 96 — the conventional pin language says THAT dot is the reference point, not the frame edge. With y=1.0, the GPS coord landed 4pt below the dot (in empty filter-bleed space), so tapping the visible dot didn't hit the marker and the marker visually floated above where the user's tap registered. Fix: anchor at `{ x: 0.5, y: 92 / 96 }`. Worth keeping: when swapping in an asset from Figma that has its own explicit reference glyph (an anchor dot, a finish line, a center crosshair), measure where THAT glyph sits in the viewBox and anchor there — don't reuse the previous asset's anchor convention blindly. The fraction-of-viewBox math is the canonical source; the previous asset's anchor was an artifact of its specific geometry, not a universal "pin marker" anchor.
+
+---
+
 ## feat/mapbox-directions-adapter + feat/lane-strip-ui (2026-05-27)
 
 Lane guidance migration: Mapbox Directions as primary routing source + LaneStrip component at the top of /en-route turn card. Two patterns worth keeping (both caught at PR-boundary code-reviewer pre-merge).
