@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/a11y-feedback-patterns (2026-05-27)
+
+Six small a11y wins found by auditing the full app. Two patterns worth keeping.
+
+- **`accessibilityRole="adjustable"` is a contract, not a label — it promises VoiceOver swipe-up/down will do something.** First draft added it to the onboarding FlatList pager without wiring `accessibilityActions` + `onAccessibilityAction`. VoiceOver announced "adjustable" on focus but the swipe gestures were no-ops. Worse than having no role at all — a broken promise. Fix: wire increment/decrement handlers that programmatically scroll the pager. Worth keeping: every `accessibilityRole` that implies interactivity (`adjustable`, `button`, `link`, `slider`) must be backed by the corresponding behavior. If you can't wire it yet, don't set the role — a plain label is honest; a lying role is actively harmful.
+
+- **PageControl and its parent can double-announce the same information.** Added `accessibilityLabel="Page N of M"` to PageControl (good for standalone usage in /menu, /permissions). But on the onboarding screen, the FlatList pager already announces page position via its own label. VoiceOver users hear both — redundant noise. Fix: wrap PageControl with `accessibilityElementsHidden` on screens where a parent already carries the page info. Worth keeping: when adding a11y labels to shared components, check every call site — a label that fills a gap in one context creates redundancy in another. The fix is per-context suppression (`accessibilityElementsHidden`), not removing the label from the component.
+
+---
+
 ## feat/osrm-steps-real-turn-by-turn (2026-05-23)
 
 Swapped the static "Heading toward {destName}" placeholder on /en-route for real turn-by-turn from OSRM's `steps=true` payload. One pattern worth keeping (caught by code-reviewer pre-merge as critical).

@@ -126,6 +126,7 @@ The default instinct for a subagent is to over-review. A tight brief beats a vag
 - Dead code, unused imports, half-finished implementations
 - Input boundaries — user-supplied strings flowing into URLs, regex, SQL-ish queries (we have proxy/api routes worth this scrutiny)
 - Comments that say what instead of why
+- Accessible feedback patterns — new Pressables need `accessibilityRole` + `accessibilityLabel`; new loading states need `accessibilityState={{ busy: true }}`; state changes visible to sighted users (route loaded, mode switch, error) need a VoiceOver announcement (`announceForAccessibility` or `accessibilityLiveRegion`); new Images need `accessibilityLabel` or explicit `accessible={false}` if decorative; new TextInputs need `accessibilityLabel`
 
 **Ignore:**
 - Pre-existing TS errors from missing `@expo/vector-icons` types and `@vercel/node` types — these are environment-level, not the PR's fault
