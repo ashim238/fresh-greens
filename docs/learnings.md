@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/mapbox-directions-adapter + feat/lane-strip-ui (2026-05-27)
+
+Lane guidance migration: Mapbox Directions as primary routing source + LaneStrip component at the top of /en-route turn card. Two patterns worth keeping (both caught at PR-boundary code-reviewer pre-merge).
+
+- **A "live primary source" concept that's referenced as a string literal across multiple call sites needs a sweep, not a surgical edit.** The plan called for a single one-line gate flip in app/en-route.tsx (`source !== 'osrm'` → `!== 'mapbox'` on the background refetch effect). The implementer found 4 more places where the literal `'osrm'` carried the same "live primary" semantic: initial state, an inner refetch check, the setter on retry success, and the offline-pill render condition. Shipping only the gate would have broken three of those — initial state stuck on the old primary causing immediate refetch-tear-down, retry success setting source to the wrong literal, and the offline pill showing on the Mapbox happy path. Worth keeping: when refactoring a source-ladder/state-machine concept that's expressed as string literals, grep for ALL occurrences of the old literal before merging — not just the obvious gate. The implementer's defensible broadening was a save. Better long-term fix: a single `const LIVE_PRIMARY: RouteSource = 'mapbox'` so there's one place to flip next time.
+
+- **Mapbox JSON returns snake_case fields; reading them as camelCase fails silently.** First-draft `parseMapboxStep` read `c.activeDirection` from each lane component. Real Mapbox returns `c.active_direction`. The read is always `undefined` in production — multi-direction active lanes hit the "no activeDirection set" fallback and showed all glyphs at full opacity instead of highlighting the matching one. Strip still rendered, just degraded. Easy to ship and never notice. Worth keeping: when integrating a non-camelCase API into a TS codebase that normalizes to camelCase everywhere else, the boundary parser is where snake_case lives. Either type-check the input shape against the actual JSON keys (a typed `MapboxLaneComponent = { active_direction?: string; ... }`) or write a comment at the boundary documenting the case convention so the next reader doesn't trip on it. Compile-time `c.activeDirection` on an `any` is the worst of both worlds — looks correct, fails silently.
+
+---
+
 ## feat/a11y-feedback-patterns (2026-05-27)
 
 Six small a11y wins found by auditing the full app. Two patterns worth keeping.
