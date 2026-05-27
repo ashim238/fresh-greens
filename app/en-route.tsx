@@ -757,7 +757,12 @@ export default function EnRoute() {
     userLocationRef.current = userLocation;
   }, [userLocation]);
   useEffect(() => {
-    if (routeSource === 'mapbox') return;
+    // Skip the poll for terminal states. 'mapbox' is the goal — no
+    // upgrade target. 'no-route' is a confirmed unroutable destination
+    // (engine said no) — polling won't change that and would just burn
+    // Mapbox quota. The cache/osrm/mock states are the ones worth
+    // periodically retrying to upgrade to Mapbox.
+    if (routeSource === 'mapbox' || routeSource === 'no-route') return;
     if (!params.destLat || !params.destLng) return;
     const dest = {
       latitude: parseFloat(params.destLat),

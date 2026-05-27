@@ -124,31 +124,45 @@ export type Route = {
  * each tier's failure so dev can see which tier resolved.
  */
 /**
- * Maximum origin→destination straight-line distance the app will
- * attempt to route, in miles. Anything beyond this is cross-continent
- * territory the safety/daylight optimization doesn't sensibly apply
- * to — single-day road trips top out around here (LA↔SF is ~380mi,
- * NYC↔Boston ~215mi, Houston↔Dallas ~240mi). Catches the case where
- * a recent-searches entry from a prior trip (e.g. NYC) is re-tapped
- * after the user has traveled abroad (e.g. Spain) — the search query
- * itself is bbox-gated to ~140mi, but persisted entries bypass that.
+ * Defensive upper bound on origin→destination straight-line distance,
+ * in miles. Real multi-day road trips fit comfortably under this
+ * (NYC↔LA ≈ 2,450mi, Vancouver↔Halifax ≈ 2,800mi, Anchorage→Tijuana
+ * ≈ 2,500mi). Catches the pathological case: a persisted recent-
+ * searches entry from a prior trip (e.g., user searched NYC, flew to
+ * Madrid, app reloads and tries to route NYC→Madrid) which would
+ * issue a multi-thousand-mile transoceanic fetch that the routing
+ * engine has no useful answer for.
+ *
+ * Previously set to 500mi, which gated out reasonable multi-day road
+ * trips. The new bound trusts the routing engines (Mapbox / OSRM) to
+ * return a clean `code === 'NoRoute'` for transoceanic destinations
+ * — see the no-route handling below.
  */
-const MAX_ROUTE_DISTANCE_MILES = 500;
+const MAX_ROUTE_DISTANCE_MILES = 3000;
 
 /**
  * Where a route came from. The source ladder in getRoutesBetween:
- *   - 'mapbox' — primary network source (lanes, banner instructions)
- *   - 'osrm'   — automatic fallback when Mapbox unreachable/quota
- *   - 'cache'  — AsyncStorage replay when both network sources fail
- *   - 'mock'   — synthetic catastrophe-fallback
+ *   - 'mapbox'   — primary network source (lanes, banner instructions)
+ *   - 'osrm'     — automatic fallback when Mapbox unreachable/quota
+ *   - 'cache'    — AsyncStorage replay when both network sources fail
+ *   - 'mock'     — synthetic catastrophe-fallback
+ *   - 'no-route' — both routing engines responded but explicitly said
+ *                  no route exists (transoceanic destination, road
+ *                  network disconnect). Caller should render "no
+ *                  route available" copy, NOT a polyline.
  *
  * Drives the /en-route UX: 'mapbox' and 'osrm' are both live data
  * (no offline pill); 'cache' and 'mock' surface the offline/demo
  * pill so the driver knows there's no live recalculation. A
  * background poll attempts the primary Mapbox tier periodically
  * to swap non-mapbox sources back to live data non-jarringly.
+ *
+ * 'no-route' is terminal — there are no routes to render and no
+ * point retrying. The caller's empty-state distinguishes this from
+ * "no destination set" (which also has empty routes but different
+ * copy).
  */
-export type RouteSource = 'mapbox' | 'osrm' | 'cache' | 'mock';
+export type RouteSource = 'mapbox' | 'osrm' | 'cache' | 'mock' | 'no-route';
 
 export type RoutesResult = {
   routes: Route[];
@@ -163,26 +177,40 @@ export async function getRoutesBetween(
   origin: Coordinate,
   destination: Coordinate,
 ): Promise<RoutesResult> {
-  // Guard against unroutable origin/destination pairs before hitting
-  // the routing ladder. Beyond MAX_ROUTE_DISTANCE_MILES the optimization
-  // is moot (and the routing API would return a multi-thousand-mile
-  // polyline that no one wants to drive). Caller (/home route-preview)
-  // already handles the "no recommended route" empty state gracefully.
-  // The 'mapbox' source on the empty result is nominal — consumers
-  // don't read `source` when `routes` is empty.
+  // Guard against pathological origin/destination pairs before hitting
+  // the routing ladder. Beyond MAX_ROUTE_DISTANCE_MILES we treat the
+  // pair as "no route available" rather than attempting a fetch that
+  // a routing engine would either reject as NoRoute or return a
+  // multi-thousand-mile polyline for. Returning 'no-route' lets the
+  // caller render distinct "no route available" copy instead of
+  // conflating with "no destination set."
   const distance = haversineMiles(origin, destination);
   if (distance > MAX_ROUTE_DISTANCE_MILES) {
     console.warn(
       `[routes] origin→destination ${distance.toFixed(0)}mi exceeds ` +
-        `${MAX_ROUTE_DISTANCE_MILES}mi guard; returning no routes.`,
+        `${MAX_ROUTE_DISTANCE_MILES}mi guard; returning no-route.`,
     );
-    return { routes: [], source: 'mapbox' };
+    return { routes: [], source: 'no-route' };
   }
 
+  // Track whether AT LEAST ONE routing engine responded successfully
+  // (HTTP-wise) but explicitly said "no route exists." We trust a
+  // single engine's no-route response because: (a) when both engines
+  // are reachable they almost always agree on routability — the
+  // underlying OpenStreetMap data is shared upstream; (b) returning
+  // no-route on partial confirmation is safer than degrading to a
+  // synthetic mock for a genuinely unroutable destination. Distinct
+  // from "couldn't reach the engine" (which falls through to cache +
+  // mock — those tiers handle network failures, not routing failures).
+  let engineSaidNoRoute = false;
+
   // Tier 1 — Mapbox Directions. Primary network source; richer step
-  // metadata (banner_instructions for lanes in PR 2) and `driving-
-  // traffic` profile uses live traffic. Falls through to OSRM on any
-  // failure (network error, non-OK status, no routes, missing token).
+  // metadata (banner_instructions for lanes) and `driving-traffic`
+  // profile uses live traffic. Falls through to OSRM on network
+  // failure / non-OK HTTP / missing token. A successful HTTP response
+  // with `code !== 'Ok'` sets `engineSaidNoRoute` and ALSO falls
+  // through to OSRM — see the engineSaidNoRoute check after the
+  // OSRM tier for terminal no-route semantics.
   const mapboxUrl = buildMapboxUrl(origin, destination);
   if (mapboxUrl) {
     try {
@@ -201,8 +229,14 @@ export async function getRoutesBetween(
             return { routes, source: 'mapbox' };
           }
         } else {
+          // Mapbox responded successfully but said no route exists
+          // (transoceanic, disconnected road network, etc.). Mark the
+          // signal and fall through to OSRM — if OSRM also confirms,
+          // we'll return 'no-route' below instead of degrading to
+          // mock. Common codes: 'NoRoute', 'NoSegment'.
+          engineSaidNoRoute = true;
           console.warn(
-            `[routes] Mapbox returned no routes (code: ${data?.code ?? 'unknown'}); falling through to OSRM.`,
+            `[routes] Mapbox: no route (code: ${data?.code ?? 'unknown'}); confirming with OSRM.`,
           );
         }
       } else {
@@ -216,8 +250,10 @@ export async function getRoutesBetween(
   }
 
   // Tier 2 — OSRM. Free public demo, no lanes, no traffic data, but
-  // a reliable structural fallback. Same try/catch/cache/mock ladder
-  // it had before the Mapbox tier landed on top.
+  // a reliable structural fallback. Same `engineSaidNoRoute`
+  // distinction as Mapbox: a successful HTTP response with code
+  // !== 'Ok' is a routing failure (engine confirmed no route), not
+  // a network failure.
   try {
     const response = await fetch(buildOSRMUrl(origin, destination));
     if (!response.ok) {
@@ -226,49 +262,71 @@ export async function getRoutesBetween(
 
     const data: OSRMResponse = await response.json();
     if (data.code !== 'Ok' || !data.routes?.length) {
-      throw new Error(`OSRM returned no routes (code: ${data.code})`);
-    }
-
-    // OSRM snaps the destination to the nearest road segment in its
-    // own (OpenStreetMap-derived) network, which can be a different
-    // road than where the Mapbox-geocoded POI actually sits. The
-    // returned geometry ends at OSRM's snap, which often visibly
-    // overshoots the destination on the map. Trim each route to the
-    // point closest to the requested destination so the polyline
-    // ends where the user expects to arrive.
-    const routes = data.routes
-      .map(parseOSRMRoute)
-      .map((route) => ({
-        ...route,
-        coordinates: trimToDestination(route.coordinates, destination),
-      }));
-    // Best-effort cache write — saveActiveRoute already has its own
-    // try/catch + warn log, so no redundant outer .catch needed.
-    // This is what enables the offline-fallback path: every
-    // successful OSRM fetch warms the cache so a subsequent
-    // dead-signal /en-route mount has data to hydrate from.
-    void saveActiveRoute(routes, destination);
-    return { routes, source: 'osrm' };
-  } catch (error) {
-    console.warn(
-      '[routes] OSRM fetch failed, trying cache:',
-      error,
-    );
-    const cached = await loadActiveRoute(destination);
-    if (cached) {
-      console.info(
-        `[routes] hydrated from cache (age: ${Math.round(cached.ageMs / 1000)}s)`,
+      // Engine responded but said no route exists. Mark and fall
+      // through to the post-tier no-route check below — we don't
+      // want cache or mock to substitute a stale or synthetic
+      // straight-line for a destination that genuinely can't be
+      // routed to.
+      engineSaidNoRoute = true;
+      console.warn(
+        `[routes] OSRM: no route (code: ${data.code}); routing engine confirms unroutable.`,
       );
-      return {
-        routes: cached.routes,
-        source: 'cache',
-        cacheAgeMs: cached.ageMs,
-      };
+    } else {
+      // OSRM snaps the destination to the nearest road segment in
+      // its own (OpenStreetMap-derived) network, which can be a
+      // different road than where the Mapbox-geocoded POI actually
+      // sits. The returned geometry ends at OSRM's snap, which often
+      // visibly overshoots the destination on the map. Trim each
+      // route to the point closest to the requested destination so
+      // the polyline ends where the user expects to arrive.
+      const routes = data.routes
+        .map(parseOSRMRoute)
+        .map((route) => ({
+          ...route,
+          coordinates: trimToDestination(route.coordinates, destination),
+        }));
+      // Best-effort cache write — saveActiveRoute already has its own
+      // try/catch + warn log, so no redundant outer .catch needed.
+      // This is what enables the offline-fallback path: every
+      // successful network fetch warms the cache so a subsequent
+      // dead-signal /en-route mount has data to hydrate from.
+      void saveActiveRoute(routes, destination);
+      return { routes, source: 'osrm' };
     }
-    console.warn('[routes] no cache for this destination, falling back to mock');
-    const mockRoutes = await getRoutesBetweenMock(origin, destination);
-    return { routes: mockRoutes, source: 'mock' };
+  } catch (error) {
+    console.warn('[routes] OSRM network error:', error);
   }
+
+  // Both network tiers tried. If at least one engine confirmed
+  // no-route (vs. network errors), return the terminal no-route
+  // state — cache and mock can't help: cache only stores routes
+  // that previously succeeded, and mock would synthesize a
+  // misleading straight-line across the un-routable gap.
+  if (engineSaidNoRoute) {
+    return { routes: [], source: 'no-route' };
+  }
+
+  // Tier 3 — cache. Reached only when both Mapbox and OSRM had
+  // network failures (not "no route" responses).
+  console.warn('[routes] both network tiers failed, trying cache');
+  const cached = await loadActiveRoute(destination);
+  if (cached) {
+    console.info(
+      `[routes] hydrated from cache (age: ${Math.round(cached.ageMs / 1000)}s)`,
+    );
+    return {
+      routes: cached.routes,
+      source: 'cache',
+      cacheAgeMs: cached.ageMs,
+    };
+  }
+
+  // Tier 4 — mock. Catastrophic last resort: no network, no cache.
+  // The mock synthesizes a straight-line route so /en-route renders
+  // something rather than a broken state.
+  console.warn('[routes] no cache for this destination, falling back to mock');
+  const mockRoutes = await getRoutesBetweenMock(origin, destination);
+  return { routes: mockRoutes, source: 'mock' };
 }
 
 /**

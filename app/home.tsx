@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
 import { Check } from 'phosphor-react-native/src/icons/Check';
+import { PathIcon } from 'phosphor-react-native/src/icons/Path';
 import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
@@ -31,6 +32,7 @@ import { FloatingActionButton } from '../components/FloatingActionButton';
 import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
+import { EmptyState, LoadingState } from '../components/StateCard';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
@@ -43,7 +45,7 @@ import {
   removeCommunityReport,
   type ReportCategoryId,
 } from '../lib/api/community-reports';
-import { getRoutesBetween, type Route, routeColors } from '../lib/api/routes';
+import { getRoutesBetween, type Route, type RouteSource, routeColors } from '../lib/api/routes';
 import {
   getZonesForRegion,
   type Coordinate,
@@ -200,6 +202,15 @@ export default function Home() {
   // so it recomputes automatically when zones change without needing
   // another effect.
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  // Route fetch state for the bottom-sheet preview. `isCalculatingRoute`
+  // is true between fetch-start and fetch-resolve so the preview can
+  // render a "Calculating route…" indicator instead of looking broken
+  // on slow networks / long routes. `routeFetchSource` distinguishes
+  // "no route available" (transoceanic, unroutable) from "haven't
+  // fetched yet" / "fetched and got routes" — UI uses it to render
+  // distinct copy. Null until the first fetch resolves.
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [routeFetchSource, setRouteFetchSource] = useState<RouteSource | null>(null);
   // Measured bottom-sheet height. The Report button floats 24pt above
   // the sheet's top edge, so we need to know how tall the sheet is at
   // runtime (it grows with content). 0 until first layout pass — the
@@ -593,11 +604,26 @@ export default function Home() {
     // permission + GPS fetch + re-center).
     if (!params.destLat || !params.destLng) {
       setRawRoutes([]);
+      setRouteFetchSource(null);
+      setIsCalculatingRoute(false);
+    } else {
+      // Mark calculating BEFORE awaiting permission/GPS so the route-
+      // preview bottom sheet shows LoadingState immediately on
+      // destination change (rather than displaying stale "—" headline
+      // for the ~1s permission + GPS resolution window). Cleared in
+      // the fetch resolve below.
+      setIsCalculatingRoute(true);
     }
 
     let cancelled = false;
 
     async function fetchAndCenterOnUser() {
+      // try/finally ensures isCalculatingRoute clears on ALL exit paths
+      // — including permission denial, GPS error, or any uncaught throw.
+      // Without this, an entry with destination set but permission
+      // denied (or a thrown getCurrentPositionAsync) would leave the
+      // bottom sheet stuck on "Calculating route…" indefinitely.
+      try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (cancelled || status !== 'granted') return;
 
@@ -656,25 +682,44 @@ export default function Home() {
       // The useMemo handles re-ranking when osmZones lands a moment
       // later — no second setRoutes needed.
       //
-      // We ignore `fetchedResult.source` here — /home's route preview
-      // shows the polyline regardless of provenance. The offline UX
-      // surfaces on /en-route where it actually matters mid-trip.
+      // /home's polyline renders the same regardless of source 'mapbox'
+      // vs 'osrm' vs 'cache' vs 'mock' — the offline UX surfaces on
+      // /en-route. But 'no-route' IS load-bearing here: when the engine
+      // says the destination is unroutable, we render distinct empty-
+      // state copy instead of a "—" headline. The routeFetchSource
+      // state below drives that branch in the JSX.
+      //
       // Pre-warming the cache happens inside getRoutesBetween itself
-      // (every successful OSRM fetch writes to AsyncStorage), so this
-      // /home route-preview call IS what populates the cache for the
-      // future /en-route mount if the user drives into dead signal.
+      // (every successful network fetch writes to AsyncStorage), so
+      // this /home route-preview call IS what populates the cache for
+      // the future /en-route mount if the user drives into dead signal.
       setRawRoutes(fetchedResult.routes);
+      setRouteFetchSource(fetchedResult.source);
+      setIsCalculatingRoute(false);
 
       if (fetchedResult.routes.length > 0) {
         const best = fetchedResult.routes[0];
         AccessibilityInfo.announceForAccessibility(
           `Route loaded, ${formatDuration(best.estimatedMinutes)} to ${params.destName ?? 'your destination'}.`,
         );
+      } else if (fetchedResult.source === 'no-route') {
+        AccessibilityInfo.announceForAccessibility(
+          `No route available to ${params.destName ?? 'your destination'}.`,
+        );
       }
 
       const fetchedZones = await zonePromise;
       if (cancelled) return;
       setOsmZones(fetchedZones);
+      } catch (err) {
+        console.warn('[home] fetchAndCenterOnUser failed:', err);
+      } finally {
+        // Clear calc state on any exit. Guarded against the unmount
+        // race so a post-cancel setState doesn't fire on a stale
+        // component. The success path also calls setIsCalculatingRoute(false)
+        // before this finally — idempotent.
+        if (!cancelled) setIsCalculatingRoute(false);
+      }
     }
 
     fetchAndCenterOnUser();
@@ -1574,6 +1619,32 @@ export default function Home() {
           </View>
 
           {/*
+            Route-preview body — three branches:
+              1. Calculating — fetch in flight, no data yet. Render
+                 LoadingState ("Calculating route…") so the user knows
+                 work is happening, especially on long-route fetches
+                 that can take a few seconds.
+              2. No-route — Mapbox+OSRM both said the destination is
+                 unroutable (transoceanic, road-network disconnect,
+                 or beyond MAX_ROUTE_DISTANCE_MILES). Render EmptyState
+                 with copy that prompts the user to pick something else.
+              3. Default — route is loaded. Existing headline + via +
+                 caption + chips render. The Clear-X above stays
+                 mounted across all three branches so the user can
+                 escape back to browse mode.
+          */}
+          {isCalculatingRoute ? (
+            <LoadingState text="Calculating route…" style={styles.routePreviewState} />
+          ) : routeFetchSource === 'no-route' ? (
+            <EmptyState
+              icon={<PathIcon size={56} color={colors.labelTertiary} weight="duotone" />}
+              headline="No route available"
+              text={`We couldn't find a driving route to ${params.destName ?? 'this destination'}. Try a different place.`}
+              style={styles.routePreviewState}
+            />
+          ) : (
+            <>
+          {/*
             "12 min" headline stands alone per Figma 1109:3264 — the
             arrival duration is the headline number; pairing it with
             the daylight strip diluted both signals. Daylight strip
@@ -1721,6 +1792,8 @@ export default function Home() {
               </Text>
             </View>
           )}
+            </>
+          )}
         </View>
 
         {/*
@@ -1729,12 +1802,17 @@ export default function Home() {
           When suggestedDeparture is null, the Schedule slot collapses
           and Go takes the full width.
 
+          Hidden during calculating and no-route states — no Go/Schedule
+          target exists in those branches. Clear-X stays available
+          above as the only escape.
+
           Clear-destination X was dropped from this row in the v2
           redesign. To return to browse mode, the user taps the search
           bar at the top and picks a different destination, or system-
           back out of /home. A floating X may return as a future polish
           PR if the loss of affordance bites in practice.
         */}
+        {!isCalculatingRoute && routeFetchSource !== 'no-route' && (
         <View style={styles.actionsRow}>
           {suggestedDeparture && (
             <Pressable
@@ -1816,6 +1894,7 @@ export default function Home() {
             <Text style={styles.goText}>Go</Text>
           </Pressable>
         </View>
+        )}
           </>
         )}
       </SafeAreaView>}
@@ -2049,6 +2128,16 @@ const styles = StyleSheet.create({
   },
   bottomSheetContent: {
     gap: 24,
+  },
+  // Wraps the LoadingState / EmptyState cards rendered inside the
+  // route-preview bottom sheet during calculating / no-route states.
+  // Negative top margin pulls the card up toward the Clear-X row so
+  // the card doesn't sit awkwardly low; alignSelf:center keeps the
+  // fixed-width state card horizontally centered against the wider
+  // sheet content padding.
+  routePreviewState: {
+    marginTop: -8,
+    alignSelf: 'center',
   },
   // Vertical scroller inside the sheet (browse mode).
   // `sheetScrollFlex` constrains the ScrollView to the available
