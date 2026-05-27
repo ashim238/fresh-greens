@@ -48,3 +48,7 @@ fresh-greens-specimen/
 # Claude Code session metadata (worktrees, agent state). Not part of
 # the project source; excluded from the submitted snapshot.
 .claude/
+
+# Superpowers brainstorm artifacts (visual-companion mockups). Local
+# scratch space; don't commit.
+.superpowers/

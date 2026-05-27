@@ -20,6 +20,14 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 - ~~**Map pin on-tap functionality**~~ — shipped. All variants wired: community report → `ReportDetailCard` (`home.tsx:818`), saved-home → recenter + selection haptic (`handleHomeMarkerPress`), trusted-friend → Call/Text Alert (`handleTrustedFriendMarkerPress`), cluster → fit-bounds zoom (`home.tsx:783`).
 - ~~**Hold-to-delete on community-report markers**~~ — shipped. Author-only (`reportSubmittedBy === user.id`) long-press via `MapView.onLongPress` proximity hit-test → heavy haptic → destructive Alert confirm → `removeCommunityReport(id)`. `Zone` gained `reportSubmittedBy` field threaded from `CommunityReport.submittedBy`.
 
+## A18 — Heading wedge on /home user-location dot
+
+- **UserLocationMarker gains a heading indicator.** Translucent systemBlue wedge fanning forward from the dot in the direction the user is facing — Apple Maps "you-are-here-and-facing-this-way" convention. **Scope: /home only.** /en-route already has heading via `EnRouteCarMarker` (car rotates with `heading` prop); adding a wedge there would be redundant.
+- **Specs:** 60° wedge, ~25–30pt long beyond the dot's edge, systemBlue at 35% opacity. Rotates via `transform: [{ rotate: \`${heading}deg\` }]` on a wrapper View, behind the dot in z-order. Hidden when `heading == null` or `speed < 0.5 m/s` (direction unreliable at low speeds — show nothing rather than wrong info).
+- **Plumbing:** `UserLocationMarker` gains `heading?: number | null` + `speed?: number | null` props. `/home` already runs `Location.watchPositionAsync`; the position object carries both fields. One-line change at the call site to pass them through.
+- **Size:** ~30 LOC standalone PR. Independent of Mapbox/lane work — could ship anytime.
+- **Design reference:** visual companion mockup at `.superpowers/brainstorm/97027-1779908977/content/heading-indicator.html`. Variant `60-systemblue` was selected.
+
 ## New features
 
 - **En-route search** — currently the search bar is /home-only; /en-route has no search affordance. Add a way to change destination mid-trip without backing out to /home.
