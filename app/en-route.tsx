@@ -43,6 +43,7 @@ import { EnRouteZone } from '../components/EnRouteZone';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
+import { LaneStrip } from '../components/LaneStrip';
 import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { usePreferences } from '../hooks/usePreferences';
@@ -406,6 +407,23 @@ export default function EnRoute() {
       minStepIndexRef.current = nextStepInfo.index;
     }
   }, [nextStepInfo?.index]);
+
+  // Lane strip visibility — gated on multiple conditions so the strip
+  // only appears when it represents a real lane *decision* for the
+  // driver. See docs/superpowers/specs/2026-05-27-lane-guidance-design.md
+  // §"Trigger logic" for rationale.
+  const showLaneStrip = useMemo(() => {
+    const lanes = nextStepInfo?.step.lanes;
+    if (!lanes || lanes.length < 2) return false;
+    // Filter "all lanes go this way" — no decision, no value rendering.
+    const activeCount = lanes.filter((l) => l.active).length;
+    if (activeCount === 0) return false;
+    if (activeCount === lanes.length) return false;
+    // Only on approach to a real upcoming maneuver, not terminal states.
+    if (nextStepInfo.status !== 'upcoming') return false;
+    // 500m is the "you should be looking at this now" threshold.
+    return nextStepInfo.distanceMeters < 500;
+  }, [nextStepInfo]);
 
   // Cache hygiene — wipe the single-slot active route when the user
   // reaches the destination. Without this, the next trip's /en-route
@@ -1081,6 +1099,21 @@ export default function EnRoute() {
         edges={['top']}
         pointerEvents="box-none"
       >
+        {/*
+          Lane guidance strip — Apple Maps-style cells showing which
+          lane(s) the driver should occupy for the upcoming maneuver.
+          Sits ABOVE the maneuver row (per spec) so the lane decision
+          is read FIRST, then the instruction. Always mounted;
+          visibility tween handled internally. Lanes come from Mapbox
+          banner_instructions (parseMapboxStep). When the strip is
+          hidden, its maxHeight tweens to 0 so the turn card collapses
+          to its non-lane height.
+        */}
+        <LaneStrip
+          lanes={nextStepInfo?.step.lanes ?? []}
+          visible={showLaneStrip}
+        />
+
         <View style={styles.turnSign}>
           <View
             style={styles.turnDirection}

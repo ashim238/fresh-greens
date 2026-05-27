@@ -45,6 +45,36 @@ export type ManeuverKind =
   | 'roundabout';
 
 /**
+ * Direction a lane permits. Subset of ManeuverKind — lanes don't
+ * have 'depart' / 'arrive' / 'merge' / 'roundabout' as choices.
+ * Tighter type prevents misuse downstream and shrinks the glyph
+ * dispatch table in LaneStrip.
+ */
+export type LaneDirection =
+  | 'straight'
+  | 'slight-left' | 'left' | 'sharp-left'
+  | 'slight-right' | 'right' | 'sharp-right'
+  | 'uturn';
+
+/**
+ * A single lane on the road approaching the next maneuver.
+ *
+ *   - `active: true`  → driver should use this lane to follow the route
+ *   - `directions[]`  → all turns this lane permits (a lane can allow
+ *                       "straight or right")
+ *   - `activeDirection` → when active, the specific direction to take;
+ *                         lets LaneStrip highlight one glyph in a
+ *                         multi-direction lane.
+ *
+ * Lanes are ordered left-to-right as the driver faces forward.
+ */
+export type Lane = {
+  active: boolean;
+  directions: LaneDirection[];
+  activeDirection?: LaneDirection;
+};
+
+/**
  * One maneuver in a route. Built from an OSRM step; mock-fallback
  * routes don't carry steps (consumer falls back to "Heading toward
  * {destination}" copy when steps is undefined or empty).
@@ -59,6 +89,9 @@ export type RouteStep = {
   maneuverLocation: Coordinate;
   /** Coarse classifier for icon dispatch + instruction templating. */
   kind: ManeuverKind;
+  /** Lane layout for the maneuver. Mapbox-sourced only; OSRM/cache/
+      mock steps don't have lane data. */
+  lanes?: Lane[];
 };
 
 /**
@@ -468,12 +501,35 @@ function parseOSRMStep(s: OSRMStep): RouteStep | null {
 }
 
 /**
+ * Maps a Mapbox direction string to the codebase's LaneDirection
+ * enum. The transform is trivial space-to-hyphen for known values
+ * ('slight left' → 'slight-left'); unknown values (e.g., Mapbox's
+ * "none" for valid-but-prohibited lanes in some markets) return
+ * null so consumers can filter them out instead of type-erasing
+ * unsafe values into LaneDirection.
+ */
+const KNOWN_LANE_DIRECTIONS: readonly LaneDirection[] = [
+  'straight',
+  'slight-left', 'left', 'sharp-left',
+  'slight-right', 'right', 'sharp-right',
+  'uturn',
+];
+
+function mapMapboxDirection(d: string): LaneDirection | null {
+  const normalized = d.replace(/ /g, '-');
+  return KNOWN_LANE_DIRECTIONS.includes(normalized as LaneDirection)
+    ? (normalized as LaneDirection)
+    : null;
+}
+
+/**
  * Parse a single Mapbox Directions step into the codebase's
  * RouteStep shape. Mapbox uses an OSRM-derived schema, so step
  * structure (maneuver, geometry, distance, duration, name) is
  * near-identical — the same classifyManeuver/buildInstruction
- * pipeline that handles OSRM works here. Lanes will be added in
- * PR 2 by reading banner_instructions; PR 1 stays structural.
+ * pipeline that handles OSRM works here. Extracts lane data from
+ * banner_instructions[].sub.components (lane components) so the
+ * /en-route turn card's LaneStrip has data to render.
  *
  * Returns null when the step is malformed (missing maneuver or
  * location). The outer parser filters nulls — null here means
@@ -484,6 +540,34 @@ function parseMapboxStep(step: any): RouteStep | null {
     return null;
   }
   const kind = classifyManeuver(step.maneuver.type, step.maneuver.modifier);
+
+  // Pull lanes from the FIRST banner with a sub-banner containing lane
+  // components. Mapbox returns banners in order of trigger distance
+  // (farthest first), so this is the earliest lane coaching for the
+  // step. Multi-banner refinement (different lane layouts at different
+  // distances) is deferred to PR3 polish.
+  //
+  // NOTE: Mapbox returns lane component fields in snake_case
+  // (`active_direction`, not `activeDirection`) — easy bug to trip on
+  // if you're working in TS-land where camelCase is the norm.
+  const laneBanner = (step.bannerInstructions ?? []).find((b: any) =>
+    b.sub?.components?.some((c: any) => c.type === 'lane'),
+  );
+
+  const lanes: Lane[] | undefined = laneBanner
+    ? laneBanner.sub.components
+        .filter((c: any) => c.type === 'lane')
+        .map((c: any) => ({
+          active: !!c.active,
+          directions: (c.directions ?? [])
+            .map(mapMapboxDirection)
+            .filter((d: LaneDirection | null): d is LaneDirection => d !== null),
+          activeDirection: c.active_direction
+            ? mapMapboxDirection(c.active_direction) ?? undefined
+            : undefined,
+        }))
+    : undefined;
+
   return {
     instruction: buildInstruction(kind, step.name ?? ''),
     distanceMeters: step.distance ?? 0,
@@ -492,6 +576,7 @@ function parseMapboxStep(step: any): RouteStep | null {
       longitude: step.maneuver.location[0],
     },
     kind,
+    lanes,
   };
 }
 

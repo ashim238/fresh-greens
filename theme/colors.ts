@@ -84,6 +84,12 @@ export const colors = {
   dividerOnDark: 'rgba(160, 214, 164, 0.25)',// hairline dividers on wiltedgreen
   dragHandleBar: 'rgba(128, 128, 128, 0.55)',// the gray bar atop modal sheets
   dividerNeutral: 'rgba(202, 196, 208, 1)',  // vertical/horizontal card dividers
+
+  /** Subtle white fill on dark surfaces (12% opacity). Used by:
+   *   - LaneStrip active-lane cell background — gives active lanes
+   *     a faint glow without competing with freshgreen brand color.
+   *  Generalizable to any "active state on a dark surface" pattern. */
+  whiteFill12: 'rgba(255, 255, 255, 0.12)',
 } as const;
 
 // Type helper: lets TypeScript autocomplete color names and catch typos.
