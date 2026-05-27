@@ -59,6 +59,7 @@ import {
   type RouteSource,
   routeColors,
 } from '../lib/api/routes';
+import { clearActiveRoute } from '../lib/api/route-cache';
 import {
   getZonesForRegion,
   type Zone,
@@ -403,6 +404,32 @@ export default function EnRoute() {
       minStepIndexRef.current = nextStepInfo.index;
     }
   }, [nextStepInfo?.index]);
+
+  // Cache hygiene — wipe the single-slot active route when the user
+  // reaches the destination. Without this, the next trip's /en-route
+  // mount could briefly load the previous destination's cached route
+  // (single-slot, destination-keyed: a different dest grid-key would
+  // miss the cache, but a NEW trip to the SAME destination from a
+  // different origin would hit it and momentarily show the prior
+  // route shape before the fresh OSRM fetch lands). Fire-and-forget;
+  // best-effort cleanup, never blocks anything.
+  const arrivalCleanedRef = useRef(false);
+  useEffect(() => {
+    if (arrivalCleanedRef.current) return;
+    if (nextStepInfo?.status !== 'arrived') return;
+    arrivalCleanedRef.current = true;
+    void clearActiveRoute();
+  }, [nextStepInfo?.status]);
+
+  // Reset arrival guard when the recommended route changes (e.g. mid-
+  // trip destination change via /search?from=enroute). Mirrors the
+  // minStepIndexRef reset pattern so a second arrival fires its own
+  // clearActiveRoute. Today this is mostly future-proofing — the new
+  // route's first OSRM fetch overwrites the cache anyway — but the
+  // ref reset keeps invariants tight.
+  useEffect(() => {
+    arrivalCleanedRef.current = false;
+  }, [recommended?.id]);
 
   // Hazards crossing threshold near the next turn — surfaces up to 2
   // glyphs on the turn card, worst-first. Uses the next-step's

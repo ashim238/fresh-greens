@@ -266,6 +266,22 @@ export default function Home() {
   // undefined briefly on first render before the fetch completes.
   const recommended = routes.find((route) => route.type === 'recommended');
 
+  // Arrival daylight band — sighted users see this via the daylight
+  // strip's sun/moon glyphs and the polyline gradient ending in
+  // orange/mauve/indigo. The strip itself is `accessibilityElementsHidden`
+  // (decorative for VoiceOver), so the arrival context is folded into
+  // the conditions caption's a11y label below. Mirrors /en-route's
+  // `arrivalDisplay.isNight` pattern.
+  const arrivalDaylightLabel = useMemo<string | null>(() => {
+    if (!recommended) return null;
+    const segs = gradientSegments(recommended);
+    if (segs.length === 0) return null;
+    const arrivalBand = segs[segs.length - 1].band;
+    if (arrivalBand === 'day') return 'arriving in daylight';
+    if (arrivalBand === 'twilight') return 'arriving at dusk';
+    return 'arriving after dark';
+  }, [recommended]);
+
   // Route polylines memoized so unrelated re-renders don't rebuild
   // them on the native side. Same pattern in /en-route.
   //
@@ -1625,7 +1641,14 @@ export default function Home() {
             the system can't back. Dropped until a Mapbox-Directions
             or Google-Directions adapter lands.
           */}
-          <Text style={styles.routeConditionsCaption}>
+          <Text
+            style={styles.routeConditionsCaption}
+            accessibilityLabel={
+              arrivalDaylightLabel
+                ? `Safest route with current conditions, ${arrivalDaylightLabel}.`
+                : 'Safest route with current conditions.'
+            }
+          >
             Safest route with current conditions.
           </Text>
 

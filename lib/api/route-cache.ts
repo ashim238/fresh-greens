@@ -113,8 +113,11 @@ export async function loadActiveRoute(
 }
 
 /**
- * Wipes the cache. Called when the user explicitly clears a
- * destination so the next trip starts fresh.
+ * Wipes the single-slot active-route cache. Called on trip-end
+ * arrival (app/en-route.tsx) so a subsequent trip to the same
+ * destination from a different origin doesn't briefly render the
+ * prior route shape before the fresh OSRM fetch lands. Also intended
+ * for any future explicit "clear destination" flow.
  */
 export async function clearActiveRoute(): Promise<void> {
   try {
