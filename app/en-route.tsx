@@ -257,14 +257,16 @@ export default function EnRoute() {
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
   // Provenance of the rendered routes — drives the "Offline route" /
-  // "Demo route" pill on the turn card. 'osrm' = live; 'cache' =
-  // AsyncStorage hydration after OSRM failure; 'mock' = last-resort
-  // synthetic (network down AND no cache for this destination). The
-  // background refetch loop tries to swap 'cache' → 'osrm' non-jarringly.
-  const [routeSource, setRouteSource] = useState<RouteSource>('osrm');
+  // "Demo route" pill on the turn card. 'mapbox' = live primary;
+  // 'osrm' = live fallback (network up, but Mapbox tier failed);
+  // 'cache' = AsyncStorage hydration after both network tiers failed;
+  // 'mock' = last-resort synthetic (network down AND no cache for
+  // this destination). The background refetch loop tries to swap
+  // non-mapbox sources → 'mapbox' non-jarringly.
+  const [routeSource, setRouteSource] = useState<RouteSource>('mapbox');
   // Cache age stamp at hydration time — displayed inside the offline
   // pill ("Offline route · 3h old") so the driver knows how stale the
-  // saved data is. Null for 'osrm' and 'mock' sources.
+  // saved data is. Null for live ('mapbox', 'osrm') and 'mock' sources.
   const [cacheAgeMs, setCacheAgeMs] = useState<number | null>(null);
   // Tapped community-report state — mirrors /home so the marker
   // grows in place (LandmarkMarker `selected` prop) and the
@@ -716,12 +718,17 @@ export default function EnRoute() {
     };
   }, [params.destLat, params.destLng]);
 
-  // Silent background refresh — when running on cached or mock data,
-  // poll OSRM every 90s and swap to live data on success. The swap is
-  // non-jarring because we seed the monotonic step index to the NEW
-  // route's closest-by-GPS step (not 0) — without that, findNextStep
-  // would briefly show "Head out on Main" mid-trip until the user
-  // moves past the new depart step's 50m guard.
+  // Silent background refresh — when running on the OSRM fallback,
+  // cached data, or the mock catastrophe-fallback, poll the routing
+  // ladder every 90s and swap up to the Mapbox primary on success.
+  // The swap is non-jarring because we seed the monotonic step index
+  // to the NEW route's closest-by-GPS step (not 0) — without that,
+  // findNextStep would briefly show "Head out on Main" mid-trip until
+  // the user moves past the new depart step's 50m guard.
+  //
+  // Skip only when source === 'mapbox' (Mapbox is the target primary;
+  // OSRM is a fallback that still benefits from retrying for the
+  // richer Mapbox metadata in PR 2+).
   //
   // userLocation is read via ref so live GPS ticks don't restart the
   // interval. destination IS in the deps because it's URL-derived and
@@ -732,7 +739,7 @@ export default function EnRoute() {
     userLocationRef.current = userLocation;
   }, [userLocation]);
   useEffect(() => {
-    if (routeSource === 'osrm') return;
+    if (routeSource === 'mapbox') return;
     if (!params.destLat || !params.destLng) return;
     const dest = {
       latitude: parseFloat(params.destLat),
@@ -750,7 +757,7 @@ export default function EnRoute() {
       getRoutesBetween(liveLocation, dest)
         .then((result) => {
           if (cancelled) return;
-          if (result.source !== 'osrm') return; // still offline
+          if (result.source !== 'mapbox') return; // still not on the primary tier
           // Seed minStepIndex to the new route's closest-by-GPS step
           // so the swap doesn't visually regress to "Head out on Main."
           // Guard: only seed when closest-by-GPS distance is < 150m —
@@ -785,10 +792,10 @@ export default function EnRoute() {
             }
           }
           setRawRoutes(result.routes);
-          setRouteSource('osrm');
+          setRouteSource('mapbox');
           setCacheAgeMs(null);
           console.info(
-            '[en-route] silently swapped offline → live OSRM',
+            '[en-route] silently swapped fallback → live Mapbox',
           );
         })
         .catch(() => {
@@ -1140,7 +1147,7 @@ export default function EnRoute() {
                 ))}
               </View>
             )}
-            {routeSource !== 'osrm' && (
+            {(routeSource === 'cache' || routeSource === 'mock') && (
               <View
                 style={styles.offlinePill}
                 accessibilityRole="text"

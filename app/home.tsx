@@ -646,7 +646,7 @@ export default function Home() {
       // mode shows zero polylines on the map.
       const routePromise = destination
         ? getRoutesBetween(center, destination)
-        : Promise.resolve({ routes: [] as Route[], source: 'osrm' as const });
+        : Promise.resolve({ routes: [] as Route[], source: 'mapbox' as const });
       const zonePromise = getZonesForRegion(center);
 
       const fetchedResult = await routePromise;

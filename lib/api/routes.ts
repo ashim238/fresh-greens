@@ -1,19 +1,23 @@
 // Fresh Greens — routes adapter.
 //
-// Calls OSRM's free public demo server (router.project-osrm.org) for real
-// routing data. Falls back to the mock implementation if the request fails
-// (no network, server down, no route found between origin and destination).
+// Four-tier source ladder, in priority order:
+//   1. Mapbox Directions API (driving-traffic profile + banner_instructions)
+//      — primary; unlocks lane guidance, traffic-aware routing
+//   2. OSRM public demo server — automatic fallback (network error, missing
+//      Mapbox token, Mapbox quota/5xx)
+//   3. AsyncStorage cache — replay of the last successful network fetch
+//      when both Mapbox and OSRM fail (handles rural dead-signal mid-trip)
+//   4. Mock route — synthetic catastrophe-fallback so the UI never gets
+//      an empty state
 //
-// The fallback is deliberate: the consumer (app/home.tsx) calls this
-// function and gets back a Route[] either way. It can't tell whether
-// the data came from a real API or the mock. That's the value of the
-// adapter pattern — the consumer is decoupled from the data source.
+// The consumer (app/home.tsx, app/en-route.tsx) gets back a RoutesResult
+// with a `source` tag. They use the tag to decide whether to show the
+// "Offline route" / "Demo route" pill — but the Route[] shape itself is
+// identical across all four tiers (that's the adapter-pattern payoff).
 //
-// Note on OSRM: the public demo server has rate limits and isn't intended
-// for production. For the thesis demo it's fine. Real launch would require
-// either self-hosting OSRM or paying for Mapbox Directions / Google
-// Directions — the function signature stays the same; only the body
-// changes.
+// Note on tokens: Mapbox uses `process.env.EXPO_PUBLIC_MAPBOX_TOKEN`
+// (same env var as the Search Box adapter in lib/api/places.ts). When
+// absent, the Mapbox tier is skipped and OSRM becomes effective primary.
 
 import { loadActiveRoute, saveActiveRoute } from './route-cache';
 import type { Coordinate } from './zones';
@@ -81,9 +85,10 @@ export type Route = {
 /**
  * Fetches candidate routes between two points.
  *
- * Tries OSRM first; falls back to mock on any failure (network error,
- * non-OK status, no routes found). Console-warns on fallback so we can
- * see in dev when the real API isn't responding.
+ * Walks the source ladder top-down: Mapbox → OSRM → cache → mock.
+ * Each tier's failure (network error, non-OK status, no routes
+ * returned, exception) falls through to the next. Console-warns on
+ * each tier's failure so dev can see which tier resolved.
  */
 /**
  * Maximum origin→destination straight-line distance the app will
@@ -98,20 +103,19 @@ export type Route = {
 const MAX_ROUTE_DISTANCE_MILES = 500;
 
 /**
- * Provenance of the returned routes — drives the /en-route UX:
- *  - `osrm`:  live response from OSRM. Default happy path.
- *  - `cache`: pulled from the AsyncStorage active-route cache because
- *             OSRM was unreachable. /en-route surfaces an "Offline
- *             route" pill so the driver knows there's no live
- *             recalculation. A background poll attempts OSRM
- *             periodically to swap back to live data non-jarringly.
- *  - `mock`:  network was down AND cache had nothing for this
- *             destination. Last-resort synthetic route — the driver
- *             still sees a polyline + ETA, but it isn't real road
- *             geometry. Same UX consideration: /en-route surfaces
- *             the offline pill in this case too.
+ * Where a route came from. The source ladder in getRoutesBetween:
+ *   - 'mapbox' — primary network source (lanes, banner instructions)
+ *   - 'osrm'   — automatic fallback when Mapbox unreachable/quota
+ *   - 'cache'  — AsyncStorage replay when both network sources fail
+ *   - 'mock'   — synthetic catastrophe-fallback
+ *
+ * Drives the /en-route UX: 'mapbox' and 'osrm' are both live data
+ * (no offline pill); 'cache' and 'mock' surface the offline/demo
+ * pill so the driver knows there's no live recalculation. A
+ * background poll attempts the primary Mapbox tier periodically
+ * to swap non-mapbox sources back to live data non-jarringly.
  */
-export type RouteSource = 'osrm' | 'cache' | 'mock';
+export type RouteSource = 'mapbox' | 'osrm' | 'cache' | 'mock';
 
 export type RoutesResult = {
   routes: Route[];
@@ -127,19 +131,60 @@ export async function getRoutesBetween(
   destination: Coordinate,
 ): Promise<RoutesResult> {
   // Guard against unroutable origin/destination pairs before hitting
-  // OSRM. Beyond MAX_ROUTE_DISTANCE_MILES the optimization is moot
-  // (and the OSRM call would return a multi-thousand-mile polyline
-  // that no one wants to drive). Caller (/home route-preview) already
-  // handles the "no recommended route" empty state gracefully.
+  // the routing ladder. Beyond MAX_ROUTE_DISTANCE_MILES the optimization
+  // is moot (and the routing API would return a multi-thousand-mile
+  // polyline that no one wants to drive). Caller (/home route-preview)
+  // already handles the "no recommended route" empty state gracefully.
+  // The 'mapbox' source on the empty result is nominal — consumers
+  // don't read `source` when `routes` is empty.
   const distance = haversineMiles(origin, destination);
   if (distance > MAX_ROUTE_DISTANCE_MILES) {
     console.warn(
       `[routes] origin→destination ${distance.toFixed(0)}mi exceeds ` +
         `${MAX_ROUTE_DISTANCE_MILES}mi guard; returning no routes.`,
     );
-    return { routes: [], source: 'osrm' };
+    return { routes: [], source: 'mapbox' };
   }
 
+  // Tier 1 — Mapbox Directions. Primary network source; richer step
+  // metadata (banner_instructions for lanes in PR 2) and `driving-
+  // traffic` profile uses live traffic. Falls through to OSRM on any
+  // failure (network error, non-OK status, no routes, missing token).
+  const mapboxUrl = buildMapboxUrl(origin, destination);
+  if (mapboxUrl) {
+    try {
+      const response = await fetch(mapboxUrl);
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.code === 'Ok' && data?.routes?.length) {
+          const routes = data.routes.map((r: any, idx: number) =>
+            parseMapboxRoute(r, idx, destination),
+          );
+          if (routes.length > 0) {
+            // Best-effort cache write — same semantics as the OSRM
+            // tier below. saveActiveRoute has its own try/catch + warn,
+            // so no redundant outer .catch needed.
+            void saveActiveRoute(routes, destination);
+            return { routes, source: 'mapbox' };
+          }
+        } else {
+          console.warn(
+            `[routes] Mapbox returned no routes (code: ${data?.code ?? 'unknown'}); falling through to OSRM.`,
+          );
+        }
+      } else {
+        console.warn(
+          `[routes] Mapbox HTTP ${response.status}; falling through to OSRM.`,
+        );
+      }
+    } catch (err) {
+      console.warn('[routes] Mapbox fetch failed, falling through to OSRM:', err);
+    }
+  }
+
+  // Tier 2 — OSRM. Free public demo, no lanes, no traffic data, but
+  // a reliable structural fallback. Same try/catch/cache/mock ladder
+  // it had before the Mapbox tier landed on top.
   try {
     const response = await fetch(buildOSRMUrl(origin, destination));
     if (!response.ok) {
@@ -206,7 +251,7 @@ export const routeColors: Record<
   alternate: { stroke: 'rgba(128, 128, 128, 0.6)', width: 3 },
 };
 
-// --- OSRM ------------------------------------------------------------------
+// --- Network adapters (OSRM + Mapbox) -------------------------------------
 
 /**
  * Minimal type for the OSRM response shape we use. The real response has
@@ -330,6 +375,53 @@ function buildOSRMUrl(origin: Coordinate, destination: Coordinate): string {
   return `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=true&steps=true`;
 }
 
+/**
+ * Mapbox Directions v5 URL for `driving-traffic` profile.
+ *
+ *   - `geometries=geojson` + `overview=full` returns the polyline as
+ *     a GeoJSON LineString matching OSRM's shape — parseMapboxStep
+ *     and parseOSRMStep populate Route.coordinates identically.
+ *   - `steps=true` enables turn-by-turn step data.
+ *   - `banner_instructions=true` enables lane data (PR 2 reads it;
+ *     enabling here keeps the URL stable across PRs and avoids a
+ *     second adapter rev when PR 2 lands).
+ *   - `alternatives=true` matches the OSRM tier so the alternates
+ *     list isn't empty when /home renders the route preview.
+ *   - `driving-traffic` profile uses live traffic data when available.
+ *
+ * Token: process.env.EXPO_PUBLIC_MAPBOX_TOKEN (already wired in
+ * lib/api/places.ts — same Mapbox account). Returns null when the
+ * token isn't set so getRoutesBetween can skip the tier cleanly
+ * instead of issuing an unauthorized request.
+ *
+ * SECURITY: The returned URL contains the access token as a query
+ * parameter. DO NOT log this URL anywhere — token leaks through
+ * stderr/stdout could compromise the Mapbox account's billing quota.
+ * Mapbox tokens are public-prefixed (`pk.*`) and URL-scoped, but a
+ * leaked token is still a vector for quota abuse.
+ */
+function buildMapboxUrl(
+  origin: Coordinate,
+  destination: Coordinate,
+): string | null {
+  const token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+  if (!token) {
+    console.warn('[routes] EXPO_PUBLIC_MAPBOX_TOKEN not set — skipping Mapbox tier.');
+    return null;
+  }
+  // Mapbox uses the same `lng,lat;lng,lat` convention as OSRM.
+  const coords = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
+  const params = new URLSearchParams({
+    geometries: 'geojson',
+    overview: 'full',
+    steps: 'true',
+    banner_instructions: 'true',
+    alternatives: 'true',
+    access_token: token,
+  });
+  return `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coords}?${params.toString()}`;
+}
+
 function parseOSRMRoute(osrmRoute: OSRMRoute, index: number): Route {
   // GeoJSON coordinates are [longitude, latitude]. Convert to our
   // { latitude, longitude } shape so the rendering code doesn't have to
@@ -372,6 +464,81 @@ function parseOSRMStep(s: OSRMStep): RouteStep | null {
       longitude: s.maneuver.location[0],
     },
     kind,
+  };
+}
+
+/**
+ * Parse a single Mapbox Directions step into the codebase's
+ * RouteStep shape. Mapbox uses an OSRM-derived schema, so step
+ * structure (maneuver, geometry, distance, duration, name) is
+ * near-identical — the same classifyManeuver/buildInstruction
+ * pipeline that handles OSRM works here. Lanes will be added in
+ * PR 2 by reading banner_instructions; PR 1 stays structural.
+ *
+ * Returns null when the step is malformed (missing maneuver or
+ * location). The outer parser filters nulls — null here means
+ * "skip this step" rather than fail the whole route.
+ */
+function parseMapboxStep(step: any): RouteStep | null {
+  if (!step?.maneuver?.location || step.maneuver.location.length < 2) {
+    return null;
+  }
+  const kind = classifyManeuver(step.maneuver.type, step.maneuver.modifier);
+  return {
+    instruction: buildInstruction(kind, step.name ?? ''),
+    distanceMeters: step.distance ?? 0,
+    maneuverLocation: {
+      latitude: step.maneuver.location[1],
+      longitude: step.maneuver.location[0],
+    },
+    kind,
+  };
+}
+
+/**
+ * Parse Mapbox Directions response into Route[]. Mapbox structures
+ * each route as `legs[].steps[]` (a "leg" is the path between two
+ * waypoints; for a single-waypoint trip there's exactly one leg).
+ * Flatten legs into a single steps array for the Route shape so the
+ * /en-route turn pipeline can index across leg boundaries — matches
+ * what parseOSRMRoute does for the OSRM tier.
+ *
+ * Mirrors parseOSRMRoute's output: same id pattern (`{source}-route-{i}`),
+ * same label rule (`Primary route` / `Alternative N`), same min-1-minute
+ * estimatedMinutes guard, same trimToDestination pass on the polyline
+ * (Mapbox snaps to its own road network, same overshoot concern as
+ * OSRM).
+ */
+function parseMapboxRoute(r: any, index: number, destination: Coordinate): Route {
+  // Mirror parseOSRMRoute's invariant: assume the data shape is valid
+  // (the Mapbox tier's wrapping check already verified `data.code ===
+  // 'Ok' && data.routes.length`). If core fields (geometry, duration,
+  // distance) are missing, let the access throw — the outer try/catch
+  // in the Mapbox tier swallows it and falls through to OSRM. Matches
+  // parseOSRMRoute's behavior on malformed payloads.
+  const rawCoordinates: Coordinate[] = r.geometry.coordinates.map(
+    ([longitude, latitude]: [number, number]) => ({ latitude, longitude }),
+  );
+  const coordinates = trimToDestination(rawCoordinates, destination);
+
+  // Defensive on `legs[].steps` (the array shape, not the core fields)
+  // — same pattern as parseOSRMRoute. Missing/empty steps degrade
+  // gracefully to undefined; the turn-pipeline already handles that
+  // (mock-route path produces step-less Routes).
+  const legs = r.legs ?? [];
+  const allSteps = legs.flatMap((leg: any) => leg.steps ?? []);
+  const parsed = allSteps
+    .map(parseMapboxStep)
+    .filter((s: RouteStep | null): s is RouteStep => s !== null);
+  const steps: RouteStep[] | undefined = parsed.length > 0 ? parsed : undefined;
+
+  return {
+    id: `mapbox-route-${index}`,
+    label: index === 0 ? 'Primary route' : `Alternative ${index}`,
+    estimatedMinutes: Math.max(1, Math.round(r.duration / 60)),
+    distanceMeters: r.distance,
+    coordinates,
+    steps,
   };
 }
 

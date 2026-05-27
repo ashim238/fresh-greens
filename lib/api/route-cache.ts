@@ -15,7 +15,13 @@
 // to ~50m so microscopic destination jitter from re-tapping a pin
 // doesn't invalidate the cache). One active route at a time — the
 // caller (getRoutesBetween) calls saveActiveRoute on every successful
-// OSRM fetch, which overwrites the previous active route.
+// network fetch (Mapbox or OSRM), which overwrites the previous
+// active route. Cross-call interleaving (rapid destination changes,
+// or home + en-route firing concurrent fetches for the same dest) is
+// resolved by last-write-wins — correct semantic since the cache key
+// is grid-rounded destination, so concurrent calls target the same
+// slot and the freshest write reflects the most recent successful
+// fetch.
 //
 // Cache key is origin-agnostic by design: mid-trip, the user's origin
 // has shifted from where they started, but the cached route from the
@@ -116,8 +122,9 @@ export async function loadActiveRoute(
  * Wipes the single-slot active-route cache. Called on trip-end
  * arrival (app/en-route.tsx) so a subsequent trip to the same
  * destination from a different origin doesn't briefly render the
- * prior route shape before the fresh OSRM fetch lands. Also intended
- * for any future explicit "clear destination" flow.
+ * prior route shape before the fresh network fetch (Mapbox or OSRM)
+ * lands. Also intended for any future explicit "clear destination"
+ * flow.
  */
 export async function clearActiveRoute(): Promise<void> {
   try {
