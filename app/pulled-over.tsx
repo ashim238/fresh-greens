@@ -47,6 +47,7 @@ import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import {
   FIREARM_GUIDANCE,
@@ -184,6 +185,10 @@ export default function PulledOver() {
   const [meteringHistory, setMeteringHistory] = useState<number[]>(() =>
     new Array(WAVEFORM_BAR_COUNT).fill(METERING_FLOOR_DB),
   );
+  // P6: reduce-motion gates the live waveform animation. Was the only
+  // animation in the app NOT gated; now respects the system preference.
+  // Per design-system.md §4.5.
+  const reduceMotion = useReduceMotion();
 
   const { addRecording } = useRecordings();
   // State-aware firearm guidance — variant resolved from the device's
@@ -382,6 +387,12 @@ export default function PulledOver() {
   // while recording, so it's the reliable cadence signal.
   useEffect(() => {
     if (phase !== 'guidance') return;
+    // P6: short-circuit the metering buffer updates when reduce-motion
+    // is enabled — the Waveform component renders all bars at floor
+    // regardless of history when reduceMotion is true, so skipping the
+    // setState also avoids the per-tick re-renders that the metering
+    // poll would otherwise drive.
+    if (reduceMotion) return;
     setMeteringHistory((prev) => {
       const next = prev.slice(1);
       // metering may be undefined on the first tick, before the
@@ -395,7 +406,7 @@ export default function PulledOver() {
       next.push(sample);
       return next;
     });
-  }, [phase, recorderState.durationMillis, recorderState.metering]);
+  }, [phase, recorderState.durationMillis, recorderState.metering, reduceMotion]);
 
   // Stop any in-progress speech when leaving guidance phase, since the
   // Read-aloud button only exists there. Without this the speech would
@@ -476,6 +487,7 @@ export default function PulledOver() {
               disclosureDuty={disclosureDuty}
               elapsed={elapsed}
               meteringHistory={meteringHistory}
+              reduceMotion={reduceMotion}
               onContinue={handleContinueToContact}
             />
           )}
@@ -605,13 +617,30 @@ function TransitionView({ onSkip }: { onSkip: () => void }) {
  * value and the waveform reads as a flat baseline — graceful fallback
  * rather than a broken visual.
  */
-function Waveform({ history }: { history: number[] }) {
+function Waveform({
+  history,
+  reduceMotion,
+}: {
+  history: number[];
+  reduceMotion: boolean;
+}) {
+  // P6: when reduce-motion is on, render every bar at the floor height
+  // (flat baseline) instead of the live dB values. usePulseOpacity
+  // already gates correctly elsewhere; this brings the only un-gated
+  // animation in the app into the same pattern. Per design-system.md §4.5.
   return (
     <View style={guidanceStyles.waveformRow}>
       {history.map((db, i) => (
         <View
           key={i}
-          style={[guidanceStyles.waveformBar, { height: dbToBarHeight(db) }]}
+          style={[
+            guidanceStyles.waveformBar,
+            {
+              height: reduceMotion
+                ? WAVEFORM_MIN_HEIGHT
+                : dbToBarHeight(db),
+            },
+          ]}
         />
       ))}
     </View>
@@ -640,12 +669,14 @@ function GuidanceView({
   disclosureDuty,
   elapsed,
   meteringHistory,
+  reduceMotion,
   onContinue,
 }: {
   showFirearmGuidance: boolean;
   disclosureDuty: DisclosureDuty;
   elapsed: number;
   meteringHistory: number[];
+  reduceMotion: boolean;
   onContinue: () => void;
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -727,7 +758,10 @@ function GuidanceView({
         onPress={handleReadAloud}
         accessibilityRole="button"
         accessibilityLabel={isSpeaking ? 'Stop reading aloud' : 'Read aloud'}
-        hitSlop={12}
+        // P5: hitSlop removed — the row now paints at 56pt via the
+        // bumped paddingVertical: 12 in guidanceStyles.readAloudRow,
+        // so the visual is the affordance (no longer relying on an
+        // invisible touch-area extension).
       >
         {isSpeaking ? (
           <Stop size={32} color={colors.mutedTertiary} />
@@ -757,7 +791,7 @@ function GuidanceView({
           <Text style={guidanceStyles.recordingTimer}>{timeString}</Text>
         </View>
 
-        <Waveform history={meteringHistory} />
+        <Waveform history={meteringHistory} reduceMotion={reduceMotion} />
 
         <Text style={guidanceStyles.recordingFootnote}>
           Saved to your phone — only you can access it
@@ -799,11 +833,17 @@ function RecordingChip({ elapsed }: { elapsed: number }) {
   const pulse = usePulseOpacity();
   const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
   const seconds = (elapsed % 60).toString().padStart(2, '0');
+  // P13: use the raw numeric values (not zero-padded display strings)
+  // for the accessibility label. VoiceOver reads "00" as "zero zero"
+  // literally — "zero zero minutes zero three seconds" is jarring and
+  // reads as a bug. Parse from elapsed for clean speech output.
+  const a11yMinutes = Math.floor(elapsed / 60);
+  const a11ySeconds = elapsed % 60;
   return (
     <View
       style={chipStyles.row}
       accessibilityRole="text"
-      accessibilityLabel={`Recording, ${minutes} minutes ${seconds} seconds elapsed`}
+      accessibilityLabel={`Recording, ${a11yMinutes} minutes ${a11ySeconds} seconds elapsed`}
     >
       <Animated.View style={[chipStyles.dot, { opacity: pulse }]} />
       <Text style={chipStyles.label}>Recording</Text>
@@ -1492,7 +1532,13 @@ const armedStyles = StyleSheet.create({
     elevation: 2,
   },
   answerContent: {
-    width: 238,
+    // P2: was width: 238 — magic number that clipped at iPhone SE
+    // viewport and under large Dynamic Type. flex: 1 fills the card's
+    // available content area (parent is width: '100%' with 16pt
+    // padding) responsively at any viewport, which is the real fix —
+    // not a grid alignment concern. Per design-system.md §4.8
+    // (every state designed) + §1.6 (avoid magic constants).
+    flex: 1,
     gap: 8,
   },
   answerTitle: {
@@ -1516,12 +1562,17 @@ const transitionStyles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...typography.title1Regular,
+    // P3: dynamicType on transition title — sets emotional tone after
+    // armed check; users with Large Accessibility type need scaled
+    // copy. Skip relaxedLineHeight (header per design-system.md §1.4
+    // guidance — relaxed is for stress-state long-reads).
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
     textAlign: 'center',
   },
   subtitle: {
-    ...typography.subheadlineRegular,
+    // P3: dynamicType on transition subtitle for the same reason.
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
     textAlign: 'center',
   },
@@ -1586,7 +1637,13 @@ const guidanceStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 8,
+    // P5: paddingVertical 8 → 12 brings the painted height to 56pt
+    // (32pt icon + 12×2 = 56). Earlier value (8) produced ~35pt
+    // painted, with hitSlop:12 papering over the visual-to-touch gap.
+    // .cursorrules + design-system.md §4.3 explicitly forbid papering
+    // a sub-44pt visual with hitSlop — drop the hitSlop now that the
+    // painted area is comfortable on its own.
+    paddingVertical: 12,
   },
   readAloudText: {
     ...typography.subheadlineEmphasized,
@@ -1607,11 +1664,19 @@ const guidanceStyles = StyleSheet.create({
     alignItems: 'center',
   },
   recordingLabel: {
-    ...typography.bodyRegular,
+    // P4: dynamicType so the widget scales with user font preference
+    // (this is the recording focal point — must scale with content).
+    ...dynamicType(typography.bodyRegular),
     color: colors.black,
   },
   recordingTimer: {
-    ...typography.subheadlineRegular,
+    // P4: promoted from subheadlineRegular (15pt) to bodyRegular (17pt)
+    // so the live counter is at least as prominent as the label above
+    // it — was inverted (timer 1pt SMALLER than its label). The timer
+    // is what users actually watch; hierarchy now puts the data on the
+    // same visual tier as its label. Plus dynamicType per the same
+    // reasoning as recordingLabel.
+    ...dynamicType(typography.bodyRegular),
     color: colors.mutedSecondary,
     fontVariant: ['tabular-nums'],
   },
@@ -1672,7 +1737,12 @@ const contactStyles = StyleSheet.create({
   },
   subtitle: {
     ...typography.subheadlineRegular,
-    color: colors.mutedTertiary,
+    // P9: mutedTertiary (rgba(80,80,80,0.7)) at 15pt = ~3.0-3.5:1 contrast,
+    // below WCAG AA for normal text. This is reassuring informational copy
+    // user needs to read, not decorative metadata — labelTertiary (#3D3D3D)
+    // is the intended token for tertiary-text-that-still-must-read. Per
+    // design-system.md §1.1.
+    color: colors.labelTertiary,
   },
   avatarBlock: {
     gap: 16,
@@ -1788,7 +1858,10 @@ const contactStyles = StyleSheet.create({
   },
   footerHintText: {
     ...typography.footnoteRegular,
-    color: colors.mutedTertiary,
+    // P10: instructional copy ("Swipe down on the gray slider...") at
+    // 13pt + 70% gray = ~3.5:1 contrast. Same fix class as P9 — promote
+    // to labelTertiary for readable instruction. Per design-system.md §1.1.
+    color: colors.labelTertiary,
     textAlign: 'center',
   },
 });
@@ -1909,7 +1982,13 @@ const officerStyles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bullet: {
-    ...typography.calloutRegular,
+    // P11: was calloutRegular (16pt) — every other ContentView bullet
+    // in this file uses title3Regular (20pt) wrapped in
+    // dynamicType(relaxedLineHeight(...)). OfficerTrooper was the lone
+    // 16pt static outlier; users flipping through review views saw
+    // bullets visibly shrink on the first sub-view. Promote to match
+    // the GuidanceBullet / Bullet pattern. Per design-system.md §1.4, §4.12.
+    ...dynamicType(relaxedLineHeight(typography.title3Regular)),
     color: colors.black,
   },
   emphasis: {
@@ -1941,8 +2020,14 @@ const contentStyles = StyleSheet.create({
     paddingBottom: 16,
   },
   illustrationBox: {
-    width: 320,
-    height: 320,
+    // P12: was fixed width/height 320 — original iPhone SE (320pt viewport)
+    // with 16pt horizontal padding leaves only 288pt for content, causing
+    // the 320pt illustration to overflow. width:'100%' + aspectRatio:1
+    // makes the box fluid; maxWidth caps the square proportion on larger
+    // viewports so the visual stays as designed. Per design-system.md §4.2.
+    width: '100%',
+    aspectRatio: 1,
+    maxWidth: 320,
     alignItems: 'center',
     justifyContent: 'center',
   },
