@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 
 /**
  * Floating circular icon button — consolidates the `sideBtn`,
@@ -70,14 +71,14 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    // M3/Elevation/2 approximation. RN renders one shadow; using the
-    // bigger soft halo (the second Figma layer is a sharp contact
-    // shadow that's mostly invisible against white anyway).
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    // A22: was inline (shadowRadius:6, elevation:4) drifting from the
+    // shadows.e2 token (radius:4, elevation:3). Replaced with the
+    // canonical e2 spread per design-system.md §1.3 drift note. Two
+    // visual deltas land with this swap: radius tightens 6→4 (slightly
+    // crisper edge), opacity bumps 0.15→0.18. Net result is a marginally
+    // tighter, marginally darker lift — within Figma M3/Elevation/2
+    // tolerances and consistent with every other e2 surface in the app.
+    ...shadows.e2,
   },
   size56: {
     width: 56,

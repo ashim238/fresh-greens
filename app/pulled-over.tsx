@@ -57,6 +57,7 @@ import {
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -1525,11 +1526,10 @@ const armedStyles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.white,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // A22 / P1: was inline (height:1, opacity:0.15, radius:3, elevation:2)
+    // — exact match to shadows.e1. Replaced with the canonical spread per
+    // design-system.md §1.3 drift note.
+    ...shadows.e1,
   },
   answerContent: {
     // P2: was width: 238 — magic number that clipped at iPhone SE
@@ -1811,11 +1811,10 @@ const contactStyles = StyleSheet.create({
     // (matches the post-#148 primary-CTA register).
     backgroundColor: colors.wiltedgreen,
     borderRadius: 1000,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // A22 / P8: was inline (height:1, opacity:0.15, radius:3, elevation:2)
+    // — exact match to shadows.e1. Same fix class as the armed answer
+    // card (P1). Per design-system.md §1.3.
+    ...shadows.e1,
   },
   callBtnText: {
     ...typography.subheadlineEmphasized,

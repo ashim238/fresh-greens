@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
 import { colors } from '../theme/colors';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -70,11 +71,11 @@ const styles = StyleSheet.create({
     borderColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    // A22: was inline (elevation:3) drifting from shadows.e3 (elevation:4).
+    // All other map-pin markers (LandmarkMarker, DestinationMarker) use
+    // shadows.e3 — ClusterMarker is brought into the same tier per
+    // design-system.md §1.3 drift note.
+    ...shadows.e3,
   },
   count: {
     ...typography.footnoteEmphasized,

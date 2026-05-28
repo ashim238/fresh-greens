@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 're
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -161,14 +162,12 @@ const styles = StyleSheet.create({
   },
   containerDefault: {
     backgroundColor: colors.white,
-    // M3/Elevation/2 approximation — picking the larger soft halo
-    // (the second layer would be a tiny sharp contact shadow; RN can
-    // only render one).
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    // A22: was inline (shadowRadius:6, elevation:4) — identical to the
+    // FAB pattern that landed alongside this fix. Replaced with the
+    // canonical shadows.e2 spread per design-system.md §1.3 drift note.
+    // SearchBar over the map matches FAB elevation now; previously they
+    // diverged by ~2pt of soft halo.
+    ...shadows.e2,
   },
   containerInset: {
     // S3: canonical inset bg per .cursorrules "Search bar contextual
