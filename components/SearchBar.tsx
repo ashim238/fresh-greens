@@ -15,8 +15,11 @@ import { typography } from '../theme/typography';
  *                on /search after the user has tapped in. Left: back
  *                chevron (returns to map). Right: mic icon.
  *   - `typing`   gray translucent pill, no shadow. The active-typing
- *                state. Left: search icon. Center: live `value` in
- *                primary text color. Right: clear (X) icon.
+ *                state. Left: back chevron (always visible while the
+ *                user is on /search — per S1 polish, lets users abandon
+ *                a query without using OS-level back gestures).
+ *                Center: live `value` in primary text color. Right:
+ *                clear (X) icon.
  *
  * `default` is a Pressable; `on-tap` and `typing` use TextInput so the
  * keyboard is owned by the search screen, not the floating pill.
@@ -74,9 +77,16 @@ export function SearchBar({
   return (
     <View style={[styles.container, styles.containerInset, style]}>
       <PressableIcon
-        name={state === 'on-tap' ? 'chevron-back' : 'search'}
-        onPress={state === 'on-tap' ? onBackPress : undefined}
-        accessibilityLabel={state === 'on-tap' ? 'Back to map' : undefined}
+        // S1: always show chevron-back on left when SearchBar is on
+        // /search (both 'on-tap' and 'typing' states). Earlier swap to
+        // the 'search' icon during 'typing' left users without a visible
+        // back affordance — Google Maps/Apple Maps keep back-arrow
+        // visible for the entire search session. Search icon during
+        // typing added nothing since the keyboard + pill chrome already
+        // signal "you're searching."
+        name="chevron-back"
+        onPress={onBackPress}
+        accessibilityLabel="Back to map"
       />
       <TextInput
         style={styles.input}
@@ -161,7 +171,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   containerInset: {
-    backgroundColor: colors.separatorOnFlat,
+    // S3: canonical inset bg per .cursorrules "Search bar contextual
+    // treatment" rule — fillsTertiary, not separatorOnFlat. The latter
+    // is named/intended for hairline separator lines (see colors.ts:
+    // "search bar outline on tap-state"), not surface fills. Using it
+    // as a background coupled the search bar's tint to a token whose
+    // future tweaks would silently affect this surface.
+    backgroundColor: colors.fillsTertiary,
   },
   placeholder: {
     ...typography.bodyRegular,

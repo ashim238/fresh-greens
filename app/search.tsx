@@ -138,10 +138,19 @@ export default function Search() {
   // today; revisit if new producers of this param land.
   const params = useLocalSearchParams<{ from?: string }>();
   const fromEnRoute = params.from === 'enroute';
-  const { recents, addRecent, removeRecent, clearRecents } = useRecentSearches();
+  // S4: destructure `loading` so we can gate the empty-state branch
+  // and avoid the flash of "Your recent destinations will show up here"
+  // during the AsyncStorage read on first mount.
+  const { recents, loading: recentsLoading, addRecent, removeRecent, clearRecents } = useRecentSearches();
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('landing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // S8: distinguish "no results" (search query problem) from network
+  // failure. The ErrorState component defaults to WifiSlash for the
+  // network case; we override with MagnifyingGlass when this flag is
+  // true so users don't think their connection dropped just because
+  // they misspelled something.
+  const [isNoResultsError, setIsNoResultsError] = useState(false);
   const [results, setResults] = useState<Place[]>([]);
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
@@ -218,6 +227,10 @@ export default function Search() {
     if (!userLocation) {
       if (isExplicit) {
         setPhase('error');
+        // S8 parity — reset the no-results flag so the MagnifyingGlass
+        // icon doesn't carry over from a prior search-query error into
+        // this location-availability error (icon-copy mismatch).
+        setIsNoResultsError(false);
         setErrorMessage('Locating you… try again in a moment.');
       }
       return;
@@ -226,6 +239,7 @@ export default function Search() {
     if (isExplicit) {
       setPhase('loading');
       setErrorMessage(null);
+      setIsNoResultsError(false);
       setResults([]);
     }
 
@@ -239,6 +253,7 @@ export default function Search() {
       if (!places.length) {
         if (isExplicit) {
           setPhase('error');
+          setIsNoResultsError(true);
           setErrorMessage(
             `No results for "${trimmed}". Try a more specific name or address.`,
           );
@@ -257,6 +272,7 @@ export default function Search() {
       console.warn('[search] places search failed:', err);
       if (isExplicit) {
         setPhase('error');
+        setIsNoResultsError(false);
         setErrorMessage(
           "We're having trouble connecting to the internet right now.",
         );
@@ -268,6 +284,7 @@ export default function Search() {
   function handleQueryChange(text: string) {
     setQuery(text);
     setErrorMessage(null);
+    setIsNoResultsError(false);
     // If the new text doesn't match the currently-selected Quick
     // Tool's query, that tile is no longer driving the search and
     // should deselect. Covers the case where the user taps Food
@@ -373,6 +390,7 @@ export default function Search() {
               setQuery('');
               setPhase('landing');
               setErrorMessage(null);
+              setIsNoResultsError(false);
               // Clear deselects any active Quick Tool filter too —
               // the tile's selected state was confirming the filter
               // applied to the now-cleared query. Without this, the
@@ -382,9 +400,13 @@ export default function Search() {
               setSelectedToolId(null);
               setResults([]);
             }}
-            onMicPress={() => {
-              // TODO: voice input via expo-speech / native speech-to-text
-            }}
+            // S2: omit onMicPress until voice input is built. Passing
+            // a no-op handler made PressableIcon render as a Pressable
+            // (truthy onPress), which VoiceOver announces as "Voice
+            // search, button" but produces zero feedback on tap.
+            // Undefined keeps the icon visible as a static decorative
+            // glyph until expo-speech / native speech-to-text lands.
+            // TODO: restore handler when voice input ships.
             autoFocus
           />
         </View>
@@ -501,9 +523,17 @@ export default function Search() {
               </View>
 
               {recents.length === 0 ? (
-                <Text style={styles.recentEmpty}>
-                  Your recent destinations will show up here.
-                </Text>
+                // S4: gate the empty-state copy behind !recentsLoading so
+                // users with a populated recents list don't see "Your
+                // recent destinations will show up here" flash on mount
+                // during the AsyncStorage read (~50-100ms). Render nothing
+                // while loading — the section header above gives a stable
+                // container so the layout doesn't shift.
+                recentsLoading ? null : (
+                  <Text style={styles.recentEmpty}>
+                    Your recent destinations will show up here.
+                  </Text>
+                )
               ) : (
                 recents.map((recent) => (
                   <Pressable
@@ -553,7 +583,25 @@ export default function Search() {
 
         {phase === 'error' && errorMessage && (
           <View style={styles.stateCardWrap}>
-            <ErrorState text={errorMessage} />
+            {/*
+              S8: swap icon by error class. No-results uses MagnifyingGlass
+              (search-query problem), network failure keeps the default
+              WifiSlash via undefined. Prevents the dissonance of seeing
+              a "no internet" icon when the actual issue is a misspelled
+              place name.
+            */}
+            <ErrorState
+              text={errorMessage}
+              icon={
+                isNoResultsError ? (
+                  <MagnifyingGlass
+                    size={56}
+                    color={colors.labelTertiary}
+                    weight="duotone"
+                  />
+                ) : undefined
+              }
+            />
           </View>
         )}
 
@@ -596,9 +644,20 @@ export default function Search() {
                   <Text style={styles.resultName} numberOfLines={1}>
                     {place.name}
                   </Text>
-                  <Text style={styles.resultAddress} numberOfLines={1}>
-                    {place.address}
-                  </Text>
+                  {/*
+                    S6: guard against empty address strings. `formatAddress`
+                    in lib/api/places.ts can return '' when both
+                    place_formatted and full_address are missing — without
+                    this conditional, the Text still occupies its 18pt
+                    lineHeight as an invisible gap below the name, reading
+                    as floating-name layout drift. Mirrors the recents
+                    list's existing guard (`recent.address ? ...`).
+                  */}
+                  {place.address ? (
+                    <Text style={styles.resultAddress} numberOfLines={1}>
+                      {place.address}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text style={styles.resultDistance} numberOfLines={1}>
                   {formatResultDistance(place.distanceMiles)}
@@ -711,7 +770,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 10,
+    // S5: 10 → 12pt. Brings row to 48pt (24pt icon + 12pt × 2 padding),
+    // aligned to the 4pt grid (10 wasn't) and matching iOS table-row
+    // density. Recents is a primary affordance; generous row height
+    // signals quality and improves scan-ability.
+    paddingVertical: 12,
   },
   // The text column wraps name + address so the Clock icon stays
   // vertically centered against the full row block, not just the
@@ -781,6 +844,13 @@ const styles = StyleSheet.create({
     // correctly since resultText is `flex: 1` and shrinks to fit.
     minWidth: 72,
     textAlign: 'right',
+    // S7: tabular-nums prevents horizontal column reflow as autocomplete
+    // results update mid-debounce ("1.2 mi" → "10.4 mi" → "3.8 mi").
+    // The existing minWidth: 72 floor + tabular-nums together is the
+    // canonical pattern — minWidth caps the column when digits change
+    // count, tabular-nums keeps each digit width-stable within that cap.
+    // Same convention as F7 (en-route ETA) + H8 (recommendation rating).
+    fontVariant: ['tabular-nums'],
   },
   // Symmetric 12pt inset per Figma `1105:6502` (Horizontal/Inset
   // divider). Earlier value (left: 48, right: 0) matched iOS list-
