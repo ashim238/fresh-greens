@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## perf/long-route-detail-scaling — A20a (2026-05-29)
+
+Fixed a hard freeze: previewing a ~2300km route (Amsterdam→Granada) on /home locked the JS thread so the "Go" button stopped responding. Two non-obvious things worth keeping (one caught at code-reviewer pre-merge).
+
+- **The route `overview` parameter and per-step geometry are independent resolutions — simplifying one doesn't degrade the other.** The instinct was that `overview=simplified` would make turn-by-turn navigation imprecise. It doesn't: Mapbox/OSRM `overview` only controls the route-level summary polyline; each `step.geometry` (and `step.maneuver.location`, which is what `findNextStep` actually reads) stays full-resolution regardless. So a long route can fetch a coarse zoomed-out line — cheap for `gradientSegments` + `pickWinner` to chew through — while navigation stays meter-accurate. This is the lever that fixes the freeze without a rolling-window rewrite. Worth keeping: when a long-list/large-geometry render chokes, check whether the API exposes a coarse-summary vs. fine-detail split before reaching for progressive loading — the freeze had *two* cost halves (coordinate count feeding the gradient/scoring loops, and the steps+banner parse), and `simplified` overview + dropping preview steps killed both with ~30 LOC instead of an architecture.
+
+- **A destination-keyed cache shared by two callers with different detail levels needs a write-gate, or the cheaper caller silently downgrades the richer one.** `saveActiveRoute` keys on destination only, and runs on every successful fetch inside `getRoutesBetween`. Once /home started fetching stepless preview routes, a /home preview could overwrite a full-detail entry that a prior /en-route navigation had cached for the same destination — so a later dead-signal /en-route would hydrate a stepless route and lose turn-by-turn, exactly when it's needed most. The reviewer flagged it. Fix: gate the cache write on `wantSteps` (`if (wantSteps) void saveActiveRoute(...)`) — state the invariant "the offline cache is for navigation, so only step-carrying routes belong in it." Worth keeping: when two code paths write to the same single-slot cache at different fidelity, the cache needs a rule about which writes win (gate the low-fidelity writer, or make the store refuse to clobber a fresher/richer entry) — "best-effort write on every success" silently lets the cheaper path win by recency.
+
+---
+
 ## feat/home-destination-figma-fidelity (2026-05-27)
 
 Swapped /home's destination marker to Figma 1245:10977 (pin-with-checkered-flag inset) — supersedes the old wiltedgreen-pin description in earlier learnings entries. One pattern worth keeping (caught by code-reviewer pre-merge).
