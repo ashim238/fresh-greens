@@ -222,7 +222,21 @@ export default function Menu() {
             />
             <View style={styles.profileTextStack}>
               <Text style={styles.profileGreeting}>Hey there,</Text>
-              <Text style={styles.profileName}>{displayName}</Text>
+              {/*
+                M1: long names (e.g. real Firebase displayNames like
+                "Bartholomew Huntington-Clarke") would wrap onto a
+                second line and push the profile row taller, breaking
+                the gap rhythm with the divider below. The avatar is
+                the visual anchor; a tail-ellipsized name preserves
+                identity without warping the layout.
+              */}
+              <Text
+                style={styles.profileName}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {displayName}
+              </Text>
             </View>
           </View>
 
@@ -312,6 +326,13 @@ export default function Menu() {
           <PageControl
             total={QUICK_TILES.length}
             activeIndex={activeQuickIndex}
+            // M7: PageControl's default dot color is white (built for
+            // onboarding's dark backgrounds — see §2.12). /menu has a
+            // white surface, so the default rendered the dots
+            // invisibly. wiltedgreen pairs with the rest of /menu's
+            // brand accents (the Sign-Out link, freshgreen switch)
+            // without competing with content above.
+            color={colors.wiltedgreen}
           />
         </View>
 
@@ -327,13 +348,19 @@ export default function Menu() {
           <Pressable
             onPress={handleSignOut}
             disabled={signingOut}
-            hitSlop={12}
+            // M9: 44pt floor lives on the Pressable itself (not just
+            // the wrapper) so the actual hit region matches the
+            // visible footprint — the wrapper alone would have left
+            // the Pressable text-sized inside a centered void.
+            // hitSlop dropped because the visible Pressable IS now
+            // the tap target. §4.3: "what you see is what you tap."
             accessibilityRole="button"
             accessibilityLabel="Sign out"
             accessibilityState={{ busy: signingOut, disabled: signingOut }}
-            style={({ pressed }) =>
-              pressed && !signingOut ? pressedDim : undefined
-            }
+            style={({ pressed }) => [
+              styles.signOutPressable,
+              pressed && !signingOut && pressedDim,
+            ]}
           >
             {signingOut ? (
               <ActivityIndicator color={colors.labelTertiary} />
@@ -369,11 +396,20 @@ function ZonePreferencesRow({
   onToggle: (next: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // M4: every other animation on this screen (the Quick Tiles carousel
+  // snap at line ~278) is gated on useReduceMotion per design-system.md
+  // §4.5; the accordion was missed. A user with Reduce Motion enabled
+  // was still getting the easeInEaseOut expand animation they opted
+  // out of. Calling the hook locally instead of threading a prop down
+  // keeps the surface API of ZonePreferencesRow unchanged.
+  const reduceMotion = useReduceMotion();
   const handleToggleExpanded = () => {
     // Only animate the expand direction. Calling configureNext on collapse
     // can prevent the state update from registering (the collapse tap appears
     // to do nothing), so the animation is skipped on the way down.
-    if (!expanded) {
+    // Skipped entirely when reduceMotion is on — the state update still
+    // fires; content snaps in/out instantly.
+    if (!expanded && !reduceMotion) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }
     setExpanded((v) => !v);
@@ -384,6 +420,15 @@ function ZonePreferencesRow({
         onPress={handleToggleExpanded}
         accessibilityRole="button"
         accessibilityLabel="Zone Preferences"
+        // M5: "Zone Preferences" is a noun — accessibilityState.expanded
+        // tells VoiceOver the row is collapsed but not what tapping
+        // does. The hint completes the affordance the same way
+        // FloatingActionButton's hint pattern does (§2.1).
+        accessibilityHint={
+          expanded
+            ? 'Collapse zone display options'
+            : 'Expand zone display options'
+        }
         accessibilityState={{ expanded }}
         style={({ pressed }) => [styles.row, pressed && pressedDim]}
       >
@@ -409,6 +454,10 @@ function ZonePreferencesRow({
             }}
             thumbColor={colors.white}
             accessibilityLabel="Toggle zones overlay"
+            // M6: a VoiceOver user can't see the map; the label tells
+            // them WHAT the control is, the hint tells them what it
+            // affects (§2.1 hint-pairing convention).
+            accessibilityHint="Shows or hides the zone safety overlay on the map"
           />
         </View>
       )}
@@ -519,7 +568,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   profileGreeting: {
-    ...typography.title3Emphasized,
+    // M2: was title3Emphasized (20pt/600). At only 2pt smaller than
+    // profileName's title2Emphasized (22pt/700), the greeting and the
+    // name read as near-peers — the weight delta is the only real
+    // differentiator and 600→700 is too subtle to do hierarchy work.
+    // Dropping to title3Regular (20pt/400) lets the regular-vs-bold
+    // weight contrast carry the "atmospheric label / identity anchor"
+    // distinction the layout intends.
+    ...typography.title3Regular,
     color: colors.black,
   },
   profileName: {
@@ -615,14 +671,34 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   tileSubtitle: {
-    ...typography.footnoteEmphasized,
+    // M8: was footnoteEmphasized + underline. Underline on colored
+    // text is the canonical link affordance (cf. signOutText below,
+    // Button fill='transparent' in §2.2) — applying it to non-link
+    // copy inside an already-tappable card created a false-link
+    // signal AND killed the within-card hierarchy (weight 600 title
+    // vs weight 600 subtitle read as peers). Regular weight without
+    // underline matches the supporting-copy register used elsewhere
+    // (e.g. zoneInnerLabel).
+    ...typography.footnoteRegular,
     color: colors.wiltedgreen,
-    textDecorationLine: 'underline',
   },
   signOutWrap: {
     alignItems: 'center',
     paddingTop: 16,
     paddingBottom: 8,
+  },
+  signOutPressable: {
+    // M9: the 44pt floor lives on the Pressable itself so the visible
+    // surface IS the tap surface — putting it on the wrapper alone
+    // would have left the Pressable text-sized (~20pt) inside a
+    // centered void, which is exactly what the audit caught as a
+    // regression against §4.3. paddingHorizontal extends the horizontal
+    // hit region past the text glyph edges. Works in both the text
+    // and ActivityIndicator (busy) states without per-state styling.
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
   },
   signOutText: {
     ...typography.subheadlineRegular,

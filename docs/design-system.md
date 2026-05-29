@@ -528,14 +528,15 @@ iOS-style dot indicator for onboarding/stepped flows.
 
 - **Figma:** `488:54907`
 - **Visual:** Row of 8pt circles, gap 8pt, container 44pt tall. Active dot fully opaque, inactive dots 30% opacity.
-- **Color:** `colors.white` (designed for use over dark/colored backgrounds like onboarding)
+- **Color:** dot color is controlled by the `color` prop (default `colors.white` for onboarding's dark backgrounds). On light surfaces (e.g. `/menu`'s white Quick Tiles carousel) callers must pass a tinted color — `colors.wiltedgreen` is the canonical pick. Inactive dots use 30% opacity of the same color.
 - **Sizing:** 8×8 dots, container `height: 44`, `alignSelf: 'center'`
 - **Accessibility:** `accessibilityRole="text"` · label `'Page {N} of {total}'`
 
-| Prop | Type |
-|---|---|
-| `total` | `number` |
-| `activeIndex` | `number` (zero-based) |
+| Prop | Type | Default |
+|---|---|---|
+| `total` | `number` | — |
+| `activeIndex` | `number` (zero-based) | — |
+| `color` | `string` | `colors.white` |
 
 ### 2.13 ReportDetailCard (`components/ReportDetailCard.tsx`)
 
