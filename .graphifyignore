@@ -1,0 +1,12 @@
+# graphify replaces its built-in defaults with this file, so re-list the
+# important excludes alongside our own.
+.claude/
+.git/
+.expo/
+.vscode/
+dist/
+build/
+# Our additions: keep the graph about our code, not the dependency tree
+package-lock.json
+proxy/package.json
+fresh-greens-specimen/

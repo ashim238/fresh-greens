@@ -34,3 +34,14 @@ When a user gives feedback worth keeping across sessions, save it as a new `feed
 ## What this file isn't
 
 A rulebook. The rules live in the files linked above. This is a map to find them. If a rule changes, change it at the source, not here.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- For **why / decision / history / thesis** questions (not just "where is the code"), query the MERGED graph instead: `fgq query "<question>"` (also `fgq path "A" "B"`, `fgq affected "X"`). It spans this code + 36 chat transcripts + the MFA thesis (`~/.graphify/fresh-greens-merged/`), so it answers "why did we choose X", "what's the rationale behind Y", and "which shipped feature serves which thesis claim". Treat its chat/thesis nodes as memory-joggers (LLM-inferred from prose) — verify against code / `docs/learnings.md` before relying on them.

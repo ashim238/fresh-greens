@@ -52,3 +52,7 @@ fresh-greens-specimen/
 # Superpowers brainstorm artifacts (visual-companion mockups). Local
 # scratch space; don't commit.
 .superpowers/
+
+# graphify-generated knowledge graph + wiki. Regenerated locally via
+# `graphify update .`; not part of the source tree.
+graphify-out/
