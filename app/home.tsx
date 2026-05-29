@@ -671,7 +671,11 @@ export default function Home() {
       // scoring refines a beat later when Overpass finishes. Browse
       // mode shows zero polylines on the map.
       const routePromise = destination
-        ? getRoutesBetween(center, destination)
+        ? // 'preview' detail (A20): /home only renders a route-preview
+          // line + ETA, never turn-by-turn. On long routes this drops
+          // steps and fetches a coarse overview so the preview doesn't
+          // freeze the JS thread parsing + scoring thousands of points.
+          getRoutesBetween(center, destination, { detail: 'preview' })
         : Promise.resolve({ routes: [] as Route[], source: 'mapbox' as const });
       const zonePromise = getZonesForRegion(center);
 

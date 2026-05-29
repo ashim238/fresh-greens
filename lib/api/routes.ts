@@ -109,9 +109,10 @@ export type Route = {
   distanceMeters: number;
   /** Polyline of lat/lng waypoints from origin to destination */
   coordinates: Coordinate[];
-  /** Turn-by-turn maneuvers. Empty when adapter returned mock data
-      (no OSRM steps available) — consumers should fall back to a
-      neutral "Heading toward destination" copy. */
+  /** Turn-by-turn maneuvers. Undefined when the adapter returned mock
+      data (no engine steps), or when a preview-detail fetch dropped
+      them on a long route (A20) — consumers should fall back to a
+      neutral "Heading toward destination" copy in either case. */
   steps?: RouteStep[];
 };
 
@@ -139,6 +140,44 @@ export type Route = {
  * — see the no-route handling below.
  */
 const MAX_ROUTE_DISTANCE_MILES = 3000;
+
+/**
+ * Distance past which a route is fetched at COARSE detail
+ * (`overview=simplified`) instead of full. This is a RENDER-COST
+ * threshold, not a routability one — `MAX_ROUTE_DISTANCE_MILES` above
+ * handles routability.
+ *
+ * Why: a ~2,300km route (e.g. Amsterdam→Granada) returns thousands of
+ * polyline coordinates at `overview=full`. `gradientSegments` slices
+ * that array 15× and `pickWinner` runs point-in-zone tests against
+ * every coordinate — on the JS thread, which froze the /home route
+ * preview hard enough that the "Go" button stopped responding.
+ * `overview=simplified` caps a cross-continent route at a few hundred
+ * points; the zoomed-out route line is visually identical at the zoom
+ * level you'd actually view a 150mi+ trip, and per-STEP geometry stays
+ * full-resolution regardless of `overview`, so turn-by-turn navigation
+ * is unaffected.
+ *
+ * 150mi ≈ 2.5h of driving. Below it (the overwhelming majority of real
+ * trips — urban + regional) routes keep full precise overview; the
+ * coarse path only engages where the coordinate blow-up actually
+ * happens and where a coarse zoomed-out line can't be perceived.
+ */
+const LONG_ROUTE_MILES = 150;
+
+/**
+ * How much route detail a caller needs.
+ *   - 'full'    — turn-by-turn navigation (/en-route). Always requests
+ *                 steps (+ lane banners); on long routes the route
+ *                 overview goes coarse but steps stay precise.
+ *   - 'preview' — route preview only (/home). Never needs maneuver
+ *                 data, so on long routes it drops steps entirely (the
+ *                 steps payload is the other half of the parse cost).
+ *                 Short previews keep steps so the offline cache still
+ *                 pre-warms with turn-by-turn for the common regional
+ *                 trip.
+ */
+export type RouteDetail = 'preview' | 'full';
 
 /**
  * Where a route came from. The source ladder in getRoutesBetween:
@@ -176,7 +215,11 @@ export type RoutesResult = {
 export async function getRoutesBetween(
   origin: Coordinate,
   destination: Coordinate,
+  opts?: { detail?: RouteDetail },
 ): Promise<RoutesResult> {
+  // Default to full detail — navigation (/en-route) is the demanding
+  // caller; the route-preview caller (/home) opts down to 'preview'.
+  const detail: RouteDetail = opts?.detail ?? 'full';
   // Guard against pathological origin/destination pairs before hitting
   // the routing ladder. Beyond MAX_ROUTE_DISTANCE_MILES we treat the
   // pair as "no route available" rather than attempting a fetch that
@@ -192,6 +235,15 @@ export async function getRoutesBetween(
     );
     return { routes: [], source: 'no-route' };
   }
+
+  // Detail scaling (A20). Long routes return a coarse overview so the
+  // polyline + daylight gradient + zone scoring don't choke the JS
+  // thread on thousands of coordinates. `wantSteps` drops turn-by-turn
+  // for preview-of-long-routes only — full-detail callers (/en-route)
+  // always keep steps, and short previews keep them too so the offline
+  // cache pre-warms with maneuvers for the common regional trip.
+  const coarse = distance > LONG_ROUTE_MILES;
+  const wantSteps = detail === 'full' ? true : !coarse;
 
   // Track whether AT LEAST ONE routing engine responded successfully
   // (HTTP-wise) but explicitly said "no route exists." We trust a
@@ -211,7 +263,7 @@ export async function getRoutesBetween(
   // with `code !== 'Ok'` sets `engineSaidNoRoute` and ALSO falls
   // through to OSRM — see the engineSaidNoRoute check after the
   // OSRM tier for terminal no-route semantics.
-  const mapboxUrl = buildMapboxUrl(origin, destination);
+  const mapboxUrl = buildMapboxUrl(origin, destination, { coarse, steps: wantSteps });
   if (mapboxUrl) {
     try {
       const response = await fetch(mapboxUrl);
@@ -222,10 +274,15 @@ export async function getRoutesBetween(
             parseMapboxRoute(r, idx, destination),
           );
           if (routes.length > 0) {
-            // Best-effort cache write — same semantics as the OSRM
-            // tier below. saveActiveRoute has its own try/catch + warn,
-            // so no redundant outer .catch needed.
-            void saveActiveRoute(routes, destination);
+            // Best-effort cache write, gated on `wantSteps` — same
+            // semantics as the OSRM tier below. The cache exists for
+            // offline NAVIGATION, so only nav-detail routes (those
+            // carrying turn-by-turn steps) belong in it. Gating here
+            // prevents a /home preview-of-a-long-route (stepless) from
+            // clobbering a richer full-detail entry the same
+            // destination may already hold from a prior /en-route
+            // fetch. Short previews still pre-warm (they keep steps).
+            if (wantSteps) void saveActiveRoute(routes, destination);
             return { routes, source: 'mapbox' };
           }
         } else {
@@ -255,7 +312,7 @@ export async function getRoutesBetween(
   // !== 'Ok' is a routing failure (engine confirmed no route), not
   // a network failure.
   try {
-    const response = await fetch(buildOSRMUrl(origin, destination));
+    const response = await fetch(buildOSRMUrl(origin, destination, { coarse, steps: wantSteps }));
     if (!response.ok) {
       throw new Error(`OSRM HTTP ${response.status}`);
     }
@@ -285,12 +342,15 @@ export async function getRoutesBetween(
           ...route,
           coordinates: trimToDestination(route.coordinates, destination),
         }));
-      // Best-effort cache write — saveActiveRoute already has its own
-      // try/catch + warn log, so no redundant outer .catch needed.
-      // This is what enables the offline-fallback path: every
-      // successful network fetch warms the cache so a subsequent
-      // dead-signal /en-route mount has data to hydrate from.
-      void saveActiveRoute(routes, destination);
+      // Best-effort cache write, gated on `wantSteps`. The cache feeds
+      // the offline /en-route fallback, so only routes carrying turn-
+      // by-turn steps are worth storing — a stepless preview route
+      // would degrade a dead-signal navigation to a bare polyline and
+      // could overwrite a richer full-detail entry. Short previews keep
+      // steps, so the regional-trip pre-warm path is unaffected; only a
+      // preview of a >150mi route (already rare, never navigated in a
+      // demo) skips the write. saveActiveRoute has its own try/catch.
+      if (wantSteps) void saveActiveRoute(routes, destination);
       return { routes, source: 'osrm' };
     }
   } catch (error) {
@@ -456,26 +516,37 @@ function trimToDestination(
   return coordinates.slice(0, Math.max(2, bestIndex + 1));
 }
 
-function buildOSRMUrl(origin: Coordinate, destination: Coordinate): string {
+function buildOSRMUrl(
+  origin: Coordinate,
+  destination: Coordinate,
+  opts: { coarse: boolean; steps: boolean },
+): string {
   // OSRM expects coordinates as `lng,lat;lng,lat` (longitude first — opposite
   // of our internal { latitude, longitude } convention). Easy bug to make.
   const coords = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
-  // `steps=true` requests the leg→steps array used for turn-by-turn.
-  // No additional cost on OSRM's public demo; payload grows by ~1-2KB
-  // per city trip (well under 100 steps typical).
-  return `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=true&steps=true`;
+  // `overview=simplified` on long routes (A20) keeps the coordinate
+  // count bounded so the gradient + scoring passes stay cheap. `steps`
+  // is conditional — preview-of-long-routes omits the leg→steps array
+  // (the turn-by-turn maneuver list) entirely.
+  const overview = opts.coarse ? 'simplified' : 'full';
+  const steps = opts.steps ? '&steps=true' : '';
+  return `https://router.project-osrm.org/route/v1/driving/${coords}?overview=${overview}&geometries=geojson&alternatives=true${steps}`;
 }
 
 /**
  * Mapbox Directions v5 URL for `driving-traffic` profile.
  *
- *   - `geometries=geojson` + `overview=full` returns the polyline as
- *     a GeoJSON LineString matching OSRM's shape — parseMapboxStep
- *     and parseOSRMStep populate Route.coordinates identically.
- *   - `steps=true` enables turn-by-turn step data.
- *   - `banner_instructions=true` enables lane data (PR 2 reads it;
- *     enabling here keeps the URL stable across PRs and avoids a
- *     second adapter rev when PR 2 lands).
+ *   - `geometries=geojson` returns the polyline as a GeoJSON
+ *     LineString matching OSRM's shape — parseMapboxStep and
+ *     parseOSRMStep populate Route.coordinates identically.
+ *   - `overview` is request-dependent (A20): `simplified` on long
+ *     routes (`opts.coarse`) to bound the coordinate count, `full`
+ *     otherwise for a precise line on the regional trips that are the
+ *     common case.
+ *   - `steps` + `banner_instructions` are request-dependent
+ *     (`opts.steps`) and travel together — lane banners are a property
+ *     of maneuver steps. Preview-of-long-routes omits both; navigation
+ *     and short previews include them.
  *   - `alternatives=true` matches the OSRM tier so the alternates
  *     list isn't empty when /home renders the route preview.
  *   - `driving-traffic` profile uses live traffic data when available.
@@ -494,6 +565,7 @@ function buildOSRMUrl(origin: Coordinate, destination: Coordinate): string {
 function buildMapboxUrl(
   origin: Coordinate,
   destination: Coordinate,
+  opts: { coarse: boolean; steps: boolean },
 ): string | null {
   const token = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
   if (!token) {
@@ -502,14 +574,20 @@ function buildMapboxUrl(
   }
   // Mapbox uses the same `lng,lat;lng,lat` convention as OSRM.
   const coords = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
+  // `overview=simplified` on long routes (A20) bounds the coordinate
+  // count. `steps` + `banner_instructions` are conditional and travel
+  // together — lanes are a property of maneuver steps, so there's no
+  // reason to request banners without steps.
   const params = new URLSearchParams({
     geometries: 'geojson',
-    overview: 'full',
-    steps: 'true',
-    banner_instructions: 'true',
+    overview: opts.coarse ? 'simplified' : 'full',
     alternatives: 'true',
     access_token: token,
   });
+  if (opts.steps) {
+    params.set('steps', 'true');
+    params.set('banner_instructions', 'true');
+  }
   return `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coords}?${params.toString()}`;
 }
 
