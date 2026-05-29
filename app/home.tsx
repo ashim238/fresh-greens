@@ -32,7 +32,7 @@ import { FloatingActionButton } from '../components/FloatingActionButton';
 import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
-import { EmptyState, LoadingState } from '../components/StateCard';
+import { LoadingState } from '../components/StateCard';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
@@ -1649,12 +1649,32 @@ export default function Home() {
           {isCalculatingRoute ? (
             <LoadingState text="Calculating route…" style={styles.routePreviewState} />
           ) : routeFetchSource === 'no-route' ? (
-            <EmptyState
-              icon={<PathIcon size={56} color={colors.labelTertiary} weight="duotone" />}
-              headline="No route available"
-              text={`We couldn't find a driving route to ${params.destName ?? 'this destination'}. Try a different place.`}
-              style={styles.routePreviewState}
-            />
+            // A21 interim: render the no-route state inline on the
+            // sheet's own white surface, mirroring the populated route-
+            // preview card's left-aligned hierarchy (wiltedgreen
+            // headline + labelTertiary supporting line + 24pt gutter)
+            // instead of the generic gray EmptyState card. The bespoke
+            // "road trailing off" illustration is queued in
+            // docs/figma-mockup-queue.md; this uses the existing Path
+            // glyph recolored to the brand accent in the meantime. The
+            // wrapping View is the single a11y node (icon is decorative;
+            // the label carries the meaning).
+            <View
+              style={styles.noRouteState}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`No route available. We couldn’t find a driving route to ${params.destName ?? 'your destination'}. Try a different destination.`}
+            >
+              <PathIcon size={40} color={colors.wiltedgreen} weight="duotone" />
+              <View style={styles.noRouteText}>
+                <Text style={styles.noRouteHeadline}>No route available</Text>
+                <Text style={styles.noRouteBody}>
+                  We couldn’t find a driving route to{' '}
+                  {params.destName ?? 'your destination'}. Try a different
+                  destination.
+                </Text>
+              </View>
+            </View>
           ) : (
             <>
           {/*
@@ -2182,8 +2202,9 @@ const styles = StyleSheet.create({
   bottomSheetContent: {
     gap: 24,
   },
-  // Wraps the LoadingState / EmptyState cards rendered inside the
-  // route-preview bottom sheet during calculating / no-route states.
+  // Wraps the LoadingState card rendered inside the route-preview
+  // bottom sheet during the calculating state. (The no-route state no
+  // longer uses this — it renders inline via noRouteState below.)
   // Negative top margin pulls the card up toward the Clear-X row so
   // the card doesn't sit awkwardly low; alignSelf:center keeps the
   // fixed-width state card horizontally centered against the wider
@@ -2191,6 +2212,32 @@ const styles = StyleSheet.create({
   routePreviewState: {
     marginTop: -8,
     alignSelf: 'center',
+  },
+  // A21 interim no-route state. Mirrors the populated route-preview
+  // card's vocabulary — 24pt left gutter, wiltedgreen headline,
+  // labelTertiary supporting line, white sheet surface — so it reads
+  // as part of the sheet rather than a borrowed gray EmptyState card.
+  // Left-aligned (like the headline/via/caption stack), icon above the
+  // text block.
+  noRouteState: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  noRouteText: {
+    gap: 4,
+  },
+  noRouteHeadline: {
+    // title3Emphasized (not the 34pt largeTitle of "12 min") — a
+    // measured empty-state weight that won't shout or wrap, sharing
+    // the populated headline's wiltedgreen accent.
+    ...typography.title3Emphasized,
+    color: colors.wiltedgreen,
+  },
+  noRouteBody: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
   },
   // Vertical scroller inside the sheet (browse mode).
   // `sheetScrollFlex` constrains the ScrollView to the available
