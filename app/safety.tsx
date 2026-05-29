@@ -134,7 +134,7 @@ export default function SafetyModal() {
           </View>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>Safety</Text>
-            <Text style={styles.subtitle}>What&rsquo;s going on?</Text>
+            <Text style={styles.subtitle}>What’s going on?</Text>
           </View>
         </View>
 
@@ -156,6 +156,11 @@ export default function SafetyModal() {
                 onPress={() => handleTabPress(tab)}
                 accessibilityRole="button"
                 accessibilityLabel={tab.label}
+                // SAF4: pair the disabled state with a "Coming soon" hint
+                // so VoiceOver explains *why* the tile is dimmed rather
+                // than just announcing "button, dimmed." Matches the
+                // inert-row pattern already used in /menu.
+                accessibilityHint={isInert ? 'Coming soon' : undefined}
                 accessibilityState={{ disabled: isInert }}
               >
                 <View style={styles.tabIcon}>
@@ -187,7 +192,12 @@ const styles = StyleSheet.create({
     // tiles + header more breathing room and matches the Figma node.
     paddingHorizontal: 24,
     paddingTop: 16, // additional top space provided by dragHandleWrapper
-    paddingBottom: 16,
+    // SAF5: was 16 — asymmetric with the top edge (which nets 32pt via
+    // dragHandleWrapper's own paddingTop: 16). The v2 spec is py-32;
+    // bumping to 32 makes the bottom breathing room match the top so
+    // the tile grid doesn't read as pushed against the bottom chrome
+    // on 6.1" devices.
+    paddingBottom: 32,
     gap: 24, // v2 inter-section gap
   },
   dragHandleWrapper: {
@@ -212,15 +222,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    ...typography.title1Emphasized,
+    // SAF1: was title1Emphasized (bold). Per .cursorrules + design-
+    // system.md §1.2, in-modal user prompts use Title1 Regular — the
+    // bold weight read as a directive in a stress-state affordance
+    // screen. Every comparable modal prompt (/pulled-over, /report)
+    // uses the regular weight; this brings /safety into register.
+    ...typography.title1Regular,
     color: colors.black,
   },
   subtitle: {
-    // v2 spec is Body/Regular (17pt) in labelTertiary. v1 used
-    // bodyEmphasized — softer, less imperative for a held question.
-    // .cursorrules: "In-modal user prompts use Title1 Regular" — the
-    // subtitle is the supporting line, not the prompt itself, so Body
-    // Regular is correct here.
+    // The title above carries the Title1 Regular prompt register (the
+    // .cursorrules "in-modal user prompts" rule). This supporting line
+    // sits one step down at Body/Regular (17pt) in labelTertiary — v1
+    // used bodyEmphasized, but a softer weight reads less imperative
+    // beneath a held question.
     ...typography.bodyRegular,
     color: colors.labelTertiary,
   },

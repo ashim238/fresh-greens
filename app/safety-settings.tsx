@@ -131,7 +131,11 @@ export default function SafetySettings() {
               </View>
               <Ionicons
                 name="chevron-forward"
-                size={20}
+                // SAF6: 20 → 16 to match /menu's SettingsRow chevron.
+                // This sub-page is reached from /menu's Safety row and
+                // shares its visual register; the 4pt trailing-icon
+                // discrepancy was noticeable in back-to-back viewing.
+                size={16}
                 color={colors.labelTertiary}
               />
             </Pressable>
@@ -155,7 +159,11 @@ export default function SafetySettings() {
               </View>
               <Ionicons
                 name="chevron-forward"
-                size={20}
+                // SAF6: 20 → 16 to match /menu's SettingsRow chevron.
+                // This sub-page is reached from /menu's Safety row and
+                // shares its visual register; the 4pt trailing-icon
+                // discrepancy was noticeable in back-to-back viewing.
+                size={16}
                 color={colors.labelTertiary}
               />
             </Pressable>
@@ -241,14 +249,22 @@ const styles = StyleSheet.create({
   },
   rowTextStack: {
     flex: 1,
-    gap: 2,
+    // SAF3: 2 → 4. The 2pt gap was off the 4pt grid and collapsed to
+    // visually zero between the 17pt label and 15pt value under large
+    // Dynamic Type. 4pt (spacing.xs) holds the hierarchy on the ramp.
+    gap: 4,
   },
   rowLabel: {
     ...typography.bodyEmphasized,
     color: colors.black,
   },
   rowValue: {
-    ...typography.subheadlineRegular,
+    // SAF7: subheadlineRegular (15pt) → footnoteRegular (13pt). At 15pt
+    // the value sub-line read close to a second label, especially for
+    // long names ("Alexandra Thompson-Rivera"). 13pt gives a cleaner
+    // 3-step hierarchy (17pt label → 13pt value → chevron), matching
+    // the /menu + /recordings sub-line register.
+    ...typography.footnoteRegular,
     color: colors.labelTertiary,
   },
 });
