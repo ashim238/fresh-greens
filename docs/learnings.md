@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/sticky-rec-pills (2026-05-30)
+
+User-reported: the /home browse-sheet category chips never pinned during scroll, despite `stickyHeaderIndices={[1]}` being set and a comment confidently explaining why index 1 was the chips. The comment was wrong.
+
+- **`stickyHeaderIndices` only sticks a ScrollView's *direct JSX children* — a child component's returned Fragment is opaque to the parent's `React.Children`.** home.tsx wrapped a single `<HomeBrowseSheet/>` element in the ScrollView; HomeBrowseSheet returned `<>headers / chips / rows</>`. The old comment claimed "the fragment flattens into the ScrollView's children list, so the chip wrapper IS at index 1." It does not. RN's ScrollView does `React.Children.toArray(this.props.children)` on ITS OWN children prop — which was exactly `[<HomeBrowseSheet/>]`, one element. The Fragment lives inside HomeBrowseSheet's render tree, invisible to the ScrollView. So index 1 was out of bounds and nothing ever stuck. `React.Children.toArray` flattens Fragments that are *literally* a ScrollView child, NOT Fragments returned by a nested component. Fix: move the ScrollView into HomeBrowseSheet so headers/chips/rows are its real direct children. Worth keeping: any sticky/indexed-children API (`stickyHeaderIndices`, and the same class of "operate on my direct children" props) must have the indexed element as a direct JSX descendant of the host — if a component boundary sits between the host and the element, the host can't see past it. When you catch yourself writing a comment to *explain* why an index lines up across a component boundary, that's the tell the boundary is the bug.
+
+- **When you fix this by relocating the scroller, the scroll plumbing should relocate with it — don't leave the ref/measurement in the old owner.** The chip jump-links needed a ScrollView ref + the measured sticky-chips height to offset scrollTo. Those lived in home.tsx and were threaded down via `onScrollToRow`/`onChipsHeight` callbacks. Once the ScrollView moved into HomeBrowseSheet, all three (ref, height ref, scroll-to helper) became internal and the two callback props vanished — net −2 props, and the jump-to-row is now *more* robust (the ref can never be a stale parent reference, and the scroller is always mounted in browse mode). Worth keeping: relocating a DOM/native node to fix an ownership bug is also the moment to pull its satellite state home — leaving the ref upstream and callback-threading to it recreates the same indirection that caused the original confusion.
+
+---
+
 ## fix/via-shows-road (2026-05-30)
 
 User-reported bug: the /home route-preview "Via …" line showed the *destination* name (`Via {destName}`), not the road you take to get there. Fixed by plumbing `RouteStep.name` through the OSRM/Mapbox parsers and surfacing the route's primary road. Two things worth keeping (one a code-reviewer NIT I took rather than deferred).

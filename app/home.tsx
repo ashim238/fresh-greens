@@ -8,7 +8,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, Animated, Dimensions, Easing, LayoutAnimation, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, Animated, Dimensions, Easing, LayoutAnimation, Linking, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -126,17 +126,6 @@ export default function Home() {
   // device — the expanded default didn't give users a chance to
   // explore.
   const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
-  // ScrollView ref for the browse sheet's vertical scroller — used by
-  // HomeBrowseSheet's chip jump-links (chip tap → scroll to that row's
-  // Y offset, measured per-row inside the sheet via onLayout).
-  const sheetScrollRef = useRef<ScrollView>(null);
-  // Sticky-chips height — measured inside HomeBrowseSheet and reported
-  // up via onChipsHeight. Used by the chip-jump scrollTo so the target
-  // row's section header lands JUST below the pinned chips strip
-  // rather than behind it. Ref (not state) because the value isn't
-  // rendered; it just needs to be available the next time scrollTo
-  // fires.
-  const stickyChipsHeightRef = useRef(0);
   // Neighborhood label for the browse-mode sheet header. Derived
   // from a one-shot `Location.reverseGeocodeAsync` against the
   // user's first GPS fix. Picks `subregion + city` (most natural
@@ -1525,90 +1514,43 @@ export default function Home() {
         )}
 
         {!(params.destLat && params.destLng) ? (
-          // Vertical ScrollView so the sheet's intrinsic content can
-          // exceed the sheet's maxHeight (85% screen). The user
-          // scrolls the sheet's body to reach the bottom of a long
-          // recommendation card. Inner horizontal carousel in
-          // HomeBrowseSheet stays unaffected — perpendicular axes
-          // don't conflict. `nestedScrollEnabled` lets Android route
-          // touches correctly between the outer vertical scroller
-          // and the inner horizontal carousel.
-          <ScrollView
-            // `flex: 1` (via style) lets the ScrollView shrink to the
-            // space available inside the sheet's maxHeight. Without it
-            // the ScrollView expands to its content height, which is
-            // taller than the capped SafeAreaView — the inner cards
-            // visibly hang below the sheet's bottom edge instead of
-            // scrolling internally. `flex: 1` makes the ScrollView the
-            // bounded region; cards inside scroll vertically when they
-            // exceed it.
-            //
-            // `stickyHeaderIndices={[1]}` pins the chips wrapper to
-            // the top during inner-sheet scroll (Apple Maps pattern).
-            // Index 1 = the second direct child returned by
-            // HomeBrowseSheet's Fragment: [headers, chips, ...rows].
-            // The fragment flattens into the ScrollView's children
-            // list, so the chip wrapper IS at index 1 regardless of
-            // the collapsed-state branch below it (which only affects
-            // indices ≥ 2).
-            ref={sheetScrollRef}
-            style={styles.sheetScrollFlex}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-            stickyHeaderIndices={[1]}
-            contentContainerStyle={styles.sheetScrollContent}
-          >
-            <HomeBrowseSheet
-              firstName={userFirstName}
-              neighborhoodLabel={neighborhoodLabel}
-              userLocation={userLocation}
-              refreshKey={focusRefreshKey}
-              collapsed={thingsToDoCollapsed}
-              onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
-              onChipsHeight={(h) => {
-                // Guard against redundant ref writes on every parent
-                // re-render. The callback fires on each onLayout pass;
-                // the height rarely changes mid-session.
-                if (h !== stickyChipsHeightRef.current) {
-                  stickyChipsHeightRef.current = h;
-                }
-              }}
-              onScrollToRow={(y) => {
-                // Chip jump-link target. Offset by the sticky chips'
-                // measured height so the row's section header lands
-                // just below the pinned chip strip (not behind it),
-                // plus 8pt breathing room. Matches Apple Maps' chip-
-                // tap-to-section pattern.
-                sheetScrollRef.current?.scrollTo({
-                  y: Math.max(0, y - stickyChipsHeightRef.current - 8),
-                  animated: true,
-                });
-              }}
-              onSelectRecommendation={(rec) => {
-                // Tapping a recommendation card routes to /home with
-                // the destination params set, same way a search-result
-                // tap does. router.replace (not push) so back-stack
-                // stays clean — this is a destination CHANGE on
-                // /home, not a new screen entry.
-                router.replace({
-                  pathname: '/home',
-                  params: {
-                    destLat: String(rec.latitude),
-                    destLng: String(rec.longitude),
-                    destName: rec.name,
-                  },
-                });
-              }}
-              onEmptyTap={() => {
-                // Empty-state CTA — taps route to the report flow
-                // (same entry point as the Report FAB). Light haptic
-                // marks the transition; the report flow's own success
-                // notification handles the commit feedback.
-                Haptics.selectionAsync().catch(() => {});
-                router.push('/report');
-              }}
-            />
-          </ScrollView>
+          // Browse-mode sheet. HomeBrowseSheet owns its own vertical
+          // ScrollView (so its category chips can pin via
+          // stickyHeaderIndices — that only works on a ScrollView's
+          // direct JSX children, which this element can't be when it's
+          // a lone component child of a ScrollView here). The sheet's
+          // capped maxHeight bounds the scroller's `flex: 1`.
+          <HomeBrowseSheet
+            firstName={userFirstName}
+            neighborhoodLabel={neighborhoodLabel}
+            userLocation={userLocation}
+            refreshKey={focusRefreshKey}
+            collapsed={thingsToDoCollapsed}
+            onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+            onSelectRecommendation={(rec) => {
+              // Tapping a recommendation card routes to /home with
+              // the destination params set, same way a search-result
+              // tap does. router.replace (not push) so back-stack
+              // stays clean — this is a destination CHANGE on
+              // /home, not a new screen entry.
+              router.replace({
+                pathname: '/home',
+                params: {
+                  destLat: String(rec.latitude),
+                  destLng: String(rec.longitude),
+                  destName: rec.name,
+                },
+              });
+            }}
+            onEmptyTap={() => {
+              // Empty-state CTA — taps route to the report flow
+              // (same entry point as the Report FAB). Light haptic
+              // marks the transition; the report flow's own success
+              // notification handles the commit feedback.
+              Haptics.selectionAsync().catch(() => {});
+              router.push('/report');
+            }}
+          />
         ) : (
           <>
         {/*
@@ -2273,30 +2215,9 @@ const styles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
   },
-  // Vertical scroller inside the sheet (browse mode).
-  // `sheetScrollFlex` constrains the ScrollView to the available
-  // height inside the sheet's maxHeight; `sheetScrollContent`
-  // controls the inner content layout. Splitting style from
-  // contentContainerStyle is the RN-canonical pattern — style is
-  // the scroll viewport, contentContainerStyle is the scrolled
-  // content. Mixing them collapses the constraint.
-  sheetScrollFlex: {
-    flex: 1,
-  },
-  sheetScrollContent: {
-    flexGrow: 1,
-    // `gap: 16` previously lived on HomeBrowseSheet's now-removed
-    // outer `content` wrapper View. Moved here so the same vertical
-    // rhythm holds with the Fragment-based child layout that lets
-    // stickyHeaderIndices pin the chips slot. Equivalent stacking
-    // distance, no visual change.
-    gap: 16,
-    // 40pt = 24pt (shadow clearance for the last card) + 16pt (the
-    // bottom padding the old `content` wrapper used to provide
-    // before its View was removed). Preserves the previous total
-    // stacking distance below the last row.
-    paddingBottom: 40,
-  },
+  // (Browse-sheet scroller styles moved into HomeBrowseSheet, which
+  // now owns its own ScrollView so the category chips can pin via
+  // stickyHeaderIndices.)
   headers: {
     gap: 8,
   },

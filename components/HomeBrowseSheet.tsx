@@ -69,8 +69,6 @@ export function HomeBrowseSheet({
   onToggleCollapsed,
   onSelectRecommendation,
   onEmptyTap,
-  onScrollToRow,
-  onChipsHeight,
 }: {
   /** Display name for the eyebrow; falls back to "Local" if undefined. */
   firstName?: string;
@@ -101,27 +99,6 @@ export function HomeBrowseSheet({
    * than a dead "coming soon" panel.
    */
   onEmptyTap?: () => void;
-  /**
-   * Parent-owned vertical scroll-to handler. The category chips
-   * function as jump-links into the multi-row stack — tapping a chip
-   * calls this with the target row's Y offset (measured via per-row
-   * onLayout). Parent (app/home.tsx) calls ScrollView.scrollTo on its
-   * outer sheet scroller.
-   *
-   * Optional — if the host doesn't wire it, chips silently no-op
-   * (the scroll-to-row affordance just isn't available, the rows
-   * are still all visible).
-   */
-  onScrollToRow?: (y: number) => void;
-  /**
-   * Reports the measured height of the sticky chips wrapper up to the
-   * parent — the parent uses it to offset chip-jump scrollTo targets
-   * so the target row's section header lands just below the pinned
-   * chips, not behind them. Fires on every layout pass; the parent
-   * should store the latest value in a ref/state and use it the next
-   * time it dispatches a scrollTo.
-   */
-  onChipsHeight?: (height: number) => void;
 }) {
   // All 7 browse-mode rows batched in parallel. Trusted-by-community
   // is row[0]; the result for it is consumed by TrustedByCommunityRow
@@ -137,6 +114,21 @@ export function HomeBrowseSheet({
   const trusted = trustedRowResult?.recommendations ?? [];
   const trustedLoading = trustedRowResult?.loading ?? true;
   const reduceMotion = useReduceMotion();
+
+  // This sheet OWNS its vertical scroller (moved in from app/home.tsx).
+  // It has to: `stickyHeaderIndices` only pins a ScrollView's *direct*
+  // JSX children, and a child component's returned Fragment is opaque
+  // to the parent's `React.Children` — so when home.tsx wrapped a lone
+  // `<HomeBrowseSheet/>` in a ScrollView, index 1 pointed at nothing and
+  // the chips never stuck. With the ScrollView here, headers/chips/rows
+  // are real direct children: [0]=headers, [1]=chips (sticky), then the
+  // section header + row stack.
+  const sheetScrollRef = useRef<ScrollView>(null);
+  // Measured height of the sticky chips strip — used to offset chip
+  // jump-link scroll targets so the destination row's header lands just
+  // below the pinned chips, not behind them. Local to the scroller now
+  // (was reported up to the parent when it owned the ScrollView).
+  const stickyChipsHeightRef = useRef(0);
 
   // Per-row Y offsets captured via onLayout — used by the chip-tap
   // jump-link handler. Ref (not state) because reads happen
@@ -159,10 +151,19 @@ export function HomeBrowseSheet({
     }
   }, [collapsed]);
 
+  // Scrolls the sheet so the given row offset lands just below the
+  // pinned chip strip (+8pt breathing room), clamped at the top.
+  function scrollToRow(y: number) {
+    sheetScrollRef.current?.scrollTo({
+      y: Math.max(0, y - stickyChipsHeightRef.current - 8),
+      animated: true,
+    });
+  }
+
   function recordRowY(key: string, y: number) {
     rowYsRef.current[key] = y;
     if (pendingScrollKey === key) {
-      onScrollToRow?.(y);
+      scrollToRow(y);
       setPendingScrollKey(null);
     }
   }
@@ -178,16 +179,16 @@ export function HomeBrowseSheet({
     // where onLayout fired before this tap landed).
     const cachedY = rowYsRef.current[key];
     if (cachedY !== undefined) {
-      // If currently collapsed, expand AND scroll — onScrollToRow
-      // runs against the parent's ScrollView which is still mounted,
-      // so the scroll target survives the expansion animation.
+      // If currently collapsed, expand AND scroll — scrollToRow runs
+      // against this sheet's own ScrollView (always mounted in browse
+      // mode), so the scroll target survives the expansion animation.
       if (collapsed) {
         if (!reduceMotion) {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         }
         onToggleCollapsed();
       }
-      onScrollToRow?.(cachedY);
+      scrollToRow(cachedY);
       return;
     }
     // No cached Y — use the pending pattern: stash the target and
@@ -213,17 +214,33 @@ export function HomeBrowseSheet({
     : 'Your Local Recs 💃🏾';
 
   return (
-    // Fragment (not a wrapping View) so the three logical sections
-    // — top headers, chips, row stack — become DIRECT children of
-    // the parent ScrollView in app/home.tsx. That's load-bearing for
-    // `stickyHeaderIndices`: it only sticks immediate children, so a
-    // wrapping View here would hide the chips behind one indirection
-    // and they couldn't pin during scroll.
+    // This sheet owns its vertical scroller so the chips can actually
+    // pin: `stickyHeaderIndices` only sticks a ScrollView's *direct*
+    // JSX children, and the headers/chips/row-stack below ARE those
+    // direct children here. (Previously home.tsx wrapped a lone
+    // `<HomeBrowseSheet/>` element in a ScrollView — its Fragment was
+    // opaque to the ScrollView's `React.Children`, so index 1 pointed
+    // at nothing and the chips never stuck.)
     //
-    // The previous wrapping `styles.content` provided `gap: 16` +
-    // `paddingBottom: 16`; both are now applied on `sheetScrollContent`
-    // in home.tsx so vertical rhythm is preserved.
-    <>
+    // Index map for `stickyHeaderIndices={[1]}`:
+    //   [0] headers (eyebrow + neighborhood/weather row)
+    //   [1] chips strip  ← sticky
+    //   [2] "Trusted by your community" section header (Pressable)
+    //   [3] the collapsed-gated row stack (a Fragment, flattened by
+    //       React.Children but it sits AFTER index 1, so it can't
+    //       shift the chips' index)
+    //
+    // `flex: 1` bounds the scroller to the sheet's capped height;
+    // `sheetScrollContent` carries the gap + bottom padding the old
+    // home.tsx wrapper provided, so vertical rhythm is unchanged.
+    <ScrollView
+      ref={sheetScrollRef}
+      style={styles.sheetScroll}
+      contentContainerStyle={styles.sheetScrollContent}
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled
+      stickyHeaderIndices={[1]}
+    >
       <View style={styles.headers}>
         <Text style={styles.eyebrow}>{eyebrowCopy}</Text>
 
@@ -244,16 +261,18 @@ export function HomeBrowseSheet({
         function as a table-of-contents. "Browse" chip → scroll to
         top (the Trusted-by-your-community row).
 
-        Wrapped in a solid-bg View so when the parent ScrollView's
-        stickyHeaderIndices pins this slot during scroll, content
+        Wrapped in a solid-bg View so when this sheet's ScrollView
+        pins this slot via stickyHeaderIndices during scroll, content
         scrolling underneath doesn't bleed through the chip row.
-        onLayout reports the wrapper's height up so home.tsx can
-        offset chip-jump scrollTos correctly (target row sits just
-        below the pinned chips, not behind them).
+        onLayout stores the wrapper's height in stickyChipsHeightRef so
+        chip-jump scrollTos land the target row's header just below the
+        pinned chips, not behind them.
       */}
       <View
         style={styles.stickyChipsWrap}
-        onLayout={(e) => onChipsHeight?.(e.nativeEvent.layout.height)}
+        onLayout={(e) => {
+          stickyChipsHeightRef.current = e.nativeEvent.layout.height;
+        }}
       >
         <CategoryChips onJump={jumpToCategory} />
       </View>
@@ -319,7 +338,7 @@ export function HomeBrowseSheet({
           })}
         </>
       )}
-    </>
+    </ScrollView>
   );
 }
 
@@ -1132,8 +1151,28 @@ export const CARD_WIDTH = 280;
 export const CARD_GAP = 12;
 
 const styles = StyleSheet.create({
-  // Sticky chip wrapper — solid white bg so when the parent ScrollView
-  // pins this slot via stickyHeaderIndices during vertical scroll,
+  // Vertical scroller for the whole sheet (browse mode). `flex: 1` is
+  // load-bearing: it bounds the scroller to the space available inside
+  // the sheet's capped maxHeight so the inner cards scroll internally
+  // rather than overflowing past the sheet's bottom edge. Splitting
+  // `style` (the viewport) from `contentContainerStyle` (the scrolled
+  // content) is the RN-canonical pattern — mixing them collapses the
+  // flex constraint.
+  sheetScroll: {
+    flex: 1,
+  },
+  sheetScrollContent: {
+    flexGrow: 1,
+    // Vertical rhythm between the stacked sections (headers / chips /
+    // section header / rows). `gap` here replaces the old wrapping
+    // `content` View that couldn't coexist with stickyHeaderIndices.
+    gap: 16,
+    // 40pt = 24pt shadow clearance for the last card + 16pt of bottom
+    // breathing room (what the old wrapper View provided).
+    paddingBottom: 40,
+  },
+  // Sticky chip wrapper — solid white bg so when the ScrollView pins
+  // this slot via stickyHeaderIndices during vertical scroll,
   // row content scrolling underneath doesn't show through the chip
   // strip. Vertical padding gives the pinned-state a breathing room
   // band; horizontal padding is set on CategoryChips' own ScrollView
