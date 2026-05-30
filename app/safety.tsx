@@ -249,11 +249,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    // SAF1: was title1Emphasized (bold). Per .cursorrules + design-
-    // system.md §1.2, in-modal user prompts use Title1 Regular — the
-    // bold weight read as a directive in a stress-state affordance
-    // screen. Every comparable modal prompt (/pulled-over, /report)
-    // uses the regular weight; this brings /safety into register.
+    // SAF1: Title1 Regular (not Emphasized). /safety ASKS the user a
+    // question ("What's going on?"), and per design-system.md the
+    // in-modal-prompt register is regular weight — a held question, not
+    // a directive (bold read as a command on a stress-state screen).
+    //
+    // This is DELIBERATELY a different register from /report, whose
+    // "Report" + per-category titles are an action/instruction heading
+    // → Title1 Emphasized (the .cursorrules guidance-screen rule). So
+    // the two safety-column surfaces don't match by design: a question
+    // is regular, an instruction heading is bold. (An earlier version
+    // of this comment wrongly claimed /report was also regular.)
     ...typography.title1Regular,
     color: colors.black,
   },

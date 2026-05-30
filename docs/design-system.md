@@ -826,6 +826,8 @@ In-modal user prompts use `typography.title1Regular` (28pt **regular weight**), 
 
 Same exception covers emotionally charged full-screens (Contact "You're not alone.", Trip Summary arrival).
 
+**Prompt vs. instruction heading — the registers intentionally differ.** This regular-weight rule applies to titles that *ask a question* (`/safety` "What's going on?"). It does **not** apply to action/instruction headings that *name what the screen does* — those keep the default `title1Emphasized` per the guidance-screen rule. So `/report`'s "Report" + per-category titles are **bold**, while `/safety`'s is **regular**, even though both open from the en-route safety column. That weight difference is by design (a question is held, an instruction is asserted), not an inconsistency.
+
 ### 4.11 caption2Regular is ornamental
 
 `caption2Regular` (11pt) sits below WCAG 1.4.4's 12pt floor for informational content. Use only for legal fine print, timestamps, copyright lines — anything informational uses `caption1Regular` (12pt) instead.
