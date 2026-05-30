@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/emergency-reskin-enroute-sos (2026-05-30)
+
+User feedback: the /emergency screen's full-bleed navy ground "read harsh" (navy + fadedgreen text), and the crisis surface sat two taps deep (Shield → /safety → SOS). Reskinned to white + added a one-tap SOS on /en-route. Two things worth keeping.
+
+- **A reserved signaling color flooded across a whole surface reads as alarm; scoped to the control, the same color reads as meaning.** The original /emergency used navy (the reserved safety color) as the entire background — the intent was "this is the most load-bearing safety surface, so it owns the deepest navy." In practice a full-bleed navy canvas with fadedgreen supporting text felt alarmed and shouty, the opposite of the thesis's calm-under-stress goal. Moving navy onto just the SOS *button* (white ground, navy disc) kept the semantic — "this navy thing is the safety control" — while dropping the alarm. Worth keeping: a reserved/semantic color signals best when it marks the ONE element that carries the meaning, not the field behind everything. If a whole screen is the reserved color, the color stops being a signal and becomes a mood — and for safety colors the mood is "panic." Scope reserved colors to controls; let grounds stay neutral.
+
+- **When an asset's glyph AND the rulebook already describe a role the code doesn't implement, the gap is the bug — don't add new UI, wire the intent that already exists.** The /en-route side column had a disabled "Help" button wired to a dead "support chat coming soon" Alert. But its glyph (`sidebtn-help.svg`) was a *red medical cross*, and `.cursorrules` exception 6 literally described that slot as "the medical Help button (emergency)." Both the asset and the rulebook already encoded "emergency" — only the code lagged, stubbed as support-chat. The fix wasn't a new SOS button; it was deleting `disabled` and pointing onPress at `/emergency`. Worth keeping: before adding an affordance, check whether a dormant one already carries the right glyph/label/documented-role — a coming-soon stub whose art and docs already match the need is a wiring job, not a design job. The asset and the rulebook are a spec; when they're ahead of the code, follow them.
+
+---
+
 ## fix/sticky-rec-pills (2026-05-30)
 
 User-reported: the /home browse-sheet category chips never pinned during scroll, despite `stickyHeaderIndices={[1]}` being set and a comment confidently explaining why index 1 was the chips. The comment was wrong.

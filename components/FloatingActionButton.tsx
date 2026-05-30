@@ -11,7 +11,7 @@ import { shadows } from '../theme/shadows';
  * across /home and /en-route into one component matching Figma
  * `1133:13197`.
  *
- *   - `size="56"`  /en-route side column (Volume, Help, Shield,
+ *   - `size="56"`  /en-route side column (Volume, SOS, Shield,
  *                  Recenter, Report). 32pt glyph.
  *   - `size="48"`  /home top-row overlays (Menu, Avatar). 24pt glyph.
  *

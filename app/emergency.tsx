@@ -47,8 +47,10 @@ import { typography } from '../theme/typography';
  * A pushed full-screen route (not a swipe-down modal): an accidental
  * swipe must not dismiss a crisis surface.
  *
- * Route: /emergency (reached from /safety's SOS control; thus mid-drive
- * via the /en-route Shield → /safety path).
+ * Two entry points: (1) /safety's SOS control, and (2) directly from
+ * the /en-route SOS side-button (the red medical-cross FAB) — a single
+ * tap mid-drive, so the crisis surface isn't buried behind the Shield →
+ * /safety menu path.
  */
 
 // Hold duration before the 911 confirm opens. Long enough that a fumble
@@ -215,7 +217,7 @@ export default function Emergency() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Pressable
@@ -225,7 +227,7 @@ export default function Emergency() {
             hitSlop={12}
             style={({ pressed }) => [styles.closeBtn, pressed && pressedDim]}
           >
-            <X size={20} color={colors.white} weight="bold" />
+            <X size={20} color={colors.labelSecondary} weight="bold" />
           </Pressable>
         </View>
 
@@ -340,10 +342,14 @@ const SOS_SIZE = 220;
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    // navy = the reserved safety-affordance register (.cursorrules) —
-    // the SOS surface is the most load-bearing safety affordance in the
-    // app, so it owns the deepest navy ground.
-    backgroundColor: colors.navy,
+    // White ground. An earlier draft flooded the whole screen with navy
+    // (the reserved safety color), but a full-bleed navy canvas with
+    // fadedgreen supporting text read harsh and alarmed — the opposite
+    // of the thesis's calm-under-stress intent. Navy is now scoped to
+    // the SOS button itself (the safety affordance per .cursorrules
+    // exception 6), so the color still SIGNALS "this is the safety
+    // control" without shouting across the entire surface.
+    backgroundColor: colors.white,
   },
   safe: {
     flex: 1,
@@ -367,12 +373,12 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.title1Regular,
-    color: colors.white,
+    color: colors.black,
     textAlign: 'center',
   },
   subtitle: {
     ...typography.bodyRegular,
-    color: colors.fadedgreen,
+    color: colors.labelSecondary,
     textAlign: 'center',
   },
   sosWrap: {
@@ -382,7 +388,13 @@ const styles = StyleSheet.create({
     width: SOS_SIZE,
     height: SOS_SIZE,
     borderRadius: SOS_SIZE / 2,
-    backgroundColor: colors.white,
+    // navy = the canonical safety-affordance color (.cursorrules
+    // exception 6, the en-route shield). On the white ground this one
+    // navy disc is the screen's safety anchor — it reads as "the
+    // control that summons help" without flooding the surface. The red
+    // 911 fill rises OVER this navy, so navy→red still reads as
+    // escalation.
+    backgroundColor: colors.navy,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -406,12 +418,15 @@ const styles = StyleSheet.create({
     fontSize: 56,
     lineHeight: 60,
     letterSpacing: 2,
-    color: colors.navy,
+    // White on the navy disc (was navy on the old white disc). Stays
+    // legible whether it sits over navy (idle/countdown) or over the
+    // rising red fill (911 hold).
+    color: colors.white,
     fontVariant: ['tabular-nums'],
   },
   holdHint: {
     ...typography.footnoteRegular,
-    color: colors.fadedgreen,
+    color: colors.labelTertiary,
     textAlign: 'center',
   },
   emergencyLink: {
@@ -421,7 +436,12 @@ const styles = StyleSheet.create({
   },
   emergencyLinkText: {
     ...typography.subheadlineEmphasized,
-    color: colors.white,
+    // navy, not the usual freshgreen link color: this is the accessible
+    // alternate trigger for the SAME 911 path the navy SOS hold opens,
+    // so it belongs to the safety-affordance register, not the in-flow
+    // link register. A green "→ 911" would misencode an emergency path
+    // as affirmative; red is held back for the final 911 action only.
+    color: colors.navy,
     textDecorationLine: 'underline',
   },
   // --- 911 confirm ---
@@ -433,12 +453,12 @@ const styles = StyleSheet.create({
   },
   confirmTitle: {
     ...typography.title1Regular,
-    color: colors.white,
+    color: colors.black,
     textAlign: 'center',
   },
   confirmBody: {
     ...typography.bodyRegular,
-    color: colors.fadedgreen,
+    color: colors.labelSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.md,
   },
@@ -464,6 +484,6 @@ const styles = StyleSheet.create({
   },
   cancelLinkText: {
     ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
+    color: colors.labelTertiary,
   },
 });

@@ -1419,7 +1419,7 @@ export default function EnRoute() {
             (navy duotone) and matches /menu's Safety row register.
           */}
           {/*
-            F13: Volume + Help are coming-soon buttons. `disabled` on
+            F13: Volume is the lone coming-soon button. `disabled` on
             FloatingActionButton suppresses onPress entirely AND threads
             accessibilityState.disabled to VoiceOver. The FAB's internal
             `pressedDim` (opacity 0.7) handles the visual inert state
@@ -1440,18 +1440,26 @@ export default function EnRoute() {
           >
             <SidebtnVolume width={32} height={32} />
           </FloatingActionButton>
+          {/*
+            SOS — the direct, one-tap path to the /emergency surface
+            (trusted-contact + guarded-911). Previously this slot was a
+            disabled "support chat coming soon" stub, which buried the
+            crisis surface two taps deep behind Shield → /safety. The
+            red medical-cross glyph (sidebtn-help.svg) already reads as
+            "emergency help" — wiring it live realizes the documented
+            three-role column (.cursorrules exception 6: Shield =
+            safety menu, Report = observation, this = emergency).
+            Distinct from Shield: Shield opens the full safety MENU;
+            this jumps straight to the acute SOS control.
+          */}
           <FloatingActionButton
             size="56"
-            disabled
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
-              Alert.alert(
-                'Help',
-                'In-trip help (chat, FAQ, contact support) lands in a future update.',
-                [{ text: 'OK' }],
-              );
+              router.push('/emergency');
             }}
-            accessibilityLabel="Help (coming soon)"
+            accessibilityLabel="Emergency SOS"
+            accessibilityHint="Opens trusted-contact and 911 options"
           >
             <SidebtnHelp width={32} height={32} />
           </FloatingActionButton>
