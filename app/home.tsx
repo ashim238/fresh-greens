@@ -145,6 +145,15 @@ export default function Home() {
   // Updated on `onRegionChangeComplete`; null until the user's first
   // pan/zoom or the centering effect fires.
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
+  // Hide the zone overlay once the map is zoomed out past ~city scale.
+  // Beyond this a neighborhood zone polygon shrinks below ~2pt and reads
+  // as a stray red/green/yellow "pin" rather than an area (the
+  // red-zone-looks-like-a-pin report). The zone DATA still feeds scoring
+  // regardless of overlay visibility — this gates rendering only.
+  // ~0.5° latitude ≈ a 35mi-tall region; below that zones read as areas.
+  const ZONE_OVERLAY_MAX_LAT_DELTA = 0.5;
+  const zonesVisibleAtZoom =
+    !mapRegion || mapRegion.latitudeDelta <= ZONE_OVERLAY_MAX_LAT_DELTA;
   // Live GPS for the custom UserLocationMarker (which replaces
   // showsUserLocation so it can sit above LandmarkMarker pins via
   // zIndex). Updated by the watchPositionAsync subscription below;
@@ -1017,11 +1026,13 @@ export default function Home() {
         */}
         {/*
           Zone overlays — rendered when the user has flipped the
-          "Show zones overlay" toggle in /menu's Zone Settings.
-          Default off; the zone data still drives scoring even when
-          overlays are hidden.
+          "Show zones overlay" toggle in /menu's Zone Settings AND the
+          map is zoomed in enough that zones read as areas (see
+          `zonesVisibleAtZoom`). Default off; the zone data still drives
+          scoring even when overlays are hidden.
         */}
         {showZones &&
+          zonesVisibleAtZoom &&
           osmZones.map((zone) => {
             // Polyline zones (real OSM lit-street data) render as colored
             // street overlays — stroke only, no fill. Polygon zones (mock
