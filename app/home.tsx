@@ -63,11 +63,12 @@ import {
 } from '../lib/api/zones';
 import { clusterPointZones } from '../lib/clustering';
 import {
+  arrivalLightLabel,
   DAYLIGHT_DASH_PATTERN,
   gradientSegments,
   suggestedDepartureForDaylight,
 } from '../lib/daylight';
-import { formatDuration, formatTimeOfDay } from '../lib/format';
+import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
 import { scheduleDepartureNotification } from '../lib/notifications';
 import {
   edgePositionForPoint,
@@ -191,7 +192,7 @@ export default function Home() {
   // current destination is within ~200m of a destination the user
   // marked "regular" from a post-trip summary (regular-destinations
   // store). Closes the loop the long-standing TODO described.
-  const { regulars } = useRegularDestinations();
+  const { regulars, markRegular, unmarkRegular } = useRegularDestinations();
   const isRegularDestination =
     !!params.destLat &&
     !!params.destLng &&
@@ -299,21 +300,26 @@ export default function Home() {
   // unnamed geometry (mock routes, some OSRM responses).
   const viaRoad = primaryRoadName(recommended?.steps);
 
-  // Arrival daylight band — sighted users see this via the daylight
-  // strip's sun/moon glyphs and the polyline gradient ending in
-  // orange/mauve/indigo. The strip itself is `accessibilityElementsHidden`
-  // (decorative for VoiceOver), so the arrival context is folded into
-  // the conditions caption's a11y label below. Mirrors /en-route's
-  // `arrivalDisplay.isNight` pattern.
-  const arrivalDaylightLabel = useMemo<string | null>(() => {
-    if (!recommended) return null;
-    const segs = gradientSegments(recommended);
-    if (segs.length === 0) return null;
-    const arrivalBand = segs[segs.length - 1].band;
-    if (arrivalBand === 'day') return 'arriving in daylight';
-    if (arrivalBand === 'twilight') return 'arriving at dusk';
-    return 'arriving after dark';
-  }, [recommended]);
+  // Arrival clock time = now + ETA. Distance from the route (m → mi).
+  const arrivalTime =
+    recommended != null
+      ? formatTimeOfDay(new Date(Date.now() + recommended.estimatedMinutes * 60_000))
+      : null;
+  const METERS_PER_MILE = 1609.34;
+  const distanceLabel =
+    recommended?.distanceMeters != null
+      ? formatDistance(recommended.distanceMeters / METERS_PER_MILE)
+      : null;
+  // Arrival daylight band = the last gradient segment's band (≈ destination).
+  // Sighted users also read this via the daylight strip's sun/moon glyphs +
+  // the polyline gradient; the strip is accessibilityElementsHidden, so the
+  // arrival context is folded into the conditions caption's a11y label below.
+  const arrivalSegs = recommended ? gradientSegments(recommended) : [];
+  const arrivalBand = arrivalSegs.length
+    ? arrivalSegs[arrivalSegs.length - 1].band
+    : null;
+  // Phase A: daylight-only (no cloud yet). A later task passes cloudCoverPct here.
+  const arrivalLabel = arrivalBand ? arrivalLightLabel(arrivalBand) : null;
 
   // Route polylines memoized so unrelated re-renders don't rebuild
   // them on the native side. Same pattern in /en-route.
@@ -493,6 +499,25 @@ export default function Home() {
     if (!mapRegion || !mapSize) return [];
     return clusterPointZones(reportZones, mapRegion, mapSize.width, mapSize.height);
   }, [reportZones, mapRegion, mapSize]);
+
+  /**
+   * Toggle the current destination in/out of the regular-destinations
+   * store. Triggered by the star/bookmark control on the route-preview
+   * card (rendered in A4). Uses distinct haptic feedback so marking
+   * feels rewarding (success) and unmarking feels neutral (selection).
+   */
+  function handleToggleRegular() {
+    if (!params.destLat || !params.destLng) return;
+    const lat = parseFloat(params.destLat);
+    const lng = parseFloat(params.destLng);
+    if (isRegularDestination) {
+      Haptics.selectionAsync().catch(() => {});
+      void unmarkRegular(lat, lng);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void markRegular({ name: params.destName ?? 'Destination', latitude: lat, longitude: lng });
+    }
+  }
 
   /**
    * Recenter the map on the user's current location. Standard nav-app
@@ -1655,13 +1680,34 @@ export default function Home() {
           ) : (
             <>
           {/*
-            "12 min" headline stands alone per Figma 1109:3264 — the
-            arrival duration is the headline number; pairing it with
-            the daylight strip diluted both signals. Daylight strip
-            moves down to share the via-row below (context grouped
-            with context).
+            Destination title — card title + tappable save-as-regular
+            toggle. freshgreen underline (styles.destination) = saved regular.
           */}
-          <View style={styles.routeHeadlineRow}>
+          <Pressable
+            onPress={handleToggleRegular}
+            accessibilityRole="button"
+            accessibilityLabel={`${params.destName ?? 'Destination'}. ${
+              isRegularDestination ? 'Saved as a regular' : 'Tap to save as a regular'
+            }.`}
+            hitSlop={8}
+            style={({ pressed }) => pressed && pressedDim}
+          >
+            <Text
+              style={[styles.routeDestTitle, isRegularDestination && styles.destination]}
+              numberOfLines={1}
+            >
+              {params.destName ?? 'your destination'}
+            </Text>
+          </Pressable>
+
+          {/*
+            Hero row: "{N} min" headline + promoted arrival time.
+            routeHeroRow owns the 24pt gutter so the old routeHeadlineRow
+            wrapper (which also had paddingHorizontal: 24) is gone —
+            the Animated.Text is moved directly inside here to avoid
+            double-padding. The animated style array is preserved verbatim.
+          */}
+          <View style={styles.routeHeroRow}>
             <Animated.Text
               style={[styles.routeMinutes, { opacity: minutesOpacity }]}
               // S3 of PR E review: defensive numberOfLines at 34pt. The
@@ -1676,7 +1722,9 @@ export default function Home() {
             >
               {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
             </Animated.Text>
+            {arrivalTime && <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>}
           </View>
+          {distanceLabel && <Text style={styles.routeDistance}>{distanceLabel}</Text>}
 
           {/*
             Via + daylight share a row — both secondary context. The
@@ -1685,17 +1733,14 @@ export default function Home() {
 
             "Via" surfaces the *main road* the recommended route takes
             (the longest named step), the Google/Waze convention — the
-            destination already lives in the search bar above, so
-            repeating it here is redundant. We fall back to the
-            destination name only when the route source returned no
-            named geometry (mock / step-less routes).
+            destination already lives in the title above, so repeating
+            it here is redundant. We fall back to the destination name
+            only when the route source returned no named geometry
+            (mock / step-less routes).
 
-            Destination underline (the recurring "save as home/work"
-            invitation, gated on `isRegularDestination`) renders ONLY in
-            that no-road fallback — i.e. only when the line genuinely
-            shows the destination. A road name is never underlined. The
-            underline's real persistent home is the destination display
-            itself; that lands with the route-preview redesign.
+            Destination underline renders ONLY in that no-road fallback
+            — i.e. only when the line genuinely shows the destination.
+            A road name is never underlined.
           */}
           <View style={styles.routeViaRow}>
             <Text
@@ -1737,21 +1782,17 @@ export default function Home() {
 
           {/*
             Conditions caption — "Safest route…" framing is real (the
-            recommended route IS the safest). Figma shows a trailing
-            "Moderate traffic" sentence, but OSRM has no traffic
-            signal; shipping that as fact would set an expectation
-            the system can't back. Dropped until a Mapbox-Directions
-            or Google-Directions adapter lands.
+            recommended route IS the safest). arrivalLabel (day/dusk/dark)
+            is promoted here so VoiceOver and sighted users both see the
+            arrival-light context without relying on the decorative strip.
           */}
           <Text
             style={styles.routeConditionsCaption}
             accessibilityLabel={
-              arrivalDaylightLabel
-                ? `Safest route with current conditions, ${arrivalDaylightLabel}.`
-                : 'Safest route with current conditions.'
+              arrivalLabel ? `Safest route, ${arrivalLabel}.` : 'Safest route with current conditions.'
             }
           >
-            Safest route with current conditions.
+            {arrivalLabel ? `Safest route · ${arrivalLabel}.` : 'Safest route with current conditions.'}
           </Text>
 
           {recommended && allZones.length > 0 && (
@@ -2241,10 +2282,30 @@ const styles = StyleSheet.create({
   // `destination` kept — new layout still uses it for the
   // recurring-destination underline.
   // --- Route-preview card (Figma 1109:3264) ---
-  // Headline row: "12 min" stands alone — full-width slot, headline
-  // gets the full visual weight without competing with the daylight
-  // strip. 24pt content-sheet gutter per Figma (`px-[24px]`).
-  routeHeadlineRow: {
+  // Destination title — card title + tappable save-as-regular toggle.
+  routeDestTitle: {
+    ...typography.title3Emphasized,
+    color: colors.black,
+    paddingHorizontal: 24,
+  },
+  // Hero row: headline + arrival time on the same baseline.
+  // Owns the 24pt gutter; the old routeHeadlineRow wrapper is gone.
+  routeHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  // Arrival clock time — sits baseline-aligned with the duration headline.
+  routeArrival: {
+    ...typography.subheadlineRegular,
+    color: colors.labelSecondary,
+    paddingBottom: 6,
+  },
+  // Distance line below the hero row.
+  routeDistance: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
     paddingHorizontal: 24,
   },
   routeMinutes: {
@@ -2274,18 +2335,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   routeViaLabel: {
-    ...typography.footnoteRegular,
+    ...typography.subheadlineRegular,
     color: colors.labelTertiary,
     // flex into the left column so the daylight strip on the right
     // gets its fixed 96pt while the via text takes whatever's left.
     flex: 1,
   },
   routeConditionsCaption: {
-    // Caption1/Regular per Figma 1109:3264 — supplementary status
-    // copy that doesn't compete with the headline + Via row above.
-    // 12pt is intentional (Figma's "the headline does the work"
-    // information hierarchy); was 13pt footnoteRegular.
-    ...typography.caption1Regular,
+    // footnoteRegular (13pt) — bumped from caption1Regular (12pt) to
+    // match the conditions tail's increased role: it now surfaces the
+    // arrivalLabel ("arriving in daylight" etc.) that was previously
+    // only in the VoiceOver a11y label.
+    ...typography.footnoteRegular,
     color: colors.labelTertiary,
     paddingHorizontal: 24,
   },

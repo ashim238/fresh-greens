@@ -182,6 +182,33 @@ export function bandForMinutesToSunset(minutes: number): DaylightBand {
   return 'night';
 }
 
+/** Cloud % at/above which a daytime arrival reads as "low light". */
+const LOW_LIGHT_CLOUD_PCT = 60;
+
+/**
+ * Short arrival-light descriptor for the route-preview conditions line.
+ * `day` + heavy cloud reads as "low light" (overcast dims daylight);
+ * twilight/night are cloud-independent. Returns null when band is
+ * unknown so the caller can fall back to the plain conditions copy.
+ */
+export function arrivalLightLabel(
+  band: DaylightBand,
+  cloudCoverPct?: number,
+): string | null {
+  switch (band) {
+    case 'day':
+      return cloudCoverPct != null && cloudCoverPct >= LOW_LIGHT_CLOUD_PCT
+        ? 'arriving in low light'
+        : 'arriving in daylight';
+    case 'twilight':
+      return 'arriving at dusk';
+    case 'night':
+      return 'arriving after dark';
+    default:
+      return null;
+  }
+}
+
 /**
  * Maps minutes-to-sunset to a daylight color sampled from the
  * orange → mauve → indigo gradient that the bottom-sheet daylight

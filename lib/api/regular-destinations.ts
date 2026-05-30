@@ -101,6 +101,27 @@ export async function addRegularDestination(input: {
   return record;
 }
 
+/**
+ * Removes any stored regular within ~200m of (latitude, longitude).
+ * The toggle-off counterpart to addRegularDestination. No-op if none
+ * match. Returns the surviving list.
+ */
+export async function removeRegularDestination(
+  latitude: number,
+  longitude: number,
+): Promise<RegularDestination[]> {
+  const all = await getRegularDestinations();
+  const kept = all.filter(
+    (r) =>
+      Math.abs(r.latitude - latitude) >= MATCH_DELTA_DEG ||
+      Math.abs(r.longitude - longitude) >= MATCH_DELTA_DEG,
+  );
+  if (kept.length !== all.length) {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(kept));
+  }
+  return kept;
+}
+
 /** Sign-out / factory-reset cleanup. */
 export async function clearRegularDestinations(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);

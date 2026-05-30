@@ -4,6 +4,7 @@ import {
   addRegularDestination as addToStore,
   clearRegularDestinations,
   getRegularDestinations,
+  removeRegularDestination,
   type RegularDestination,
 } from '../lib/api/regular-destinations';
 
@@ -45,10 +46,18 @@ export function useRegularDestinations() {
     [],
   );
 
+  const unmarkRegular = useCallback(
+    async (latitude: number, longitude: number) => {
+      const remaining = await removeRegularDestination(latitude, longitude);
+      setRegulars(remaining);
+    },
+    [],
+  );
+
   const clearAll = useCallback(async () => {
     await clearRegularDestinations();
     setRegulars([]);
   }, []);
 
-  return { regulars, markRegular, clearAll };
+  return { regulars, markRegular, unmarkRegular, clearAll };
 }
