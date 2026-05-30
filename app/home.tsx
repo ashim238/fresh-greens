@@ -1686,6 +1686,14 @@ export default function Home() {
           ) : (
             <>
           {/*
+            Trip-summary block — destination title, hero duration +
+            arrival, and distance are ONE unit, so they sit in a tight
+            4pt group rather than each taking the card's 16pt inter-row
+            gap (which read airy/sparse when applied between these three
+            closely-related lines).
+          */}
+          <View style={styles.routeSummaryBlock}>
+          {/*
             Destination title — card title + tappable save-as-regular
             toggle. freshgreen underline (styles.destination) = saved regular.
           */}
@@ -1731,6 +1739,7 @@ export default function Home() {
             {arrivalTime && <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>}
           </View>
           {distanceLabel && <Text style={styles.routeDistance}>{distanceLabel}</Text>}
+          </View>
 
           {/*
             Via + daylight share a row — both secondary context. The
@@ -2238,7 +2247,12 @@ const styles = StyleSheet.create({
     ...shadows.sheet,
   },
   bottomSheetContent: {
-    gap: 24,
+    // 24 → 16: with the redesigned route-preview card carrying more rows
+    // (title / hero / distance / via / conditions / chips / actions), a
+    // uniform 24pt between every row read as too much vertical air. 16pt
+    // is the tighter section rhythm; the trip-summary rows cluster even
+    // closer via routeSummaryBlock (4pt).
+    gap: 16,
   },
   // Wraps the LoadingState card rendered inside the route-preview
   // bottom sheet during the calculating state. (The no-route state no
@@ -2288,6 +2302,12 @@ const styles = StyleSheet.create({
   // `destination` kept — new layout still uses it for the
   // recurring-destination underline.
   // --- Route-preview card (Figma 1109:3264) ---
+  // Trip-summary group — title + hero (duration/arrival) + distance read
+  // as one unit, so they cluster at 4pt instead of the card's 16pt
+  // inter-row gap. Children keep their own 24pt horizontal gutter.
+  routeSummaryBlock: {
+    gap: 4,
+  },
   // Destination title — card title + tappable save-as-regular toggle.
   routeDestTitle: {
     ...typography.title3Emphasized,
