@@ -6,6 +6,10 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SvgProps } from 'react-native-svg';
 
+// Phosphor deep-import — see trusted-contact-setup.tsx for the note on
+// bypassing the barrel index.
+import { ShieldWarning } from 'phosphor-react-native/src/icons/ShieldWarning';
+
 import SafetyCarTroubles from '../assets/illustrations/safety-car-troubles.svg';
 import SafetyLost from '../assets/illustrations/safety-lost.svg';
 import SafetyPulledOver from '../assets/illustrations/safety-pulled-over.svg';
@@ -171,6 +175,29 @@ export default function SafetyModal() {
             );
           })}
         </View>
+
+        {/*
+          Emergency / SOS (thesis claim C8) — the most consequential
+          safety affordance, so it gets its own prominent control below
+          the tile grid rather than a same-weight tile. navy (reserved
+          safety-affordance register, .cursorrules #6) matches the
+          /emergency surface; the red 911 escalation lives INSIDE the
+          flow, not on this calm entry button.
+        */}
+        <Pressable
+          onPress={() => router.push('/emergency')}
+          accessibilityRole="button"
+          accessibilityLabel="Emergency. Reach a trusted contact or 911."
+          style={({ pressed }) => [styles.sosBar, pressed && pressedDim]}
+        >
+          <ShieldWarning size={28} color={colors.white} weight="duotone" />
+          <View style={styles.sosBarText}>
+            <Text style={styles.sosBarTitle}>Emergency</Text>
+            <Text style={styles.sosBarSubtitle}>
+              Reach a trusted contact or 911
+            </Text>
+          </View>
+        </Pressable>
       </SafeAreaView>
     </View>
   );
@@ -275,5 +302,31 @@ const styles = StyleSheet.create({
     ...typography.subheadlineEmphasized,
     color: colors.black,
     textAlign: 'center',
+  },
+  // C8 — Emergency/SOS entry control. Raw spacing values match this
+  // file's existing convention (a spacing-token sweep can migrate the
+  // whole file later); all land on the 4pt grid.
+  sosBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: colors.navy,
+    marginTop: 8,
+    ...shadows.e2,
+  },
+  sosBarText: {
+    flex: 1,
+    gap: 4,
+  },
+  sosBarTitle: {
+    ...typography.bodyEmphasized,
+    color: colors.white,
+  },
+  sosBarSubtitle: {
+    ...typography.footnoteRegular,
+    color: colors.fadedgreen,
   },
 });
