@@ -41,6 +41,7 @@ import FuelIcon from '../assets/illustrations/fuel.svg';
 
 import { PageControl } from '../components/PageControl';
 import { usePreferences } from '../hooks/usePreferences';
+import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
@@ -137,6 +138,7 @@ export default function Menu() {
   const { user, signOut } = useUser();
   const { clearContact } = useTrustedContact();
   const { clearAll: clearSavedPlaces } = useSavedPlaces();
+  const { clearAll: clearRegularDestinations } = useRegularDestinations();
   const { preferences, setShowZones } = usePreferences();
   const { width: screenWidth } = useWindowDimensions();
   const [signingOut, setSigningOut] = useState(false);
@@ -174,7 +176,12 @@ export default function Menu() {
     try {
       // Clear identity-attached state before the sign-out confirmation
       // screen takes over — same hygiene as v1.
-      await Promise.all([signOut(), clearContact(), clearSavedPlaces()]);
+      await Promise.all([
+        signOut(),
+        clearContact(),
+        clearSavedPlaces(),
+        clearRegularDestinations(),
+      ]);
       router.replace('/sign-out');
     } finally {
       setSigningOut(false);

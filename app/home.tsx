@@ -37,6 +37,7 @@ import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { usePreferences } from '../hooks/usePreferences';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
@@ -45,6 +46,7 @@ import {
   removeCommunityReport,
   type ReportCategoryId,
 } from '../lib/api/community-reports';
+import { isRegularLocation } from '../lib/api/regular-destinations';
 import { getRoutesBetween, type Route, type RouteSource, routeColors } from '../lib/api/routes';
 import {
   getZonesForRegion,
@@ -181,10 +183,19 @@ export default function Home() {
   // Whether to underline the destination text in the bottom sheet.
   // The underline is the visual invitation to "save this as home/work"
   // for recurring trips — not for one-off journeys to somewhere the
-  // user has never been. Hard-coded false until feat/recent-trips lands
-  // a real frequency signal; the conditional rendering is in place so
-  // flipping this becomes a one-line change.
-  const isRegularDestination = false;
+  // user has never been. C12c: now a real signal — true when the
+  // current destination is within ~200m of a destination the user
+  // marked "regular" from a post-trip summary (regular-destinations
+  // store). Closes the loop the long-standing TODO described.
+  const { regulars } = useRegularDestinations();
+  const isRegularDestination =
+    !!params.destLat &&
+    !!params.destLng &&
+    isRegularLocation(
+      parseFloat(params.destLat),
+      parseFloat(params.destLng),
+      regulars,
+    );
   // Zones and routes both live in component state so they re-render the
   // map when fetched. Empty arrays initially → nothing renders → map shows
   // clean until data arrives a moment later. This is the "loading state"

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
+import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import {
   addCommunityReport,
   type ReportCategoryId,
@@ -57,6 +58,9 @@ type TripSummaryParams = {
   estimatedMinutes?: string;
   /** JSON-serialized Inference[] — the trip's encountered caution/avoid zones. */
   inferences?: string;
+  /** Destination coords (stringified) — for marking it a regular (C12c). */
+  destLat?: string;
+  destLng?: string;
 };
 
 type Inference = {
@@ -104,8 +108,9 @@ const INFERENCE_META: Record<
 
 export default function TripSummary() {
   const router = useRouter();
-  const { label, distanceMeters, estimatedMinutes, inferences } =
+  const { label, distanceMeters, estimatedMinutes, inferences, destLat, destLng } =
     useLocalSearchParams<TripSummaryParams>();
+  const { markRegular } = useRegularDestinations();
 
   const meters = Number(distanceMeters);
   const minutes = Number(estimatedMinutes);
@@ -151,11 +156,24 @@ export default function TripSummary() {
     router.back();
   }
 
-  function handleSetDefault() {
-    // TODO(C12c): persist the destination as a "regular" so it unlocks
-    // the recurring-destination personalization (home.tsx's
-    // isRegularDestination, currently hard-coded false). Kept a
-    // no-op-then-dismiss until C12c defines that store.
+  async function handleSetDefault() {
+    // C12c: mark this destination a "regular" — it unlocks the
+    // recurring-destination underline on /home (isRegularLocation) and
+    // is the first frequency signal feeding the adaptive-personalization
+    // spine (C15). Best-effort; dismiss either way. Needs the name +
+    // coords (carried from the arrival push).
+    const lat = Number(destLat);
+    const lng = Number(destLng);
+    if (label && Number.isFinite(lat) && Number.isFinite(lng)) {
+      try {
+        await markRegular({ name: label, latitude: lat, longitude: lng });
+        AccessibilityInfo.announceForAccessibility(
+          `${label} saved as a regular destination.`,
+        );
+      } catch {
+        // Best-effort local write; dismiss regardless.
+      }
+    }
     router.back();
   }
 

@@ -509,6 +509,10 @@ export default function EnRoute() {
       pathname: '/trip-summary',
       params: {
         ...(params.destName ? { label: params.destName } : {}),
+        // C12c: carry the destination coords so /trip-summary's "Set as
+        // default" can mark this destination a regular.
+        ...(params.destLat ? { destLat: params.destLat } : {}),
+        ...(params.destLng ? { destLng: params.destLng } : {}),
         ...(recommended?.distanceMeters != null
           ? { distanceMeters: String(recommended.distanceMeters) }
           : {}),
