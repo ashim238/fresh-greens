@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // see app/trusted-contact-setup.tsx for the long note.
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
 import { MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
+import { MapPin } from 'phosphor-react-native/src/icons/MapPin';
 
 import FuelIcon from '../assets/illustrations/fuel.svg';
 import QuickToolSaved from '../assets/illustrations/quick-tools-saved.svg';
@@ -27,7 +28,11 @@ import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 import { SearchBar } from '../components/SearchBar';
 import { ErrorState, LoadingState } from '../components/StateCard';
 import { useRecentSearches } from '../hooks/useRecentSearches';
+import { useRegularDestinations } from '../hooks/useRegularDestinations';
+import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { searchPlaces, type Place } from '../lib/api/places';
+import { type RegularDestination } from '../lib/api/regular-destinations';
+import { type SavedPlace } from '../lib/api/saved-places';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
@@ -82,21 +87,86 @@ type QuickTool = {
    * pipeline handle the rest — Mapbox v6 Search Box understands
    * each of these as a category and returns matching POIs.
    *
-   * Tiles WITHOUT a `query` (Saved, Trending) need data we don't
-   * have yet (a bookmarks adapter, a trending-analytics source).
-   * They stay visual-only with a "Coming soon" a11y hint until
-   * those land.
+   * `Saved` has no query: tapping it toggles an inline list of the
+   * user's saved places + regular destinations (see `buildSavedRows`).
+   * `Trending` is `comingSoon` — no analytics source to make it honest.
    */
   query?: string;
+  /** Marks a tile whose feature isn't wired yet (renders a "Soon" cue,
+      taps surface a coming-soon Alert instead of acting). */
+  comingSoon?: boolean;
 };
 
 const QUICK_TOOLS: QuickTool[] = [
   { id: 'saved', label: 'Saved', Icon: QuickToolSaved },
-  { id: 'trending', label: 'Trending', Icon: QuickToolTrending },
+  { id: 'trending', label: 'Trending', Icon: QuickToolTrending, comingSoon: true },
   { id: 'food', label: 'Food', Icon: QuickToolFood, query: 'restaurant' },
   { id: 'gas', label: 'Gas', Icon: QuickToolGas, query: 'gas station' },
   { id: 'parking', label: 'Parking', Icon: QuickToolParking, query: 'parking' },
 ];
+
+/** A flattened row for the Saved list — saved places + regulars in one
+    uniform shape the list renderer + nav handler can consume. */
+type SavedRow = {
+  id: string;
+  name: string;
+  subtitle: string;
+  latitude: number;
+  longitude: number;
+};
+
+// ~200m bounding-box half-width (degrees) for de-duping a regular
+// destination against a saved place at the same spot. Mirrors
+// regular-destinations.ts's MATCH_DELTA_DEG so the two stores agree on
+// "the same place."
+const SAVED_MATCH_DELTA = 0.002;
+
+/**
+ * Merges saved places + regular destinations into one ranked list for
+ * the Saved tile. Saved places first (home before other saved, then
+ * most-recently saved); then regulars by trip frequency, skipping any
+ * that sit within ~200m of a saved place (same spot → one row, not two).
+ */
+function buildSavedRows(
+  savedPlaces: SavedPlace[],
+  regulars: RegularDestination[],
+): SavedRow[] {
+  const rows: SavedRow[] = [];
+  const sortedSaved = [...savedPlaces].sort((a, b) => {
+    if (a.kind === 'home' && b.kind !== 'home') return -1;
+    if (b.kind === 'home' && a.kind !== 'home') return 1;
+    return b.setAt - a.setAt;
+  });
+  for (const p of sortedSaved) {
+    rows.push({
+      id: p.id,
+      name: p.name,
+      subtitle: p.kind === 'home' ? 'Home' : 'Saved place',
+      latitude: p.latitude,
+      longitude: p.longitude,
+    });
+  }
+  const sortedRegulars = [...regulars].sort(
+    (a, b) => b.count - a.count || b.setAt - a.setAt,
+  );
+  for (const r of sortedRegulars) {
+    const coveredBySaved = rows.some(
+      (row) =>
+        Math.abs(row.latitude - r.latitude) < SAVED_MATCH_DELTA &&
+        Math.abs(row.longitude - r.longitude) < SAVED_MATCH_DELTA,
+    );
+    if (coveredBySaved) continue;
+    rows.push({
+      id: r.id,
+      name: r.name,
+      subtitle:
+        r.count > 1 ? `Default · ${r.count} trips` : 'Default destination',
+      latitude: r.latitude,
+      longitude: r.longitude,
+    });
+  }
+  return rows;
+}
 
 // Recents are sourced from useRecentSearches (AsyncStorage-backed,
 // 8-entry cap, dedup by mapbox_id). Picked-from-results only — typed-
@@ -142,6 +212,15 @@ export default function Search() {
   // and avoid the flash of "Your recent destinations will show up here"
   // during the AsyncStorage read on first mount.
   const { recents, loading: recentsLoading, addRecent, removeRecent, clearRecents } = useRecentSearches();
+  // Saved tile data — saved places + regular destinations, merged into
+  // one ranked list (see buildSavedRows). Surfaced inline when the
+  // Saved quick-tile is selected.
+  const { savedPlaces } = useSavedPlaces();
+  const { regulars } = useRegularDestinations();
+  const savedRows = useMemo(
+    () => buildSavedRows(savedPlaces, regulars),
+    [savedPlaces, regulars],
+  );
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('landing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -354,6 +433,27 @@ export default function Search() {
     });
   }
 
+  /** Tapping a saved/regular place routes straight to it (same
+   *  navigation as a recent), and drops it into recents so it's a
+   *  one-tap repeat next time. */
+  function handleSelectSaved(row: SavedRow) {
+    void addRecent({
+      id: row.id,
+      name: row.name,
+      address: row.subtitle,
+      latitude: row.latitude,
+      longitude: row.longitude,
+    });
+    router.replace({
+      pathname: fromEnRoute ? '/en-route' : '/home',
+      params: {
+        destLat: String(row.latitude),
+        destLng: String(row.longitude),
+        destName: row.name,
+      },
+    });
+  }
+
   /** Long-press → confirm → remove. Quiet feature, expected for any
    *  recents list. iOS Alert is fine here — no design comp for a
    *  custom remove-confirm sheet. */
@@ -428,7 +528,6 @@ export default function Search() {
                 >
                   {QUICK_TOOLS.map((tool) => {
                     const isSelected = selectedToolId === tool.id;
-                    const isWired = tool.query != null;
                     return (
                       <Pressable
                         key={tool.id}
@@ -438,16 +537,24 @@ export default function Search() {
                           pressed && pressedDim,
                         ]}
                         onPress={() => {
-                          // Two paths:
-                          //   1. Tile has a `query` → set it as the
-                          //      search text. The debounced
-                          //      autocomplete effect fires the actual
-                          //      Mapbox call. The selected-state
-                          //      visual stays as confirmation.
-                          //   2. Tile has no `query` (Saved /
-                          //      Trending) → just toggle the visual
-                          //      selected state. No search fires.
-                          //      Honest about the v1 limitation.
+                          // Three paths:
+                          //   1. comingSoon (Trending) → honest "coming
+                          //      soon" Alert; the tile never enters a
+                          //      selected state it can't act on.
+                          //   2. has a `query` (Food/Gas/Parking) → set
+                          //      the search text; the debounced
+                          //      autocomplete effect fires the Mapbox
+                          //      call. Selected state is confirmation.
+                          //   3. no query (Saved) → toggle the selected
+                          //      state, which reveals the inline Saved
+                          //      list below the tiles.
+                          if (tool.comingSoon) {
+                            Alert.alert(
+                              tool.label,
+                              `${tool.label} spots are coming in a future update.`,
+                            );
+                            return;
+                          }
                           setSelectedToolId((prev) =>
                             prev === tool.id ? null : tool.id,
                           );
@@ -459,17 +566,67 @@ export default function Search() {
                         accessibilityLabel={tool.label}
                         accessibilityState={{ selected: isSelected }}
                         accessibilityHint={
-                          isWired
-                            ? `Search for ${tool.label.toLowerCase()} nearby`
-                            : 'Coming soon'
+                          tool.comingSoon
+                            ? 'Coming soon'
+                            : tool.query
+                              ? `Search for ${tool.label.toLowerCase()} nearby`
+                              : 'Show your saved places'
                         }
                       >
                         <tool.Icon width={24} height={24} />
-                        <Text style={styles.quickToolLabel}>{tool.label}</Text>
+                        <View style={styles.quickToolLabelWrap}>
+                          <Text style={styles.quickToolLabel}>{tool.label}</Text>
+                          {tool.comingSoon && (
+                            <Text style={styles.quickToolSoon}>Soon</Text>
+                          )}
+                        </View>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
+
+                {/* Saved list — revealed when the Saved tile is selected.
+                    Merges saved places + regular destinations; rows route
+                    straight to the place (same as a recent). Reuses the
+                    Recent row styles for a consistent list register. */}
+                {selectedToolId === 'saved' && (
+                  <View style={styles.recentSection}>
+                    <Text style={styles.recentLabel}>Saved</Text>
+                    {savedRows.length === 0 ? (
+                      <Text style={styles.recentEmpty}>
+                        Places you save or set as a default destination show
+                        up here.
+                      </Text>
+                    ) : (
+                      savedRows.map((row) => (
+                        <Pressable
+                          key={row.id}
+                          style={({ pressed }) => [
+                            styles.recentItem,
+                            pressed && pressedDim,
+                          ]}
+                          onPress={() => handleSelectSaved(row)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Route to ${row.name}. ${row.subtitle}.`}
+                        >
+                          <MapPin
+                            size={24}
+                            color={colors.labelTertiary}
+                            weight="duotone"
+                          />
+                          <View style={styles.recentTextColumn}>
+                            <Text style={styles.recentText} numberOfLines={1}>
+                              {row.name}
+                            </Text>
+                            <Text style={styles.recentSubtext} numberOfLines={1}>
+                              {row.subtitle}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))
+                    )}
+                  </View>
+                )}
 
                 <View style={styles.divider} />
 
@@ -717,9 +874,19 @@ const styles = StyleSheet.create({
   quickToolSelected: {
     backgroundColor: colors.fillsTertiary,
   },
+  quickToolLabelWrap: {
+    alignItems: 'center',
+    gap: 2,
+  },
   quickToolLabel: {
     ...typography.subheadlineEmphasized,
     color: colors.black,
+  },
+  // "Soon" cue under a coming-soon tile's label — quiet caption gray so
+  // the tile reads as not-yet-available without looking broken/disabled.
+  quickToolSoon: {
+    ...typography.caption1Regular,
+    color: colors.mutedSecondary,
   },
   divider: {
     height: 1,
