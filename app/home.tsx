@@ -2478,6 +2478,13 @@ const styles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     textAlign: 'center',
+    // Center over the Confirm button, NOT the full bar. The action row
+    // below is asymmetric — Confirm (flex:1) + 16pt gap + 48pt X close —
+    // so the Confirm's center sits 32pt left of the bar's center. A
+    // hint centered on the full width therefore looked shifted right of
+    // the green CTA the eye anchors to. Reserving the same 64pt (gap +
+    // X) on the right lands the hint on the Confirm's centerline.
+    marginRight: 64,
   },
   placementActions: {
     flexDirection: 'row',
