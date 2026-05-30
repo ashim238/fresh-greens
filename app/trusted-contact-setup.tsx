@@ -35,26 +35,37 @@ import { typography } from '../theme/typography';
  *     ending the onboarding stack. Default behavior.
  *   - "settings" → Continue + Skip both `back()`, returning to /menu
  *     so the user lands back where they came from.
- * Without this param, editing trusted contact from /menu would push the
- * user to /home instead of returning to Settings — wrong stack semantics.
+ *   - "emergency" → Continue + Skip both `back()`, returning to the
+ *     /emergency SOS screen that pushed here (when the user has no
+ *     trusted contact yet). Without this, Skip fell through to the
+ *     onboarding `replace('/home')`, which dropped a fresh Home card on
+ *     top of the live stack — the "Home overlays as a sheet" bug.
+ * Any `from` value other than onboarding ("embedded" entry) returns via
+ * back(); without the param, editing from /menu or skipping from SOS
+ * would push the user to /home instead — wrong stack semantics.
  *
- * The `from=settings` entry point also swaps the visual register from
- * wiltedgreen-on-dark to white-on-light, matching the /safety-settings
- * page that pushes here. The onboarding register stays untouched —
- * the dark green is part of the brand introduction and flips mid-flow
- * would feel disjointed.
+ * Embedded entries (settings + emergency) also swap the visual register
+ * from wiltedgreen-on-dark to white-on-light, matching the white
+ * /safety-settings and /emergency surfaces that push here. The
+ * onboarding register stays the dark brand splash — flipping it
+ * mid-onboarding would feel disjointed.
  *
  * Skipping is always allowed: /pulled-over falls back to a "no contact
  * set" state when there's nothing stored.
  *
  * Route: /trusted-contact-setup
  */
-type EntryPoint = 'onboarding' | 'settings';
+type EntryPoint = 'onboarding' | 'settings' | 'emergency';
 
 export default function TrustedContactSetup() {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: EntryPoint }>();
-  const fromSettings = params.from === 'settings';
+  // "Embedded" = reached from inside the app (Settings or the Emergency
+  // SOS screen), NOT the first-run onboarding flow. Embedded entries
+  // return via back() to where the user came from and use the white
+  // register; onboarding (no param) ends the onboarding stack with
+  // replace('/home') and keeps the dark brand splash.
+  const embedded = params.from === 'settings' || params.from === 'emergency';
   const { contact, loading: contactLoading, pickContact } = useTrustedContact();
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +131,7 @@ export default function TrustedContactSetup() {
 
   function handleContinue() {
     Haptics.selectionAsync().catch(() => {});
-    if (fromSettings) {
+    if (embedded) {
       router.back();
     } else {
       router.replace('/home');
@@ -128,7 +139,7 @@ export default function TrustedContactSetup() {
   }
 
   function handleSkip() {
-    if (fromSettings) {
+    if (embedded) {
       router.back();
     } else {
       router.replace('/home');
@@ -136,18 +147,18 @@ export default function TrustedContactSetup() {
   }
 
   return (
-    <View style={[styles.root, fromSettings && stylesWhite.root]}>
-      <StatusBar style={fromSettings ? 'dark' : 'light'} />
+    <View style={[styles.root, embedded && stylesWhite.root]}>
+      <StatusBar style={embedded ? 'dark' : 'light'} />
 
       <SafeAreaView style={styles.safe}>
         {/*
           Onboarding shows the 5-of-5 PageControl as the forward
-          progress affordance. Settings entry shows a back caret
-          instead — onboarding is forward-only, settings is reachable
-          from /safety-settings and needs an explicit return path.
-          Mirrors /safety-settings + /recordings header pattern.
+          progress affordance. Embedded entries (settings / emergency)
+          show a back caret instead — onboarding is forward-only, while
+          an in-app entry needs an explicit return path to the screen
+          that pushed here. Mirrors /safety-settings + /recordings.
         */}
-        {fromSettings ? (
+        {embedded ? (
           <View style={styles.backHeader}>
             <Pressable
               onPress={() => router.back()}
@@ -168,10 +179,10 @@ export default function TrustedContactSetup() {
 
         <View style={styles.content}>
           <View style={styles.copy}>
-            <Text style={[styles.title, fromSettings && stylesWhite.title]}>
+            <Text style={[styles.title, embedded && stylesWhite.title]}>
               Set your Trusted Contact
             </Text>
-            <Text style={[styles.body, fromSettings && stylesWhite.body]}>
+            <Text style={[styles.body, embedded && stylesWhite.body]}>
               Fresh Greens alerts this person during emergencies and shares
               your location with them. They're who the Call and Text buttons
               dial during a safety event.
@@ -179,11 +190,11 @@ export default function TrustedContactSetup() {
           </View>
 
           {contact ? (
-            <View style={[styles.preview, fromSettings && stylesWhite.preview]}>
+            <View style={[styles.preview, embedded && stylesWhite.preview]}>
               <Animated.View
                 style={[
                   styles.avatar,
-                  fromSettings && stylesWhite.avatar,
+                  embedded && stylesWhite.avatar,
                   { transform: [{ scale: avatarScale }] },
                 ]}
               >
@@ -193,7 +204,7 @@ export default function TrustedContactSetup() {
                 <Text
                   style={[
                     styles.previewName,
-                    fromSettings && stylesWhite.previewName,
+                    embedded && stylesWhite.previewName,
                   ]}
                 >
                   {contact.name}
@@ -201,7 +212,7 @@ export default function TrustedContactSetup() {
                 <Text
                   style={[
                     styles.previewPhone,
-                    fromSettings && stylesWhite.previewPhone,
+                    embedded && stylesWhite.previewPhone,
                   ]}
                 >
                   {contact.phoneNumber}
@@ -260,7 +271,7 @@ export default function TrustedContactSetup() {
               }
               style={styles.btnStretch}
             />
-            {fromSettings ? (
+            {embedded ? (
               <Button
                 type="secondary"
                 fill="outline"
@@ -298,7 +309,7 @@ const styles = StyleSheet.create({
     // ~64pt either way.
     paddingBottom: 32,
   },
-  // Back-caret row (settings entry only). 32pt outer left-align
+  // Back-caret row (embedded entries — settings / emergency). 32pt outer left-align
   // matches the safe area's paddingHorizontal so the caret reads
   // as gutter-anchored rather than inset.
   backHeader: {
@@ -389,8 +400,9 @@ const styles = StyleSheet.create({
   },
 });
 
-// White-on-light overrides applied when reached from /safety-settings
-// (`from=settings` query param). Only the register-sensitive styles
+// White-on-light overrides applied for embedded entries — reached from
+// /safety-settings or the /emergency SOS screen (`from=settings` /
+// `from=emergency`). Only the register-sensitive styles
 // live here — layout (gaps, padding, sizes) is shared with the green
 // onboarding register above. Each override maps 1:1 to a base style
 // name so the conditional application reads as "the white version of

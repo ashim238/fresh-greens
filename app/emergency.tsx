@@ -123,8 +123,12 @@ export default function Emergency() {
   function startCountdown() {
     if (!hasContact) {
       // No contact set — route to setup instead of counting down to
-      // nothing. The picker flow returns here implicitly (pushed route).
-      router.push('/trusted-contact-setup');
+      // nothing. `from=emergency` makes the setup screen's Skip/Continue
+      // return here via back() (and use the white register); without it
+      // they fall through to the onboarding `replace('/home')`, which
+      // drops a fresh Home card on top of this stack (the "Home overlays
+      // as a sheet" bug).
+      router.push('/trusted-contact-setup?from=emergency');
       return;
     }
     setMode('countdown');

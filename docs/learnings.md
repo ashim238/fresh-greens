@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/sos-setup-skip-overlay (2026-05-30)
+
+User-reported: tapping SOS with no trusted contact set, then "Skip for now" on the trusted-contact-setup screen, dropped an *overlaying sheet of Home* instead of returning to the SOS screen. One keepable gotcha.
+
+- **A reused screen that branches return-navigation on a narrow "where did I come from" flag silently mis-handles every new caller — the default branch is usually a destructive `replace`.** trusted-contact-setup is shared by onboarding, settings, and (newly) the /emergency SOS screen. Its return logic was `if (params.from === 'settings') router.back(); else router.replace('/home')`. The `else` was written for onboarding (where ending on Home is correct), but it's also the fallback for ANY unrecognized/missing `from` — so when /emergency pushed the screen with no param, Skip ran `replace('/home')`, which swapped a fresh Home onto the live (modal-nested) stack and rendered it as an overlay. The fix wasn't just "pass `from=emergency`" — it was recognizing the flag's real meaning is "embedded (in-app) entry vs first-run onboarding," renaming it `embedded`, and making EVERY non-onboarding entry return via `back()`. Worth keeping: when a shared screen routes its exit by entry point, the safe default for an unknown entry is `back()` (non-destructive — return whence you came), NOT `replace` to some canonical home. A `replace`-to-home default means every future caller that forgets the magic param teleports the user out of their stack. Model the flag as "is this the one special flow that should replace" (narrow, opt-in to the destructive path), not "is this the one flow that should go back" (which leaves the destructive path as the default).
+
+---
+
 ## feat/emergency-reskin-enroute-sos (2026-05-30)
 
 User feedback: the /emergency screen's full-bleed navy ground "read harsh" (navy + fadedgreen text), and the crisis surface sat two taps deep (Shield → /safety → SOS). Reskinned to white + added a one-tap SOS on /en-route. Two things worth keeping.
