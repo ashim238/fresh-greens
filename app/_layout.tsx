@@ -39,6 +39,15 @@ export default function RootLayout() {
           options={{ presentation: 'modal' }}
         />
         {/*
+          /trip-summary — post-trip recap pop-up (Figma 825:4908), shown on
+          arrival. A single-view modal sheet; swipe-down dismisses, same as
+          the other safety/flow modals.
+        */}
+        <Stack.Screen
+          name="trip-summary"
+          options={{ presentation: 'modal' }}
+        />
+        {/*
           Report uses transparentModal (not modal) so the map underneath
           stays visible — the popup is a centered card over a 20% scrim,
           not an iOS-sheet that takes over the screen. Fade animation

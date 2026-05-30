@@ -449,6 +449,26 @@ export default function EnRoute() {
     if (nextStepInfo?.status !== 'arrived') return;
     arrivalCleanedRef.current = true;
     void clearActiveRoute();
+    // C12: surface the post-trip summary on arrival. Previously the
+    // arrival terminal state only cleared the route cache — the
+    // trip-summary screen existed but was unreachable. Pushed as a
+    // modal over the arrived nav screen; dismissing it (swipe-down or
+    // its buttons) returns here. The arrivalCleanedRef guard ensures
+    // this fires exactly once per arrival. Closure captures the
+    // arrival-moment recommended/params (the effect re-runs when
+    // status flips to 'arrived'), so the stats are fresh.
+    router.push({
+      pathname: '/trip-summary',
+      params: {
+        ...(params.destName ? { label: params.destName } : {}),
+        ...(recommended?.distanceMeters != null
+          ? { distanceMeters: String(recommended.distanceMeters) }
+          : {}),
+        ...(recommended?.estimatedMinutes != null
+          ? { estimatedMinutes: String(recommended.estimatedMinutes) }
+          : {}),
+      },
+    });
   }, [nextStepInfo?.status]);
 
   // Reset arrival guard when the recommended route changes (e.g. mid-
