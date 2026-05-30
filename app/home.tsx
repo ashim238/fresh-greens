@@ -2014,7 +2014,7 @@ export default function Home() {
               above the action row via placementBarInner's gap.
             */}
             <Text style={styles.placementHint}>
-              Tap the map to move the pin
+              Tap the map to move the pin. Drag to move around.
             </Text>
             <View style={styles.placementActions}>
               <Pressable
@@ -2474,17 +2474,15 @@ const styles = StyleSheet.create({
   },
   placementHint: {
     // Quiet footnote instruction above the Confirm/cancel row. Tertiary
-    // gray + centered so it reads as a hint, not a heading.
+    // gray so it reads as a hint, not a heading.
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-    textAlign: 'center',
-    // Center over the Confirm button, NOT the full bar. The action row
-    // below is asymmetric — Confirm (flex:1) + 16pt gap + 48pt X close —
-    // so the Confirm's center sits 32pt left of the bar's center. A
-    // hint centered on the full width therefore looked shifted right of
-    // the green CTA the eye anchors to. Reserving the same 64pt (gap +
-    // X) on the right lands the hint on the Confirm's centerline.
-    marginRight: 64,
+    // Left-aligned to the gutter — which is also the Confirm button's
+    // left edge. Centering looked off against the asymmetric Confirm +
+    // X action row (the X eats the right side, pulling the buttons'
+    // visual center left of the bar's center); a deliberate left set
+    // reads cleaner and anchors to the same edge as the CTA.
+    textAlign: 'left',
   },
   placementActions: {
     flexDirection: 'row',
