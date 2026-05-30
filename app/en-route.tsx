@@ -376,6 +376,53 @@ export default function EnRoute() {
     return inside;
   }, [enRouteZones, userLocation]);
 
+  // C12b: caution/avoid zones the user came within range of at ANY
+  // point during the trip — the inference set /trip-summary lets them
+  // validate. Distinct from enteredZoneIds (which is *current position*
+  // and only the hazard-glyph subset): this accumulates across the
+  // whole trip AND includes POLICE point-zones, which enRouteZones
+  // excludes (line ~357) but which are the central interview concern.
+  // We validate only OSM-derived inference categories — not other
+  // users' community reports (you're confirming the app's inferences,
+  // not re-validating peers).
+  const validatableZones = useMemo(
+    () =>
+      osmZones.filter(
+        (z) =>
+          (z.type === 'caution' || z.type === 'avoid') &&
+          (z.category === 'police' ||
+            z.category === 'wildlife' ||
+            z.category === 'lighting' ||
+            z.category === 'road-condition'),
+      ),
+    [osmZones],
+  );
+  const encounteredZonesRef = useRef<
+    Map<
+      string,
+      { id: string; category: string; latitude: number; longitude: number }
+    >
+  >(new Map());
+  useEffect(() => {
+    if (!userLocation) return;
+    for (const zone of validatableZones) {
+      if (encounteredZonesRef.current.has(zone.id)) continue;
+      if (!isPointInZone(userLocation, zone)) continue;
+      // zoneAnchor = polyline midpoint / polygon centroid / point — a
+      // representative location, not coordinates[0] (which is a far
+      // endpoint/vertex for line/area zones and would plant the
+      // validated community report at the wrong end of the street).
+      const point = zoneAnchor(zone);
+      if (!point) continue;
+      encounteredZonesRef.current.set(zone.id, {
+        id: zone.id,
+        category: zone.category ?? 'road-condition',
+        latitude: point.latitude,
+        longitude: point.longitude,
+      });
+    }
+  }, [userLocation, validatableZones]);
+
   // C16 (thesis-coverage): the speed cluster signals zone entry by
   // recoloring the current-speed pill's border white → yellow when the
   // driver is inside a caution/avoid zone. `enRouteZones` is already
@@ -457,6 +504,7 @@ export default function EnRoute() {
     // this fires exactly once per arrival. Closure captures the
     // arrival-moment recommended/params (the effect re-runs when
     // status flips to 'arrived'), so the stats are fresh.
+    const inferences = Array.from(encounteredZonesRef.current.values());
     router.push({
       pathname: '/trip-summary',
       params: {
@@ -466,6 +514,14 @@ export default function EnRoute() {
           : {}),
         ...(recommended?.estimatedMinutes != null
           ? { estimatedMinutes: String(recommended.estimatedMinutes) }
+          : {}),
+        // C12b: the trip's encountered caution/avoid zones, for the
+        // inference-validation loop. Serialized (router params are
+        // strings); /trip-summary parses + maps category → label +
+        // report category. Omitted when none were encountered (the
+        // common clean-route case → no validation section renders).
+        ...(inferences.length > 0
+          ? { inferences: JSON.stringify(inferences) }
           : {}),
       },
     });
@@ -479,6 +535,10 @@ export default function EnRoute() {
   // ref reset keeps invariants tight.
   useEffect(() => {
     arrivalCleanedRef.current = false;
+    // C12b: a new route is a new trip — clear the accumulated
+    // inference set so the next arrival validates only that trip's
+    // encountered zones.
+    encounteredZonesRef.current = new Map();
   }, [recommended?.id]);
 
   // Hazards crossing threshold near the next turn — surfaces up to 2
