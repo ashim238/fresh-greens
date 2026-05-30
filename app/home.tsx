@@ -47,7 +47,13 @@ import {
   type ReportCategoryId,
 } from '../lib/api/community-reports';
 import { isRegularLocation } from '../lib/api/regular-destinations';
-import { getRoutesBetween, type Route, type RouteSource, routeColors } from '../lib/api/routes';
+import {
+  getRoutesBetween,
+  primaryRoadName,
+  type Route,
+  type RouteSource,
+  routeColors,
+} from '../lib/api/routes';
 import {
   getZonesForRegion,
   type Coordinate,
@@ -287,6 +293,13 @@ export default function Home() {
   // Recommended route is the one we explain in the bottom sheet. May be
   // undefined briefly on first render before the fetch completes.
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // The primary road the recommended route travels (longest named
+  // step). This is what the "Via" line should surface — the main road
+  // you take to get there — NOT the destination, which already sits in
+  // the search bar above. Null when the source returned step-less or
+  // unnamed geometry (mock routes, some OSRM responses).
+  const viaRoad = primaryRoadName(recommended?.steps);
 
   // Arrival daylight band — sighted users see this via the daylight
   // strip's sun/moon glyphs and the polyline gradient ending in
@@ -1716,20 +1729,30 @@ export default function Home() {
             Via + daylight share a row — both secondary context. The
             via label flexes to fill the left column, daylight strip
             anchors the right at its fixed 96pt width.
-            Destination underline is reserved for *recurring*
-            destinations (a save-as-home/work invitation) — gated on
-            `isRegularDestination`, hard-coded false until feat/
-            recent-trips lands a real trip-frequency signal.
+
+            "Via" surfaces the *main road* the recommended route takes
+            (the longest named step), the Google/Waze convention — the
+            destination already lives in the search bar above, so
+            repeating it here is redundant. We fall back to the
+            destination name only when the route source returned no
+            named geometry (mock / step-less routes).
+
+            Destination underline (the recurring "save as home/work"
+            invitation, gated on `isRegularDestination`) renders ONLY in
+            that no-road fallback — i.e. only when the line genuinely
+            shows the destination. A road name is never underlined. The
+            underline's real persistent home is the destination display
+            itself; that lands with the route-preview redesign.
           */}
           <View style={styles.routeViaRow}>
             <Text
               style={[
                 styles.routeViaLabel,
-                isRegularDestination && styles.destination,
+                isRegularDestination && !viaRoad && styles.destination,
               ]}
               numberOfLines={1}
             >
-              Via {params.destName ?? 'your destination'}
+              Via {viaRoad ?? params.destName ?? 'your destination'}
             </Text>
             {/*
               Daylight strip — paired with the via line per Figma.

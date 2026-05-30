@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/via-shows-road (2026-05-30)
+
+User-reported bug: the /home route-preview "Via …" line showed the *destination* name (`Via {destName}`), not the road you take to get there. Fixed by plumbing `RouteStep.name` through the OSRM/Mapbox parsers and surfacing the route's primary road. Two things worth keeping (one a code-reviewer NIT I took rather than deferred).
+
+- **"Via {road}" must sum step distance *per road name*, not pick the single longest step.** First draft of `primaryRoadName` returned the named step with the greatest `distanceMeters`. But OSRM/Mapbox split one continuous road into several steps across interchanges ("I-580 W" arrives as 3km + 3km + 3km), so a route mostly driven on a highway-split-into-segments would lose to a single uninterrupted side-street step — surfacing the wrong "main road." Fix: reduce into a `Map<name, summedDistance>` and pick the max. Worth keeping: when a label is meant to name "the dominant X across a sequence," and the API fragments X into multiple records, aggregate by identity before ranking — longest-single-record is a tempting proxy that picks the wrong winner exactly when the dominant thing is the fragmented one.
+
+- **When you fix a misplaced affordance, gate its visual on the *correct* condition rather than deleting it.** The recurring-destination underline (the freshgreen "save as home/work" invitation, gated on `isRegularDestination`) was living on the Via line *because* Via wrongly showed the destination. Once Via shows a road, underlining it is wrong — but the C12c feature had just shipped, so deleting the underline outright would strand a day-old feature. Resolution: gate it `isRegularDestination && !viaRoad` — it now renders only in the no-road fallback, where the line genuinely shows the destination, and is correct there; the data wiring stays intact for the route-preview redesign to give it a permanent home. Worth keeping: a just-shipped feature riding on a buggy host element isn't dead when you fix the host — re-gate it to the narrow case where it's still correct, and leave a comment pointing at where it should ultimately live. Deleting reads as a regression; re-gating preserves the invariant.
+
+---
+
 ## perf/long-route-detail-scaling — A20a (2026-05-29)
 
 Fixed a hard freeze: previewing a ~2300km route (Amsterdam→Granada) on /home locked the JS thread so the "Go" button stopped responding. Two non-obvious things worth keeping (one caught at code-reviewer pre-merge).

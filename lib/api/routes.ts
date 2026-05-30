@@ -89,6 +89,10 @@ export type RouteStep = {
   maneuverLocation: Coordinate;
   /** Coarse classifier for icon dispatch + instruction templating. */
   kind: ManeuverKind;
+  /** Street/road name for this step (e.g. "I-580 W", "Telegraph Ave").
+      Undefined for unnamed segments (slip roads, service roads) and for
+      step-less routes. Drives the /home route-preview "Via {road}". */
+  name?: string;
   /** Lane layout for the maneuver. Mapbox-sourced only; OSRM/cache/
       mock steps don't have lane data. */
   lanes?: Lane[];
@@ -618,6 +622,39 @@ function parseOSRMRoute(osrmRoute: OSRMRoute, index: number): Route {
   };
 }
 
+/**
+ * The route's primary road — the road covering the most *cumulative*
+ * distance. This is what "Via {road}" on the /home route preview should
+ * surface (the bug it replaces showed the *destination* name there).
+ *
+ * We sum distance per road name rather than picking the single longest
+ * step: OSRM/Mapbox split one continuous road into several steps across
+ * interchanges (e.g. "I-580 W" arrives as 3km + 3km + 3km), so the
+ * longest-single-step heuristic would let an uninterrupted side street
+ * outweigh the highway the trip is actually mostly driven on. Summing
+ * by name matches the "main road you take" intent.
+ *
+ * Returns null when no step carries a name: step-less preview/mock
+ * routes, or a route made entirely of unnamed segments.
+ */
+export function primaryRoadName(steps: RouteStep[] | undefined): string | null {
+  if (!steps || steps.length === 0) return null;
+  const byName = new Map<string, number>();
+  for (const s of steps) {
+    if (!s.name) continue;
+    byName.set(s.name, (byName.get(s.name) ?? 0) + s.distanceMeters);
+  }
+  let bestName: string | null = null;
+  let bestDistance = -1;
+  for (const [name, distance] of byName) {
+    if (distance > bestDistance) {
+      bestName = name;
+      bestDistance = distance;
+    }
+  }
+  return bestName;
+}
+
 function parseOSRMStep(s: OSRMStep): RouteStep | null {
   // Defensive guard: malformed OSRM responses (rare but possible from
   // the public demo server) would crash the downstream destructure.
@@ -633,6 +670,7 @@ function parseOSRMStep(s: OSRMStep): RouteStep | null {
       longitude: s.maneuver.location[0],
     },
     kind,
+    name: s.name || undefined,
   };
 }
 
@@ -712,6 +750,7 @@ function parseMapboxStep(step: any): RouteStep | null {
       longitude: step.maneuver.location[0],
     },
     kind,
+    name: step.name || undefined,
     lanes,
   };
 }
