@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/route-preview-redesign + cloud-aware-daylight (2026-05-30)
+
+Subagent-driven build of the route-preview card redesign (destination title + hero/arrival + tap-to-toggle regular) and cloud-aware daylight. Two gotchas worth keeping (both caught by the per-phase code-reviewer / by an implementer reading the real code).
+
+- **Repointing a render to a new data source can leave a dead `useMemo` that tsc AND eslint both miss — because the `useMemo(...)` call still "uses" the binding.** When the card's conditions line was rewired from `arrivalDaylightLabel` (a useMemo) to a new `arrivalLightLabel(...)` path, the old useMemo was left orphaned with zero consumers — and it silently duplicated work (a second `gradientSegments(recommended)` call every render). Neither tsc (the const is "read" by the memo) nor no-unused-vars flagged it. Worth keeping: tsc-clean ≠ dead-code-free. When you repoint a consumer to a new source, grep the OLD symbol's name across the file; if the only hit is its own definition, delete it. Hooks (`useMemo`/`useCallback`) are where dead values hide from the linter.
+
+- **Before threading a new optional param into an existing function, read its ACTUAL signature — don't trust the call sites.** Every call site read `gradientSegments(route)`, so the plan said "add cloud as the 2nd arg." The function actually had a *defaulted* middle param: `gradientSegments(route, departureTime: Date = new Date(), cloudCoverPct?)`. Adding cloud as the "2nd" arg would have put a number in the `Date` slot. tsc would have caught it (Date vs number), but only after a wasted implement→fail round-trip; the implementer surfacing the real signature first avoided it. Worth keeping: call sites hide defaulted/optional params. A new positional param goes after ALL existing ones — confirm the full current signature, and prefer passing `undefined` explicitly for skipped middle params (`fn(a, undefined, newArg)`) so intent is legible.
+
 ## fix/sos-setup-skip-overlay (2026-05-30)
 
 User-reported: tapping SOS with no trusted contact set, then "Skip for now" on the trusted-contact-setup screen, dropped an *overlaying sheet of Home* instead of returning to the SOS screen. One keepable gotcha.
