@@ -6,7 +6,7 @@ import { CloudSun } from 'phosphor-react-native/src/icons/CloudSun';
 import { Star } from 'phosphor-react-native/src/icons/Star';
 import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, LayoutAnimation, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import CommunitySignalGlyph from '../assets/illustrations/trustedbycommunity-empty.svg';
 // Bespoke category glyphs — multi-color illustrative SVGs that
@@ -140,6 +140,33 @@ export function HomeBrowseSheet({
   // here — the next onLayout pass for that row will fire the scroll.
   const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null);
 
+  // Scroll-spy: which chip's section is currently pinned under the chip
+  // strip. `null` = the "Browse" chip (the top region — trusted +
+  // open-now, neither of which has a chip). Updated on scroll, and set
+  // optimistically on tap for instant feedback.
+  const [activeCategory, setActiveCategory] =
+    useState<RecommendationCategory | null>(null);
+
+  // On scroll, the active chip is the DEEPEST category row whose header
+  // has scrolled up to/under the pinned chip strip. Rows without a chip
+  // (open-now) aren't anchors, so the active chip holds at "Browse"
+  // while the user scrolls through the top region. `setActiveCategory`
+  // bails on an unchanged value, so this only re-renders the sheet on a
+  // section-boundary crossing (~6× per full scroll), not per frame.
+  function handleSheetScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const spyLine =
+      e.nativeEvent.contentOffset.y + stickyChipsHeightRef.current;
+    let active: RecommendationCategory | null = null;
+    for (const cat of CATEGORY_ORDER) {
+      const y = rowYsRef.current[categoryToRowKey(cat)];
+      // Rows are laid out in CATEGORY_ORDER, so Ys increase — stop at
+      // the first row that hasn't scrolled past the spy line yet.
+      if (y == null || y > spyLine) break;
+      active = cat;
+    }
+    setActiveCategory((prev) => (prev === active ? prev : active));
+  }
+
   // Clear the cached row Ys when the sheet collapses — the rows
   // unmount, and their cached Y values are now stale (next expand
   // could lay them out at different offsets if sheet content
@@ -171,6 +198,9 @@ export function HomeBrowseSheet({
   function jumpToCategory(category: RecommendationCategory | null) {
     // Browse chip (null) → top of the sheet. Category chip → its row.
     const key = category ? categoryToRowKey(category) : 'trusted-community';
+    // Optimistic active state — light up the tapped chip immediately
+    // rather than waiting for the scroll-spy to catch up mid-animation.
+    setActiveCategory(category);
     Haptics.selectionAsync().catch(() => {});
     // Try the cached Y first regardless of collapsed state — covers
     // the case where rows are already laid out (e.g. user collapsed
@@ -240,6 +270,8 @@ export function HomeBrowseSheet({
       showsVerticalScrollIndicator={false}
       nestedScrollEnabled
       stickyHeaderIndices={[1]}
+      onScroll={handleSheetScroll}
+      scrollEventThrottle={16}
     >
       <View style={styles.headers}>
         <Text style={styles.eyebrow}>{eyebrowCopy}</Text>
@@ -274,7 +306,7 @@ export function HomeBrowseSheet({
           stickyChipsHeightRef.current = e.nativeEvent.layout.height;
         }}
       >
-        <CategoryChips onJump={jumpToCategory} />
+        <CategoryChips onJump={jumpToCategory} activeCategory={activeCategory} />
       </View>
 
       <Pressable
@@ -697,17 +729,23 @@ const CATEGORY_ORDER: RecommendationCategory[] = [
 ];
 
 /**
- * Chip row — each chip is a jump-link to its row in the multi-row
- * stack below. No persistent selection state: the chips aren't a
- * filter (no "current" category), they're a table of contents.
- * "Browse" chip scrolls back to the top (the Trusted-by-your-community
- * row); category chips scroll to their respective row.
+ * Chip row — a scroll-spy table of contents. Each chip jumps to its row
+ * in the multi-row stack below; `activeCategory` (driven by the sheet's
+ * scroll position) highlights the chip for the section currently pinned
+ * under the strip, so the row doubles as a "you are here" indicator
+ * (Apple Maps category-row pattern). `null` activates the "Browse" chip
+ * (the top region: Trusted-by-your-community + Open Now, which have no
+ * chips of their own). A static select-on-tap was avoided deliberately —
+ * it would go stale the moment the user scrolls past the tapped section.
  */
 function CategoryChips({
   onJump,
+  activeCategory,
 }: {
   onJump: (next: RecommendationCategory | null) => void;
+  activeCategory: RecommendationCategory | null;
 }) {
+  const browseActive = activeCategory === null;
   return (
     <ScrollView
       horizontal
@@ -719,22 +757,39 @@ function CategoryChips({
         accessibilityRole="button"
         accessibilityLabel="Browse"
         accessibilityHint="Scrolls to the top of the recommendations"
-        style={({ pressed }) => [styles.chip, pressed && pressedDim]}
+        accessibilityState={{ selected: browseActive }}
+        style={({ pressed }) => [
+          styles.chip,
+          browseActive && styles.chipActive,
+          pressed && pressedDim,
+        ]}
       >
-        <Text style={styles.chipText}>Browse</Text>
+        <Text style={[styles.chipText, browseActive && styles.chipTextActive]}>
+          Browse
+        </Text>
       </Pressable>
-      {CATEGORY_ORDER.map((cat) => (
-        <Pressable
-          key={cat}
-          onPress={() => onJump(cat)}
-          accessibilityRole="button"
-          accessibilityLabel={CATEGORY_LABELS[cat]}
-          accessibilityHint="Scrolls to that section"
-          style={({ pressed }) => [styles.chip, pressed && pressedDim]}
-        >
-          <Text style={styles.chipText}>{CATEGORY_LABELS[cat]}</Text>
-        </Pressable>
-      ))}
+      {CATEGORY_ORDER.map((cat) => {
+        const isActive = activeCategory === cat;
+        return (
+          <Pressable
+            key={cat}
+            onPress={() => onJump(cat)}
+            accessibilityRole="button"
+            accessibilityLabel={CATEGORY_LABELS[cat]}
+            accessibilityHint="Scrolls to that section"
+            accessibilityState={{ selected: isActive }}
+            style={({ pressed }) => [
+              styles.chip,
+              isActive && styles.chipActive,
+              pressed && pressedDim,
+            ]}
+          >
+            <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+              {CATEGORY_LABELS[cat]}
+            </Text>
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -1237,6 +1292,17 @@ const styles = StyleSheet.create({
   chipText: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
+  },
+  // Scroll-spy active chip — fadedgreen fill + burntgreen text, the
+  // app's existing affirmative-green register (same as the "Open" pill).
+  // Brand green, NOT a reserved safety color. Only the fill + text COLOR
+  // change (no weight bump) so the chip can't change width and reflow
+  // the row as the active chip moves during scroll.
+  chipActive: {
+    backgroundColor: colors.fadedgreen,
+  },
+  chipTextActive: {
+    color: colors.burntgreen,
   },
   sectionRow: {
     flexDirection: 'row',
