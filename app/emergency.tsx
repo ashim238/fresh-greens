@@ -290,7 +290,7 @@ export default function Emergency() {
                 accessibilityLabel={
                   mode === 'countdown'
                     ? `Cancel — calling ${contactName} in ${countdownSec} seconds`
-                    : `Emergency. Tap to call ${contactName}. Press and hold to reach 911.`
+                    : `Emergency. Tap to call ${contactName}. For 911, use the Emergency services button below.`
                 }
                 style={({ pressed }) => [
                   styles.sosButton,
@@ -445,10 +445,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.red,
   },
   sosLabel: {
-    fontWeight: '800',
-    fontSize: 56,
-    lineHeight: 60,
-    letterSpacing: 2,
+    ...typography.sosCountdown,
     // White on the navy disc (was navy on the old white disc). Stays
     // legible whether it sits over navy (idle/countdown) or over the
     // rising red fill (911 hold).
@@ -522,7 +519,11 @@ const styles = StyleSheet.create({
     ...shadows.e2,
   },
   call911Text: {
-    ...typography.bodyEmphasized,
+    // title3Emphasized (20pt) not bodyEmphasized (17pt): white on the
+    // system-red button is 3.55:1 — fails AA for normal text but clears
+    // the 3:1 large-text bar at >=18pt. Bigger also suits the single most
+    // consequential action on the screen.
+    ...typography.title3Emphasized,
     color: colors.white,
   },
   cancelLink: {

@@ -1703,8 +1703,7 @@ export default function Home() {
             accessibilityLabel={`${params.destName ?? 'Destination'}. ${
               isRegularDestination ? 'Saved as a regular' : 'Tap to save as a regular'
             }.`}
-            hitSlop={8}
-            style={({ pressed }) => pressed && pressedDim}
+            style={({ pressed }) => [styles.routeDestTitleHit, pressed && pressedDim]}
           >
             <Text
               style={[styles.routeDestTitle, isRegularDestination && styles.destination]}
@@ -1804,7 +1803,13 @@ export default function Home() {
           <Text
             style={styles.routeConditionsCaption}
             accessibilityLabel={
-              arrivalLabel ? `Safest route, ${arrivalLabel}.` : 'Safest route with current conditions.'
+              arrivalLabel || arrivalTime
+                ? `Safest route. ${
+                    arrivalLabel
+                      ? arrivalLabel.charAt(0).toUpperCase() + arrivalLabel.slice(1)
+                      : 'Arriving'
+                  }${arrivalTime ? ` at ${arrivalTime}` : ''}.`
+                : 'Safest route with current conditions.'
             }
           >
             {arrivalLabel ? `Safest route · ${arrivalLabel}.` : 'Safest route with current conditions.'}
@@ -2307,6 +2312,14 @@ const styles = StyleSheet.create({
   // inter-row gap. Children keep their own 24pt horizontal gutter.
   routeSummaryBlock: {
     gap: 4,
+  },
+  // Wraps the destination-title Text so the tappable save-as-regular
+  // affordance meets the 44pt painted floor — the 20pt title alone is
+  // ~25pt tall, and .cursorrules forbids hitSlop as the compliance
+  // mechanism for a standalone CTA. minHeight + center, not hitSlop.
+  routeDestTitleHit: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   // Destination title — card title + tappable save-as-regular toggle.
   routeDestTitle: {
