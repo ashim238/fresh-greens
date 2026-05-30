@@ -15,13 +15,18 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
-import { EmptyState as EmptyStateCard } from '../components/StateCard';
+import {
+  EmptyState as EmptyStateCard,
+  ErrorState,
+  LoadingState,
+} from '../components/StateCard';
 import { useRecordings } from '../hooks/useRecordings';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -40,7 +45,7 @@ import { typography } from '../theme/typography';
  */
 export default function Recordings() {
   const router = useRouter();
-  const { recordings, loading, removeRecording } = useRecordings();
+  const { recordings, loading, error, removeRecording } = useRecordings();
   const [playingId, setPlayingId] = useState<string | null>(null);
   // In-app destructive confirm per Figma 1133:12674. Built as an
   // overlay <Modal> rather than `Alert.alert` so the body can render
@@ -140,7 +145,15 @@ export default function Recordings() {
     setJustDeletedAll(true);
   }
 
-  const showEmptyState = !loading && recordings.length === 0;
+  // R1/R2 (PR K): explicit state ladder — loading → error → empty →
+  // list. Previously only `showEmptyState` existed, so the loading and
+  // error windows both fell through to a blank ScrollView. `hasRecordings`
+  // also fixes a latent bug: the delete-all bar was gated on
+  // `!showEmptyState`, which was true DURING loading (recordings empty
+  // but loading still true) — so the destructive button could render
+  // over a blank loading screen.
+  const showEmptyState = !loading && !error && recordings.length === 0;
+  const hasRecordings = !loading && !error && recordings.length > 0;
 
   return (
     <View style={styles.root}>
@@ -172,7 +185,11 @@ export default function Recordings() {
             <Text style={styles.pageTitle}>Recordings</Text>
           </View>
 
-          {showEmptyState ? (
+          {loading ? (
+            <LoadingState text="Loading recordings…" />
+          ) : error ? (
+            <ErrorState text="We couldn’t load your recordings. Reopen this screen to try again." />
+          ) : showEmptyState ? (
             <EmptyStateCard
               icon={
                 <Microphone size={56} color={colors.freshgreen} weight="duotone" />
@@ -204,7 +221,7 @@ export default function Recordings() {
           )}
         </ScrollView>
 
-        {!showEmptyState && (
+        {hasRecordings && (
           <View style={styles.deleteAllWrap}>
             <Button
               type="primary"
@@ -259,13 +276,20 @@ export default function Recordings() {
               disabled={isDeletingAll}
               accessibilityRole="button"
               accessibilityLabel="Cancel"
-              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+              // R7: the tap target is a transparent 44pt surface; the
+              // visible affordance is the 32pt fillsTertiary circle
+              // nested inside it. This keeps the HIG 44pt touch floor
+              // (was 32pt + hitSlop, the exact paper-over §4.3 flags)
+              // WITHOUT growing the gray circle to a weight that
+              // competes with the title.
               style={({ pressed }) => [
-                styles.confirmCloseBtn,
+                styles.confirmCloseHit,
                 pressed && pressedDim,
               ]}
             >
-              <X size={20} color={colors.labelSecondary} weight="bold" />
+              <View style={styles.confirmCloseCircle}>
+                <X size={20} color={colors.labelSecondary} weight="bold" />
+              </View>
             </Pressable>
             <Text style={styles.confirmTitle}>
               Are you sure you want to delete all recordings?
@@ -304,6 +328,15 @@ function RecordingCard({
   onDelete: () => void;
 }) {
   const PlayPauseIcon = isPlaying ? Pause : Play;
+  // R6: compose the timestamp + armed-status + duration into a single
+  // VoiceOver label so the text stack is ONE focus stop, not two. The
+  // play/delete buttons carry the timestamp but NOT the duration or
+  // armed status, so collapsing the text to a bare role="none" would
+  // drop that info — instead we make the stack one accessible node
+  // that announces everything. Net per row: 3 stops (play · info ·
+  // delete), down from 4, with no information lost.
+  const armedLabel = recording.armed != null ? `${formatArmed(recording.armed)}, ` : '';
+  const rowInfoLabel = `${formatTimestamp(recording.createdAt)}, ${armedLabel}${formatDuration(recording.durationMs)}`;
   return (
     <View style={[styles.card, isActive && styles.cardActive]}>
       <Pressable
@@ -316,12 +349,15 @@ function RecordingCard({
             : `Play ${formatTimestamp(recording.createdAt)}`
         }
         accessibilityState={{ selected: isActive }}
-        hitSlop={8}
+        // R4: hitSlop dropped — playButton is a 56pt painted surface,
+        // already well above the 44pt floor. The 8pt slop extended the
+        // hit region toward the adjacent delete button in a dense row,
+        // risking an accidental delete-instead-of-play.
       >
         <PlayPauseIcon size={24} color={colors.white} weight="fill" />
       </Pressable>
 
-      <View style={styles.cardTextStack}>
+      <View style={styles.cardTextStack} accessible accessibilityLabel={rowInfoLabel}>
         <Text style={styles.cardTimestamp}>
           {formatTimestamp(recording.createdAt)}
         </Text>
@@ -390,8 +426,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   headerBackBtn: {
     width: 44,
@@ -403,23 +439,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 16,
-    gap: 32,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.xl,
   },
   // Title row — Microphone icon + "Recordings" title on one line per
   // Figma 1133:12468. Replaces v1's standalone pageTitle.
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
   },
   pageTitle: {
     ...typography.title2Emphasized,
     color: colors.black,
   },
   recordingsList: {
+    // Intentional off-ramp value: 12 sits between spacing.sm (8) and
+    // spacing.md (16). Kept numeric per theme/spacing.ts's "prefer the
+    // closest step, but tuned values may stay numeric" guidance — 8
+    // crowds the cards, 16 spreads them too far for a dense list.
     gap: 12,
   },
   // Recording card per Figma 1133:12483 — light gray Backgrounds/
@@ -428,9 +468,9 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderRadius: 16,
     backgroundColor: colors.systemGroupedBackground,
     borderWidth: 1,
@@ -454,15 +494,23 @@ const styles = StyleSheet.create({
   },
   cardTextStack: {
     flex: 1,
-    gap: 8,
+    gap: spacing.sm,
   },
   cardTimestamp: {
     ...typography.bodyEmphasized,
     color: colors.black,
+    // R5: tabular-nums so the timestamp ("May 28 · 3:42 PM") digits
+    // hold a fixed column width across rows — proportional digits
+    // shift the "·" separator and stagger the stack between rows.
+    fontVariant: ['tabular-nums'],
   },
   cardSecondary: {
     ...typography.subheadlineRegular,
     color: colors.labelTertiary,
+    // R5: duration strings ("0:12" vs "10:42") in the same column need
+    // fixed-width digits so the colon stays aligned row-to-row. Same
+    // convention as the /en-route ETA + HomeBrowseSheet rating values.
+    fontVariant: ['tabular-nums'],
   },
   // 44pt painted surface per HIG. Was 32pt + hitSlop:12 which met
   // the touch-area floor but violated the cursorrules "visual on the
@@ -477,9 +525,9 @@ const styles = StyleSheet.create({
   // Delete-all bar pinned at the bottom of the SafeArea — outside the
   // ScrollView so the button stays reachable regardless of list length.
   deleteAllWrap: {
-    paddingHorizontal: 32,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   // Stretch so the button adapts to device width — the prior
   // hardcoded 326 overflowed iPhone SE (320pt logical width minus
@@ -494,7 +542,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.modalScrim,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
   },
   // Centered card. 28pt radius matches the project's "sheet/card"
   // surface convention (ReportDetailCard, placement pin frame).
@@ -505,23 +553,33 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     backgroundColor: colors.white,
     borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 24,
-    gap: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
     ...shadows.e2,
   },
-  confirmCloseBtn: {
+  // R7: transparent 44pt tap target. top/right are 10 (not a spacing
+  // token — a geometry offset) so the nested 32pt circle's center
+  // lands at the same point the old 32pt circle occupied (top/right
+  // 16): 10 + 22 (half of 44) = 32 = 16 + 16 (half of the old 32).
+  confirmCloseHit: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 10,
+    right: 10,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // The visible affordance — a 32pt circle, unchanged in weight from
+  // before R7. Subtle iOS-style fill so the X reads as tappable
+  // against the white card. fillsTertiary (12% gray) signals
+  // "tappable" without competing with the title for attention.
+  confirmCloseCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    // Subtle iOS-style fill so the X reads as an affordance against
-    // the white card. fillsTertiary (12% gray) is enough contrast to
-    // signal "tappable" without competing with the title for
-    // attention.
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -531,7 +589,7 @@ const styles = StyleSheet.create({
     color: colors.black,
     // Reserve room under the absolutely-positioned X — without this
     // the title would visually collide with the close target.
-    paddingRight: 32,
+    paddingRight: spacing.xl,
   },
   confirmBody: {
     ...typography.bodyRegular,
@@ -546,6 +604,6 @@ const styles = StyleSheet.create({
   },
   confirmActionBtn: {
     alignSelf: 'stretch',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
 });

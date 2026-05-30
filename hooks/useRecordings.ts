@@ -26,14 +26,28 @@ import {
 export function useRecordings() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
+  // R2 (PR K): surface a load failure so /recordings can render an
+  // ErrorState instead of hanging on a blank screen forever. Without
+  // the catch, a throwing getRecordings() (corrupt store, quota,
+  // cold-simulator wipe) left `loading` pinned true and the UI empty
+  // with no recovery path. Additive to the return shape — existing
+  // consumers (safety-settings, pulled-over) don't destructure it.
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const stored = await getRecordings();
-      if (!cancelled) {
-        setRecordings(stored);
-        setLoading(false);
+      try {
+        const stored = await getRecordings();
+        if (!cancelled) {
+          setRecordings(stored);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error(String(err)));
+          setLoading(false);
+        }
       }
     })();
     return () => {
@@ -61,5 +75,5 @@ export function useRecordings() {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  return { recordings, loading, addRecording, removeRecording };
+  return { recordings, loading, error, addRecording, removeRecording };
 }
