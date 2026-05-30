@@ -697,22 +697,19 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
     flex: 1,
   },
-  // "What we flag" — section header for the factor toggles. Uses the
-  // app's in-content section-header register (subheadlineEmphasized +
-  // black, same tier as the row labels) so it reads as a header, not
-  // fine print; the 16pt top gap separates it from the Show-zones row
-  // above, and a hairline rule reinforces the section break. Indented to
-  // the toggle label column (36 + 12, matching zoneInner's paddingLeft).
+  // "What we flag" — sub-header for the factor toggles. Deliberately a
+  // tier BELOW the "Zone Preferences" row label (subheadlineEmphasized
+  // black): footnoteEmphasized (13pt) + labelSecondary gray, so it reads
+  // as subordinate to the section it sits inside, while the bold weight +
+  // the 14pt top gap distinguish it from the regular-weight toggle labels
+  // below. No full-width rule — that read as a peer-section divider.
+  // Indented to the toggle label column (36 + 12).
   zoneGroupCaption: {
-    ...typography.subheadlineEmphasized,
-    color: colors.black,
+    ...typography.footnoteEmphasized,
+    color: colors.labelSecondary,
     paddingLeft: 36 + 12,
-    paddingRight: 12,
-    paddingTop: 16,
-    paddingBottom: 6,
-    marginTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.cardBorderSubtle,
+    paddingTop: 14,
+    paddingBottom: 4,
   },
   // Carousel — pinned outside the ScrollView, sits above Sign out.
   quickWrap: {
