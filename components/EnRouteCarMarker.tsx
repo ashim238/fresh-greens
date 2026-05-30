@@ -22,6 +22,14 @@ import EnRouteCurrentLocation from '../assets/illustrations/enroute-current-loca
  *
  * Anchored at center (the GPS coord sits at the car's middle).
  *
+ * **Frame must be square + large enough to contain the rotated art.**
+ * react-native-maps snapshots the marker to a bitmap sized to the
+ * frame's bounds. A tight 36×48 frame clipped the car's corners once
+ * it rotated to a heading (a 36×48 rect rotated 45° needs a ~60pt
+ * square to fit) — that's the "looks strange at an angle" artifact.
+ * The frame is a 64×64 square (> the ~60pt diagonal of the 36×48 art),
+ * with the SVG centered, so every rotation has room and never clips.
+ *
  * **`tracksViewChanges` lifecycle.** MapKit caches the marker as a
  * bitmap after first paint. Mounting with `tracksViewChanges={false}`
  * caused the SVG to snapshot empty (the `react-native-svg` subtree
@@ -71,9 +79,12 @@ export function EnRouteCarMarker({
 }
 
 const styles = StyleSheet.create({
+  // 64×64 square (> the ~60pt diagonal of the 36×48 car art) so the
+  // rotated SVG never clips against the snapshot bitmap's bounds at any
+  // heading. The SVG renders at its native 36×48, centered.
   frame: {
-    width: 36,
-    height: 48,
+    width: 64,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
   },

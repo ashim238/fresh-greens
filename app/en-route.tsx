@@ -1190,9 +1190,12 @@ export default function EnRoute() {
             // remounts the native Marker — iOS MapKit caches the
             // marker snapshot when `tracksViewChanges` is false, so
             // an in-place transform update wouldn't repaint. Rounding
-            // to whole degrees gates updates to ~360 per full turn,
-            // not one per GPS tick.
-            key={`car-${heading != null ? Math.round(heading) : 'n'}`}
+            // to the nearest 5° gates updates to ≤72 per full turn
+            // (was whole-degree → up to 360): far fewer remount/
+            // snapshot rebuilds, so rotation reads smoother and the
+            // marker doesn't flicker while turning. 5° is below the
+            // threshold a driver perceives as "wrong heading."
+            key={`car-${heading != null ? Math.round(heading / 5) * 5 : 'n'}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
             heading={heading}
