@@ -85,6 +85,7 @@ import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
+import { useWeather } from '../hooks/useWeather';
 
 /**
  * En-Route — active driving state.
@@ -296,6 +297,8 @@ export default function EnRoute() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const { weather } = useWeather(userLocation);
+  const cloudCoverPct = weather?.cloudCoverPct;
   // Current speed in mph, captured from the live GPS watch. Null until
   // the first position fix with a real speed value (iOS reports -1 or
   // null before motion is detected). Feeds the SpeedLimit sign's top
@@ -658,7 +661,7 @@ export default function EnRoute() {
       ];
       return ordered.flatMap((route) => {
         if (route.type === 'recommended') {
-          return gradientSegments(route).map((segment, idx) => (
+          return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
             <Polyline
               key={`${route.id}-seg-${idx}`}
               coordinates={segment.coordinates}
@@ -677,7 +680,7 @@ export default function EnRoute() {
         ];
       });
     },
-    [routes],
+    [routes, cloudCoverPct],
   );
 
   // Arrival clock time (now + remaining minutes), formatted as "8:30".

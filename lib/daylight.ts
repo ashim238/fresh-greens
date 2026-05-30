@@ -75,10 +75,14 @@ export const DAYLIGHT_DASH_PATTERN: Record<DaylightBand, number[] | undefined> =
  * @param departureTime — when the trip starts; defaults to now. Future-
  *   facing for the "Schedule for 7:38 AM" feature where users can pick
  *   a departure that maximizes daylight.
+ * @param cloudCoverPct — optional cloud cover 0–100; passed through to
+ *   colorForMinutesToSunset so overcast arrivals render dimmer. Omitting
+ *   it leaves segment colors identical to the pre-cloud behavior.
  */
 export function gradientSegments(
   route: Route,
   departureTime: Date = new Date(),
+  cloudCoverPct?: number,
 ): RouteSegment[] {
   const points = route.coordinates;
   if (points.length < 2) return [];
@@ -150,7 +154,7 @@ export function gradientSegments(
 
     segments.push({
       coordinates: segmentCoords,
-      color: colorForMinutesToSunset(minutesToSunset),
+      color: colorForMinutesToSunset(minutesToSunset, cloudCoverPct),
       band: bandForMinutesToSunset(minutesToSunset),
     });
   }
@@ -209,6 +213,27 @@ export function arrivalLightLabel(
   }
 }
 
+/** Max desaturation at 100% cloud — capped so it never goes fully gray. */
+const MAX_CLOUD_DESATURATION = 0.65;
+
+/** Blend a #RRGGBB hex toward its luminance-gray by `amount` (0..1). */
+function desaturateHex(hex: string, amount: number): string {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return hex;
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  const mix = (c: number) => Math.round(c + (gray - c) * amount);
+  const h = (c: number) => mix(c).toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+
+/** Cloud % → desaturation amount, capped. Exported (the card strip uses it directly). */
+export function cloudDesaturate(hex: string, cloudCoverPct?: number): string {
+  if (cloudCoverPct == null || cloudCoverPct <= 0) return hex;
+  const amount = (Math.min(cloudCoverPct, 100) / 100) * MAX_CLOUD_DESATURATION;
+  return desaturateHex(hex, amount);
+}
+
 /**
  * Maps minutes-to-sunset to a daylight color sampled from the
  * orange → mauve → indigo gradient that the bottom-sheet daylight
@@ -226,20 +251,27 @@ export function arrivalLightLabel(
  *   negative           → past sunset, night (indigo)
  *
  * Falls back to mid-afternoon orange if SunCalc returned NaN (polar
- * day/night edge case at extreme latitudes).
+ * day/night edge case at extreme latitudes). The NaN fallback is also
+ * routed through cloudDesaturate — an overcast polar-day sky is still
+ * dimmer than a clear one.
+ *
+ * @param cloudCoverPct — optional cloud cover 0–100; omitting it or
+ *   passing 0 preserves the original (no-cloud) color exactly.
  */
-function colorForMinutesToSunset(minutes: number): string {
+function colorForMinutesToSunset(minutes: number, cloudCoverPct?: number): string {
   // Anchors come from the theme (daylightDawn / daylightDusk /
   // daylightNight) so the polyline and the /home legend reference one
   // source. The two blend stops (#E19551, #784961) are mathematical
   // interpolations between the anchors and stay inline — they exist
   // only to smooth the gradient, not as named design colors.
-  if (Number.isNaN(minutes)) return colors.daylightDawn; // safe default — full daylight
-  if (minutes > 90) return colors.daylightDawn;          // strip start
-  if (minutes > 60) return '#E19551';                    // dawn → dusk blend
-  if (minutes > 30) return colors.daylightDusk;          // strip middle
-  if (minutes > 0) return '#784961';                     // dusk → night blend
-  return colors.daylightNight;                           // strip end — past sunset
+  let base: string;
+  if (Number.isNaN(minutes)) base = colors.daylightDawn; // safe default — full daylight
+  else if (minutes > 90) base = colors.daylightDawn;     // strip start
+  else if (minutes > 60) base = '#E19551';               // dawn → dusk blend
+  else if (minutes > 30) base = colors.daylightDusk;     // strip middle
+  else if (minutes > 0) base = '#784961';                // dusk → night blend
+  else base = colors.daylightNight;                      // strip end — past sunset
+  return cloudDesaturate(base, cloudCoverPct);
 }
 
 /**

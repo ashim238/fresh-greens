@@ -41,6 +41,7 @@ import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
+import { useWeather } from '../hooks/useWeather';
 import {
   getCommunityReportsAsZones,
   removeCommunityReport,
@@ -64,6 +65,7 @@ import {
 import { clusterPointZones } from '../lib/clustering';
 import {
   arrivalLightLabel,
+  cloudDesaturate,
   DAYLIGHT_DASH_PATTERN,
   gradientSegments,
   suggestedDepartureForDaylight,
@@ -163,6 +165,11 @@ export default function Home() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  // Weather — drives cloud-aware daylight strip, route gradient, and
+  // conditions tail. `cloudCoverPct` is undefined until the first fix
+  // and weather fetch resolve; all consumers accept `number | undefined`.
+  const { weather } = useWeather(userLocation);
+  const cloudCoverPct = weather?.cloudCoverPct;
   // One-shot guard: animate the map to the user's first GPS fix.
   // Without this, `initialRegion` (Mobile, AL) stays parked on the
   // viewport until the user does something that calls
@@ -318,8 +325,7 @@ export default function Home() {
   const arrivalBand = arrivalSegs.length
     ? arrivalSegs[arrivalSegs.length - 1].band
     : null;
-  // Phase A: daylight-only (no cloud yet). A later task passes cloudCoverPct here.
-  const arrivalLabel = arrivalBand ? arrivalLightLabel(arrivalBand) : null;
+  const arrivalLabel = arrivalBand ? arrivalLightLabel(arrivalBand, cloudCoverPct) : null;
 
   // Route polylines memoized so unrelated re-renders don't rebuild
   // them on the native side. Same pattern in /en-route.
@@ -347,7 +353,7 @@ export default function Home() {
       ];
       return ordered.flatMap((route) => {
         if (route.type === 'recommended') {
-          return gradientSegments(route).map((segment, idx) => (
+          return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
             <Polyline
               key={`${route.id}-seg-${idx}`}
               coordinates={segment.coordinates}
@@ -374,7 +380,7 @@ export default function Home() {
         ];
       });
     },
-    [routes],
+    [routes, cloudCoverPct],
   );
 
   // PanResponder for the bottom-sheet drag handle in browse mode.
@@ -1765,9 +1771,9 @@ export default function Home() {
             >
               <LinearGradient
                 colors={[
-                  colors.daylightDawn,
-                  colors.daylightDusk,
-                  colors.daylightNight,
+                  cloudDesaturate(colors.daylightDawn, cloudCoverPct),
+                  cloudDesaturate(colors.daylightDusk, cloudCoverPct),
+                  cloudDesaturate(colors.daylightNight, cloudCoverPct),
                 ]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}

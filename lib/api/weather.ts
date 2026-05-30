@@ -25,6 +25,8 @@ export type CurrentWeather = {
   drivingCondition: DrivingCondition;
   /** Human label for the driving condition (UI-ready). */
   drivingLabel: string;
+  /** Cloud cover percentage (0–100). */
+  cloudCoverPct: number;
 };
 
 type OpenMeteoResponse = {
@@ -33,6 +35,7 @@ type OpenMeteoResponse = {
     precipitation?: number;
     wind_speed_10m?: number;
     visibility?: number;
+    cloud_cover?: number;
   };
 };
 
@@ -88,7 +91,7 @@ export async function getCurrentWeather(
   const params = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lng),
-    current: 'temperature_2m,precipitation,wind_speed_10m,visibility',
+    current: 'temperature_2m,precipitation,wind_speed_10m,visibility,cloud_cover',
     temperature_unit: 'fahrenheit',
     wind_speed_unit: 'mph',
   });
@@ -110,6 +113,7 @@ export async function getCurrentWeather(
       temperatureF: Math.round(c.temperature_2m),
       drivingCondition,
       drivingLabel: labelFor(drivingCondition),
+      cloudCoverPct: c.cloud_cover ?? 0,
     };
   } catch {
     return null;
