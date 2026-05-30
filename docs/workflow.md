@@ -24,6 +24,8 @@ Most screens have decorative illustrations or assets that aren't worth recreatin
 
 Mark deferred items with a `TODO:` comment so they don't get lost.
 
+**Blast-radius check for shared changes.** For changes to shared components, theme tokens, or prop signatures, run `graphify affected "<symbol>"` to enumerate downstream callers up front. A new prop with 3 callers is a scoping decision (backward compat), not a code-reviewer finding. Caveat: edges are static-import only — Context consumers and render-prop composition are invisible to the tool, so confirm with grep when the API is context-driven.
+
 ## 4. Update theme if needed
 Before writing a hex color, font size, or spacing value inline — check `theme/`. If it doesn't exist, add it to the right file in `theme/` first, then consume it from the screen. **Never inline a design value.**
 
@@ -79,16 +81,20 @@ git checkout main
 git pull --ff-only
 ```
 
+The locally-installed `post-commit` + `post-checkout` git hooks re-run `graphify update .` automatically, so the codebase graph stays current without a manual step. If a graphify result feels suspiciously sparse, sanity-check with `head -1 graphify-out/GRAPH_REPORT.md` — the title carries the build date.
+
 ## 11. Add a learnings entry
 If this PR taught you something — a new RN quirk, a layout trick, a tooling gotcha — add a one-liner to `docs/learnings.md`. Future-you reading them weekly is how you check that the work is sticking.
 
 Bias toward writing one. The check is "did something here take two tries to get right, or surprise me at audit?" If yes, it earns an entry. Standard refactors, copy changes, and mechanical token swaps don't unless they uncovered a recurring habit worth naming. Append before the audit pass (Step 13) so a future "no learning, skipped" decision is conscious rather than accidental. Format mirrors the existing entries: `## branch-name (YYYY-MM-DD)` heading + 1–3 bullets each ending with "Worth keeping: <generalizable rule>" so the entry transcends the specific PR.
 
+**Before writing, check for recurrence.** Run `fgq query "<short-seed>"` (NOT a sentence — the tokenizer is brittle on prose) against the merged graph to surface prior entries and chat-transcript context on the same surface. Recurrence → note in the existing entry rather than duplicating. Empty → fresh entry. Treat fgq chat/thesis nodes as memory-joggers, not fact-claims; verify against actual code or `docs/learnings.md` before citing.
+
 ## 12. Periodic Figma fidelity audit (every ~5 PRs, or after any heavy one)
 
 Visual drift compounds quietly. Every fifth PR — or earlier if the previous PR was structural (new screen, refactor, design-system change) — run a dedicated audit pass before starting the next feature:
 
-1. Branch `chore/figma-fidelity-audit-N` (incrementing `N` per audit).
+1. Branch `chore/figma-fidelity-audit-N` (incrementing `N` per audit). Source the screen list from `graphify-out/GRAPH_REPORT.md` community hubs (e.g. community 6 is the design-system + onboarding cluster) so the audit covers every shipped screen, not just the ones the auditor remembers. The Figma fetch + eyeball comparison still drives findings.
 2. For each shipped screen, pull its Figma node via `get_design_context` and diff against the implementation. Look for:
    - Token drift — inline hex/rgba/font sizes that should reference `theme/`.
    - Spacing drift — gap/padding values that no longer match Figma.
@@ -133,7 +139,7 @@ The default instinct for a subagent is to over-review. A tight brief beats a vag
 - Style nits in files the PR didn't touch
 - "Add tests" suggestions unless the change is a pure-function lib (no React Native test infra in this repo yet)
 
-**Brief template:** "Review the diff on branch X. Focus: cross-file consistency, stale comments, boundary inputs. Ignore: pre-existing missing-module TS errors, untouched files."
+**Brief template:** "Review the diff on branch X. Cross-file impact from graphify: `<paste output of `graphify affected <file>` for each non-test file in the diff>`. Focus: cross-file consistency, stale comments, boundary inputs. Ignore: pre-existing missing-module TS errors, untouched files."
 
 #### `mobile-ux-optimizer` — per-PR UI audit
 **Focus on:**
@@ -148,7 +154,7 @@ The default instinct for a subagent is to over-review. A tight brief beats a vag
 - Web-specific patterns (hover states, cursor changes) — we're a native app
 - Animation perf concerns on `LayoutAnimation` — we already audit Reduce Motion separately
 
-**Brief template:** "Review the UI changes on branch X for mobile fit. Focus: tap targets, theme drift, .cursorrules conformance. Ignore: tablet/web concerns."
+**Brief template:** "Review the UI changes on branch X for mobile fit. Files to scan for theme drift: `<paste output of `graphify affected colors` (and `typography`, `spacing`, `shadows`, `interaction` if the PR touches them)>`. Focus: tap targets, theme drift, .cursorrules conformance. Ignore: tablet/web concerns."
 
 #### `whimsy-injector` — end-of-Round audit
 **Focus on:**
@@ -190,3 +196,5 @@ The default instinct for a subagent is to over-review. A tight brief beats a vag
 ### One discipline that applies to all of them
 
 **Trust but verify the agent's report.** Subagent summaries describe what they *intended* to find or do, not necessarily what's in the diff. When an agent proposes edits, read the actual changes before relaying "this is done" to the user. The two regressions in this project's history both came from accepting an intent-summary as a fact-summary.
+
+**Where graphify is the wrong tool.** It cannot enforce the reserved-color rule — edges are import-granular, not use-granular, so it can't tell "imports `colors`" from "uses `colors.orange` for a non-hazard CTA." Use `rg "colors\.(orange|red|yellow|pink|navy)"` for that rule. It cannot see runtime composition (Context consumers, render props, children-as-function) — static imports only. It is not a type-checker; `tsc` remains authoritative. And its `query` command is brittle on prose — for "how does X work" or "why did we choose Y," read source or use `fgq query "<short-seed>"` against the merged graph.
