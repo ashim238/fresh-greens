@@ -58,14 +58,21 @@ function drivingConditionFor(args: {
   return 'easy';
 }
 
+// Display labels for the driving-condition tiers. "Good / Fair / Poor"
+// (was "Easy / Moderate / Tough"): the old scale used bare intensity
+// words, and "Moderate" next to the card's steering-wheel icon read
+// ambiguously as *traffic* ("moderate traffic"). "Good / Fair / Poor"
+// is a condition-QUALITY scale — you don't say "poor traffic" — so it
+// reads unmistakably as a rating of driving conditions, and folds
+// cleanly into the card's a11y string ("poor driving conditions").
 function labelFor(c: DrivingCondition): string {
   switch (c) {
     case 'easy':
-      return 'Easy';
+      return 'Good';
     case 'moderate':
-      return 'Moderate';
+      return 'Fair';
     case 'tough':
-      return 'Tough';
+      return 'Poor';
   }
 }
 

@@ -2006,12 +2006,16 @@ export default function Home() {
           </View>
           <View style={styles.placementBarInner}>
             {/*
-              v2 Figma (1109:8139) drops the "Tap the map to move the pin"
-              hint text from the bottom sheet — the orange placement pin
-              on the map carries the affordance visually. Layout: Confirm
-              (flex:1 freshgreen pill) left, circular X close FAB right
-              (48pt, matching the FAB family).
+              Subtle placement hint. Figma v2 (1109:8139) had dropped this
+              on the theory the orange pin's visual affordance was
+              self-evident — but live testing showed users didn't realize
+              the pin moves on map-tap, so it's restored as quiet
+              footnote copy (usability over the Figma call). Sits 16pt
+              above the action row via placementBarInner's gap.
             */}
+            <Text style={styles.placementHint}>
+              Tap the map to move the pin
+            </Text>
             <View style={styles.placementActions}>
               <Pressable
                 style={({ pressed }) => [
@@ -2467,6 +2471,13 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 16,
     gap: 16,
+  },
+  placementHint: {
+    // Quiet footnote instruction above the Confirm/cancel row. Tertiary
+    // gray + centered so it reads as a hint, not a heading.
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    textAlign: 'center',
   },
   placementActions: {
     flexDirection: 'row',
