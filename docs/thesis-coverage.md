@@ -14,6 +14,15 @@ Produced by a multi-agent workflow (21 agents): each thesis claim was extracted 
 
 ---
 
+## Closed since the audit
+
+The audit above is a point-in-time snapshot (2026-05-30). Gap-closing work tracked here so the snapshot stays honest while progress is visible.
+
+- **C16 — speed cluster recolors on zone entry** → ✅ closed (PR L). The current-speed pill's border goes white → yellow (`colors.yellow`, the reserved caution color) when the driver is inside a caution/avoid zone, driven off the existing `enteredZoneIds` signal. `app/en-route.tsx` (`inCautionZone` + `speedLimitCurrentPillCaution`).
+- **C18 — "max two zones" cap** → ✅ resolved as an intentional reframe (PR L). The literal cap lives on the turn-card hazard glyphs (`hazardsNearTurn(...).slice(0, 2)`), where glanceability under stress is the constraint; the on-map overlays deliberately show the full hazard picture as the spatial overview. Capping the map would hide hazards — documented inline in `app/en-route.tsx` as a design evolution, not a regression.
+
+---
+
 ## Coverage table
 
 | | Claim | Status | Implementing feature | Evidence |

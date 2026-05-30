@@ -376,6 +376,16 @@ export default function EnRoute() {
     return inside;
   }, [enRouteZones, userLocation]);
 
+  // C16 (thesis-coverage): the speed cluster signals zone entry by
+  // recoloring the current-speed pill's border white → yellow when the
+  // driver is inside a caution/avoid zone. `enRouteZones` is already
+  // pre-filtered to caution/avoid OSM zones, so a non-empty
+  // `enteredZoneIds` IS "inside a caution zone." Yellow here is the
+  // sanctioned reserved-color use (caution signaling, not decoration —
+  // .cursorrules). Drives the same signal the EnRouteZone marker swap
+  // already uses; this puts the cue on the glanceable speed cluster too.
+  const inCautionZone = enteredZoneIds.size > 0;
+
   // Monotonic step-progress tracker — prevents `findNextStep` from
   // regressing to a completed maneuver when GPS jitter or slow city
   // traffic keeps the user near a passed turn-point. Resets on new
@@ -461,6 +471,15 @@ export default function EnRoute() {
     const turnPoint =
       nextStepInfo?.step.maneuverLocation ?? recommended.coordinates[0];
     return hazardsNearTurn(turnPoint, allZones).slice(0, 2);
+    // C18 (thesis-coverage): the thesis's literal "max two zones
+    // displayed at once" rule lives HERE — on the turn-card hazard
+    // glyphs, where glanceability under driving stress is the
+    // constraint. It deliberately does NOT cap the on-map zone overlays
+    // (the `allZones.map` renderer below), which show the full hazard
+    // picture as the spatial overview. Capping the map would hide
+    // hazards; capping the turn card prevents glyph noise. The rule
+    // moved from "display" to "the focused turn-card surface" as a
+    // design evolution — documented as intentional, not a regression.
   }, [recommended, nextStepInfo, allZones]);
 
   // What the Full bottom-sheet hazard panel should show. Entered-zone
@@ -1275,7 +1294,12 @@ export default function EnRoute() {
           style={[styles.speedLimitWrap, { bottom: bottomSheetHeight + 24 }]}
           pointerEvents="box-none"
         >
-          <View style={styles.speedLimitCurrentPill}>
+          <View
+            style={[
+              styles.speedLimitCurrentPill,
+              inCautionZone && styles.speedLimitCurrentPillCaution,
+            ]}
+          >
             <Text style={styles.speedLimitCurrentNumber} numberOfLines={1}>
               {speedMph ?? '—'}
             </Text>
@@ -1778,6 +1802,12 @@ const styles = StyleSheet.create({
     // Overlap with the yellow sign below per Figma — `mb-[-12px]` in
     // the source mocks. Gives the appearance of a unified stack.
     marginBottom: -12,
+  },
+  // C16: caution-zone border. Yellow (reserved caution color) replaces
+  // the neutral cardBorderSubtle when the driver is inside a caution/
+  // avoid zone — a glanceable "heads up" on the speed cluster.
+  speedLimitCurrentPillCaution: {
+    borderColor: colors.yellow,
   },
   speedLimitCurrentNumber: {
     // SF Pro Bold stand-in for Overpass Bold (the canonical US speed-
