@@ -17,6 +17,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// The red medical-cross glyph — the shared "emergency / get help" mark.
+// Same asset as the /en-route SOS side-button and the /safety-settings
+// SOS row, so the symbol that summons help is identical everywhere it
+// appears. (Filename is `sidebtn-help` for legacy reasons; it IS the
+// SOS cross.)
+import EmergencyCross from '../assets/illustrations/sidebtn-help.svg';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
@@ -295,9 +301,18 @@ export default function Emergency() {
                   pointerEvents="none"
                   style={[styles.sosFill, { height: fillHeight }]}
                 />
-                <Text style={styles.sosLabel}>
-                  {mode === 'countdown' ? countdownSec : 'SOS'}
-                </Text>
+                {/* Idle/confirm: the red medical cross — the shared "get
+                    help" mark. During the countdown we swap to the
+                    seconds digit instead, because the live count is
+                    critical feedback the cross can't carry. The cross
+                    renders OVER the rising red fill (it's after the fill
+                    in z-order); the fill consumes it bottom-up so the
+                    escalation still reads as "fills with red." */}
+                {mode === 'countdown' ? (
+                  <Text style={styles.sosLabel}>{countdownSec}</Text>
+                ) : (
+                  <EmergencyCross width={104} height={104} />
+                )}
               </Pressable>
             </View>
 

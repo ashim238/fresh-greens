@@ -10,6 +10,10 @@ import { UserCircle } from 'phosphor-react-native/src/icons/UserCircle';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Red medical-cross glyph — the shared SOS/"get help" mark, identical
+// to the /en-route side-button and the /emergency screen's main button.
+// (Filename is `sidebtn-help` for legacy reasons; it IS the SOS cross.)
+import EmergencyCross from '../assets/illustrations/sidebtn-help.svg';
 import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
@@ -111,6 +115,31 @@ export default function SafetySettings() {
             visually separated from the row group.
           */}
           <View style={styles.rowGroup}>
+            {/* Emergency SOS — the most consequential row, so it sits
+                first. Routes straight to the /emergency surface (the
+                same one /safety's SOS bar and the /en-route SOS side-
+                button open), giving safety-settings its own direct path
+                to the crisis control. The red medical-cross glyph (vs
+                the black duotone glyphs below) marks it as the emergency
+                row and matches the SOS symbol used everywhere else. */}
+            <Pressable
+              onPress={() => router.push('/emergency')}
+              style={({ pressed }) => [styles.row, pressed && pressedDim]}
+              accessibilityRole="button"
+              accessibilityLabel="Emergency SOS. Reach a trusted contact or 911."
+            >
+              <EmergencyCross width={28} height={28} />
+              <View style={styles.rowTextStack}>
+                <Text style={styles.rowLabel}>Emergency SOS</Text>
+                <Text style={styles.rowValue}>Reach a trusted contact or 911</Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.labelTertiary}
+              />
+            </Pressable>
+
             {/* Trusted Contact row — name when set, "Not set" otherwise.
                 Always renders a sub-line for layout stability so the
                 row doesn't change height on first save. */}
