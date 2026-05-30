@@ -2,6 +2,16 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Audit follow-ups — focused session-surfaces pass (2026-05-30)
+
+Minor findings from the focused static audit of the surfaces this session touched (the blocker + 4 importants were fixed in `99fe915`). All low-severity:
+
+- **Quick a11y nits** — `/search` Saved-row `accessibilityLabel` uses a mid-string period ("Route to X. X.") → VoiceOver reads two sentences; use a comma. Saved rows + `/en-route` Shield FAB lack `accessibilityHint` (parity with the SOS FAB / query tiles). `/safety-settings` Emergency-SOS row label omits the "Tap to open…" action prompt its sibling rows include. `/home` daylight-strip wrapper could add `accessibilityRole="none"` (Android belt-and-suspenders).
+- **`/en-route` SOS haptic** — `selectionAsync`, identical to the Report tap; consider `notificationAsync(Warning)` so the emergency trigger feels distinct.
+- **`/menu` "What we flag" hierarchy** — sub-header vs toggle-label distinction rests on font-weight alone (`labelSecondary` #3C3C43 ≈ `labelTertiary` #3D3D3D). Approved for now; if it ever reads ambiguous, drop to `caption1Regular` or a genuinely lighter gray.
+- **Spacing-token discipline (pervasive, pre-existing)** — raw `gap: 16/24` instead of `spacing.*` across several screens. Codebase-wide convention drift, not a session regression; worth a sweep someday.
+- **`/search` tile toggle (pre-existing)** — deselecting a query tile (Food/Gas/Parking) leaves the search query set; minor interaction ambiguity, predates this work.
+
 ## Visual fidelity / Figma drift
 
 - **Safety page matches v2 Figma + confirmation modal popup** — `app/safety.tsx` against current Figma node; confirmation modal pattern likely lives on a new tap path off one of the four tiles.
@@ -31,7 +41,7 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 ## New features
 
 - **En-route search** — currently the search bar is /home-only; /en-route has no search affordance. Add a way to change destination mid-trip without backing out to /home.
-- **Trip summary screen** — Figma `825:4908` exists ("Pop-up Modal (Trip Summary)"). Out-of-scope at thesis but on the next-feature list.
+- ~~**Trip summary screen**~~ — shipped (C12: `app/trip-summary.tsx` — arrival inference-validation + "set as default" regular-destination flow).
 - **Code the results page** — search results screen with map+sheet layout (Figma `1133:11400`). Currently /search returns a flat results list; the design is map-with-pins + sheet of result cards.
 
 ## Copy
@@ -75,7 +85,7 @@ The following ship in code with no Figma backing — captured here so future fid
 Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These are the gaps a thesis reviewer or a code walkthrough would notice. Better to name them in advance than be ambushed.
 
 - **Turn-by-turn instructions are static placeholder copy** — `app/en-route.tsx:86-89, 271-272`. OSRM provides geometry, not steps. v1.5 cheap path: OSRM `steps=true` parameter gives a minimal maneuver list (`Turn left in 0.3 mi`). v2: Mapbox Directions or Google Directions for production-quality narration.
-- **Weather card is mocked at "66° / Moderate"** — `components/HomeBrowseSheet.tsx`. `lib/api/weather.ts` is the documented v2 swap-in.
+- ~~**Weather card is mocked at "66° / Moderate"**~~ — shipped: real Open-Meteo via `lib/api/weather.ts` (now incl. `cloud_cover`); driving label relabeled Easy/Moderate/Tough → Good/Fair/Poor.
 - **/safety modal has 3 of 4 tiles inert** — `app/safety.tsx`. "Roadside assistance," "Unfamiliar area," "Share my location" have `href: null` and silently no-op. Only "I was pulled over" is wired.
 - **/menu has inert rows + Quick Tiles** — "Settings," "Schedule a drive," "Theme" rows; Quick Tiles carousel is decorative. The "replaces vs. augments Safety row" call from Round 5 PR C will land here.
 - **Reports submit as `'mock-user'`** — `app/report.tsx`. No auth wiring. AsyncStorage is device-local — "the community" is functionally one anonymous user per phone, and reports don't sync across devices.
@@ -103,7 +113,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 
 - **User auth + report sync** — currently device-local AsyncStorage. v2 needs Supabase / Firebase / similar so community reports persist across phones. Unlocks real `submittedBy` IDs (the hold-to-delete and Round-4 weighted-recency work would benefit).
 - **Real photo capture in /report** — `app/report.tsx` photo button currently `Alert.alert` stub. Needs `expo-camera` or `expo-image-picker`.
-- **Schedule CTA → expo-notifications** — `/home` "Schedule for X" button is scaffolded but only shows an Alert. v2 wires local notifications fired at the suggested departure.
+- ~~**Schedule CTA → expo-notifications**~~ — shipped: `scheduleDepartureNotification` fires a real local notification (inline permission request) at the suggested departure.
 - **Curated catalog as catastrophic fallback feels invisible** — only fires when external + community both empty. With Google Places returning worldwide results, curated rarely runs. Consider letting curated participate when it's category-appropriate AND user is near the curated entry's region.
 - **Demo-mode toggle / offline seed** — a `/menu` switch that swaps the external adapter for a richer curated catalog (more cities, more cards, real photos) would let you demo without internet anxiety.
 - **Bespoke SVG glyphs for v2 sub-tags** — currently Phosphor fallbacks (HandHeart / Heart / Toilet / MoonStars). Swap when Figma exports land. Track alongside the Round-4 custom community-signal icon.
