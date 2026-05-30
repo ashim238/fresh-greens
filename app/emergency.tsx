@@ -324,9 +324,21 @@ export default function Emergency() {
               <Text style={styles.holdHint}>Tap the button to cancel.</Text>
             ) : (
               <>
-                <Text style={styles.holdHint}>
-                  Tap to call {contactName} · Hold for 911
-                </Text>
+                {/* Two gesture→action mappings on their OWN lines (was a
+                    single middot-joined run-on). Ordered tap-first: the
+                    trusted-contact path is the lower-friction, community-
+                    first primary; the 911 hold is the deliberate
+                    escalation. The gesture verb is emphasized so the
+                    gesture→outcome pairing reads at a glance. */}
+                <View style={styles.gestureHints}>
+                  <Text style={styles.holdHint}>
+                    <Text style={styles.gestureVerb}>Tap</Text> to call{' '}
+                    {contactName}
+                  </Text>
+                  <Text style={styles.holdHint}>
+                    <Text style={styles.gestureVerb}>Hold</Text> to reach 911
+                  </Text>
+                </View>
                 {/* Explicit, non-gesture path to 911 — VoiceOver and
                     motor-impaired users can't reliably long-press, so
                     the gesture is never the *only* way to reach 911. */}
@@ -447,6 +459,22 @@ const styles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     textAlign: 'center',
+  },
+  // Wraps the two gesture→action lines into a tight pair (4pt apart) so
+  // they read as one "how this works" block, distinct from the disc
+  // above and the emergency-services link below (which sit at the body's
+  // 16pt rhythm).
+  gestureHints: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  // Emphasized gesture verb ("Tap" / "Hold") inside each hint line —
+  // weight, not color, does the lifting (red stays reserved for the 911
+  // escalation fill). labelSecondary lifts the verb a step above the
+  // labelTertiary body of the line.
+  gestureVerb: {
+    ...typography.footnoteEmphasized,
+    color: colors.labelSecondary,
   },
   emergencyLink: {
     marginTop: spacing.sm,
