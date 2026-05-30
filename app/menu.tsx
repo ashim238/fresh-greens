@@ -139,7 +139,8 @@ export default function Menu() {
   const { clearContact } = useTrustedContact();
   const { clearAll: clearSavedPlaces } = useSavedPlaces();
   const { clearAll: clearRegularDestinations } = useRegularDestinations();
-  const { preferences, setShowZones } = usePreferences();
+  const { preferences, setShowZones, setPreference, clearAll: clearPreferences } =
+    usePreferences();
   const { width: screenWidth } = useWindowDimensions();
   const [signingOut, setSigningOut] = useState(false);
   const [activeQuickIndex, setActiveQuickIndex] = useState(0);
@@ -181,6 +182,7 @@ export default function Menu() {
         clearContact(),
         clearSavedPlaces(),
         clearRegularDestinations(),
+        clearPreferences(),
       ]);
       router.replace('/sign-out');
     } finally {
@@ -254,6 +256,10 @@ export default function Menu() {
             <ZonePreferencesRow
               showZones={preferences?.showZones ?? false}
               onToggle={setShowZones}
+              flagPolice={preferences?.flagPolice ?? true}
+              flagLowLight={preferences?.flagLowLight ?? true}
+              flagCommunityReports={preferences?.flagCommunityReports ?? true}
+              onFlagToggle={(key, value) => setPreference(key, value)}
             />
 
             <SettingsRow
@@ -398,9 +404,20 @@ export default function Menu() {
 function ZonePreferencesRow({
   showZones,
   onToggle,
+  flagPolice,
+  flagLowLight,
+  flagCommunityReports,
+  onFlagToggle,
 }: {
   showZones: boolean;
   onToggle: (next: boolean) => void;
+  flagPolice: boolean;
+  flagLowLight: boolean;
+  flagCommunityReports: boolean;
+  onFlagToggle: (
+    key: 'flagPolice' | 'flagLowLight' | 'flagCommunityReports',
+    value: boolean,
+  ) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   // M4: every other animation on this screen (the Quick Tiles carousel
@@ -450,22 +467,59 @@ function ZonePreferencesRow({
         )}
       </Pressable>
       {expanded && (
-        <View style={styles.zoneInner}>
-          <Text style={styles.zoneInnerLabel}>Show zones overlay</Text>
-          <Switch
-            value={showZones}
-            onValueChange={onToggle}
-            trackColor={{
-              false: colors.cardBorderSubtle,
-              true: colors.freshgreen,
-            }}
-            thumbColor={colors.white}
-            accessibilityLabel="Toggle zones overlay"
-            // M6: a VoiceOver user can't see the map; the label tells
-            // them WHAT the control is, the hint tells them what it
-            // affects (§2.1 hint-pairing convention).
-            accessibilityHint="Shows or hides the zone safety overlay on the map"
-          />
+        <View>
+          <View style={styles.zoneInner}>
+            <Text style={styles.zoneInnerLabel}>Show zones overlay</Text>
+            <Switch
+              value={showZones}
+              onValueChange={onToggle}
+              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+              thumbColor={colors.white}
+              accessibilityLabel="Toggle zones overlay"
+              // M6: a VoiceOver user can't see the map; label = WHAT the
+              // control is, hint = what it affects (§2.1 hint-pairing).
+              accessibilityHint="Shows or hides the zone safety overlay on the map"
+            />
+          </View>
+
+          {/* "What we flag" — the safety factors that shape route scoring
+              + map flags, grouped apart from the display-only overlay
+              toggle above. Toggles persist now; wiring them into scoring
+              and the map is a tracked follow-up. */}
+          <Text style={styles.zoneGroupCaption}>What we flag</Text>
+          <View style={styles.zoneInner}>
+            <Text style={styles.zoneInnerLabel}>Police presence</Text>
+            <Switch
+              value={flagPolice}
+              onValueChange={(v) => onFlagToggle('flagPolice', v)}
+              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+              thumbColor={colors.white}
+              accessibilityLabel="Flag police presence"
+              accessibilityHint="Will affect which areas shape your route scoring and map flags"
+            />
+          </View>
+          <View style={styles.zoneInner}>
+            <Text style={styles.zoneInnerLabel}>Low-light areas</Text>
+            <Switch
+              value={flagLowLight}
+              onValueChange={(v) => onFlagToggle('flagLowLight', v)}
+              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+              thumbColor={colors.white}
+              accessibilityLabel="Flag low-light areas"
+              accessibilityHint="Will affect which areas shape your route scoring and map flags"
+            />
+          </View>
+          <View style={styles.zoneInner}>
+            <Text style={styles.zoneInnerLabel}>Community reports</Text>
+            <Switch
+              value={flagCommunityReports}
+              onValueChange={(v) => onFlagToggle('flagCommunityReports', v)}
+              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+              thumbColor={colors.white}
+              accessibilityLabel="Flag community reports"
+              accessibilityHint="Will affect which areas shape your route scoring and map flags"
+            />
+          </View>
         </View>
       )}
     </View>
@@ -642,6 +696,16 @@ const styles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     flex: 1,
+  },
+  // "What we flag" caption above the factor toggles. Indented to the
+  // toggle label column (36 + 12, matching zoneInner's paddingLeft) so it
+  // aligns with the rows it heads.
+  zoneGroupCaption: {
+    ...typography.caption1Emphasized,
+    color: colors.labelTertiary,
+    paddingLeft: 36 + 12,
+    paddingTop: 8,
+    paddingBottom: 2,
   },
   // Carousel — pinned outside the ScrollView, sits above Sign out.
   quickWrap: {

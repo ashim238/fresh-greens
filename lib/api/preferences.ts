@@ -26,10 +26,20 @@ export type Preferences = {
    * default off so users see a clean route map.
    */
   showZones: boolean;
+  /** Flag areas near police presence (station / speed camera) — feeds
+      route scoring + map flags. */
+  flagPolice: boolean;
+  /** Flag poorly-lit streets / areas. */
+  flagLowLight: boolean;
+  /** Factor in neighbor-submitted felt-unsafe / incident / hazard reports. */
+  flagCommunityReports: boolean;
 };
 
-const DEFAULT_PREFERENCES: Preferences = {
+export const DEFAULT_PREFERENCES: Preferences = {
   showZones: false,
+  flagPolice: true,
+  flagLowLight: true,
+  flagCommunityReports: true,
 };
 
 // --- Public surface ------------------------------------------------------

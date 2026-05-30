@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  clearStoredPreferences,
+  DEFAULT_PREFERENCES,
   getStoredPreferences,
   setStoredPreferences,
   type Preferences,
@@ -45,7 +47,7 @@ export function usePreferences() {
 
   const setShowZones = useCallback(async (next: boolean) => {
     setPreferencesState((prev) => {
-      const merged: Preferences = { ...(prev ?? { showZones: false }), showZones: next };
+      const merged: Preferences = { ...(prev ?? DEFAULT_PREFERENCES), showZones: next };
       // Fire-and-forget the persistence — local state already updated
       // for snappy UI, AsyncStorage write happens in the background.
       void setStoredPreferences(merged);
@@ -53,5 +55,29 @@ export function usePreferences() {
     });
   }, []);
 
-  return { preferences, loading, setShowZones };
+  // Generic per-key setter for the boolean preference toggles (the zone
+  // factor flags). Same optimistic-merge + fire-and-forget pattern as
+  // setShowZones; DEFAULT_PREFERENCES seeds a complete object when prev
+  // is still null (pre-hydration).
+  const setPreference = useCallback(
+    <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
+      setPreferencesState((prev) => {
+        const merged: Preferences = { ...(prev ?? DEFAULT_PREFERENCES), [key]: value };
+        void setStoredPreferences(merged);
+        return merged;
+      });
+    },
+    [],
+  );
+
+  // Sign-out / factory-reset cleanup — wipes the whole Preferences
+  // object (showZones + all factor flags) so nothing carries across
+  // accounts. Local state drops to null; consumers fall back to
+  // defaults until the next hydrate.
+  const clearAll = useCallback(async () => {
+    setPreferencesState(null);
+    await clearStoredPreferences();
+  }, []);
+
+  return { preferences, loading, setShowZones, setPreference, clearAll };
 }
