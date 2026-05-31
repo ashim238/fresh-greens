@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/refuel-onroute-stops (2026-05-31)
+
+Plan 2 of refuel reminders: gas/charging stops along the active route, in /en-route's Full bottom sheet. Built subagent-driven. The non-obvious bits:
+
+- **A hook fed a per-GPS-tick `userLocation` will refetch on every tick if that prop is an effect dep — read it via a ref instead.** `useRouteFuelStops` originally keyed its effect on `userLocation`, but /en-route calls `setUserLocation` with a fresh object literal every ~1s while moving (1s/5m `watchPositionAsync`). With the sheet open *while driving*, that fired a Mapbox `searchPlaces` call per tick — a quota/request storm. The `cancelled` flag prevented stale **state** writes but not the **network calls**. Fix: `const userLocationRef = useRef(userLocation); userLocationRef.current = userLocation;` and read `userLocationRef.current` inside the effect, with `userLocation` dropped from deps — so the sheet fetches against the location at open-time and re-fetches only when `active` flips on the next open. This is the SAME pattern /en-route already uses for live GPS at its own line ~884. Worth keeping: **only the code-quality reviewer reasoning about motion caught this — a stationary simulator check never would.** When a hook takes a value that changes every GPS tick, ask "should this restart my effect?" — usually no; ref it.
+- **Keying an effect on `routeCoords.length` (not the array identity) is the house workaround for new-array-each-render deps**, matching `useWeather` (rounds the coord) and `useRecommendationsBatch` (stringifies a sig). Tradeoff: a same-vertex-count reroute *while the sheet stays open* won't refetch — acceptable because `active` flips on each open, which is the common path. If exact correctness is ever needed, key on an endpoint-derived signature instead.
+- **Point-to-route distance via min-distance-to-vertex is a sound approximation for OSRM geometry** (`overview=full` is densely sampled), and far simpler/allocation-free vs true point-to-segment. Empty polyline → `Infinity` → nothing passes the proximity gate.
+- **Known v1 simplification:** `diesel`/`hybrid` fall through to the "gas station" query + "Gas on route" copy (only `electric` branches to "ev charging"/"Charging"). Fine for v1 (hybrids/diesels fuel at gas stations); revisit if diesel/hybrid fidelity matters.
+
+---
+
 ## feat/refuel-reminder-core (2026-05-30)
 
 Phase-1 of the portfolio push: made the /search Fuel card real — a local, time-based refuel reminder (profile + cadence → recurring local notification), built subagent-driven. Two takeaways worth keeping:
