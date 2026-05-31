@@ -111,8 +111,10 @@ export default function Fuel() {
           >
             <Ionicons name="chevron-back" size={28} color={colors.black} />
           </Pressable>
-          <Text style={styles.title}>Refuel reminders</Text>
         </View>
+        <Text style={styles.title} accessibilityRole="header">
+          Refuel reminders
+        </Text>
 
         <View style={styles.body}>
           <Text style={styles.fieldLabel}>Car name (optional)</Text>
@@ -223,11 +225,16 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  // Title sits on its own line below the back chevron (matches /recordings
+  // + /safety-settings) — chevron and title on one row read congested.
+  title: {
+    ...typography.title2Emphasized,
+    color: colors.black,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
-  title: { ...typography.title2Emphasized, color: colors.black },
   body: { flex: 1, gap: spacing.md },
   fieldLabel: { ...typography.footnoteEmphasized, color: colors.labelSecondary },
   input: {
