@@ -47,6 +47,10 @@ import {
   removeCommunityReport,
   type ReportCategoryId,
 } from '../lib/api/community-reports';
+import {
+  DEFAULT_PREFERENCES,
+  isZoneCategoryEnabled,
+} from '../lib/api/preferences';
 import { isRegularLocation } from '../lib/api/regular-destinations';
 import {
   getRoutesBetween,
@@ -282,9 +286,20 @@ export default function Home() {
   // through the same pipeline — same Zone type, same scorer dispatch.
   // useMemo keeps the array reference stable across renders that don't
   // change either source.
-  const allZones = useMemo(
-    () => [...osmZones, ...reportZones],
-    [osmZones, reportZones],
+  // Zones gated by the user's flag toggles (filtered per-source so the
+  // overlay, scoring, counts, and report markers all respect the flags).
+  const prefs = preferences ?? DEFAULT_PREFERENCES;
+  const enabledOsmZones = useMemo(
+    () => osmZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
+    [osmZones, prefs],
+  );
+  const enabledReportZones = useMemo(
+    () => reportZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
+    [reportZones, prefs],
+  );
+  const enabledZones = useMemo(
+    () => [...enabledOsmZones, ...enabledReportZones],
+    [enabledOsmZones, enabledReportZones],
   );
 
   // Ranked routes are derived from raw routes + zones. Recomputes
@@ -292,8 +307,8 @@ export default function Home() {
   // after a new community report lands. Replaces the previous
   // setRoutes(pickWinner(...)) call sites.
   const routes = useMemo(
-    () => pickWinner(rawRoutes, allZones),
-    [rawRoutes, allZones],
+    () => pickWinner(rawRoutes, enabledZones),
+    [rawRoutes, enabledZones],
   );
 
   // Recommended route is the one we explain in the bottom sheet. May be
@@ -444,7 +459,7 @@ export default function Home() {
   // handles polygon/polyline/point geometry with the project's
   // standard proximity thresholds).
   //
-  // Recomputes only when the recommended route or allZones change —
+  // Recomputes only when the recommended route or enabledZones change —
   // not on every pan/zoom (mapRegion is intentionally not a dep).
   // For sparse polylines this could miss a zone that crosses the
   // route between waypoints; OSRM's geometry is dense enough at the
@@ -453,7 +468,7 @@ export default function Home() {
     if (!recommended) return { police: 0, lowLight: 0 };
     let police = 0;
     let lowLight = 0;
-    for (const zone of allZones) {
+    for (const zone of enabledZones) {
       if (zone.category !== 'police' && zone.category !== 'lighting') continue;
       if (zone.category === 'lighting' && zone.type !== 'avoid') continue;
       const hit = recommended.coordinates.some((coord) =>
@@ -464,7 +479,7 @@ export default function Home() {
       else lowLight += 1;
     }
     return { police, lowLight };
-  }, [recommended, allZones]);
+  }, [recommended, enabledZones]);
 
   // Route-preview headline reveal — fire a single light haptic + a
   // 240ms opacity fade on the "{N} min" text the first time a given
@@ -503,8 +518,8 @@ export default function Home() {
   // every pan/zoom (mapRegion change) and when reports update.
   const clusteredReports = useMemo(() => {
     if (!mapRegion || !mapSize) return [];
-    return clusterPointZones(reportZones, mapRegion, mapSize.width, mapSize.height);
-  }, [reportZones, mapRegion, mapSize]);
+    return clusterPointZones(enabledReportZones, mapRegion, mapSize.width, mapSize.height);
+  }, [enabledReportZones, mapRegion, mapSize]);
 
   /**
    * Toggle the current destination in/out of the regular-destinations
@@ -891,7 +906,7 @@ export default function Home() {
       const hitLat = degPerPxLat * 30;
       const hitLng = degPerPxLng * 30;
 
-      const hit = reportZones
+      const hit = enabledReportZones
         .filter((z) => {
           if (z.geometry !== 'point' || z.reportSubmittedBy !== user?.id) return false;
           const pt = z.coordinates[0];
@@ -1064,7 +1079,7 @@ export default function Home() {
         */}
         {showZones &&
           zonesVisibleAtZoom &&
-          osmZones.map((zone) => {
+          enabledOsmZones.map((zone) => {
             // Polyline zones (real OSM lit-street data) render as colored
             // street overlays — stroke only, no fill. Polygon zones (mock
             // fallback OR landuse from OSM) render as filled areas.
@@ -1302,7 +1317,7 @@ export default function Home() {
         return (
         <View style={styles.edgeOverlay} pointerEvents="box-none">
           {(() => {
-            const offScreen = reportZones
+            const offScreen = enabledReportZones
               .filter(
                 (z) =>
                   z.geometry === 'point' &&
@@ -1815,7 +1830,7 @@ export default function Home() {
             {arrivalLabel ? `Safest route · ${arrivalLabel}.` : 'Safest route with current conditions.'}
           </Text>
 
-          {recommended && allZones.length > 0 && (
+          {recommended && enabledZones.length > 0 && (
             <View style={styles.routeChipsBlock}>
               {/*
                 Two render paths:
@@ -1824,7 +1839,7 @@ export default function Home() {
                   - Warnings absent → All-clear chip alone, no header
                     ("Along this route: All clear" reads bureaucratic
                     for what should feel like a light exhale).
-                The outer block is gated on allZones.length > 0 —
+                The outer block is gated on enabledZones.length > 0 —
                 without it the All-clear chip flashes during the OSM
                 zone-fetch race, giving false reassurance before the
                 zones have actually arrived.

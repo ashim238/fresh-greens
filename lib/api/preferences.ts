@@ -15,6 +15,7 @@
 // needed at the call site.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { ZoneCategory } from './zones';
 
 const STORAGE_KEY = 'fresh-greens.preferences.v1';
 
@@ -70,4 +71,26 @@ export async function setStoredPreferences(
 /** Removes stored preferences (sign-out cleanup, factory reset). */
 export async function clearStoredPreferences(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * Whether a zone category currently counts toward scoring + rendering,
+ * gated by the user's flag toggles. Categories without a toggle
+ * (wildlife / road-condition / landuse / park) are always enabled —
+ * they're baseline safety factors. Pure.
+ */
+export function isZoneCategoryEnabled(
+  category: ZoneCategory | undefined,
+  preferences: Preferences,
+): boolean {
+  switch (category) {
+    case 'lighting':
+      return preferences.flagLowLight;
+    case 'police':
+      return preferences.flagPolice;
+    case 'community-report':
+      return preferences.flagCommunityReports;
+    default:
+      return true; // landuse / park / wildlife / road-condition / undefined
+  }
 }

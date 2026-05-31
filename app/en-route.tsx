@@ -48,6 +48,10 @@ import { ReportDetailCard } from '../components/ReportDetailCard';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
 import { RouteComparisonSheet, type ComparisonRow } from '../components/RouteComparisonSheet';
 import { usePreferences } from '../hooks/usePreferences';
+import {
+  isZoneCategoryEnabled,
+  DEFAULT_PREFERENCES,
+} from '../lib/api/preferences';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import {
@@ -329,9 +333,18 @@ export default function EnRoute() {
   // explicit "show me what's ahead" affordance.
   const [sheetExpanded, setSheetExpanded] = useState(false);
 
-  const allZones = useMemo(
-    () => [...osmZones, ...reportZones],
-    [osmZones, reportZones],
+  const prefs = preferences ?? DEFAULT_PREFERENCES;
+  const enabledOsmZones = useMemo(
+    () => osmZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
+    [osmZones, prefs],
+  );
+  const enabledReportZones = useMemo(
+    () => reportZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
+    [reportZones, prefs],
+  );
+  const enabledZones = useMemo(
+    () => [...enabledOsmZones, ...enabledReportZones],
+    [enabledOsmZones, enabledReportZones],
   );
 
   // Mirrors /home: collapse nearby community reports into a single
@@ -340,12 +353,12 @@ export default function EnRoute() {
   // the initial transition into /en-route.
   const clusteredReports = useMemo(() => {
     if (!mapRegion || !mapSize) return [];
-    return clusterPointZones(reportZones, mapRegion, mapSize.width, mapSize.height);
-  }, [reportZones, mapRegion, mapSize]);
+    return clusterPointZones(enabledReportZones, mapRegion, mapSize.width, mapSize.height);
+  }, [enabledReportZones, mapRegion, mapSize]);
 
   const routes = useMemo(
-    () => pickWinner(rawRoutes, allZones),
-    [rawRoutes, allZones],
+    () => pickWinner(rawRoutes, enabledZones),
+    [rawRoutes, enabledZones],
   );
 
   const recommended = routes.find((route) => route.type === 'recommended');
@@ -380,12 +393,12 @@ export default function EnRoute() {
         arrivalLabel: `Arrive ${formatTimeOfDay(arrival)}`,
         distanceLabel: `${(route.distanceMeters / 1609.344).toFixed(0)} mi`,
         descriptor,
-        conditions: routeConditions(route, allZones),
+        conditions: routeConditions(route, enabledZones),
         isActive: route.id === activeRoute?.id,
         isRecommended: route.type === 'recommended',
       };
     });
-  }, [routes, recommended, activeRoute?.id, allZones]);
+  }, [routes, recommended, activeRoute?.id, enabledZones]);
 
   const handleSelectRoute = useCallback((id: string) => {
     setActiveRouteId(id);
@@ -418,7 +431,7 @@ export default function EnRoute() {
   // zone. Point zones already render as LandmarkMarker community-
   // report pins — they don't get the En-Route Zone treatment.
   const enRouteZones = useMemo(() => {
-    return osmZones.flatMap((zone) => {
+    return enabledOsmZones.flatMap((zone) => {
       if (zone.geometry === 'point') return [];
       if (zone.type !== 'caution' && zone.type !== 'avoid') return [];
       const category = zoneToHazardCategory(zone);
@@ -427,7 +440,7 @@ export default function EnRoute() {
       if (!anchor) return [];
       return [{ zone, anchor, category, lengthMiles: zoneLengthMiles(zone) }];
     });
-  }, [osmZones]);
+  }, [enabledOsmZones]);
 
   // Which en-route zones the user is currently inside. Used to flip
   // each marker to its Extended pill state. Recomputed on every
@@ -453,9 +466,13 @@ export default function EnRoute() {
   // We validate only OSM-derived inference categories — not other
   // users' community reports (you're confirming the app's inferences,
   // not re-validating peers).
+  // Sourced from `enabledOsmZones` (flag-gated), so a category the user
+  // toggled off (e.g. police) also drops out of the post-trip
+  // /trip-summary validation loop — congruent with "don't track it,
+  // don't ask me to confirm it."
   const validatableZones = useMemo(
     () =>
-      osmZones.filter(
+      enabledOsmZones.filter(
         (z) =>
           (z.type === 'caution' || z.type === 'avoid') &&
           (z.category === 'police' ||
@@ -463,7 +480,7 @@ export default function EnRoute() {
             z.category === 'lighting' ||
             z.category === 'road-condition'),
       ),
-    [osmZones],
+    [enabledOsmZones],
   );
   const encounteredZonesRef = useRef<
     Map<
@@ -622,17 +639,17 @@ export default function EnRoute() {
     if (!activeRoute || activeRoute.coordinates.length === 0) return [];
     const turnPoint =
       nextStepInfo?.step.maneuverLocation ?? activeRoute.coordinates[0];
-    return hazardsNearTurn(turnPoint, allZones).slice(0, 2);
+    return hazardsNearTurn(turnPoint, enabledZones).slice(0, 2);
     // C18 (thesis-coverage): the thesis's literal "max two zones
     // displayed at once" rule lives HERE — on the turn-card hazard
     // glyphs, where glanceability under driving stress is the
     // constraint. It deliberately does NOT cap the on-map zone overlays
-    // (the `allZones.map` renderer below), which show the full hazard
+    // (the `enabledZones.map` renderer below), which show the full hazard
     // picture as the spatial overview. Capping the map would hide
     // hazards; capping the turn card prevents glyph noise. The rule
     // moved from "display" to "the focused turn-card surface" as a
     // design evolution — documented as intentional, not a regression.
-  }, [activeRoute, nextStepInfo, allZones]);
+  }, [activeRoute, nextStepInfo, enabledZones]);
 
   // What the Full bottom-sheet hazard panel should show. Entered-zone
   // hazards take priority over next-turn hazards — when the driver
@@ -1131,7 +1148,7 @@ export default function EnRoute() {
           landuse, wildlife).
         */}
         {showZones &&
-          allZones.map((zone) => {
+          enabledZones.map((zone) => {
             if (zone.geometry === 'polyline') {
               return (
                 <Polyline
