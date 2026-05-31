@@ -48,6 +48,24 @@ export default function RootLayout() {
           options={{ presentation: 'modal' }}
         />
         {/*
+          /roadside — Roadside Assistance sub-flow. Page-sheet modal with
+          internal state machine (problem → action → status), mirroring
+          /pulled-over's pattern. DragHandle stays present; usePreventRemove
+          traps dismissal on the status step.
+        */}
+        <Stack.Screen
+          name="roadside"
+          options={{ presentation: 'modal' }}
+        />
+        {/*
+          /roadside-setup — captures the user's roadside service name + phone.
+          Settings-style sheet modal (chevron dismisses); mirrors /fuel.
+        */}
+        <Stack.Screen
+          name="roadside-setup"
+          options={{ presentation: 'modal' }}
+        />
+        {/*
           Report uses transparentModal (not modal) so the map underneath
           stays visible — the popup is a centered card over a 20% scrim,
           not an iOS-sheet that takes over the screen. Fade animation

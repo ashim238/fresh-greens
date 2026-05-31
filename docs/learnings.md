@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/roadside-assistance — navy as a cross-link affordance
+
+The Roadside `/safety` sub-flow needed a "Switch to Pulled-over mode" row on its live-status step. Pulled-over's reserved color is navy. The reserved-color rule reads "navy only on /pulled-over" — strict reading says the row's icon must be freshgreen (or some neutral). But that loses semantic signal: the user can't tell at a glance that this row escalates to a different safety mode.
+
+**Carve-out:** A reserved color may tint an icon in a row whose `onPress` goes directly to that color's owning route. The icon is still acting as a *signal* — pointing at where the row goes — not as decoration or brand reassignment. Scope is narrow: only direct-navigation icons, only to the color's owning screen.
+
+Documented in `.cursorrules` under the reserved-color rule. The carve-out is also why a navy `Siren` shows up in `app/roadside.tsx` despite navy belonging to `/pulled-over`.
+
+---
+
 ## feat/zone-flag-wiring (#44, 2026-05-31)
 
 Wired the /menu Zone-Preferences toggles (flagPolice/flagLowLight/flagCommunityReports) into scoring + the map (they'd persisted but done nothing since the UI shipped). Two takeaways:

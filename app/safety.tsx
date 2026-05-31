@@ -77,7 +77,7 @@ const TABS: SafetyTab[] = [
     id: 'roadside',
     label: 'Roadside assistance',
     Icon: SafetyCarTroubles,
-    href: null, // TODO: /roadside sub-flow
+    href: '/roadside',
   },
   {
     id: 'unfamiliar',
