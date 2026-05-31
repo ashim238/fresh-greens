@@ -1,6 +1,7 @@
 import * as Contacts from 'expo-contacts';
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 
 import {
   clearTrustedContact,
@@ -65,7 +66,7 @@ async function tryCaptureContactLocation(
 
 /**
  * Reactive wrapper around the trusted-contact adapter. Loads the stored
- * contact on mount and exposes a picker helper that opens iOS's native
+ * contact on mount (and re-reads on focus) and exposes a picker helper that opens iOS's native
  * contact picker, normalizes the response into our `TrustedContact`
  * shape, and persists it.
  *
@@ -88,19 +89,27 @@ export function useTrustedContact() {
   const [contact, setContact] = useState<TrustedContact | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const stored = await getTrustedContact();
-      if (!cancelled) {
-        setContact(stored);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Re-read on focus, not just mount: /trusted-contact-setup is pushed
+  // OVER the screens that read the contact (/pulled-over's contact phase,
+  // /safety-settings), so popping back reveals them without remounting —
+  // a mount-only load would show a just-added contact as still-missing
+  // (safety-critical mid-stop). `loading` only flips false (never back
+  // to true on refocus) to avoid a flash.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const stored = await getTrustedContact();
+        if (!cancelled) {
+          setContact(stored);
+          setLoading(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const pickContact = useCallback(async (): Promise<TrustedContact | null> => {
     const picked = await Contacts.presentContactPickerAsync();

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 
 import {
   addRegularDestination as addToStore,
@@ -10,7 +11,7 @@ import {
 
 /**
  * Reactive wrapper around the regular-destinations adapter. Loads the
- * list on mount; `markRegular` persists + refreshes local state so a
+ * list on mount + re-reads on focus; `markRegular` persists + refreshes local state so a
  * consumer re-renders without a manual refetch. `clearAll` wipes the
  * store (sign-out hygiene), mirroring useSavedPlaces' `clearAll`.
  *
@@ -26,16 +27,22 @@ import {
 export function useRegularDestinations() {
   const [regulars, setRegulars] = useState<RegularDestination[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const list = await getRegularDestinations();
-      if (!cancelled) setRegulars(list);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Re-read on focus, not just mount: trip-summary (a modal over /home)
+  // can set a "default destination", so /home is revealed without
+  // remounting — a mount-only load would leave the route-card
+  // recurring-destination star/underline stale.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const list = await getRegularDestinations();
+        if (!cancelled) setRegulars(list);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const markRegular = useCallback(
     async (input: { name: string; latitude: number; longitude: number }) => {
