@@ -23,11 +23,11 @@ Phase 0 (`ae79812`) removed the *enumerated* dead-ends (Google/Email auth, inert
 
 Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): **/menu Quick Tiles** (Fuel, Notifications) and the **/safety inert tiles** (Roadside, Unfamiliar area, Share my location).
 
-**Triage decisions (2026-05-30):**
-- **HIDE now:** /en-route voice (mic) + Volume buttons — both are stubs for unbuilt features. Removing the buttons clears the dead-ends; the underlying work becomes a feature track.
-- **Feature track — Voice-guided navigation + en-route voice search:** spoken turn-by-turn (gates the Volume control) + speech-to-text destination input (gates the mic). Requires an Expo dev build, a speech library, and a mic-for-dictation permission. Own brainstorm→spec→build cycle.
-- **BUILD — Alternate-route comparison (/en-route alternate-paths FAB):** data already exists (`pickWinner` ranks alternates). Needs a UX decision (reveal-a-comparison vs switch-the-active-route) + a moderate refactor (the screen is hardwired to `recommended`, 31 refs). Own brief design + plan + build.
-- **BUILD — Refuel reminders (/search Fuel card):** genuine new feature (car profile + fuel data + reminder scheduling via `lib/notifications.ts`). Open design unknowns: reminder trigger model (time / distance / manual log — no fuel sensor on a phone) and the car-data shape. Own brainstorm→spec→build cycle.
+**Triage decisions (2026-05-30) — status:**
+- ~~**HIDE now:** /en-route voice (mic) + Volume buttons~~ — ✅ done (`74c2d98`); buttons + orphaned imports/style removed.
+- **Feature track — Voice-guided navigation + en-route voice search (STILL OPEN):** spoken turn-by-turn (gates a future Volume control) + speech-to-text destination input (gates a future mic). Requires an Expo dev build, a speech library, and a mic-for-dictation permission. Own brainstorm→spec→build cycle.
+- ~~**BUILD — Alternate-route comparison (/en-route alternate-paths FAB)**~~ — ✅ shipped (`457f3ef`). Comparison sheet + switch + condition chips + map duration badges; `recommended`→`activeRoute` refactor. Anchored to Figma `2:9033`. Spec + plan in `docs/superpowers/`.
+- ~~**BUILD — Refuel reminders (/search Fuel card)**~~ — ✅ shipped (Plan 1 `d9cb709` core + Plan 2 `1997010` on-route stops). Time-based reminder + car profile + /fuel screen + on-route fuel stops in /en-route.
 
 ## Visual fidelity / Figma drift
 

@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/alternate-route-comparison (2026-05-31)
+
+The /en-route alternate-paths FAB now opens a route-comparison sheet (duration / arrival / distance / "Safest route" descriptor / condition chips) and lets the driver switch the active route. The instructive part was the high-risk refactor:
+
+- **A wide "rename a load-bearing variable" refactor can be PROVABLY safe when a type invariant backs it — lean on the type system, not vibes.** The screen was hardwired to `recommended` across ~14 sites; switching needed an `activeRoute`. The scary change was the polyline memo: non-active routes went from `routeColors[route.type]` to a hardcoded `routeColors.alternate`. That's provably equivalent at the default state because `RouteType` is a closed 2-member union (`'recommended' | 'alternate'`) and `pickWinner` tags exactly one route `recommended` (index 0) — so when `activeRoute === recommended` (the null default), every *non-active* route is necessarily `'alternate'`. The code-reviewer verified this from the union + `pickWinner` rather than by eyeballing. Worth keeping: before a wide repoint, find the invariant that makes it safe (closed unions, single-winner guarantees) and state it — it turns "did I break rendering?" into a proof.
+- **Keep the old variable when its meaning diverges from the new one — don't blanket-rename.** `recommended` (the score winner) and `activeRoute` (the route the screen follows) are *different concepts* that happen to coincide by default. Kept BOTH: `activeRoute` drives all display/effects; `recommended` survives for the sheet's "Safest" label + the `|| recommended` fallback. A naive find-replace `recommended`→`activeRoute` would have lost the "which one is safest" signal. The classic-refactor-bug check (value uses `activeRoute` but a dep array still lists `recommended`, or vice-versa) was the thing both reviewers scrutinized hardest — none found, because the repoint moved value + dep together at each site.
+- **A throwaway Google-Maps-era Figma frame was the strongest design input.** The comparison sheet's structure (per-route rows, "Safest route with current conditions" descriptor, condition chips, on-map time badges) came from an old "plugin" mockup — extract the structure, drop the Google chrome (mode tabs, origin/dest inputs), re-skin to brand. Worth keeping: old/abandoned design frames are worth asking about; the layout thinking outlives the platform it was drawn for.
+
+---
+
 ## feat/refuel-onroute-stops (2026-05-31)
 
 Plan 2 of refuel reminders: gas/charging stops along the active route, in /en-route's Full bottom sheet. Built subagent-driven. The non-obvious bits:
