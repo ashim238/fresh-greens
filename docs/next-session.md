@@ -23,6 +23,12 @@ Phase 0 (`ae79812`) removed the *enumerated* dead-ends (Google/Email auth, inert
 
 Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): **/menu Quick Tiles** (Fuel, Notifications) and the **/safety inert tiles** (Roadside, Unfamiliar area, Share my location).
 
+**Triage decisions (2026-05-30):**
+- **HIDE now:** /en-route voice (mic) + Volume buttons — both are stubs for unbuilt features. Removing the buttons clears the dead-ends; the underlying work becomes a feature track.
+- **Feature track — Voice-guided navigation + en-route voice search:** spoken turn-by-turn (gates the Volume control) + speech-to-text destination input (gates the mic). Requires an Expo dev build, a speech library, and a mic-for-dictation permission. Own brainstorm→spec→build cycle.
+- **BUILD — Alternate-route comparison (/en-route alternate-paths FAB):** data already exists (`pickWinner` ranks alternates). Needs a UX decision (reveal-a-comparison vs switch-the-active-route) + a moderate refactor (the screen is hardwired to `recommended`, 31 refs). Own brief design + plan + build.
+- **BUILD — Refuel reminders (/search Fuel card):** genuine new feature (car profile + fuel data + reminder scheduling via `lib/notifications.ts`). Open design unknowns: reminder trigger model (time / distance / manual log — no fuel sensor on a phone) and the car-data shape. Own brainstorm→spec→build cycle.
+
 ## Visual fidelity / Figma drift
 
 - **Safety page matches v2 Figma + confirmation modal popup** — `app/safety.tsx` against current Figma node; confirmation modal pattern likely lives on a new tap path off one of the four tiles.
