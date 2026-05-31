@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/zone-flag-wiring (#44, 2026-05-31)
+
+Wired the /menu Zone-Preferences toggles (flagPolice/flagLowLight/flagCommunityReports) into scoring + the map (they'd persisted but done nothing since the UI shipped). Two takeaways:
+
+- **To gate a pure function by a preference, filter its INPUT at the call site — don't thread the flag into the function.** `scoreRoute`/`pickWinner`/`routeConditions`/`hazardsNearTurn` are pure and thesis-load-bearing. Instead of adding a `flags` param to each (impure, viral), I filtered the zone array once at the source on each screen (`enabledZones = allZones.filter(isZoneCategoryEnabled)`) and fed the filtered set to every consumer. The scorer stays pure, the gating lives in one place, and scoring + overlay + chips + hazards + entry-pill all become consistent for free. Worth keeping: when a preference should change a pure computation, gate the data going in, not the function.
+- **Filtering at the source silently propagates to every downstream surface — which is the point, but audit the full reach.** Because everything keyed off `allZones`, swapping it for `enabledZones` reached surfaces not in the original ask: the /home hold-to-delete hit-test (a disabled-category pin shouldn't be long-press-deletable) and the /en-route `validatableZones` → /trip-summary post-trip validation loop (a category you turned off shouldn't be in the "confirm what you saw" prompt). Both are the *correct* consequence, but they're non-obvious — the reviewers surfaced them, and one got a "why" comment. Worth keeping: a single-source filter is powerful precisely because it reaches everywhere; enumerate every consumer of that source (grep it) so you know — and can sanity-check — the full blast radius, including interaction handlers and cross-screen handoffs, not just the obvious render/score sites.
+
+---
+
 ## feat/alternate-route-comparison (2026-05-31)
 
 The /en-route alternate-paths FAB now opens a route-comparison sheet (duration / arrival / distance / "Safest route" descriptor / condition chips) and lets the driver switch the active route. The instructive part was the high-risk refactor:
