@@ -8,7 +8,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Polygon, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -46,6 +46,7 @@ import { LaneStrip } from '../components/LaneStrip';
 import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
+import { RouteComparisonSheet, type ComparisonRow } from '../components/RouteComparisonSheet';
 import { usePreferences } from '../hooks/usePreferences';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
@@ -73,11 +74,12 @@ import {
 import { clusterPointZones } from '../lib/clustering';
 import { gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
-import { formatDistance, formatDuration } from '../lib/format';
+import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
 import {
   hazardsNearTurn,
   isPointInZone,
   pickWinner,
+  routeConditions,
   zoneAnchor,
   zoneLengthMiles,
   zoneToHazardCategory,
@@ -348,6 +350,48 @@ export default function EnRoute() {
 
   const recommended = routes.find((route) => route.type === 'recommended');
 
+  // Which route the screen follows. null = follow the recommended (the
+  // score winner). The comparison sheet sets this to switch routes; a
+  // stale id (after a reroute changes the set) falls back to recommended.
+  const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
+  const activeRoute =
+    (activeRouteId != null && routes.find((r) => r.id === activeRouteId)) ||
+    recommended;
+
+  const [showComparison, setShowComparison] = useState(false);
+
+  const comparisonRows = useMemo<ComparisonRow[]>(() => {
+    const recMinutes = recommended?.estimatedMinutes ?? null;
+    return routes.map((route) => {
+      const minutes = route.estimatedMinutes;
+      const arrival = new Date(Date.now() + minutes * 60_000);
+      let descriptor: string;
+      if (route.type === 'recommended') {
+        descriptor = 'Safest route with current conditions';
+      } else if (recMinutes == null || minutes === recMinutes) {
+        descriptor = 'Same time';
+      } else {
+        const delta = minutes - recMinutes;
+        descriptor = delta < 0 ? `${-delta} min faster` : `${delta} min longer`;
+      }
+      return {
+        id: route.id,
+        durationLabel: formatDuration(minutes),
+        arrivalLabel: `Arrive ${formatTimeOfDay(arrival)}`,
+        distanceLabel: `${(route.distanceMeters / 1609.344).toFixed(0)} mi`,
+        descriptor,
+        conditions: routeConditions(route, allZones),
+        isActive: route.id === activeRoute?.id,
+        isRecommended: route.type === 'recommended',
+      };
+    });
+  }, [routes, recommended, activeRoute?.id, allZones]);
+
+  const handleSelectRoute = useCallback((id: string) => {
+    setActiveRouteId(id);
+    setShowComparison(false);
+  }, []);
+
   // Refuel reminders — on-route fuel/charging stops. The entry in the
   // Full bottom sheet opens FuelStopsSheet; useRouteFuelStops only
   // fetches while the sheet is open (active), and filters POIs to the
@@ -361,7 +405,7 @@ export default function EnRoute() {
     new Date(fuelProfile.nextReminderAt).getTime() <= Date.now();
   const fuelStops = useRouteFuelStops({
     active: showFuelStops,
-    routeCoords: recommended?.coordinates ?? [],
+    routeCoords: activeRoute?.coordinates ?? [],
     fuelType: fuelProfile?.fuelType ?? 'gas',
     userLocation,
   });
@@ -464,7 +508,7 @@ export default function EnRoute() {
   const minStepIndexRef = useRef(0);
   useEffect(() => {
     minStepIndexRef.current = 0;
-  }, [recommended?.id]);
+  }, [activeRoute?.id]);
 
   // Next maneuver the driver should act on — closest-by-GPS step from
   // OSRM's `steps=true` payload, advancing past completed maneuvers
@@ -473,13 +517,13 @@ export default function EnRoute() {
   // weren't returned (mock fallback path) — the turn card falls back
   // to a neutral "Heading toward {destination}" header in that case.
   const nextStepInfo = useMemo<NextStepInfo | null>(() => {
-    if (!recommended || !userLocation) return null;
+    if (!activeRoute || !userLocation) return null;
     return findNextStep(
-      recommended.steps,
+      activeRoute.steps,
       userLocation,
       minStepIndexRef.current,
     );
-  }, [recommended, userLocation]);
+  }, [activeRoute, userLocation]);
 
   // Track the highest step index ever reached so subsequent
   // findNextStep calls can't regress.
@@ -537,11 +581,11 @@ export default function EnRoute() {
         // default" can mark this destination a regular.
         ...(params.destLat ? { destLat: params.destLat } : {}),
         ...(params.destLng ? { destLng: params.destLng } : {}),
-        ...(recommended?.distanceMeters != null
-          ? { distanceMeters: String(recommended.distanceMeters) }
+        ...(activeRoute?.distanceMeters != null
+          ? { distanceMeters: String(activeRoute.distanceMeters) }
           : {}),
-        ...(recommended?.estimatedMinutes != null
-          ? { estimatedMinutes: String(recommended.estimatedMinutes) }
+        ...(activeRoute?.estimatedMinutes != null
+          ? { estimatedMinutes: String(activeRoute.estimatedMinutes) }
           : {}),
         // C12b: the trip's encountered caution/avoid zones, for the
         // inference-validation loop. Serialized (router params are
@@ -567,7 +611,7 @@ export default function EnRoute() {
     // inference set so the next arrival validates only that trip's
     // encountered zones.
     encounteredZonesRef.current = new Map();
-  }, [recommended?.id]);
+  }, [activeRoute?.id]);
 
   // Hazards crossing threshold near the next turn — surfaces up to 2
   // glyphs on the turn card, worst-first. Uses the next-step's
@@ -575,9 +619,9 @@ export default function EnRoute() {
   // route's first coordinate for the mock path. Capped at 2 — three
   // glyphs degrade into noise faster than a driver can parse mid-drive.
   const turnHazards = useMemo(() => {
-    if (!recommended || recommended.coordinates.length === 0) return [];
+    if (!activeRoute || activeRoute.coordinates.length === 0) return [];
     const turnPoint =
-      nextStepInfo?.step.maneuverLocation ?? recommended.coordinates[0];
+      nextStepInfo?.step.maneuverLocation ?? activeRoute.coordinates[0];
     return hazardsNearTurn(turnPoint, allZones).slice(0, 2);
     // C18 (thesis-coverage): the thesis's literal "max two zones
     // displayed at once" rule lives HERE — on the turn-card hazard
@@ -588,7 +632,7 @@ export default function EnRoute() {
     // hazards; capping the turn card prevents glyph noise. The rule
     // moved from "display" to "the focused turn-card surface" as a
     // design evolution — documented as intentional, not a regression.
-  }, [recommended, nextStepInfo, allZones]);
+  }, [activeRoute, nextStepInfo, allZones]);
 
   // What the Full bottom-sheet hazard panel should show. Entered-zone
   // hazards take priority over next-turn hazards — when the driver
@@ -674,14 +718,14 @@ export default function EnRoute() {
   // alone is the v1 design.
   const routePolylines = useMemo(
     () => {
-      // See /home for the why — alternates render first so the
-      // recommended gradient paints over them, not under.
+      // Active route renders LAST (its gradient paints over the faint
+      // alternates), matching /home's paint-order workaround.
       const ordered = [
-        ...routes.filter((r) => r.type !== 'recommended'),
-        ...routes.filter((r) => r.type === 'recommended'),
+        ...routes.filter((r) => r.id !== activeRoute?.id),
+        ...routes.filter((r) => r.id === activeRoute?.id),
       ];
       return ordered.flatMap((route) => {
-        if (route.type === 'recommended') {
+        if (route.id === activeRoute?.id) {
           return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
             <Polyline
               key={`${route.id}-seg-${idx}`}
@@ -695,13 +739,13 @@ export default function EnRoute() {
           <Polyline
             key={route.id}
             coordinates={route.coordinates}
-            strokeColor={routeColors[route.type].stroke}
-            strokeWidth={routeColors[route.type].width}
+            strokeColor={routeColors.alternate.stroke}
+            strokeWidth={routeColors.alternate.width}
           />,
         ];
       });
     },
-    [routes, cloudCoverPct],
+    [routes, activeRoute?.id, cloudCoverPct],
   );
 
   // Arrival clock time (now + remaining minutes), formatted as "8:30".
@@ -717,7 +761,7 @@ export default function EnRoute() {
     // resolves. Only show "—" if we have neither (e.g. user opened
     // /en-route via deep-link without coming through /home's Go).
     const minutesAhead =
-      recommended?.estimatedMinutes ??
+      activeRoute?.estimatedMinutes ??
       (params.destEstMinutes ? parseFloat(params.destEstMinutes) : NaN);
     if (!Number.isFinite(minutesAhead)) return { time: '—', isNight: false };
 
@@ -729,7 +773,7 @@ export default function EnRoute() {
     // intent in Figma (moon = arriving in the dark, sun = daylight).
     const isNight = h24 < 6 || h24 >= 18;
     return { time: `${h12}:${minutes}`, isNight };
-  }, [recommended, params.destEstMinutes]);
+  }, [activeRoute, params.destEstMinutes]);
 
   // Distance in miles, derived from the recommended route. Falls back
   // to the primed `destDistanceMeters` from /home until the local
@@ -737,13 +781,13 @@ export default function EnRoute() {
   // first paint has a real number instead of a dash.
   const distanceMiles = useMemo(() => {
     const meters =
-      recommended?.distanceMeters ??
+      activeRoute?.distanceMeters ??
       (params.destDistanceMeters
         ? parseFloat(params.destDistanceMeters)
         : NaN);
     if (!Number.isFinite(meters)) return null;
     return meters / 1609.344;
-  }, [recommended, params.destDistanceMeters]);
+  }, [activeRoute, params.destDistanceMeters]);
 
   // Duration in minutes — same priming logic as the ETA, but exposed
   // as a number for formatDuration. Kept separate from arrivalDisplay
@@ -752,10 +796,10 @@ export default function EnRoute() {
   // different formatters in the future.
   const durationMinutes = useMemo(() => {
     const m =
-      recommended?.estimatedMinutes ??
+      activeRoute?.estimatedMinutes ??
       (params.destEstMinutes ? parseFloat(params.destEstMinutes) : NaN);
     return Number.isFinite(m) ? m : null;
-  }, [recommended, params.destEstMinutes]);
+  }, [activeRoute, params.destEstMinutes]);
 
   // Announce the route-loaded state once for screen reader users.
   // Apple Maps speaks each route recalc; we get the smaller version
@@ -1194,6 +1238,27 @@ export default function EnRoute() {
           />
         )}
         {routePolylines}
+        {routes.map((route) => {
+          const mid = route.coordinates[Math.floor(route.coordinates.length / 2)];
+          if (!mid) return null;
+          const isActive = route.id === activeRoute?.id;
+          return (
+            <Marker
+              key={`badge-${route.id}`}
+              coordinate={mid}
+              anchor={{ x: 0.5, y: 0.5 }}
+              onPress={() => setActiveRouteId(route.id)}
+              tracksViewChanges={false}
+              accessibilityLabel={`${formatDuration(route.estimatedMinutes)} route`}
+            >
+              <View style={[styles.routeBadge, isActive && styles.routeBadgeActive]}>
+                <Text style={[styles.routeBadgeText, isActive && styles.routeBadgeTextActive]}>
+                  {formatDuration(route.estimatedMinutes)}
+                </Text>
+              </View>
+            </Marker>
+          );
+        })}
 
         {/*
           En-Route Zone markers — Figma 1133:13297. One marker per
@@ -1608,7 +1673,12 @@ export default function EnRoute() {
 
             <FloatingActionButton
               size="48"
-              accessibilityLabel="Show alternate paths (coming soon)"
+              accessibilityLabel="Compare routes"
+              accessibilityHint="Compare alternate routes and switch"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setShowComparison(true);
+              }}
             >
               <EnRoutePath width={24} height={24} />
             </FloatingActionButton>
@@ -1748,6 +1818,12 @@ export default function EnRoute() {
         fuelType={fuelProfile?.fuelType ?? 'gas'}
         onSelectStop={handleSelectFuelStop}
         onClose={() => setShowFuelStops(false)}
+      />
+      <RouteComparisonSheet
+        visible={showComparison}
+        rows={comparisonRows}
+        onSelectRoute={handleSelectRoute}
+        onClose={() => setShowComparison(false)}
       />
     </View>
   );
@@ -2129,6 +2205,19 @@ const styles = StyleSheet.create({
     ...typography.bodyEmphasized,
     color: colors.black,
   },
+
+  // --- Per-route duration badges (tap to switch active route) ---
+  routeBadge: {
+    backgroundColor: colors.white,
+    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.separatorSubtle,
+  },
+  routeBadgeActive: { backgroundColor: colors.freshgreen, borderColor: colors.freshgreen },
+  routeBadgeText: { ...typography.caption1Emphasized, color: colors.black },
+  routeBadgeTextActive: { color: colors.white },
 
   // --- End trip pill ---
   endTripBtn: {

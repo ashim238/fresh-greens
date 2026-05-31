@@ -148,6 +148,47 @@ export function isPointInZone(point: Coordinate, zone: Zone): boolean {
   }
 }
 
+/** Safety-condition categories surfaced as chips in the route comparison. */
+export type RouteCondition = 'low-light' | 'wildlife' | 'police' | 'road';
+
+/** Maps a Zone category to a comparison condition (only the four safety
+    factors the thesis names; landuse/park/community-report are not charted). */
+function conditionForCategory(
+  category: Zone['category'],
+): RouteCondition | null {
+  switch (category) {
+    case 'lighting':
+      return 'low-light';
+    case 'wildlife':
+      return 'wildlife';
+    case 'police':
+      return 'police';
+    case 'road-condition':
+      return 'road';
+    default:
+      return null;
+  }
+}
+
+/**
+ * The deduped set of safety conditions a route passes near — powers the
+ * comparison-sheet chips. Reuses `isPointInZone` (the same proximity
+ * dispatch `scoreRoute` uses), so chips and score stay consistent. Pure.
+ * Order is stable: low-light, wildlife, police, road.
+ */
+export function routeConditions(route: Route, zones: Zone[]): RouteCondition[] {
+  const present = new Set<RouteCondition>();
+  for (const zone of zones) {
+    const condition = conditionForCategory(zone.category);
+    if (!condition || present.has(condition)) continue;
+    if (route.coordinates.some((point) => isPointInZone(point, zone))) {
+      present.add(condition);
+    }
+  }
+  const order: RouteCondition[] = ['low-light', 'wildlife', 'police', 'road'];
+  return order.filter((c) => present.has(c));
+}
+
 /**
  * Approximate the on-the-ground length of a zone, in miles. Used by
  * the En-Route Zone extended-pill to surface "For X mi." copy.
