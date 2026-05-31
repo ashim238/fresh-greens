@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 
 import {
   clearStoredPreferences,
@@ -21,29 +22,38 @@ import {
  * sites simple — UI just wires to a setter — and let TypeScript catch
  * typos in preference names. Add new setters as new preferences arrive.
  *
- * Note: like useUser, this hook is local-state only. Each consumer
- * reads its own snapshot; cross-screen invalidation isn't wired. Fine
- * while preferences are read by /home (one place) and toggled in /menu
- * (another). When a preference grows enough surfaces to need shared
- * state, this becomes a context provider.
+ * Each consumer keeps its own local snapshot but RE-READS on focus
+ * (useFocusEffect) — so a screen that reads preferences (/home, /en-route)
+ * picks up a toggle made in /menu when it regains focus, even though /menu
+ * is pushed *over* it (revealed, not remounted, on pop). A mount-only load
+ * stayed stale until a forced remount (e.g. re-routing through /search).
+ * If live cross-screen sync (while both are mounted) is ever needed, this
+ * becomes a context provider.
  */
 export function usePreferences() {
   const [preferences, setPreferencesState] = useState<Preferences | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const stored = await getStoredPreferences();
-      if (!cancelled) {
-        setPreferencesState(stored);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Re-read on focus (not just mount): /menu is pushed on top of the
+  // screens that consume preferences (/home, /en-route), so popping back
+  // reveals them WITHOUT remounting — a mount-only load would leave a
+  // just-toggled flag stale until a forced remount. `loading` only flips
+  // false (never back to true on refocus) to avoid a flash.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const stored = await getStoredPreferences();
+        if (!cancelled) {
+          setPreferencesState(stored);
+          setLoading(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const setShowZones = useCallback(async (next: boolean) => {
     setPreferencesState((prev) => {
