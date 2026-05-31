@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
@@ -46,7 +47,10 @@ import { LandmarkMarker } from '../components/LandmarkMarker';
 import { LaneStrip } from '../components/LaneStrip';
 import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
+import { FuelStopsSheet } from '../components/FuelStopsSheet';
 import { usePreferences } from '../hooks/usePreferences';
+import { useFuelProfile } from '../hooks/useFuelProfile';
+import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
@@ -61,6 +65,7 @@ import {
   routeColors,
 } from '../lib/api/routes';
 import { clearActiveRoute } from '../lib/api/route-cache';
+import { type Place } from '../lib/api/places';
 import {
   getZonesForRegion,
   type Zone,
@@ -344,6 +349,24 @@ export default function EnRoute() {
   );
 
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // Refuel reminders — on-route fuel/charging stops. The entry in the
+  // Full bottom sheet opens FuelStopsSheet; useRouteFuelStops only
+  // fetches while the sheet is open (active), and filters POIs to the
+  // recommended route's polyline.
+  const { profile: fuelProfile } = useFuelProfile();
+  const [showFuelStops, setShowFuelStops] = useState(false);
+  // Reminder is "due" when its next-fire time has passed — drives the badge.
+  const refuelDue =
+    !!fuelProfile?.remindersEnabled &&
+    !!fuelProfile.nextReminderAt &&
+    new Date(fuelProfile.nextReminderAt).getTime() <= Date.now();
+  const fuelStops = useRouteFuelStops({
+    active: showFuelStops,
+    routeCoords: recommended?.coordinates ?? [],
+    fuelType: fuelProfile?.fuelType ?? 'gas',
+    userLocation,
+  });
 
   // On-map caution/avoid zone markers — polygon/polyline OSM zones
   // surface as En-Route Zone markers at the zone's anchor point
@@ -1006,6 +1029,24 @@ export default function EnRoute() {
     );
   }
 
+  // Tapping a fuel stop closes the sheet and recenters the map on the
+  // station, reusing the same animateToRegion mechanism the cluster-tap
+  // handler uses. A tight delta (matches the cluster floor) frames the
+  // single station at a useful zoom without dropping a marker — display-
+  // only recenter is the v1 contract.
+  const handleSelectFuelStop = useCallback((stop: Place) => {
+    setShowFuelStops(false);
+    mapRef.current?.animateToRegion(
+      {
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      400,
+    );
+  }, []);
+
   function handleEndTrip() {
     router.back();
   }
@@ -1613,6 +1654,39 @@ export default function EnRoute() {
           </View>
 
           {/*
+            Refuel reminders entry — Full state only, gated on the user
+            having reminders enabled. Same `sheetExpanded` conditional
+            pattern as the hazard panel below. Opens FuelStopsSheet; a
+            "Due" badge surfaces when the reminder's next-fire time has
+            passed.
+          */}
+          {sheetExpanded && fuelProfile?.remindersEnabled && (
+            <Pressable
+              style={({ pressed }) => [styles.fuelStopsEntry, pressed && pressedDim]}
+              onPress={() => setShowFuelStops(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`${
+                fuelProfile.fuelType === 'electric' ? 'Charging' : 'Gas'
+              } on your route${refuelDue ? ', refuel due' : ''}`}
+              accessibilityHint="Shows fuel stops along your route"
+            >
+              <Ionicons
+                name={fuelProfile.fuelType === 'electric' ? 'battery-charging' : 'car'}
+                size={20}
+                color={colors.black}
+              />
+              <Text style={styles.fuelStopsEntryLabel}>
+                {fuelProfile.fuelType === 'electric' ? 'Charging on route' : 'Gas on route'}
+              </Text>
+              {refuelDue && (
+                <View style={styles.fuelStopsDueBadge}>
+                  <Text style={styles.fuelStopsDueText}>Due</Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+
+          {/*
             Hazard panel — Full state (Figma 1133:13329). Renders the
             entered-zone hazard (preferred) or the next-turn hazard
             (fallback). 96pt yellow diamond on the left, Title3/
@@ -1698,6 +1772,22 @@ export default function EnRoute() {
           onDismiss={() => setSelectedReport(null)}
         />
       )}
+
+      {/*
+        On-route fuel stops — overlay opened from the Full bottom
+        sheet's "Gas/Charging on route" entry. Renders alongside the
+        ReportDetailCard as a top-level overlay; manages its own
+        visibility via the `visible` prop.
+      */}
+      <FuelStopsSheet
+        visible={showFuelStops}
+        loading={fuelStops.loading}
+        error={fuelStops.error}
+        stops={fuelStops.stops}
+        fuelType={fuelProfile?.fuelType ?? 'gas'}
+        onSelectStop={handleSelectFuelStop}
+        onClose={() => setShowFuelStops(false)}
+      />
     </View>
   );
 }
@@ -2012,6 +2102,32 @@ const styles = StyleSheet.create({
   hazardLengthCopy: {
     ...typography.subheadlineRegular,
     color: colors.mutedSecondary,
+  },
+  // Refuel reminders entry — Full bottom sheet row. Icon + label that
+  // opens FuelStopsSheet, with an optional "Due" badge on the right.
+  // Raw spacing values (8/16) match the file's local convention rather
+  // than importing the spacing token, which en-route doesn't use.
+  fuelStopsEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  fuelStopsEntryLabel: {
+    ...typography.subheadlineEmphasized,
+    color: colors.black,
+    flex: 1,
+  },
+  fuelStopsDueBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+    backgroundColor: colors.freshgreen,
+  },
+  fuelStopsDueText: {
+    ...typography.caption1Emphasized,
+    color: colors.white,
   },
   // v2 layout — FAB + ETA + FAB with the ETA wrapped in a flex:1
   // column that takes the remaining width. FABs are intrinsic-sized,
