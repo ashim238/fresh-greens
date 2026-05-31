@@ -31,6 +31,7 @@ import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
+import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { LoadingState } from '../components/StateCard';
 import { SearchBar } from '../components/SearchBar';
@@ -2146,6 +2147,8 @@ export default function Home() {
           onDismiss={() => setSelectedReport(null)}
         />
       )}
+
+      <LiveSafetySheet />
     </View>
   );
 }

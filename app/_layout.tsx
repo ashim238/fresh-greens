@@ -48,6 +48,25 @@ export default function RootLayout() {
           options={{ presentation: 'modal' }}
         />
         {/*
+          /share-location — proactive Share Location /safety sub-flow. Single-
+          step reason picker; selection starts a global ShareSession and dismisses.
+          LiveSafetySheet on /home or /en-route carries the session forward.
+        */}
+        <Stack.Screen
+          name="share-location"
+          options={{ presentation: 'modal' }}
+        />
+        {/*
+          /unfamiliar — "Unfamiliar area" /safety sub-flow. Two-step page-sheet
+          modal: problem picker → safe-destination picker. Auto-starts a global
+          ShareSession on Step 1; the LiveSafetySheet widget on /home or /en-route
+          carries the session forward after destination-routing.
+        */}
+        <Stack.Screen
+          name="unfamiliar"
+          options={{ presentation: 'modal' }}
+        />
+        {/*
           /roadside — Roadside Assistance sub-flow. Page-sheet modal with
           internal state machine (problem → action → status), mirroring
           /pulled-over's pattern. DragHandle stays present; usePreventRemove

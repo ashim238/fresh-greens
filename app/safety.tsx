@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as Haptics from 'expo-haptics';
 import type { ComponentType } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +16,8 @@ import SafetyShareLocation from '../assets/illustrations/safety-share-location.s
 import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
 
 import { DragHandle } from '../components/DragHandle';
+import { useShareSession } from '../hooks/useShareSession';
+import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
@@ -34,9 +35,9 @@ import { typography } from '../theme/typography';
  * into a sub-flow:
  *   Pulled-over → /pulled-over (consolidated state-machine modal:
  *     armed → transition → guidance → contact → review)
- *   Roadside assistance → /roadside (TBD)
- *   Unfamiliar area → /unfamiliar (TBD)
- *   Share location → /share-location (TBD)
+ *   Roadside assistance → /roadside
+ *   Unfamiliar area → /unfamiliar (gated on trusted contact)
+ *   Share location → /share-location (gated on trusted contact)
  *
  * Route: /safety
  * Figma node (v2): 1133:13908
@@ -58,8 +59,10 @@ type SafetyTab = {
   id: string;
   label: string;
   Icon: ComponentType<SvgProps>;
-  /** Future sub-flow route — null = unwired TODO for this PR */
-  href: string | null;
+  /** Sub-flow route. All four tiles are wired as of the
+   *  Unfamiliar + Share-Location PR; the no-contact and cross-tile
+   *  guards live in handleTabPress, not in tile data. */
+  href: string;
 };
 
 const TABS: SafetyTab[] = [
@@ -83,33 +86,62 @@ const TABS: SafetyTab[] = [
     id: 'unfamiliar',
     label: 'Unfamiliar area',
     Icon: SafetyLost,
-    href: null, // TODO: /unfamiliar sub-flow
+    href: '/unfamiliar',
   },
   {
     id: 'share-location',
     label: 'Share location',
     Icon: SafetyShareLocation,
-    href: null, // TODO: /share-location sub-flow
+    href: '/share-location',
   },
 ];
 
 export default function SafetyModal() {
   const router = useRouter();
+  const { contact } = useTrustedContact();
+  const { session } = useShareSession();
 
   function handleTabPress(tab: SafetyTab) {
-    if (tab.href) {
-      router.push(tab.href as never);
+    const isShareFlow = tab.id === 'unfamiliar' || tab.id === 'share-location';
+
+    // No-contact gate for the share-dependent flows. Pulled-over and
+    // Roadside handle missing contact internally, so they bypass this
+    // check.
+    if (isShareFlow && !contact) {
+      Alert.alert(
+        'Set a trusted contact',
+        'These flows share your location with your trusted contact. Set one up first.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Set up', onPress: () => router.push('/trusted-contact-setup') },
+        ],
+      );
       return;
     }
-    // Tiles whose sub-flows haven't shipped yet — surface a brief
-    // haptic + native Alert so the user gets feedback instead of
-    // tapping into dead pixels.
-    Haptics.selectionAsync().catch(() => {});
-    Alert.alert(
-      tab.label,
-      'This flow is coming in a future update. For now, only Pulled-over is wired up.',
-      [{ text: 'OK' }],
-    );
+
+    // Cross-tile guard: prevent starting one share-flow while the other
+    // is active. Re-tapping the SAME tile is fine — its route handles
+    // active-state on its own (renders the ActiveView).
+    if (session && isShareFlow) {
+      const sameTile =
+        (tab.id === 'unfamiliar' && session.type === 'unfamiliar') ||
+        (tab.id === 'share-location' && session.type === 'share-location');
+
+      if (!sameTile) {
+        const otherLabel =
+          session.type === 'unfamiliar' ? 'Unfamiliar area' : 'Share location';
+        const desiredLabel =
+          tab.id === 'unfamiliar' ? 'Unfamiliar area' : 'Share location';
+        Alert.alert(
+          `You're in a ${otherLabel} session.`,
+          `End it first to enter ${desiredLabel}.`,
+          [{ text: 'OK' }],
+        );
+        return;
+      }
+    }
+
+    router.push(tab.href as never);
   }
 
   return (
@@ -143,37 +175,20 @@ export default function SafetyModal() {
         </View>
 
         <View style={styles.grid}>
-          {TABS.map((tab) => {
-            const isInert = tab.href === null;
-            return (
-              <Pressable
-                key={tab.id}
-                // Dim inert tiles visually so reviewers can see at a
-                // glance which sub-flows are wired vs scaffolded.
-                // accessibilityState already announces disabled to
-                // VoiceOver; this gives sighted users the same cue.
-                style={({ pressed }) => [
-                  styles.tab,
-                  isInert && styles.tabInert,
-                  pressed && pressedDim,
-                ]}
-                onPress={() => handleTabPress(tab)}
-                accessibilityRole="button"
-                accessibilityLabel={tab.label}
-                // SAF4: pair the disabled state with a "Coming soon" hint
-                // so VoiceOver explains *why* the tile is dimmed rather
-                // than just announcing "button, dimmed." Matches the
-                // inert-row pattern already used in /menu.
-                accessibilityHint={isInert ? 'Coming soon' : undefined}
-                accessibilityState={{ disabled: isInert }}
-              >
-                <View style={styles.tabIcon}>
-                  <tab.Icon width={48} height={48} />
-                </View>
-                <Text style={styles.tabLabel}>{tab.label}</Text>
-              </Pressable>
-            );
-          })}
+          {TABS.map((tab) => (
+            <Pressable
+              key={tab.id}
+              style={({ pressed }) => [styles.tab, pressed && pressedDim]}
+              onPress={() => handleTabPress(tab)}
+              accessibilityRole="button"
+              accessibilityLabel={tab.label}
+            >
+              <View style={styles.tabIcon}>
+                <tab.Icon width={48} height={48} />
+              </View>
+              <Text style={styles.tabLabel}>{tab.label}</Text>
+            </Pressable>
+          ))}
         </View>
 
         {/*
@@ -285,13 +300,6 @@ const styles = StyleSheet.create({
     width: 140,
     gap: 8,
     alignItems: 'center',
-  },
-  // Visible "this sub-flow isn't wired yet" state. Half-opacity
-  // matches the standard iOS disabled-control register; the on-
-  // press handler still fires (with an Alert) so the user gets
-  // feedback rather than dead pixels.
-  tabInert: {
-    opacity: 0.5,
   },
   tabIcon: {
     width: '100%',

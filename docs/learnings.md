@@ -4,6 +4,30 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/unfamiliar-and-share-location — single-active ShareSession + widget-as-persistence
+
+Building `/unfamiliar` and `/share-location` raised the same architectural question Roadside dodged: *where does the active state live when the user dismisses the modal that started it?* Three options ruled out:
+
+1. **State on the route itself** — dies on dismiss. Bad: user expects the share to persist when they navigate back to /home.
+2. **In-flow toggles** like Roadside Step 2 / Pulled-over contact-phase — fine *inside* those flows; doesn't generalize because Unfamiliar Step 2's destination routing actively dismisses the modal mid-session.
+3. **Per-flow context providers** — works but multiplies provider trees and forces the widget to subscribe to N possible sources.
+
+Chose a **single global ShareSession** (`lib/api/share-session.ts` + `hooks/useShareSession.ts`) with a *single active session at a time*. Either Unfamiliar OR Share Location, never both. Cross-tile attempts are guarded at `/safety`. The same hook drives the persistent `<LiveSafetySheet />` widget mounted on both `/home` and `/en-route` — the widget IS the persistence affordance; the originating modal is ephemeral.
+
+Carved out the in-flow share-toggles in Roadside Step 2 + Pulled-over contact phase to stay independent (they live inside their flows; no widget for those). The asymmetry is intentional: Roadside/Pulled-over have their own state chrome; standalone Share Location and Unfamiliar do not.
+
+Extracted `<NotifyingPulse />` as the shared "{name} is being notified" affordance. Roadside Step 3's previously-inline pulse retrofitted to use it — now 5+ call sites converge on one component.
+
+v1 ships as **UI-state simulation** — no real SMS, no live-tracking. The "Myles is being notified" pulse reflects intent, matching the existing thesis-scope shares in Roadside/Pulled-over. Real backend hookup deferred to post-v1 — flagged at the top of the spec.
+
+**Privacy detail:** the `LiveSafetySheet` widget exposes the session *type* ("Unfamiliar area" / "Sharing location") but not the underlying problem for Unfamiliar sessions (the user's verbatim "I'm being followed" stays out of the always-visible widget — only their contact gets that context). Confirmation pattern is also asymmetric: ending an Unfamiliar session requires an Alert; Share Location ends single-tap. Honesty about stakes.
+
+**Token addition:** `colors.modalScrimStrong` (0.4 opacity) added alongside the existing `colors.modalScrim` (0.2) to fit safety-sheet overlays (LiveSafetySheet expand + LifelineModal). Documented in `theme/colors.ts`.
+
+**`formatDuration` collision:** `lib/format.ts` already exported `formatDuration(minutes)` for trip-duration. The new seconds-based stopwatch helper for share sessions is `formatElapsedDuration(seconds)` — different identifier, different unit, both live in the same file with docstrings disambiguating.
+
+---
+
 ## feat/roadside-assistance — navy as a cross-link affordance
 
 The Roadside `/safety` sub-flow needed a "Switch to Pulled-over mode" row on its live-status step. Pulled-over's reserved color is navy. The reserved-color rule reads "navy only on /pulled-over" — strict reading says the row's icon must be freshgreen (or some neutral). But that loses semantic signal: the user can't tell at a glance that this row escalates to a different safety mode.

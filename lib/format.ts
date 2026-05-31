@@ -62,3 +62,26 @@ export function formatTimeOfDay(date: Date): string {
     minute: '2-digit',
   });
 }
+
+/**
+ * Format an elapsed-seconds count for a share-session duration display.
+ *  < 60 min → "MM:SS"
+ *  ≥ 60 min → "Hh MMm" (e.g. "1h 23m", "2h 04m")
+ *
+ * Stopwatch-honest at short durations; reads warmer than HH:MM:SS for
+ * long-running sessions where the seconds are noise.
+ *
+ * Named `formatElapsedDuration` (not `formatDuration`) to coexist with
+ * the existing minutes-based trip-duration formatter above.
+ */
+export function formatElapsedDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hours === 0) {
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${hours}h ${mins.toString().padStart(2, '0')}m`;
+}

@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Animated,
   Linking,
   Modal,
   Pressable,
@@ -33,7 +32,7 @@ import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
-import { usePulseOpacity } from '../hooks/usePulseOpacity';
+import { NotifyingPulse } from '../components/NotifyingPulse';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { type ProblemType } from '../lib/api/roadside';
@@ -456,7 +455,6 @@ function LiveStatus({
 }) {
   const { profile: roadsideProfile } = useRoadsideProfile();
   const { contact } = useTrustedContact();
-  const pulse = usePulseOpacity();
 
   const headline = roadsideProfile
     ? `${roadsideProfile.serviceName} should be on the way.`
@@ -513,21 +511,7 @@ function LiveStatus({
           style={styles.primaryCtaStretch}
         />
 
-        {shareOn && contact && (
-          <View
-            style={styles.statusPulseRow}
-            accessibilityLabel={`${contact.name} is being notified`}
-          >
-            <Animated.View
-              style={[styles.statusPulseDot, { opacity: pulse }]}
-              accessibilityElementsHidden
-              importantForAccessibility="no"
-            />
-            <Text style={styles.statusPulseLabel}>
-              {contact.name} is being notified
-            </Text>
-          </View>
-        )}
+        {shareOn && contact && <NotifyingPulse contactName={contact.name} />}
       </View>
     </ScrollView>
   );
@@ -798,20 +782,5 @@ const styles = StyleSheet.create({
   },
   primaryCtaStretch: {
     alignSelf: 'stretch',
-  },
-  statusPulseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  statusPulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.freshgreen,
-  },
-  statusPulseLabel: {
-    ...typography.footnoteRegular,
-    color: colors.labelSecondary,
   },
 });

@@ -43,6 +43,7 @@ import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { LaneStrip } from '../components/LaneStrip';
+import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
@@ -1842,6 +1843,8 @@ export default function EnRoute() {
         onSelectRoute={handleSelectRoute}
         onClose={() => setShowComparison(false)}
       />
+
+      <LiveSafetySheet />
     </View>
   );
 }
