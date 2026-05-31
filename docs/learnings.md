@@ -4,6 +4,15 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/refuel-reminder-core (2026-05-30)
+
+Phase-1 of the portfolio push: made the /search Fuel card real — a local, time-based refuel reminder (profile + cadence → recurring local notification), built subagent-driven. Two takeaways worth keeping:
+
+- **A pushed screen stays MOUNTED when another screen is pushed on top of it — so a mount-only data load goes stale on back-navigation.** The /search Fuel card shows live reminder status, but `/search` is `push`-ed and stays mounted while `/fuel` sits on top; `router.back()` from `/fuel` reveals `/search` WITHOUT remounting, so `useFuelProfile`'s mount-only `useEffect` never re-ran and the card stayed stale after the user enabled a reminder. Fix: `useFocusEffect` (re-reads storage each time the screen regains focus). Worth keeping: this quietly contradicts the codebase's prior "refetches on next mount via expo-router stack remount" assumption (architecture.md, /recordings) — that only holds when the screen is genuinely remounted (navigated away+back via push), NOT when it's revealed by popping a screen off the top. Any "live status" surface that sits *beneath* a pushed editor needs `useFocusEffect`, not a mount effect. The final holistic reviewer caught this; per-task review didn't, because it's a cross-screen navigation seam invisible from any single file.
+- **Recurring reminders want a repeating `TIME_INTERVAL` trigger, not the one-shot `DATE` trigger the departure feature uses.** `scheduleDepartureNotification` fires once at an exact `DATE` (a single event); a refuel nudge recurs, so `TIME_INTERVAL` with `repeats: true` (cadenceDays × 86400s) is the right primitive — it survives the app being closed with no re-arm. Gotcha: iOS requires a repeating `TIME_INTERVAL` ≥ 60s (1 day clears it easily), and the trigger fires at *(enable time) + N days* — it does NOT pin a time-of-day (accepted for v1; a refuel nudge isn't hour-sensitive). Worth keeping: match the trigger type to the event shape (one-shot vs recurring) rather than copying the existing helper wholesale.
+
+---
+
 ## chore/phase0-honesty-pass (2026-05-30)
 
 First phase of the portfolio-ready (v2) push: remove visible dead-ends so the app survives App Store review. Apple-only auth, cut inert /menu rows, cut /search Trending + fix the query-tile deselect bug, honest /report copy. Executed subagent-driven (implementer + spec-review + quality-review per task). Three takeaways, all about the gap between docs and code:
