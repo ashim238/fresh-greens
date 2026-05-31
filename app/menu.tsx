@@ -7,9 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Calendar } from 'phosphor-react-native/src/icons/Calendar';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
-import { GearSix } from 'phosphor-react-native/src/icons/GearSix';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
-import { PaintRoller } from 'phosphor-react-native/src/icons/PaintRoller';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
@@ -70,9 +68,6 @@ import { typography } from '../theme/typography';
  *                                     hidden behind a tap)
  *
  *   🛡  Safety                   ›
- *   ⚙  Settings                  ›  inert (TODO)
- *   📅 Schedule a drive          ›  inert (TODO)
- *   🎨 Theme                     ›  inert (TODO)
  *
  *   ┌──── Fuel ────┐ ┌── Calendar ──┐    ← carousel, page-control dots
  *
@@ -100,9 +95,6 @@ import { typography } from '../theme/typography';
  * the freshgreen circle. Until that SVG is exported, we render a
  * Phosphor `User` duotone glyph as a placeholder (queued for the
  * next bulk-SVG export pass).
- *
- * Inert rows still render at 50% opacity with no chevron — same
- * "planned but not active" affordance as v1.
  *
  * Route: /menu
  */
@@ -266,24 +258,6 @@ export default function Menu() {
               icon={<Shield size={24} color={colors.black} weight="duotone" />}
               label="Safety"
               onPress={handleSafety}
-            />
-
-            <SettingsRow
-              icon={<GearSix size={24} color={colors.black} weight="duotone" />}
-              label="Settings"
-              inert
-            />
-
-            <SettingsRow
-              icon={<Calendar size={24} color={colors.black} weight="duotone" />}
-              label="Schedule a drive"
-              inert
-            />
-
-            <SettingsRow
-              icon={<PaintRoller size={24} color={colors.black} weight="duotone" />}
-              label="Theme"
-              inert
             />
           </View>
         </ScrollView>
@@ -528,44 +502,30 @@ function ZonePreferencesRow({
 
 /**
  * Single push-to-route settings row.
- *
- *   inert — "planned but not yet built." Drops opacity to 0.5,
- *   removes chevron, no-ops on tap. Same v1 affordance.
  */
 function SettingsRow({
   icon,
   label,
   onPress,
-  inert = false,
 }: {
   icon: React.ReactNode;
   label: string;
   onPress?: () => void;
-  inert?: boolean;
 }) {
   return (
     <Pressable
-      onPress={inert ? undefined : onPress}
-      disabled={inert}
-      style={({ pressed }) => [
-        styles.row,
-        inert && styles.rowInert,
-        pressed && !inert && pressedDim,
-      ]}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && pressedDim]}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled: inert }}
-      accessibilityHint={inert ? 'Coming soon' : undefined}
     >
       <View style={styles.rowIconWrap}>{icon}</View>
       <Text style={styles.rowLabel}>{label}</Text>
-      {!inert && (
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={colors.labelTertiary}
-        />
-      )}
+      <Ionicons
+        name="chevron-forward"
+        size={16}
+        color={colors.labelTertiary}
+      />
     </Pressable>
   );
 }
@@ -660,9 +620,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     minHeight: 44, // HIG tap target
-  },
-  rowInert: {
-    opacity: 0.5,
   },
   rowIconWrap: {
     width: 24,

@@ -13,8 +13,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LogoApple from '../assets/illustrations/logo-apple.svg';
-import LogoGoogle from '../assets/illustrations/logo-google.svg';
-import LogoMail from '../assets/illustrations/logo-mail.svg';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -24,15 +22,15 @@ import { typography } from '../theme/typography';
  * Login — returning-user auth entry.
  *
  * Mirrors /get-started's visual register (same wiltedgreen sky, burnt-
- * green ground, Apple/Google/Email button column) but copy and routing
- * targets are tuned for users who already have an account:
+ * green ground, Apple sign-in button) but copy and routing targets are
+ * tuned for users who already have an account:
  *   - Title: "Welcome back" (vs "Get started")
  *   - On successful Apple Sign In: route directly to /home (skip
  *     onboarding entirely — these users have done it before)
  *   - "Don't have an account? Sign up" link → /get-started
  *
- * Apple is the only working provider; Google + Email are visual-only
- * placeholders matching the design intent. Same pattern as /get-started.
+ * Sign in with Apple is the only auth provider in v1. Same pattern as
+ * /get-started.
  *
  * Route: /login
  *
@@ -120,26 +118,6 @@ export default function Login() {
                   <Text style={styles.outlinedButtonText}>Log in with Apple</Text>
                 </>
               )}
-            </Pressable>
-
-            <Pressable
-              style={styles.outlinedButton}
-              accessibilityRole="button"
-              accessibilityLabel="Log in with Google (not yet supported)"
-              disabled
-            >
-              <LogoGoogle width={20} height={20} />
-              <Text style={styles.outlinedButtonText}>Log in with Google</Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.outlinedButton}
-              accessibilityRole="button"
-              accessibilityLabel="Log in with Email (not yet supported)"
-              disabled
-            >
-              <LogoMail width={20} height={20} />
-              <Text style={styles.outlinedButtonText}>Log in with Email</Text>
             </Pressable>
 
             {error && <Text style={styles.errorText}>{error}</Text>}

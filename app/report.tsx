@@ -423,7 +423,7 @@ function PickerView({
         </View>
         <Text style={styles.titleEmphasized}>Report</Text>
         <Text style={styles.subtitle}>
-          Let the community know what&rsquo;s going on near you.
+          Flag what&rsquo;s going on near you.
         </Text>
       </View>
 

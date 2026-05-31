@@ -13,8 +13,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LogoApple from '../assets/illustrations/logo-apple.svg';
-import LogoGoogle from '../assets/illustrations/logo-google.svg';
-import LogoMail from '../assets/illustrations/logo-mail.svg';
 import { useUser } from '../hooks/useUser';
 import { getStoredUser } from '../lib/api/user';
 import { colors } from '../theme/colors';
@@ -24,8 +22,9 @@ import { typography } from '../theme/typography';
 /**
  * Get Started — auth/signup entry screen for first-time users.
  *
- * "Continue with Apple" is the only working auth provider. Google /
- * Email buttons are visual-only placeholders until those flows land.
+ * Sign in with Apple is the only auth provider in v1 — deliberate: it
+ * satisfies Apple's sign-in requirement and keeps the account model
+ * minimal. No Google/Email placeholders.
  *
  * On successful Apple Sign In:
  *   - First-time user (no prior stored user) → /onboarding (full intro)
@@ -141,34 +140,6 @@ export default function GetStarted() {
               )}
             </Pressable>
 
-            {/*
-              Google + Email are visual-only placeholders. Apple Sign In
-              is the only working provider in v1; these stay so the
-              screen still matches the Figma layout, but they no-op on
-              press until their flows are wired up.
-            */}
-            <Pressable
-              style={[styles.outlinedButton, styles.outlinedButtonDisabled]}
-              accessibilityRole="button"
-              accessibilityLabel="Continue with Google (not yet supported)"
-              accessibilityState={{ disabled: true }}
-              disabled
-            >
-              <LogoGoogle width={20} height={20} />
-              <Text style={styles.outlinedButtonText}>Continue with Google</Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.outlinedButton, styles.outlinedButtonDisabled]}
-              accessibilityRole="button"
-              accessibilityLabel="Continue with Email (not yet supported)"
-              accessibilityState={{ disabled: true }}
-              disabled
-            >
-              <LogoMail width={20} height={20} />
-              <Text style={styles.outlinedButtonText}>Continue with Email</Text>
-            </Pressable>
-
             {error && <Text style={styles.errorText}>{error}</Text>}
 
             <View style={styles.divider}>
@@ -257,13 +228,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8, // space between icon and label
-  },
-  // Visible disabled treatment for the Google + Email buttons.
-  // Without opacity styling, a reviewer who taps them gets ZERO
-  // feedback and assumes the app is frozen. Half-opacity matches
-  // the standard iOS disabled-control register.
-  outlinedButtonDisabled: {
-    opacity: 0.5,
   },
   buttonBusy: {
     // Subtle dim while the Apple sheet is up so the user has feedback

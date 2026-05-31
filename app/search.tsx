@@ -20,7 +20,6 @@ import { MapPin } from 'phosphor-react-native/src/icons/MapPin';
 
 import FuelIcon from '../assets/illustrations/fuel.svg';
 import QuickToolSaved from '../assets/illustrations/quick-tools-saved.svg';
-import QuickToolTrending from '../assets/illustrations/quick-tools-trending.svg';
 import QuickToolFood from '../assets/illustrations/safety-tools-food.svg';
 import QuickToolGas from '../assets/illustrations/safety-tools-gas.svg';
 import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
@@ -89,17 +88,12 @@ type QuickTool = {
    *
    * `Saved` has no query: tapping it toggles an inline list of the
    * user's saved places + regular destinations (see `buildSavedRows`).
-   * `Trending` is `comingSoon` — no analytics source to make it honest.
    */
   query?: string;
-  /** Marks a tile whose feature isn't wired yet (renders a "Soon" cue,
-      taps surface a coming-soon Alert instead of acting). */
-  comingSoon?: boolean;
 };
 
 const QUICK_TOOLS: QuickTool[] = [
   { id: 'saved', label: 'Saved', Icon: QuickToolSaved },
-  { id: 'trending', label: 'Trending', Icon: QuickToolTrending, comingSoon: true },
   { id: 'food', label: 'Food', Icon: QuickToolFood, query: 'restaurant' },
   { id: 'gas', label: 'Gas', Icon: QuickToolGas, query: 'gas station' },
   { id: 'parking', label: 'Parking', Icon: QuickToolParking, query: 'parking' },
@@ -537,48 +531,35 @@ export default function Search() {
                           pressed && pressedDim,
                         ]}
                         onPress={() => {
-                          // Three paths:
-                          //   1. comingSoon (Trending) → honest "coming
-                          //      soon" Alert; the tile never enters a
-                          //      selected state it can't act on.
-                          //   2. has a `query` (Food/Gas/Parking) → set
-                          //      the search text; the debounced
-                          //      autocomplete effect fires the Mapbox
-                          //      call. Selected state is confirmation.
-                          //   3. no query (Saved) → toggle the selected
+                          // Two paths:
+                          //   1. has a `query` (Food/Gas/Parking) → toggle
+                          //      selection AND mirror it into the search
+                          //      text: selecting sets the query (the
+                          //      debounced autocomplete effect fires the
+                          //      Mapbox call); DESELECTING clears it, so a
+                          //      second tap fully backs out instead of
+                          //      leaving a stale query behind.
+                          //   2. no query (Saved) → toggle the selected
                           //      state, which reveals the inline Saved
                           //      list below the tiles.
-                          if (tool.comingSoon) {
-                            Alert.alert(
-                              tool.label,
-                              `${tool.label} spots are coming in a future update.`,
-                            );
-                            return;
-                          }
-                          setSelectedToolId((prev) =>
-                            prev === tool.id ? null : tool.id,
-                          );
+                          const willSelect = selectedToolId !== tool.id;
+                          setSelectedToolId(willSelect ? tool.id : null);
                           if (tool.query) {
-                            setQuery(tool.query);
+                            setQuery(willSelect ? tool.query : '');
                           }
                         }}
                         accessibilityRole="button"
                         accessibilityLabel={tool.label}
                         accessibilityState={{ selected: isSelected }}
                         accessibilityHint={
-                          tool.comingSoon
-                            ? 'Coming soon'
-                            : tool.query
-                              ? `Search for ${tool.label.toLowerCase()} nearby`
-                              : 'Show your saved places'
+                          tool.query
+                            ? `Search for ${tool.label.toLowerCase()} nearby`
+                            : 'Show your saved places'
                         }
                       >
                         <tool.Icon width={24} height={24} />
                         <View style={styles.quickToolLabelWrap}>
                           <Text style={styles.quickToolLabel}>{tool.label}</Text>
-                          {tool.comingSoon && (
-                            <Text style={styles.quickToolSoon}>Soon</Text>
-                          )}
                         </View>
                       </Pressable>
                     );
@@ -881,12 +862,6 @@ const styles = StyleSheet.create({
   quickToolLabel: {
     ...typography.subheadlineEmphasized,
     color: colors.black,
-  },
-  // "Soon" cue under a coming-soon tile's label — quiet caption gray so
-  // the tile reads as not-yet-available without looking broken/disabled.
-  quickToolSoon: {
-    ...typography.caption1Regular,
-    color: colors.mutedSecondary,
   },
   divider: {
     height: 1,
