@@ -26,6 +26,7 @@ import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 
 import { SearchBar } from '../components/SearchBar';
 import { ErrorState, LoadingState } from '../components/StateCard';
+import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
@@ -205,6 +206,7 @@ export default function Search() {
   // S4: destructure `loading` so we can gate the empty-state branch
   // and avoid the flash of "Your recent destinations will show up here"
   // during the AsyncStorage read on first mount.
+  const { profile: fuelProfile } = useFuelProfile();
   const { recents, loading: recentsLoading, addRecent, removeRecent, clearRecents } = useRecentSearches();
   // Saved tile data — saved places + regular destinations, merged into
   // one ranked list (see buildSavedRows). Surfaced inline when the
@@ -613,14 +615,23 @@ export default function Search() {
 
                 <Pressable
                   style={({ pressed }) => [styles.fuelSection, pressed && pressedDim]}
+                  onPress={() => router.push('/fuel')}
                   accessibilityRole="button"
-                  accessibilityLabel="Fuel. Add your car's model and fuel for refuel reminders"
-                  accessibilityHint="Coming soon"
+                  accessibilityLabel="Fuel and refuel reminders"
+                  accessibilityHint={
+                    fuelProfile?.remindersEnabled
+                      ? 'Opens your refuel reminder settings'
+                      : 'Set up refuel reminders'
+                  }
                 >
                   <FuelIcon width={32} height={32} />
                   <Text style={styles.fuelTitle}>Fuel</Text>
                   <Text style={styles.fuelSubtitle}>
-                    Add your car's model and fuel for refuel reminders
+                    {fuelProfile?.remindersEnabled && fuelProfile.nextReminderAt
+                      ? `Refuel reminder on · next ${new Date(
+                          fuelProfile.nextReminderAt,
+                        ).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                      : 'Set up refuel reminders for your car'}
                   </Text>
                 </Pressable>
 

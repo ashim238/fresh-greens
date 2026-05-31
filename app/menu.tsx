@@ -38,6 +38,7 @@ import AvatarPng from '../assets/illustrations/avatar.png';
 import FuelIcon from '../assets/illustrations/fuel.svg';
 
 import { PageControl } from '../components/PageControl';
+import { useFuelProfile } from '../hooks/useFuelProfile';
 import { usePreferences } from '../hooks/usePreferences';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
@@ -133,6 +134,7 @@ export default function Menu() {
   const { clearAll: clearRegularDestinations } = useRegularDestinations();
   const { preferences, setShowZones, setPreference, clearAll: clearPreferences } =
     usePreferences();
+  const { clearAll: clearFuelProfile } = useFuelProfile();
   const { width: screenWidth } = useWindowDimensions();
   const [signingOut, setSigningOut] = useState(false);
   const [activeQuickIndex, setActiveQuickIndex] = useState(0);
@@ -175,6 +177,7 @@ export default function Menu() {
         clearSavedPlaces(),
         clearRegularDestinations(),
         clearPreferences(),
+        clearFuelProfile(),
       ]);
       router.replace('/sign-out');
     } finally {
