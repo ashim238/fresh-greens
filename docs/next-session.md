@@ -12,6 +12,17 @@ Minor findings from the focused static audit of the surfaces this session touche
 - **Spacing-token discipline (pervasive, pre-existing)** — raw `gap: 16/24` instead of `spacing.*` across several screens. Codebase-wide convention drift, not a session regression; worth a sweep someday.
 - **`/search` tile toggle (pre-existing)** — deselecting a query tile (Food/Gas/Parking) leaves the search query set; minor interaction ambiguity, predates this work.
 
+## Phase 0b — un-triaged dead-ends (found by the 2026-05-30 acceptance sweep)
+
+Phase 0 (`ae79812`) removed the *enumerated* dead-ends (Google/Email auth, inert /menu rows, /search Trending, plus the query-tile deselect bug + honest /report copy). A codebase-wide `rg` for `coming soon|future update|not yet supported` then surfaced dead-ends the spec's triage table never listed. Each needs a **cut / hide / wire** decision before "zero visible dead-ends" is literally true:
+
+- **/en-route mic button** (`en-route.tsx:1329`) — "Voice control (not yet supported)", no `onPress` (taps do nothing).
+- **/en-route Volume button** (`en-route.tsx:1438`) — Alert "Voice prompt controls land in a future update."
+- **/en-route alternate-paths FAB** (`en-route.tsx:1607`) — "Show alternate paths (coming soon)"; the app *does* compute alternates, so this is plausibly WIRE-able.
+- **/search Fuel card** (`search.tsx:614`) — "Coming soon" hint, no `onPress`; could WIRE to the /search fuel query like the Quick Tile, or cut.
+
+Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): **/menu Quick Tiles** (Fuel, Notifications) and the **/safety inert tiles** (Roadside, Unfamiliar area, Share my location).
+
 ## Visual fidelity / Figma drift
 
 - **Safety page matches v2 Figma + confirmation modal popup** — `app/safety.tsx` against current Figma node; confirmation modal pattern likely lives on a new tap path off one of the four tiles.

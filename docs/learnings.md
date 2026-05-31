@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/phase0-honesty-pass (2026-05-30)
+
+First phase of the portfolio-ready (v2) push: remove visible dead-ends so the app survives App Store review. Apple-only auth, cut inert /menu rows, cut /search Trending + fix the query-tile deselect bug, honest /report copy. Executed subagent-driven (implementer + spec-review + quality-review per task). Three takeaways, all about the gap between docs and code:
+
+- **The spec's task list had drifted from the actual code — grounding every task in real source before writing the plan caught 3 no-op tasks.** The spec (derived from `docs/next-session.md` + `architecture.md`) listed "remove report-photo coming-soon Alert," "remove Schedule coming-soon Alert," and "fix /menu profile row to full opacity." All three were already done in code: photo capture is real (`expo-image-picker`), Schedule fires a real notification, and the profile row is already a full-opacity static `View`. Worth keeping: docs rot faster than code. Before writing implementation tasks from a spec, re-verify each item against current source — a `rg` per claim is cheap insurance against writing tasks for already-shipped work.
+- **A single-row icon import isn't always single-use — grep before removing.** The plan said to drop the `Calendar` Phosphor import along with the inert "Schedule a drive" row, assuming the row was its only consumer. It wasn't: `Calendar` also backs the Quick Tiles carousel's "Connect calendar" tile. The implementer's "STOP if an exact-match string doesn't fit" guard surfaced it before any breakage. Worth keeping: when deleting a component/row, `rg` each of its icon/symbol imports across the file before removing them — co-located rows often share an icon.
+- **A "remove all dead-ends" goal needs a codebase-wide sweep to build the inventory, not just the docs-flagged list.** The triage table was built from `next-session.md`, which wasn't exhaustive. The acceptance-sweep `rg` for `coming soon|future update|not yet supported` found dead-ends the table missed: /en-route's voice/volume/alternate-paths stubs and the /search Fuel card. Worth keeping: for a "find all X" pass, derive the inventory from the source tree (grep), then reconcile against the docs — never the other way around.
+
+---
+
 ## feat/route-preview-redesign + cloud-aware-daylight (2026-05-30)
 
 Subagent-driven build of the route-preview card redesign (destination title + hero/arrival + tap-to-toggle regular) and cloud-aware daylight. Two gotchas worth keeping (both caught by the per-phase code-reviewer / by an implementer reading the real code).
