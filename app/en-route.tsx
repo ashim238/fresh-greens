@@ -28,8 +28,6 @@ import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
 import SidebtnHelp from '../assets/illustrations/sidebtn-help.svg';
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
-import SidebtnVolume from '../assets/illustrations/sidebtn-volume.svg';
-import TurnMic from '../assets/illustrations/turn-mic.svg';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
 // (node 825:3647) so the symbol means the same thing on both
@@ -1367,21 +1365,6 @@ export default function EnRoute() {
             )}
           </View>
 
-          <Pressable
-            style={({ pressed }) => [styles.micBtn, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel="Voice control (not yet supported)"
-          >
-            {/*
-              Speech-control affordance — the mic glyph signals "tap to
-              speak a destination/command," matching the in-app voice-
-              search pattern Apple/Google/Waze all use during active
-              navigation. 32pt icon in a 48pt pill per Figma 825:3755
-              (inner Frame size-[32px] centered in size-[48px] pill =
-              8pt margin each side).
-            */}
-            <TurnMic width={32} height={32} />
-          </Pressable>
         </View>
 
         <View style={styles.thenFooter}>
@@ -1462,28 +1445,6 @@ export default function EnRoute() {
             still Phosphor — the documented canonical safety-affordance
             (navy duotone) and matches /menu's Safety row register.
           */}
-          {/*
-            F13: Volume is the lone coming-soon button. `disabled` on
-            FloatingActionButton suppresses onPress entirely AND threads
-            accessibilityState.disabled to VoiceOver. The FAB's internal
-            `pressedDim` (opacity 0.7) handles the visual inert state
-            uniformly — earlier sideBtnInert (opacity 0.5) was redundant
-            with pressedDim AND was being overridden by it in the style
-            cascade anyway. One canonical "disabled FAB" register.
-          */}
-          <FloatingActionButton
-            size="56"
-            disabled
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              Alert.alert('Volume', 'Voice prompt controls land in a future update.', [
-                { text: 'OK' },
-              ]);
-            }}
-            accessibilityLabel="Toggle volume (coming soon)"
-          >
-            <SidebtnVolume width={32} height={32} />
-          </FloatingActionButton>
           {/*
             SOS — the direct, one-tap path to the /emergency surface
             (trusted-contact + guarded-911). Previously this slot was a
@@ -1902,25 +1863,6 @@ const styles = StyleSheet.create({
     // visually low against the icon inside the compact pill.
     ...typography.footnoteEmphasized,
     color: colors.white,
-  },
-  micBtn: {
-    // 56pt pill (Figma specs 48pt as Material 3 icon-button, but the
-    // side-button column is all 56pt — bumping the turn-card mic to
-    // match means every white-pill nav button on the en-route screen
-    // is the same size, and gives better tap target during driving.
-    // 32pt icon + 56pt pill = 12pt margin each side — same icon-to-
-    // pill ratio as the side buttons.
-    width: 56,
-    height: 56,
-    borderRadius: 100,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // F4: was inline e1-equivalent values. Swapped to ...shadows.e2 so
-    // the mic pill matches the side-column FABs (which also use e2 via
-    // FloatingActionButton). One canonical "white pill on dark surface"
-    // elevation, applied identically.
-    ...shadows.e2,
   },
   thenFooter: {
     backgroundColor: colors.burntgreen,
