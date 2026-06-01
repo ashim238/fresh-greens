@@ -364,40 +364,47 @@ function CountdownView({
         <Text style={styles.countdownNumber}>{seconds}</Text>
       </View>
 
-      {/* Stop affordance — X glyph in a neutral circle + "Stop" label.
-          Sized as a real 64pt tap target (the centered chrome is 48pt
-          but the Pressable's hit area extends to the surrounding gap)
-          so the user can interrupt mid-countdown reliably. */}
-      <Pressable
-        onPress={onStop}
-        accessibilityRole="button"
-        accessibilityLabel="Stop the call"
-        hitSlop={12}
-        style={({ pressed }) => [styles.stopBtn, pressed && pressedDim]}
-      >
-        <View style={styles.stopChrome}>
-          <X size={20} color={colors.labelSecondary} weight="bold" />
-        </View>
-        <Text style={styles.stopLabel}>Stop</Text>
-      </Pressable>
-
-      {/* Pivot — symmetric mid-countdown target swap. Tertiary chrome
-          (text + leading 16pt Phone glyph, labelSecondary) so it
-          doesn't compete with Stop's primary interrupt weight. Only
-          rendered when there's actually a target to pivot to (911
-          countdown with no contact set → no link). */}
-      {pivotLabel && onPivot && (
+      {/* Exit cluster — Stop and the pivot link read as one "ways out"
+          group, tighter gap than the card's primary rhythm so they
+          don't look like unrelated peer siblings. User-flagged
+          2026-06-01 that the prior version felt congested partly
+          because every element sat at the same 16pt rhythm. */}
+      <View style={styles.exitCluster}>
+        {/* Stop affordance — X glyph in a neutral circle + "Stop"
+            label. The Pressable's hit area extends past the visible
+            chrome via hitSlop so the user can interrupt mid-countdown
+            reliably. */}
         <Pressable
-          onPress={onPivot}
+          onPress={onStop}
           accessibilityRole="button"
-          accessibilityLabel={pivotA11yLabel ?? pivotLabel}
-          hitSlop={8}
-          style={({ pressed }) => [styles.pivotBtn, pressed && pressedDim]}
+          accessibilityLabel="Stop the call"
+          hitSlop={12}
+          style={({ pressed }) => [styles.stopBtn, pressed && pressedDim]}
         >
-          <Phone size={16} color={colors.labelSecondary} weight="duotone" />
-          <Text style={styles.pivotLabel}>{pivotLabel}</Text>
+          <View style={styles.stopChrome}>
+            <X size={20} color={colors.labelSecondary} weight="bold" />
+          </View>
+          <Text style={styles.stopLabel}>Stop</Text>
         </Pressable>
-      )}
+
+        {/* Pivot — symmetric mid-countdown target swap. Tertiary
+            chrome (text + leading 16pt Phone glyph, labelSecondary)
+            so it doesn't compete with Stop's primary interrupt
+            weight. Only rendered when there's actually a target to
+            pivot to (911 countdown with no contact set → no link). */}
+        {pivotLabel && onPivot && (
+          <Pressable
+            onPress={onPivot}
+            accessibilityRole="button"
+            accessibilityLabel={pivotA11yLabel ?? pivotLabel}
+            hitSlop={8}
+            style={({ pressed }) => [styles.pivotBtn, pressed && pressedDim]}
+          >
+            <Phone size={16} color={colors.labelSecondary} weight="duotone" />
+            <Text style={styles.pivotLabel}>{pivotLabel}</Text>
+          </Pressable>
+        )}
+      </View>
     </>
   );
 }
@@ -495,23 +502,37 @@ const styles = StyleSheet.create({
   },
 
   // --- Countdown disc + Stop (per Figma) ---
+  // 88pt disc (was 96) — slightly smaller relative to the card so the
+  // vertical stack reads less crowded. The disc still dominates as the
+  // focal "we're dialing now" signal; the size reduction just gives
+  // the surrounding chrome (title above, Stop+pivot below) more room
+  // to breathe without competing.
   countdownDisc: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: colors.red,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: spacing.sm,
+    // No marginVertical — the card's own `gap: spacing.md` handles the
+    // separation. Stacking margin AND gap was the congestion source.
     ...shadows.e1,
   },
   countdownNumber: {
     // Big tabular-nums numeral so the digit doesn't shift the disc's
-    // visual center as the count steps down.
+    // visual center as the count steps down. NO lineHeight override —
+    // sosCountdown's natural 60pt lineHeight flows through, and the
+    // flex-centered parent disc handles the vertical position. The
+    // prior `lineHeight: 56` override created an asymmetric tight
+    // line-box that iOS SF Pro renders glyph-low (visible off-center).
     ...typography.sosCountdown,
     color: colors.white,
     fontVariant: ['tabular-nums'],
-    lineHeight: 56,
+    textAlign: 'center',
+  },
+  exitCluster: {
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   stopBtn: {
     alignItems: 'center',
