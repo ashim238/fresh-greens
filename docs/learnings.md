@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## refactor/sos-icon-star — the brand-conflict-coded icon swap
+
+The SOS glyph (`sidebtn-help.svg`, a red medical-cross plus) was visually too close to the Red Cross emblem — protected under the Geneva Convention. User flagged it 2026-06-01, suggested a red star. Phosphor's `Star` at `weight="fill", color={colors.red}` lands the right register: clear urgency/escalation marker, no protected-mark conflict, and the icon system stays Phosphor-only per `project_icons_phosphor.md`.
+
+**Three insights:**
+
+**1. The icon's job is the icon's job — not the symbol's history.** The cross-shape read as "emergency" not because it's intrinsically emergency-coded but because the Red Cross/EMS branding has trained us to read red-plus as medical. Adopting that visual without the medical accreditation borrows authority that isn't ours. The star reads as "alert / signal / escalation" through different cultural memory (rating stars, marshal stars, emergency-signal stars) and doesn't claim what it isn't.
+
+**2. Custom SVGs become orphaned faster than Phosphor icons.** The legacy `sidebtn-help.svg` lived in `assets/illustrations/` and survived multiple refactors only because its filename stayed grep-able. Phosphor swaps are auditable through the icon name in the import statement — much easier to discover and migrate. Worth keeping: when a custom SVG and a Phosphor icon would serve the same role, default to Phosphor unless the custom asset is doing something Phosphor demonstrably can't.
+
+**3. Color-already-red survives the escalation visual.** The /emergency button's countdown animation has a red fill rising bottom-up to "consume" the SOS glyph. I worried the red-on-red would lose the consumption visual — but the prior cross was *already* red+darker-red, so the star follows the same color story. Worth keeping: animation-readability concerns are usually about the BEFORE/AFTER color delta, not the icon's intrinsic color. The button still goes white → red as the countdown finishes; the glyph fades into the field as planned.
+
+---
+
 ## feat/zone-preferences-page — the third iteration is the dedicated page
 
 Zone Preferences has now lived in three shapes in `/menu`:
