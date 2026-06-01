@@ -17,16 +17,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Red star glyph — the shared "emergency / get help" mark. Phosphor's
-// fill-weight Star at colors.red. Replaced the prior red medical-cross
-// SVG (user-flagged 2026-06-01) because the cross shape is too close
-// to the International Red Cross emblem — protected under the Geneva
-// Convention. The Star reads as a clear urgency/escalation marker
-// without the brand/legal conflict, and matches the rest of the app's
-// Phosphor-only icon system (CLAUDE.md project_icons_phosphor.md).
-// Same glyph at /en-route's SOS side-button and /safety-settings' SOS
-// row so the SOS symbol stays identical everywhere it appears.
-import { StarFour } from 'phosphor-react-native/src/icons/StarFour';
+// Red asterisk glyph — the shared "emergency / get help" mark.
+// Phosphor's bold-weight Asterisk at colors.red. Replaced the prior
+// red medical-cross SVG (user-flagged 2026-06-01) because the cross
+// shape is too close to the International Red Cross emblem — protected
+// under the Geneva Convention. (A first pass used StarFour, but that
+// 4-point sparkle read wrong; the asterisk is the glyph the user had
+// in mind.) Reads as a clear urgency/escalation marker without the
+// brand/legal conflict, and matches the app's Phosphor-only icon
+// system (CLAUDE.md project_icons_phosphor.md). Same glyph at
+// /en-route's SOS side-button and /safety-settings' SOS row so the
+// SOS symbol stays identical everywhere it appears.
+import { Asterisk } from 'phosphor-react-native/src/icons/Asterisk';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
@@ -319,7 +321,7 @@ export default function Emergency() {
                 {mode === 'countdown' ? (
                   <Text style={styles.sosLabel}>{countdownSec}</Text>
                 ) : (
-                  <StarFour size={104} color={colors.red} weight="fill" />
+                  <Asterisk size={104} color={colors.red} weight="bold" />
                 )}
               </Pressable>
             </View>

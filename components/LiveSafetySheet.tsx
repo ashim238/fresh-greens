@@ -160,7 +160,6 @@ export function LiveSafetySheet({
                   </View>
                   <View>
                     <Text style={styles.contactName}>{contact.name}</Text>
-                    <Text style={styles.contactRelation}>Partner</Text>
                   </View>
                 </View>
                 <View style={styles.separator} />
@@ -283,10 +282,6 @@ const styles = StyleSheet.create({
   contactName: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
-  },
-  contactRelation: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelSecondary,
   },
   metaRow: {
     flexDirection: 'row',

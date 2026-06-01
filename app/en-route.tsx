@@ -23,13 +23,13 @@ import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
-import { StarFour } from 'phosphor-react-native/src/icons/StarFour';
+import { Asterisk } from 'phosphor-react-native/src/icons/Asterisk';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
 import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
-// Note: the SOS side-button glyph is now Phosphor Star (fill+red),
+// Note: the SOS side-button glyph is now Phosphor Asterisk (bold+red),
 // not the prior sidebtn-help.svg red-cross — see /emergency for the
-// Red-Cross-conflict rationale (user-flagged 2026-06-01). Star is
+// Red-Cross-conflict rationale (user-flagged 2026-06-01). Asterisk is
 // imported alongside Shield up top.
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
@@ -674,6 +674,15 @@ export default function EnRoute() {
     // moved from "display" to "the focused turn-card surface" as a
     // design evolution — documented as intentional, not a regression.
   }, [activeRoute, nextStepInfo, enabledZones]);
+
+  // Speed-limit sign caution state. The sign turns yellow whenever the
+  // turn card is showing a hazard glyph (turnHazards) OR the driver is
+  // currently inside a caution/avoid zone (inCautionZone). Previously
+  // this keyed on inCautionZone alone, so a turn-card hazard glyph could
+  // be visible while the sign stayed white — the two read as
+  // contradictory. User-flagged 2026-06-01: turn-card marker present ⇒
+  // sign yellow.
+  const speedSignCaution = inCautionZone || turnHazards.length > 0;
 
   // What the Full bottom-sheet hazard panel should show. Entered-zone
   // hazards take priority over next-turn hazards — when the driver
@@ -1540,7 +1549,7 @@ export default function EnRoute() {
           <View
             style={[
               styles.speedLimitSign,
-              inCautionZone && styles.speedLimitSignCaution,
+              speedSignCaution && styles.speedLimitSignCaution,
             ]}
             accessible
             accessibilityLabel="Speed limit unknown"
@@ -1576,8 +1585,8 @@ export default function EnRoute() {
             (trusted-contact + guarded-911). Previously this slot was a
             disabled "support chat coming soon" stub, which buried the
             crisis surface two taps deep behind Shield → /safety. The
-            red-star glyph (Phosphor Star fill+red, swapped from the
-            prior red medical-cross 2026-06-01 to avoid the protected
+            red asterisk glyph (Phosphor Asterisk bold+red, swapped from
+            the prior red medical-cross 2026-06-01 to avoid the protected
             Red Cross conflict — see /emergency for the full note)
             reads as "emergency / escalation" — wiring it live realizes
             the documented three-role column (.cursorrules exception 6:
@@ -1594,7 +1603,7 @@ export default function EnRoute() {
             accessibilityLabel="Emergency SOS"
             accessibilityHint="Opens trusted-contact and 911 options"
           >
-            <StarFour size={32} color={colors.red} weight="fill" />
+            <Asterisk size={32} color={colors.red} weight="bold" />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"

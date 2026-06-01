@@ -6,12 +6,12 @@ import { StatusBar } from 'expo-status-bar';
 // `paths` mapping that keeps TypeScript happy.
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
-// Red star glyph — the shared SOS/"get help" mark, identical to
+// Red asterisk glyph — the shared SOS/"get help" mark, identical to
 // /en-route's SOS side-button and /emergency's main button. Replaced
 // the prior red medical-cross SVG (user-flagged 2026-06-01) because
 // the cross shape conflicted with the protected Red Cross emblem.
 // See app/emergency.tsx for the full rationale.
-import { StarFour } from 'phosphor-react-native/src/icons/StarFour';
+import { Asterisk } from 'phosphor-react-native/src/icons/Asterisk';
 import { UserCircle } from 'phosphor-react-native/src/icons/UserCircle';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -129,7 +129,7 @@ export default function SafetySettings() {
               accessibilityRole="button"
               accessibilityLabel="Emergency SOS. Reach a trusted contact or 911."
             >
-              <StarFour size={28} color={colors.red} weight="fill" />
+              <Asterisk size={28} color={colors.red} weight="bold" />
               <View style={styles.rowTextStack}>
                 <Text style={styles.rowLabel}>Emergency SOS</Text>
                 <Text style={styles.rowValue}>Reach a trusted contact or 911</Text>
