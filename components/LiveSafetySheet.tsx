@@ -17,6 +17,7 @@ import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { formatElapsedDuration } from '../lib/format';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     left: spacing.lg,
     right: spacing.lg,
     bottom: spacing.lg,
-    height: 64,
+    minHeight: 64,
     backgroundColor: colors.white,
     borderRadius: 16,
     flexDirection: 'row',
@@ -214,11 +215,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   expandedKicker: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
   },
   expandedTitle: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
   },
   // Detail card
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
   },
   activelyLabel: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   separator: {
@@ -265,11 +266,11 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   contactName: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   contactRelation: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
   },
   metaRow: {
@@ -278,11 +279,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metaLabel: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.labelSecondary,
   },
   metaValue: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.black,
   },
   // CTAs

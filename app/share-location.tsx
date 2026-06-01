@@ -10,6 +10,7 @@ import { NotifyingPulse } from '../components/NotifyingPulse';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -177,18 +178,18 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   subtitle: {
-    ...typography.bodyRegular,
+    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
     color: colors.labelSecondary,
     marginTop: spacing.sm,
   },
   title: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
   },
   aspirationalNote: {
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.labelSecondary,
     marginTop: -spacing.sm,
     marginBottom: spacing.lg,
@@ -204,11 +205,11 @@ const styles = StyleSheet.create({
     minHeight: 76,
   },
   rowTitle: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   rowClarifier: {
-    ...typography.bodyRegular,
+    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
     color: colors.labelSecondary,
   },
   endWrap: {

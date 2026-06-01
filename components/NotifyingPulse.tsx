@@ -1,7 +1,9 @@
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -23,6 +25,7 @@ type Props = {
  * (`accessibilityElementsHidden`).
  */
 export function NotifyingPulse({ contactName, label, align = 'center' }: Props) {
+  const reduceMotion = useReduceMotion();
   const pulse = usePulseOpacity();
   const resolvedLabel = label ?? `${contactName} is being notified`;
 
@@ -35,7 +38,7 @@ export function NotifyingPulse({ contactName, label, align = 'center' }: Props) 
       accessibilityLabel={resolvedLabel}
     >
       <Animated.View
-        style={[styles.dot, { opacity: pulse }]}
+        style={[styles.dot, reduceMotion ? undefined : { opacity: pulse }]}
         accessibilityElementsHidden
         importantForAccessibility="no"
       />
@@ -63,7 +66,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
   },
   label: {
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.labelSecondary,
   },
 });

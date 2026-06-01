@@ -4,6 +4,25 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## ax5/safety-surfaces — apply dynamicType selectively, lift `height` to `minHeight` at the same time
+
+Sweep across the 8 safety surfaces shipped this session (3 components + 5 routes). The infrastructure (`theme/dynamic-type.ts`, `hooks/useReduceMotion.ts`) already existed — the gap was application. `/pulled-over` was already audited and became the canonical pattern reference.
+
+**Two helpers, two policies:**
+
+- `dynamicType(token)` — apply broadly. Wraps `fontSize` + `lineHeight` in `PixelRatio.getFontScale()`. The right answer for almost every Text style.
+- `relaxedLineHeight(token)` — apply *only* to multi-line copy (subtitles, clarifiers, aspirational notes, modal bodies). Skips single-line headers because they're layout-constrained; bumping their line-height wastes vertical space at AX5.
+
+Easy decision rule: "Will this Text ever wrap?" → use both. "Always one line?" → `dynamicType` alone.
+
+**Layout-as-data trap:** the LiveSafetySheet's collapsed pill had `height: 64`. At AX5, the NotifyingPulse label inside clipped. Single-character fix (`height: 64` → `minHeight: 64`) lets the pill grow. Same fix needed on `/safety`'s tile icon container. **Whenever you wrap text with `dynamicType`, also grep the enclosing container for fixed `height:` and lift to `minHeight:`.** The pair is the actual contract.
+
+**Avatar exception:** LifelineModal's avatar initials use a fixed `fontSize: 44`. Left un-scaled with a WHY comment — the avatar ring is a visual element, not text needing accessibility scaling. The 1-character initials won't clip. Documenting display-scale exceptions inline so a future contributor doesn't "fix" them.
+
+**Reduce-motion cascade:** `useReduceMotion` lives in one place — inside `NotifyingPulse`. All 5+ call sites (Roadside Step 3, Unfamiliar Steps 1/2, Share-Location, LiveSafetySheet) inherit the static-dot fallback automatically. Single extraction pays back across the surface area.
+
+---
+
 ## feat/unfamiliar-and-share-location — single-active ShareSession + widget-as-persistence
 
 Building `/unfamiliar` and `/share-location` raised the same architectural question Roadside dodged: *where does the active state live when the user dismisses the modal that started it?* Three options ruled out:

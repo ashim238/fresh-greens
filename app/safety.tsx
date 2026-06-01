@@ -19,6 +19,7 @@ import { DragHandle } from '../components/DragHandle';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
   },
   tabIcon: {
     width: '100%',
-    height: 96,
+    minHeight: 96,
     borderRadius: 8,
     backgroundColor: colors.systemGroupedBackground,
     alignItems: 'center',
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   tabLabel: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
     textAlign: 'center',
   },

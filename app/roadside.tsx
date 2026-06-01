@@ -37,6 +37,7 @@ import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { type ProblemType } from '../lib/api/roadside';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -631,12 +632,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   subtitle: {
-    ...typography.bodyRegular,
+    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
     color: colors.labelSecondary,
     marginTop: spacing.sm,
   },
   title: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
@@ -665,7 +666,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowLabel: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
     flex: 1,
   },
@@ -685,11 +686,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   locationChipLabel: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
   },
   wrongSpot: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
     textDecorationLine: 'underline',
   },
@@ -709,7 +710,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   modalTitle: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   input: {
@@ -722,7 +723,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   modalError: {
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.red,
   },
   modalCta: {
@@ -735,7 +736,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBorderSubtle,
   },
   modalCtaLabel: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.white,
   },
   // Step 2 — action menu
@@ -762,15 +763,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sharedCardTitle: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.black,
   },
   sharedCardBody: {
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.labelSecondary,
   },
   sectionLabel: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
     marginBottom: spacing.sm,
   },

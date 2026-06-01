@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -149,19 +150,19 @@ const styles = StyleSheet.create({
   // /recordings + /safety-settings) — chevron and title on one row read
   // congested.
   title: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
   body: { flex: 1, gap: spacing.sm },
   fieldLabel: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.labelSecondary,
     marginBottom: spacing.xs,
   },
   input: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.black,
     minHeight: 44,
     borderWidth: 1,
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBorderSubtle,
   },
   ctaLabel: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.white,
   },
 });

@@ -8,6 +8,7 @@ import { DragHandle } from './DragHandle';
 import { NotifyingPulse } from './NotifyingPulse';
 import type { TrustedContact } from '../lib/api/trusted-contact';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -129,12 +130,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
     alignSelf: 'flex-start',
   },
   subtitle: {
-    ...typography.bodyRegular,
+    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
     color: colors.labelSecondary,
     alignSelf: 'flex-start',
   },
@@ -163,10 +164,13 @@ const styles = StyleSheet.create({
     // "big avatar moment" sizing.
     ...typography.title2Emphasized,
     color: colors.white,
+    // Avatar initials stay at fixed display-scale — the ring is a visual
+    // element, not text needing AX5 scaling. The single character won't clip
+    // at this size.
     fontSize: 44,
   },
   name: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   ctaStack: {
