@@ -8,7 +8,9 @@
 
 ## Goal
 
-Produce a **dated, sourced, prioritized finding-list** covering ~13 portfolio-facing surfaces across four dimensions, so the user can defend each surface to a portfolio reviewer and know exactly what's still imperfect on purpose. Findings flow into `docs/next-session.md` as live backlog; the audit doc itself is a static snapshot.
+Produce a **dated, sourced, prioritized finding-list** covering ~13 portfolio-facing surfaces across five dimensions, so the user can defend each surface to a portfolio reviewer and know exactly what's still imperfect on purpose. Findings flow into `docs/next-session.md` as live backlog; the audit doc itself is a static snapshot.
+
+**Risk posture: this is likely the last app-wide audit before the project goes to portfolio.** The synthesis subagent and all 13 per-surface subagents must operate under "last gate" framing — no soft-pedaling findings on the assumption that a future audit will catch them, no deferring cross-cutting patterns to "later," no charitable readings of borderline copy or behavior. When in doubt, tier up (Minor → Important; Important → Critical). The cost of an over-flagged finding is a quick "defensible by:" note; the cost of a missed finding is a portfolio reviewer catching it first.
 
 ## The five dimensions
 
@@ -170,6 +172,8 @@ Findings here look like: `[F4 Important Concept] /pulled-over's contact phase sh
 The dispatching prompt for each per-surface subagent must include:
 
 - Path to the file(s) under audit (the route + key sibling files)
+- The "last gate before portfolio" framing — tier up when in doubt; don't soft-pedal
+- Mandatory `fgq query "<short-seed>"` runs before judging concept-execution (thesis-promise) on this surface, with the seeds the subagent ran logged in the report so the synthesis can verify coverage
 - The 5 dimensions with concrete examples for each (polish, fidelity, accessibility, reliability, concept-execution)
 - For concept-execution: the three sub-lenses (brand voice, thesis-promise delivery, honesty-of-disclosure) with concrete examples for each
 - The severity rubric verbatim, including the thesis-defense-grade defensibility-note requirement
