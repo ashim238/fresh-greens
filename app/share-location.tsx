@@ -185,6 +185,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   body: {
     paddingHorizontal: spacing.lg,
+    // Mirror /safety's drag-handle breathing room — see /roadside
+    // stepBody for the same fix and the math behind 16pt.
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },

@@ -106,13 +106,18 @@ export default function SafetyModal() {
   function handleTabPress(tab: SafetyTab) {
     const isShareFlow = tab.id === 'unfamiliar' || tab.id === 'share-location';
 
-    // No-contact gate for the share-dependent flows. Pulled-over and
-    // Roadside handle missing contact internally, so they bypass this
-    // check.
-    if (isShareFlow && !contact) {
+    // No-contact gate — ONLY for /share-location, whose entire purpose
+    // is sharing your location with a trusted contact. /unfamiliar can
+    // route you to a nearby safe destination even without one (the
+    // routing is the load-bearing feature; the contact-share is the
+    // optional second layer), so it handles missing-contact internally
+    // by hiding the lifeline pulse instead. User-flagged 2026-06-01.
+    // Pulled-over and Roadside have always handled missing contact
+    // internally.
+    if (tab.id === 'share-location' && !contact) {
       Alert.alert(
         'Set a trusted contact',
-        'These flows share your location with your trusted contact. Set one up first.',
+        'Share Location shares your location with your trusted contact. Set one up first.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Set up', onPress: () => router.push('/trusted-contact-setup') },

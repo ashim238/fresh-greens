@@ -1264,7 +1264,19 @@ export default function EnRoute() {
           const isActive = route.id === activeRoute?.id;
           return (
             <Marker
-              key={`badge-${route.id}`}
+              // Embed `isActive` in the key so flipping active/inactive
+              // remounts the native Marker with a fresh snapshot. iOS
+              // MapKit caches the marker bitmap once tracksViewChanges
+              // settles to false (this Marker is permanently false-
+              // tracked since the duration label inside doesn't change),
+              // so an in-place child swap (active/inactive styling)
+              // leaves the previous snapshot painted. Same fix the
+              // EnRouteZone marker uses for its default/extended state
+              // and the EnRouteCarMarker uses for heading-derived
+              // remounts. User-reported: "switching routes drops
+              // current location markers" — the dropped marker was
+              // the stale-snapshot badge reading as "wrong state."
+              key={`badge-${route.id}-${isActive ? 'active' : 'alt'}`}
               coordinate={mid}
               anchor={{ x: 0.5, y: 0.5 }}
               onPress={() => setActiveRouteId(route.id)}
@@ -1484,9 +1496,12 @@ export default function EnRoute() {
         the speed limit. SF Pro Bold is a stand-in for the canonical
         Overpass Bold (the standard US speed-limit-sign typeface) —
         queued for the next bulk font/asset import pass.
-        v1 limitation: speed limit is hardcoded to 25 mph (urban
-        default) since OSM `maxspeed` tags aren't wired through the
-        zones adapter yet.
+        v1 limitation: OSM `maxspeed` tags aren't wired through the
+        zones adapter yet, so the limit-sign renders "—" with a
+        "Limit unknown" a11y label (per audit 2026-05-31 §/en-route
+        F4 — hardcoding 25 mph violated honesty-of-disclosure on a
+        safety-presented surface). Mirror of the current-speed
+        pill's `speedMph ?? '—'` fallback above.
       */}
       {bottomSheetHeight > 0 && (
         <View
@@ -1503,9 +1518,13 @@ export default function EnRoute() {
               {speedMph ?? '—'}
             </Text>
           </View>
-          <View style={styles.speedLimitSign}>
+          <View
+            style={styles.speedLimitSign}
+            accessible
+            accessibilityLabel="Speed limit unknown"
+          >
             <Text style={styles.speedLimitNumber} numberOfLines={1}>
-              25
+              —
             </Text>
             <Text style={styles.speedLimitUnit} numberOfLines={1}>
               mph

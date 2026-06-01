@@ -185,7 +185,7 @@ export default function Fuel() {
           </View>
 
           <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>Reminders on</Text>
+            <Text style={styles.toggleLabel}>Remind me to refuel</Text>
             <Switch
               value={enabled}
               onValueChange={setEnabled}
@@ -237,10 +237,12 @@ const styles = StyleSheet.create({
   },
   // Title sits on its own line below the back chevron (matches /recordings
   // + /safety-settings) — chevron and title on one row read congested.
+  // paddingTop: spacing.lg mirrors /recordings (scrollContent.paddingTop:
+  // spacing.lg). spacing.sm here was too tight — user-flagged 2026-06-01.
   title: {
     ...dynamicType(typography.title2Emphasized),
     color: colors.black,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
   body: { flex: 1, gap: spacing.md },

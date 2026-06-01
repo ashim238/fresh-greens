@@ -628,6 +628,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   stepBody: {
     paddingHorizontal: spacing.lg,
+    // Mirror /safety's drag-handle breathing room: SafeAreaView top
+    // inset + DragHandle (4pt) + this paddingTop (16) + subtitle's
+    // own marginTop (8) ≈ 28pt before the first text. The 0-padding
+    // version felt incredibly tight against the drag bar.
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },

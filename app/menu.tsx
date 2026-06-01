@@ -143,10 +143,17 @@ export default function Menu() {
   const SNAP_INTERVAL = TILE_WIDTH + TILE_GAP;
 
   // Greeting copy — Figma shows "Hey there," + "First name, Last name"
-  // as a two-line stack. When the user has a real displayName, render
-  // that as the second line; otherwise fall back to the Figma
-  // placeholder so the page still reads as identity-anchored.
-  const displayName = user?.displayName ?? 'First name, Last name';
+  // as a two-line stack. Fall-through ladder (user-flagged 2026-06-01:
+  // bare "First name, Last name" placeholder reads like an unfilled form
+  // field — name should reflect the actual sign-in):
+  //   1. user.displayName  (Apple Sign-In full name)
+  //   2. email local-part  (e.g. ashim238 from ashim238@newschool.edu)
+  //   3. "friend"          (no identity attached — keeps the row's
+  //                         2-line rhythm rather than breaking layout)
+  const displayName =
+    user?.displayName ??
+    user?.email?.split('@')[0] ??
+    'friend';
 
   function handleQuickScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const index = Math.round(e.nativeEvent.contentOffset.x / SNAP_INTERVAL);

@@ -1547,7 +1547,13 @@ const armedStyles = StyleSheet.create({
     // padding) responsively at any viewport, which is the real fix —
     // not a grid alignment concern. Per design-system.md §4.8
     // (every state designed) + §1.6 (avoid magic constants).
+    //
+    // justifyContent: 'center' centers the title+subtitle block vertically
+    // within the card. Without it the single-line "Prefer not to answer"
+    // card reads top-aligned next to its two-line siblings (Yes/No) —
+    // user-flagged 2026-06-01.
     flex: 1,
+    justifyContent: 'center',
     gap: 8,
   },
   answerTitle: {

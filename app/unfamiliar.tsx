@@ -165,6 +165,7 @@ export default function Unfamiliar() {
         {step === 'problem' && (
           <ProblemPicker
             contactName={contact?.name ?? 'Your contact'}
+            hasLifeline={!!contact}
             onPick={handleProblemPick}
             onLifeline={() => setLifelineOpen(true)}
           />
@@ -172,6 +173,7 @@ export default function Unfamiliar() {
         {step === 'destination' && (
           <DestinationPicker
             contactName={contact?.name ?? 'Your contact'}
+            hasLifeline={!!contact}
             onBack={() => setStep('problem')}
             onPick={handleDestinationPick}
             onSafeNow={handleSafeNow}
@@ -181,6 +183,7 @@ export default function Unfamiliar() {
         {step === 'active' && session && (
           <ActiveSessionView
             contactName={contact?.name ?? 'Your contact'}
+            hasLifeline={!!contact}
             sessionReason={session.reason}
             onEnd={handleSafeNow}
           />
@@ -200,10 +203,12 @@ export default function Unfamiliar() {
 
 function ProblemPicker({
   contactName,
+  hasLifeline,
   onPick,
   onLifeline,
 }: {
   contactName: string;
+  hasLifeline: boolean;
   onPick: (option: ProblemOption) => void;
   onLifeline: () => void;
 }) {
@@ -229,27 +234,36 @@ function ProblemPicker({
         ))}
       </View>
 
-      <Pressable
-        onPress={onLifeline}
-        style={styles.pulseFooter}
-        accessibilityRole="button"
-        accessibilityLabel={`${contactName} is being notified. Tap to call or text.`}
-        hitSlop={8}
-      >
-        <NotifyingPulse contactName={contactName} />
-      </Pressable>
+      {/* Lifeline pulse only shows when a trusted contact is set —
+          /unfamiliar's routing works contact-less per the relaxed gate
+          (user-flagged 2026-06-01), but the pulse copy literally
+          claims notification, so it must hide when there's no one to
+          notify rather than degrade silently. */}
+      {hasLifeline && (
+        <Pressable
+          onPress={onLifeline}
+          style={styles.pulseFooter}
+          accessibilityRole="button"
+          accessibilityLabel={`${contactName} is being notified. Tap to call or text.`}
+          hitSlop={8}
+        >
+          <NotifyingPulse contactName={contactName} />
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
 
 function DestinationPicker({
   contactName,
+  hasLifeline,
   onBack,
   onPick,
   onSafeNow,
   onLifeline,
 }: {
   contactName: string;
+  hasLifeline: boolean;
   onBack: () => void;
   onPick: (option: DestinationOption) => void;
   onSafeNow: () => void;
@@ -302,25 +316,30 @@ function DestinationPicker({
         />
       </View>
 
-      <Pressable
-        onPress={onLifeline}
-        style={styles.pulseFooter}
-        accessibilityRole="button"
-        accessibilityLabel={`${contactName} is being notified. Tap to call or text.`}
-        hitSlop={8}
-      >
-        <NotifyingPulse contactName={contactName} />
-      </Pressable>
+      {/* Same contact-less guard as ProblemPicker. */}
+      {hasLifeline && (
+        <Pressable
+          onPress={onLifeline}
+          style={styles.pulseFooter}
+          accessibilityRole="button"
+          accessibilityLabel={`${contactName} is being notified. Tap to call or text.`}
+          hitSlop={8}
+        >
+          <NotifyingPulse contactName={contactName} />
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
 
 function ActiveSessionView({
   contactName,
+  hasLifeline,
   sessionReason,
   onEnd,
 }: {
   contactName: string;
+  hasLifeline: boolean;
   sessionReason: string;
   onEnd: () => void;
 }) {
@@ -343,10 +362,14 @@ function ActiveSessionView({
       </View>
 
       {/* Active view: lifeline omitted — contact is already context here,
-          and the only exit is "I'm safe now". The pulse stays decorative. */}
-      <View style={styles.pulseFooter}>
-        <NotifyingPulse contactName={contactName} />
-      </View>
+          and the only exit is "I'm safe now". The pulse stays decorative.
+          Same hasLifeline gate as the other views — if no contact is set
+          the pulse would claim notification it can't perform. */}
+      {hasLifeline && (
+        <View style={styles.pulseFooter}>
+          <NotifyingPulse contactName={contactName} />
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -356,6 +379,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   body: {
     paddingHorizontal: spacing.lg,
+    // Mirror /safety's drag-handle breathing room — see /roadside
+    // stepBody for the same fix and the math behind 16pt.
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },

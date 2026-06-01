@@ -792,6 +792,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   titleBlock: {
+    // Center-aligned title stack (icon + title + subtitle + optional
+    // anonymous note). Text in this modal is short enough that centered
+    // reads more deliberate than left-aligned, and the icon was already
+    // a centered visual anchor — user-flagged 2026-06-01.
+    alignItems: 'center',
     gap: 8,
   },
   identityIcon: {
@@ -818,6 +823,7 @@ const styles = StyleSheet.create({
   titleEmphasized: {
     ...typography.title1Emphasized,
     color: colors.black,
+    textAlign: 'center',
   },
   subtitle: {
     // bodyRegular per v2 Figma (1112:8319 / 1112:8900). Softer than the
@@ -826,11 +832,13 @@ const styles = StyleSheet.create({
     // Title1 Regular," the *supporting* body line should match in tone.
     ...typography.bodyRegular,
     color: colors.labelTertiary,
+    textAlign: 'center',
   },
   anonymousNote: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     marginTop: 4,
+    textAlign: 'center',
   },
 
   // --- Picker grid ---
