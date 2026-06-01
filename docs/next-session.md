@@ -2,6 +2,16 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Connect-calendar (Plan 2) — deferred minors + verification gate (2026-06-01)
+
+Shipped via subagent-driven development. Final-review minors, non-blocking (the one Important — /menu tile cold-load flash — was fixed in `4e19ec4`):
+
+- **⚠ Native verification PENDING a dev build.** `expo-calendar` is a native module — it does NOT work in Expo Go. The full simulator pass (connect flow → permission → /search Upcoming rows from a seeded calendar → pick-sheet correction → sign-out clears) requires `npx expo run:ios` (dev build) with a calendar seeded with located events. tsc + JS logic are verified; the lived calendar reads are not. Do this before trusting the feature on-device.
+- **Sequential geocoding** in `useUpcomingDestinations` — distinct unresolved venues are awaited in series on focus. Fine for a realistic week of events (cache dedupes repeats); if the Upcoming list grows, batch with `Promise.all` over distinct location texts.
+- **`(e.location as string)` cast** in `calendar.ts:111` — sound (guarded by the `typeof === 'string'` filter one line up), cosmetic; a filter-narrowing helper would drop it.
+- **`relativeWhen` drift** in `/search` — recomputes vs `Date.now()` per render; visible label + a11y label can differ by a render at the m/h/d granularity. Negligible.
+- **`showFuelTile` cold-load flash** — the calendar tile now gates on `!loading`; the fuel tile (pre-existing) still doesn't. Same one-frame flash for already-configured users. Apply the same `!loading` gate to `useFuelProfile` if it ever bothers anyone.
+
 ## Settings register refresh (Plan 1) — deferred minors (2026-06-01)
 
 Final-review minors, non-blocking (the one Important — SettingsRow value/label wrap — was fixed in `a8e11a6`):

@@ -4,12 +4,13 @@ import { StatusBar } from 'expo-status-bar';
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
 import { Bookmark } from 'phosphor-react-native/src/icons/Bookmark';
+import { CalendarBlank } from 'phosphor-react-native/src/icons/CalendarBlank';
 import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Image,
   Pressable,
@@ -23,9 +24,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AvatarPng from '../assets/illustrations/avatar.png';
 import FuelIcon from '../assets/illustrations/fuel.svg';
 
+import { clearCalendarConnection } from '../lib/api/calendar';
+import { clearResolutions } from '../lib/api/calendar-resolutions';
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { SettingsRow } from '../components/settings/SettingsRow';
+import { useCalendarConnection } from '../hooks/useCalendarConnection';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { usePreferences } from '../hooks/usePreferences';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
@@ -103,10 +107,22 @@ export default function Menu() {
   const { profile: fuelProfile, clearAll: clearFuelProfile } = useFuelProfile();
   const [signingOut, setSigningOut] = useState(false);
 
+  const {
+    connected: calendarConnected,
+    loading: calendarLoading,
+    connect: connectCalendar,
+  } = useCalendarConnection();
+
   // Progressive carousel: a tile shows only while its underlying setting
-  // is UNSET. Refuel reminders is set once remindersEnabled is true.
-  // (Connect-calendar tile arrives in Plan 2.)
+  // is UNSET. Refuel reminders is set once remindersEnabled is true;
+  // Connect calendar is set once the calendar connection is established.
+  // Gate the calendar tile on !calendarLoading too — without it, an
+  // already-connected user sees a one-frame "Connect your calendar"
+  // flash on cold mount before useFocusEffect's async read resolves
+  // (a small honesty-of-disclosure ding — showing an affordance for a
+  // state they've already satisfied).
   const showFuelTile = !fuelProfile?.remindersEnabled;
+  const showCalendarTile = !calendarLoading && !calendarConnected;
 
   // Greeting copy — Figma shows "Hey there," + "First name, Last name"
   // as a two-line stack. Fall-through ladder (user-flagged 2026-06-01:
@@ -158,12 +174,53 @@ export default function Menu() {
         clearRegularDestinations(),
         clearPreferences(),
         clearFuelProfile(),
+        clearCalendarConnection(),
+        clearResolutions(),
       ]);
       router.replace('/sign-out');
     } finally {
       setSigningOut(false);
     }
   }
+
+  // Progressive carousel tiles — each shows only while its underlying
+  // setting is unset. .filter(Boolean) drops the gated-off entries; the
+  // trailing cast restores the element type the `false &&` union erased.
+  const carouselTiles: {
+    key: string;
+    label: string;
+    subtitle: string;
+    icon: ReactNode;
+    onPress: () => void;
+  }[] = [
+    showFuelTile && {
+      key: 'fuel',
+      label: 'Set up refuel reminders',
+      subtitle: "Add your fuel cadence so you don't run low in an unsafe spot.",
+      icon: <FuelIcon width={32} height={32} />,
+      onPress: () => {
+        Haptics.selectionAsync().catch(() => {});
+        router.push('/fuel');
+      },
+    },
+    showCalendarTile && {
+      key: 'calendar',
+      label: 'Connect your calendar',
+      subtitle:
+        'Turn upcoming appointments into one-tap safe-routed destinations.',
+      icon: <CalendarBlank size={32} color={colors.wiltedgreen} weight="duotone" />,
+      onPress: () => {
+        Haptics.selectionAsync().catch(() => {});
+        void connectCalendar();
+      },
+    },
+  ].filter(Boolean) as {
+    key: string;
+    label: string;
+    subtitle: string;
+    icon: ReactNode;
+    onPress: () => void;
+  }[];
 
   return (
     <View style={styles.root}>
@@ -205,27 +262,35 @@ export default function Menu() {
           </View>
 
           {/* Progressive carousel — only renders while at least one
-              high-impact setting is unset. Plan 1 has one candidate
-              tile (Refuel reminders). When it's configured, the whole
-              section disappears. */}
-          {showFuelTile && (
-            <Pressable
-              style={({ pressed }) => [styles.tileCard, pressed && pressedDim]}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                router.push('/fuel');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Set up refuel reminders. Add your fuel cadence so you don't run low in an unsafe spot."
+              high-impact setting is unset. Two candidate tiles (Refuel
+              reminders, Connect calendar); each disappears once its
+              setting is configured. With ≥2 eligible tiles it scrolls
+              horizontally; with 1 it's a full-width card; with 0 the
+              section is gone. */}
+          {carouselTiles.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carouselContent}
             >
-              <View style={styles.tileIcon}>
-                <FuelIcon width={32} height={32} />
-              </View>
-              <Text style={styles.tileTitle}>Set up refuel reminders</Text>
-              <Text style={styles.tileSubtitle}>
-                Add your fuel cadence so you don&apos;t run low in an unsafe spot.
-              </Text>
-            </Pressable>
+              {carouselTiles.map((tile) => (
+                <Pressable
+                  key={tile.key}
+                  style={({ pressed }) => [
+                    styles.tileCard,
+                    carouselTiles.length > 1 && styles.tileCardCarousel,
+                    pressed && pressedDim,
+                  ]}
+                  onPress={tile.onPress}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${tile.label}. ${tile.subtitle}`}
+                >
+                  <View style={styles.tileIcon}>{tile.icon}</View>
+                  <Text style={styles.tileTitle}>{tile.label}</Text>
+                  <Text style={styles.tileSubtitle}>{tile.subtitle}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           )}
 
           {/* App-config group */}
@@ -339,6 +404,14 @@ const styles = StyleSheet.create({
   profileName: {
     ...dynamicType(typography.title2Emphasized),
     color: colors.black,
+  },
+  carouselContent: {
+    gap: spacing.md,
+  },
+  // When ≥2 tiles, each is a fixed width so the next peeks at the edge;
+  // a lone tile uses the default full-width tileCard.
+  tileCardCarousel: {
+    width: 280,
   },
   // Per Figma 1121:6590 / 1121:6602: white bg + 1pt wiltedgreen border
   // + 12pt rounded corners + 16pt padding. NO shadow (the border

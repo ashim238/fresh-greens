@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports per the project's tsconfig paths mapping —
 // see app/trusted-contact-setup.tsx for the long note.
+import { CalendarBlank } from 'phosphor-react-native/src/icons/CalendarBlank';
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
 import { MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
 import { MapPin } from 'phosphor-react-native/src/icons/MapPin';
@@ -24,12 +25,17 @@ import QuickToolFood from '../assets/illustrations/safety-tools-food.svg';
 import QuickToolGas from '../assets/illustrations/safety-tools-gas.svg';
 import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 
+import { CalendarPickSheet } from '../components/CalendarPickSheet';
 import { SearchBar } from '../components/SearchBar';
 import { ErrorState, LoadingState } from '../components/StateCard';
+import { useCalendarConnection } from '../hooks/useCalendarConnection';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
+import { useUpcomingDestinations } from '../hooks/useUpcomingDestinations';
+import { type UpcomingEvent } from '../lib/api/calendar';
+import { setResolution, type ResolvedPlace } from '../lib/api/calendar-resolutions';
 import { searchPlaces, type Place } from '../lib/api/places';
 import { type RegularDestination } from '../lib/api/regular-destinations';
 import { type SavedPlace } from '../lib/api/saved-places';
@@ -233,6 +239,15 @@ export default function Search() {
     longitude: number;
   } | null>(null);
   const [resultsCity, setResultsCity] = useState<string>('your area');
+  // Calendar "Upcoming" section — surfaced contextually when the
+  // calendar is connected. `userLocation` (the screen's existing stable
+  // mount-acquired state) anchors the resolver; calRefreshKey bumps to
+  // re-resolve after a manual location correction persists.
+  const { connected: calendarConnected } = useCalendarConnection();
+  const [calRefreshKey, setCalRefreshKey] = useState(0);
+  const { resolved: upcomingResolved, unresolved: upcomingUnresolved } =
+    useUpcomingDestinations(userLocation, calRefreshKey);
+  const [pickEvent, setPickEvent] = useState<UpcomingEvent | null>(null);
   // Quick Tool filter selection — visual-only for v1 (filter logic
   // isn't wired yet, the tools are still "coming soon"). Tapping a
   // tile selects it; tapping the selected tile deselects. Mutually
@@ -451,6 +466,42 @@ export default function Search() {
     });
   }
 
+  /** A manual correction from the pick-sheet: persist the chosen place
+   *  keyed by the event's raw location text, close the sheet, and bump
+   *  the refresh key so the resolver re-runs and the event moves from
+   *  the unresolved list into the resolved (tappable) list. */
+  function handlePickResolution(place: ResolvedPlace) {
+    if (!pickEvent) return;
+    const locationText = pickEvent.locationText;
+    void setResolution(locationText, place).then(() => {
+      setPickEvent(null);
+      setCalRefreshKey((k) => k + 1);
+    });
+  }
+
+  /** A resolved upcoming event taps straight to navigation — same
+   *  destLat/destLng route path as a saved/recent row. */
+  function handleSelectUpcoming(place: ResolvedPlace, name: string) {
+    router.replace({
+      pathname: fromEnRoute ? '/en-route' : '/home',
+      params: {
+        destLat: String(place.latitude),
+        destLng: String(place.longitude),
+        destName: name,
+      },
+    });
+  }
+
+  /** Compact "when" label for an upcoming event row. */
+  function relativeWhen(startsAt: number): string {
+    const diffMin = Math.round((startsAt - Date.now()) / 60000);
+    if (diffMin < 60) return diffMin <= 0 ? 'now' : `in ${diffMin}m`;
+    const diffHr = Math.round(diffMin / 60);
+    if (diffHr < 24) return `in ${diffHr}h`;
+    const diffDay = Math.round(diffHr / 24);
+    return diffDay === 1 ? 'tomorrow' : `in ${diffDay}d`;
+  }
+
   /** Long-press → confirm → remove. Quiet feature, expected for any
    *  recents list. iOS Alert is fine here — no design comp for a
    *  custom remove-confirm sheet. */
@@ -611,6 +662,79 @@ export default function Search() {
                     )}
                   </View>
                 )}
+
+                {/* Upcoming — calendar-event destinations, surfaced
+                    contextually whenever the calendar is connected and
+                    has events (not behind a tool tab). Resolved events
+                    route on tap; unresolved open the pick-sheet to set a
+                    location. Reuses the Recent/Saved row register. */}
+                {calendarConnected &&
+                  (upcomingResolved.length > 0 ||
+                    upcomingUnresolved.length > 0) && (
+                    <View style={styles.recentSection}>
+                      <Text style={styles.recentLabel}>Upcoming</Text>
+                      {upcomingResolved.map(({ event, place }) => (
+                        <Pressable
+                          key={event.id}
+                          style={({ pressed }) => [
+                            styles.recentItem,
+                            pressed && pressedDim,
+                          ]}
+                          onPress={() =>
+                            handleSelectUpcoming(place, event.title)
+                          }
+                          accessibilityRole="button"
+                          accessibilityLabel={`${event.title}, ${place.name}, ${relativeWhen(event.startsAt)}. Tap to navigate.`}
+                        >
+                          <CalendarBlank
+                            size={24}
+                            color={colors.labelTertiary}
+                            weight="duotone"
+                          />
+                          <View style={styles.recentTextColumn}>
+                            <Text style={styles.recentText} numberOfLines={1}>
+                              {event.title}
+                            </Text>
+                            <Text
+                              style={styles.recentSubtext}
+                              numberOfLines={1}
+                            >
+                              {place.name} · {relativeWhen(event.startsAt)}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                      {upcomingUnresolved.map((event) => (
+                        <Pressable
+                          key={event.id}
+                          style={({ pressed }) => [
+                            styles.recentItem,
+                            pressed && pressedDim,
+                          ]}
+                          onPress={() => setPickEvent(event)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${event.title}, ${relativeWhen(event.startsAt)}. Location not set — tap to choose.`}
+                        >
+                          <CalendarBlank
+                            size={24}
+                            color={colors.labelTertiary}
+                            weight="duotone"
+                          />
+                          <View style={styles.recentTextColumn}>
+                            <Text style={styles.recentText} numberOfLines={1}>
+                              {event.title}
+                            </Text>
+                            <Text
+                              style={styles.recentSubtext}
+                              numberOfLines={1}
+                            >
+                              Set location · {relativeWhen(event.startsAt)}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
 
                 <View style={styles.divider} />
 
@@ -820,6 +944,17 @@ export default function Search() {
           </ScrollView>
         )}
       </SafeAreaView>
+
+      {/* Manual location-correction sheet for an unresolved upcoming
+          event. Top-level overlay so it floats above the search UI. */}
+      {pickEvent && (
+        <CalendarPickSheet
+          initialQuery={pickEvent.locationText}
+          userLocation={userLocation}
+          onPick={handlePickResolution}
+          onDismiss={() => setPickEvent(null)}
+        />
+      )}
     </View>
   );
 }
