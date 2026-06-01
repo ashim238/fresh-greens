@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
   // Wrong-spot Modal
   scrim: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.modalScrimStrong,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,

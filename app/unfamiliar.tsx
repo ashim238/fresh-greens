@@ -55,12 +55,14 @@ type DestinationOption = {
    * approximation; documented in the spec's "Well-lit" rationale).
    */
   query: string;
+  /** Used in error copy: "Couldn't find a {nounSingular} nearby." */
+  nounSingular: string;
 };
 
 const DESTINATIONS: DestinationOption[] = [
-  { id: 'well-lit',    title: 'Take me to somewhere well-lit',  Icon: Lightbulb,   query: 'open business' },
-  { id: 'gas-station', title: 'Take me to a gas station',       Icon: GasPump,     query: 'gas station' },
-  { id: 'on-ramp',     title: 'Take me to the nearest on-ramp', Icon: RoadHorizon, query: 'highway on-ramp' },
+  { id: 'well-lit',    title: 'Take me to somewhere well-lit',  Icon: Lightbulb,   query: 'open business',  nounSingular: 'well-lit spot' },
+  { id: 'gas-station', title: 'Take me to a gas station',       Icon: GasPump,     query: 'gas station',    nounSingular: 'gas station' },
+  { id: 'on-ramp',     title: 'Take me to the nearest on-ramp', Icon: RoadHorizon, query: 'highway on-ramp', nounSingular: 'on-ramp' },
 ];
 
 /**
@@ -78,11 +80,20 @@ const DESTINATIONS: DestinationOption[] = [
  */
 export default function Unfamiliar() {
   const router = useRouter();
-  const { session, startSession, endSession } = useShareSession();
+  const { session, loading, startSession, endSession } = useShareSession();
   const { contact } = useTrustedContact();
-  const [step, setStep] = useState<Step>(() =>
-    session?.type === 'unfamiliar' ? 'active' : 'problem',
+  // Step initializer reads `session` lazily on mount. While the hook is
+  // still hydrating from AsyncStorage (loading=true), `session` is null —
+  // we'd land on 'problem' and let the user start a NEW session that
+  // overwrites the existing one's startedAtIso. Guarding on `loading`
+  // forces the picker to wait until the hook resolves; once it has, we
+  // never re-read here (the useState initializer fires once).
+  const [step, setStep] = useState<Step | null>(() =>
+    loading ? null : session?.type === 'unfamiliar' ? 'active' : 'problem',
   );
+  if (step === null && !loading) {
+    setStep(session?.type === 'unfamiliar' ? 'active' : 'problem');
+  }
   const [lifelineOpen, setLifelineOpen] = useState(false);
 
   async function handleProblemPick(option: ProblemOption) {
@@ -109,7 +120,7 @@ export default function Unfamiliar() {
       if (!hit) {
         Alert.alert(
           'No results',
-          `Couldn't find a ${option.title.toLowerCase().replace('take me to ', '')} nearby. Try a different option.`,
+          `Couldn't find a ${option.nounSingular} nearby. Try a different option.`,
         );
         return;
       }
@@ -133,7 +144,14 @@ export default function Unfamiliar() {
   async function handleSafeNow() {
     try {
       await endSession();
-      router.back();
+      // Most entries push /unfamiliar over /safety so `back()` works,
+      // but a future notification deep-link could land here cold —
+      // fall back to /home so the user is never stranded on the modal.
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/home');
+      }
     } catch (err) {
       console.warn('unfamiliar end failed', err);
     }

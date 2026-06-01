@@ -48,12 +48,23 @@ export default function ShareLocation() {
 
   const isActive = session?.type === 'share-location';
 
+  // Dismiss to /home if we got here cold (deep-link / notification entry)
+  // — never strand the user with no exit. router.canGoBack() is true for
+  // the usual /safety → /share-location push path.
+  function dismiss() {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/home');
+    }
+  }
+
   async function handlePick(option: ReasonOption) {
     if (busy) return;
     setBusy(true);
     try {
       await startSession({ type: 'share-location', reason: option.title });
-      router.back();
+      dismiss();
     } catch (err) {
       console.warn('share-location start failed', err);
       setBusy(false);
@@ -63,7 +74,7 @@ export default function ShareLocation() {
   async function handleEnd() {
     try {
       await endSession();
-      router.back();
+      dismiss();
     } catch (err) {
       console.warn('share-location end failed', err);
     }

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -43,14 +43,19 @@ export default function RoadsideSetup() {
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Seed the form once, after the profile loads (if a profile exists).
-  if (!loading && profile && !hydrated) {
-    setServiceName(profile.serviceName);
-    setPhoneNumber(profile.phoneNumber);
+  // Seed the form once, after the profile loads (if one exists). Was
+  // a conditional setState during render — works but trips React 19's
+  // stricter dev warnings. useEffect on [loading, profile] is the
+  // idiomatic equivalent: the `hydrated` latch still ensures we never
+  // overwrite user edits if the profile re-resolves on refocus.
+  useEffect(() => {
+    if (loading || hydrated) return;
+    if (profile) {
+      setServiceName(profile.serviceName);
+      setPhoneNumber(profile.phoneNumber);
+    }
     setHydrated(true);
-  } else if (!loading && !profile && !hydrated) {
-    setHydrated(true);
-  }
+  }, [loading, profile, hydrated]);
 
   const nameValid = serviceName.trim().length > 0;
   const phoneValid = phoneNumber.replace(/\D/g, '').length >= 7;

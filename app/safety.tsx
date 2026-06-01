@@ -22,6 +22,7 @@ import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -233,19 +234,19 @@ const styles = StyleSheet.create({
     flex: 1,
     // v2 spec: px-24 py-32. Switching from v1's 16pt gutter gives the
     // tiles + header more breathing room and matches the Figma node.
-    paddingHorizontal: 24,
-    paddingTop: 16, // additional top space provided by dragHandleWrapper
+    paddingHorizontal: spacing.lg, // 24
+    paddingTop: spacing.md, // 16 — additional top space provided by dragHandleWrapper
     // SAF5: was 16 — asymmetric with the top edge (which nets 32pt via
     // dragHandleWrapper's own paddingTop: 16). The v2 spec is py-32;
     // bumping to 32 makes the bottom breathing room match the top so
     // the tile grid doesn't read as pushed against the bottom chrome
     // on 6.1" devices.
-    paddingBottom: 32,
-    gap: 24, // v2 inter-section gap
+    paddingBottom: spacing.xl, // 32
+    gap: spacing.lg, // 24 — v2 inter-section gap
   },
   dragHandleWrapper: {
     // pt-16 from Figma's Drag block; centers the 4pt bar horizontally.
-    paddingTop: 16,
+    paddingTop: spacing.md, // 16
     alignItems: 'center',
   },
   header: {

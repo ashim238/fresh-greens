@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -45,14 +45,18 @@ export default function Fuel() {
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Seed the form once, after the profile loads.
-  if (!loading && profile && !hydrated) {
+  // Seed the form once, after the profile loads. useEffect (vs the
+  // older conditional-setState-during-render pattern) is the idiomatic
+  // shape and avoids React 19's stricter dev warnings. The `hydrated`
+  // latch still prevents re-seeding if the profile re-resolves on focus.
+  useEffect(() => {
+    if (loading || !profile || hydrated) return;
     setCarName(profile.carName ?? '');
     setFuelType(profile.fuelType);
     setCadenceDays(profile.cadenceDays);
     setEnabled(profile.remindersEnabled);
     setHydrated(true);
-  }
+  }, [loading, profile, hydrated]);
 
   async function handleSave() {
     if (saving) return;

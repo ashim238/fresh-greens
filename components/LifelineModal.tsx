@@ -28,7 +28,20 @@ type Props = {
  * stays light.
  */
 export function LifelineModal({ visible, onClose, contact }: Props) {
+  // Strip formatting + leading-`+`-keep. If a contact was picked without
+  // a valid number (or has only formatting chars), the sanitized string
+  // is empty and `tel:` / `sms:` would open a blank dialer — bail early
+  // instead of silently failing.
+  const dialable = contact.phoneNumber.replace(/[^\d+]/g, '');
+
   async function openOrWarn(url: string, unsupportedMessage: string) {
+    if (!dialable) {
+      Alert.alert(
+        'No phone number',
+        'Your trusted contact has no usable phone number. Update their details and try again.',
+      );
+      return;
+    }
     const supported = await Linking.canOpenURL(url);
     if (!supported) {
       Alert.alert('Unavailable', unsupportedMessage);
@@ -38,13 +51,11 @@ export function LifelineModal({ visible, onClose, contact }: Props) {
   }
 
   function handleCall() {
-    const tel = `tel:${contact.phoneNumber.replace(/[^\d+]/g, '')}`;
-    void openOrWarn(tel, "This device can't place phone calls.");
+    void openOrWarn(`tel:${dialable}`, "This device can't place phone calls.");
   }
 
   function handleText() {
-    const sms = `sms:${contact.phoneNumber.replace(/[^\d+]/g, '')}`;
-    void openOrWarn(sms, "This device can't send text messages.");
+    void openOrWarn(`sms:${dialable}`, "This device can't send text messages.");
   }
 
   return (

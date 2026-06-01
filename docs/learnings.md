@@ -4,6 +4,26 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## audit/safety-polish — burn the post-ship backlog before opening the next front
+
+Pattern that paid off this session: ship the feature, capture the final-review minors as backlog notes in `docs/next-session.md` with file:line precision, then dedicate one focused PR to burning them down before moving on. Cheaper than fixing them inline (each one disrupts a tightly-scoped commit) and cheaper than carrying them forever.
+
+**Five items closed in three commits:**
+
+1. **Re-entry race** — `useState(() => session?.type === 'unfamiliar' ? 'active' : 'problem')` reads `session` lazily on mount, but the hook is still hydrating from AsyncStorage. Window is short but real. Fix: make `step` nullable, late-bind it via a render-time guard once `loading` flips false. Cheaper than `useEffect`-with-setState for this case because the initializer pattern is the existing idiom for "branch on first known state."
+
+2. **Stranded-on-modal robustness** — `router.back()` assumes a route to back into. Deep-links / notification entries can land cold. One-liner fix everywhere: `router.canGoBack() ? router.back() : router.replace('/home')`. Lift to a `dismiss()` helper if the route has multiple call sites.
+
+3. **Hydration anti-pattern** — `if (!loading && profile && !hydrated) { setX(); setHydrated(true); }` during render is the conditional-setState-during-render React used to allow. Works, but React 19's dev warnings get noisier. Equivalent `useEffect` on `[loading, profile, hydrated]` is the idiomatic shape — same `hydrated` latch, same behavior, no warnings.
+
+4. **Empty-string defensive bail** — `phoneNumber.replace(/[^\d+]/g, '')` strips formatting; if the contact's stored number was already only formatting characters, the sanitized output is empty. `canOpenURL('tel:')` returns true on some devices, opens a blank dialer, user blames the app. Always check the sanitized output is non-empty before reaching the OS-level guard.
+
+5. **String-munging in error copy** — `title.toLowerCase().replace('take me to ', '')` worked today, would silently produce garbled copy if Figma drops the prefix. Lesson: when error/help copy needs a noun-form of a UI label, add an explicit `nounSingular` (or similar) field rather than deriving it. The cost is a 1-line type widening and 3 strings per option.
+
+**Static-sweep false positives caught:** the audit subagent flagged a `Switch` missing `accessibilityState` (false — Switch derives it from `value` internally) and an unused `useShareSession` import (false — it was used 80 lines below). Worth remembering: spec-compliance subagents see more truth than search-based-finding subagents, because the latter only sees what its narrow pattern surfaces. Always verify findings against the actual code before applying.
+
+---
+
 ## ax5/safety-surfaces — apply dynamicType selectively, lift `height` to `minHeight` at the same time
 
 Sweep across the 8 safety surfaces shipped this session (3 components + 5 routes). The infrastructure (`theme/dynamic-type.ts`, `hooks/useReduceMotion.ts`) already existed — the gap was application. `/pulled-over` was already audited and became the canonical pattern reference.
