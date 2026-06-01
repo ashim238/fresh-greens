@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/audit-bugs-pass-1 — the walkthrough → polish-pass rhythm
+
+A user walkthrough surfaced ~10 small things in one go (drag-handle spacing, hardwired 25mph, route-switch dropping markers, "Reminders on" copy out of place, "Prefer not to answer" alignment, name placeholder, instruction centering, contact-gate over-blocking). All shipped in one squash-merged PR (`5cf9bf7`) as bite-sized surgical edits.
+
+**The pattern: trust the walkthrough as a triage tool.** A 5-minute simulator pass with the user pointing things out produced a punchlist that no audit would have surfaced — the audit catches systemic patterns; the walkthrough catches "this specific thing reads off." Both are needed. Worth keeping: queue a real-device walkthrough between every meaningful PR and the next.
+
+**The contact-gate distinction is thesis-shaped.** The /safety modal blocked /unfamiliar entry on missing trusted contact. The user pointed out: routing-to-safe-place doesn't need a contact, only contact-share does. Splitting the gate (now gates /share-location only; /unfamiliar's lifeline pulse hides internally when no contact) is the right model — and matches the thesis claim that Fresh Greens is layered: routing is the floor, contact-share is the optional safety layer on top. Defensible-by-design: I can now point to this as evidence the layering isn't just rhetoric.
+
+**Honest fallbacks beat clever placeholders.** "First name, Last name" as the /menu name fallback read like an unfilled form field. The fallback ladder (`displayName → email local-part → "friend"`) prefers progressively-less-specific real identity over any synthetic placeholder. Same pattern would apply anywhere a "would be nice to have a real value here" placeholder leaks into the UI.
+
+**State-in-key is the canonical fix for `tracksViewChanges=false` markers.** Route-badge markers were dropping their visuals after a route switch because they had a stable key (`badge-${id}`) + `tracksViewChanges={false}`. Including the active/inactive flag in the key (`badge-${id}-${active|alt}`) forces a native re-snapshot. This is the same pattern `EnRouteZone` uses for fillColor. Worth keeping: any react-native-maps Marker with `tracksViewChanges={false}` whose appearance is state-derived needs the state in its key.
+
+---
+
 ## fix/sweep-must-fix-criticals — burn the audit's must-fix shortlist in one PR
 
 Twelve commits, three substantive layers. The audit's must-fix shortlist gave us a sharp scope — 3 single-surface Critical honesty findings + PROJECT-A (Ionicons → Phosphor across 8 surfaces) + PROJECT-B (dynamicType sweep across 8 surfaces) — and the implementation was mostly mechanical because the audit had pre-resolved every "what's the right fix here" question.
