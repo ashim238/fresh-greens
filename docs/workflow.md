@@ -90,6 +90,17 @@ Bias toward writing one. The check is "did something here take two tries to get 
 
 **Before writing, check for recurrence.** Run `fgq query "<short-seed>"` (NOT a sentence — the tokenizer is brittle on prose) against the merged graph to surface prior entries and chat-transcript context on the same surface. Recurrence → note in the existing entry rather than duplicating. Empty → fresh entry. Treat fgq chat/thesis nodes as memory-joggers, not fact-claims; verify against actual code or `docs/learnings.md` before citing.
 
+## 11.5. Strike-through closed backlog entries in `docs/next-session.md`
+If this PR closed any item in `docs/next-session.md` — wholly or partially — strike-through that line **in the same commit that closes it** (or in a follow-up commit on the same branch). Per CLAUDE.md convention: strike-through (`~~...~~`), don't delete; keep the closure note + a date + the closing commit's SHA so future readers can grep the context. Example:
+
+```
+~~**Foo widget should do X**~~ — ✅ shipped 2026-05-31 (`abc1234`); now Y at file.ts:LINE.
+```
+
+**Why this exists:** without it, the file drifts. We've caught case-after-case where the backlog claimed work was open that had shipped weeks earlier (Round 4 multi-row, voice button removal, report v2, community-signal icons — all stale on 2026-05-31). The pattern is universal: ship the feature → write the learnings entry → move on → forget the backlog line. Closing the entry in the same PR is the only durable fix.
+
+Also worth doing in this step: if reading the backlog flagged a *speculative* entry (something half-remembered from ideation, with no design or code basis), **delete it outright** with a one-line PR note. Stale aspirations rot harder than stale completions.
+
 ## 12. Periodic Figma fidelity audit (every ~5 PRs, or after any heavy one)
 
 Visual drift compounds quietly. Every fifth PR — or earlier if the previous PR was structural (new screen, refactor, design-system change) — run a dedicated audit pass before starting the next feature:
