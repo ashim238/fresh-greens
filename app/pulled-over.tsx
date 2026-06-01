@@ -60,7 +60,9 @@ import {
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { safetyCardHeight, spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -1529,12 +1531,12 @@ const armedStyles = StyleSheet.create({
   },
   answersWrapper: {
     flex: 1,
-    gap: 48,
+    gap: spacing.xxl,
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
   answerCard: {
-    height: 100,
+    height: safetyCardHeight,
     padding: 16,
     borderRadius: 12,
     backgroundColor: colors.white,
@@ -1678,7 +1680,7 @@ const guidanceStyles = StyleSheet.create({
   },
   recordingWidget: {
     backgroundColor: colors.systemGroupedBackground,
-    borderRadius: 20,
+    borderRadius: radii.xl,
     padding: 16,
     gap: 8,
     alignItems: 'center',
@@ -1750,7 +1752,7 @@ const contactStyles = StyleSheet.create({
     gap: 40,
   },
   topContent: {
-    gap: 48,
+    gap: spacing.xxl,
   },
   titleBlock: {
     gap: 8,

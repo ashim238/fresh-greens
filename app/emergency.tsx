@@ -18,6 +18,7 @@ import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -440,7 +441,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     maxWidth: 400,
     backgroundColor: colors.white,
-    borderRadius: 20,
+    borderRadius: radii.xl,
     paddingHorizontal: spacing.lg,
     // Symmetric 32pt vertical padding. Earlier rounds tried 16/32 and
     // 24/24; the user still read both as tight (2026-06-01). 32pt on

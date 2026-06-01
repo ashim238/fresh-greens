@@ -28,3 +28,17 @@ export const spacing = {
 } as const;
 
 export type Spacing = keyof typeof spacing;
+
+// Component-specific dimensional constants that aren't part of the
+// 4pt spacing ramp itself but are shared across surfaces. Pulled out
+// of inline use after the 2026-06-01 self-audit found the
+// safety-flow card height duplicated across /pulled-over,
+// /unfamiliar, and /share-location.
+
+// Shared height for the elevated answer/option cards in the safety
+// sub-flows (/pulled-over armed picker, /unfamiliar problem picker,
+// /share-location reason picker). /pulled-over is the precedent;
+// the others matched it during the 2026-06-01 cross-flow alignment
+// pass. Anchor the value here so a future redesign updates one
+// place, not three.
+export const safetyCardHeight = 100;

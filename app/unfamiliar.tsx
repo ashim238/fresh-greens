@@ -29,7 +29,7 @@ import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
-import { spacing } from '../theme/spacing';
+import { safetyCardHeight, spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 type Step = 'problem' | 'destination' | 'active';
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   rowList: {
     flex: 1,
     justifyContent: 'center',
-    gap: 48,
+    gap: spacing.xxl,
   },
   // DestinationPicker keeps its own list — it has a bottom-pinned
   // "I'm safe now" button (safeNowWrap, marginTop: auto), so the rows
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.md,
     gap: spacing.sm,
-    height: 100,
+    height: safetyCardHeight,
     justifyContent: 'center',
     ...shadows.e1,
   },

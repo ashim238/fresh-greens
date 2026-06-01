@@ -46,6 +46,7 @@ import type { Coordinate } from '../lib/api/zones';
 import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
@@ -778,7 +779,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     maxWidth: 400,
     backgroundColor: colors.white,
-    borderRadius: 20,
+    borderRadius: radii.xl,
     // v2 spec (1112:8900): px-24 py-32 gap-24. Bumped horizontal from
     // 16 → 24 to honor the v2 breathing room while keeping the vertical
     // and gap unchanged.

@@ -13,7 +13,7 @@ import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
-import { spacing } from '../theme/spacing';
+import { safetyCardHeight, spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 type ReasonOption = {
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   rowList: {
     flex: 1,
     justifyContent: 'center',
-    gap: 48,
+    gap: spacing.xxl,
   },
   // Two-line reason card — elevated white + shadows.e1, height 100,
   // content vertically centered. Exact match to /pulled-over's
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.md,
     gap: spacing.sm,
-    height: 100,
+    height: safetyCardHeight,
     justifyContent: 'center',
     ...shadows.e1,
   },
