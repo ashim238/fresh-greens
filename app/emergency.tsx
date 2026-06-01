@@ -355,7 +355,7 @@ function CountdownView({
   // apply to this wrapper's children — flexbox gap is sibling-only.
   return (
     <View style={styles.countdownStack}>
-      <Text style={styles.title} accessibilityRole="header" accessibilityLiveRegion="polite">
+      <Text style={styles.countdownTitle} accessibilityRole="header" accessibilityLiveRegion="polite">
         {title}
       </Text>
 
@@ -462,15 +462,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 32,
   },
+  // 44pt visual per .cursorrules tap-target rule ("on the visual, not
+  // just the hit area"). The X glyph inside stays 20pt; the chrome
+  // grows to meet the iOS HIG floor without leaning on hitSlop.
   closeBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  // --- Shared text ---
+  // Idle title — title1Emphasized (28pt bold) matches /pulled-over's
+  // armed-picker precedent the safety-flow titles converged on this
+  // session. The card asks a question ("Need help?"), so it gets the
+  // full safety-flow header register.
   title: {
+    ...dynamicType(typography.title1Emphasized),
+    color: colors.black,
+    textAlign: 'center',
+  },
+  // Countdown title — title2Emphasized (22pt bold) is a deliberate
+  // step down. The countdown title is a status ("Calling Abena
+  // Agyemang-Higgins"), not a prompt, and the contact name can be
+  // long; 28pt would wrap to two lines on common viewports. 22pt
+  // keeps the long names single-line and leaves vertical room for
+  // the disc + exit cluster without crowding.
+  countdownTitle: {
     ...dynamicType(typography.title2Emphasized),
     color: colors.black,
     textAlign: 'center',
@@ -566,10 +583,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.xs,
   },
+  // 44pt visual per .cursorrules tap-target rule — the chrome circle
+  // IS the user's eye-tracked tap target on the countdown card. Was
+  // 40pt with hitSlop padding, but the rule explicitly says don't
+  // paper over sub-44pt visuals with hitSlop. 20pt X glyph stays
+  // unchanged inside.
   stopChrome: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',
