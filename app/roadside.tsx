@@ -222,6 +222,10 @@ function ProblemPicker({
       contentContainerStyle={styles.stepBody}
       showsVerticalScrollIndicator={false}
     >
+      {/* Reserve the chevron's vertical footprint even though step 1
+          has no back affordance — keeps the title's y-position stable
+          across step 1 → step 2 transitions. */}
+      <View style={styles.backChevronPlaceholder} />
       <Text style={styles.subtitle}>Let&apos;s get you the help you need.</Text>
       <Text style={styles.title} accessibilityRole="header">
         What&apos;s going on?
@@ -646,17 +650,25 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },
-  // Eyebrow + title pair — sized to match /pulled-over's armed picker
-  // (title1Regular eyebrow above title1Emphasized title) so all four
-  // safety sub-flows share the same entry-header register. Prior
-  // pairing (bodyRegular eyebrow + title2Emphasized title) read
-  // visibly smaller than /pulled-over and broke cross-flow consistency.
-  // User-flagged 2026-06-01: /pulled-over sets the precedent.
+  // Phantom-chevron slot on step 1 (problem picker): matches the
+  // backChevron's marginTop + height so the title position stays put
+  // when the user advances to step 2 (action menu, which DOES have a
+  // back chevron). Prevents the ~40pt title-jump on transition.
+  // User-flagged 2026-06-01.
+  backChevronPlaceholder: {
+    marginTop: spacing.sm,
+    height: 32,
+  },
+  // Eyebrow + title pair — mirrors /pulled-over's armed picker. The
+  // eyebrow drops to title3Regular (20pt) so the size-step against
+  // the 28pt title is unmistakable; the prior title1Regular eyebrow
+  // (28pt) was hard to read as an eyebrow when weight was the only
+  // differentiator. User-flagged 2026-06-01.
   // Header copy intentionally skips relaxedLineHeight (per design-
   // system.md §1.4 — relaxed is for stress-state long-reads, not
   // single-line headers).
   subtitle: {
-    ...dynamicType(typography.title1Regular),
+    ...dynamicType(typography.title3Regular),
     color: colors.labelTertiary,
     marginTop: spacing.sm,
   },

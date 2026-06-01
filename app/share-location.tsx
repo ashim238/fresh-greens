@@ -116,6 +116,9 @@ function ReasonPicker({
 }) {
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      {/* Phantom-chevron slot — keeps title y-position aligned with
+          the chevron-bearing views in sibling safety flows. */}
+      <View style={styles.backChevronPlaceholder} />
       <Text style={styles.subtitle}>On it. Sharing your location now.</Text>
       <Text style={styles.title} accessibilityRole="header">
         What&apos;s the situation?
@@ -159,6 +162,9 @@ function ActiveView({
 }) {
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      {/* Phantom-chevron slot — keeps title y-position aligned with
+          the chevron-bearing views in sibling safety flows. */}
+      <View style={styles.backChevronPlaceholder} />
       <Text style={styles.subtitle}>Already on it.</Text>
       <Text style={styles.title} accessibilityRole="header">
         Sharing your location.
@@ -200,12 +206,24 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },
-  // Eyebrow + title pair — sized to match /pulled-over's armed picker
-  // (title1Regular eyebrow above title1Emphasized title) so all four
-  // safety sub-flows share the same entry-header register. See
-  // /roadside for the full rationale. User-flagged 2026-06-01.
+  // Phantom-chevron slot — /share-location is a single-step flow with
+  // no back-chevron anywhere, but the other safety flows
+  // (/unfamiliar, /roadside) have chevron-steps that push their title
+  // ~40pt down. Reserving the same space here keeps the title's
+  // y-position aligned across the four safety flows. User-flagged
+  // 2026-06-01.
+  backChevronPlaceholder: {
+    marginTop: spacing.sm,
+    height: 32,
+  },
+  // Eyebrow + title pair — mirrors /pulled-over's armed picker. The
+  // eyebrow drops to title3Regular (20pt) so the size-step against
+  // the 28pt title is unmistakable; the prior title1Regular eyebrow
+  // (28pt) was hard to read as an eyebrow when weight was the only
+  // differentiator. User-flagged 2026-06-01. See /roadside for the
+  // full rationale.
   subtitle: {
-    ...dynamicType(typography.title1Regular),
+    ...dynamicType(typography.title3Regular),
     color: colors.labelTertiary,
     marginTop: spacing.sm,
   },

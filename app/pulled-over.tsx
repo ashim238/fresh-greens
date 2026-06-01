@@ -1516,7 +1516,12 @@ const armedStyles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    ...typography.title1Regular,
+    // Drops to title3Regular (20pt) so the size-step against the 28pt
+    // title is unmistakable. With both lines at title1 (28pt) the weight
+    // alone (regular vs emphasized) didn't read as a clear hierarchy.
+    // User-flagged 2026-06-01. Amends the safety-flow entry-header
+    // precedent (mirrored in /roadside, /unfamiliar, /share-location).
+    ...typography.title3Regular,
     color: colors.labelTertiary,
   },
   title: {
@@ -1620,7 +1625,12 @@ const guidanceStyles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    ...typography.title1Regular,
+    // Drops to title3Regular (20pt) so the size-step against the 28pt
+    // title is unmistakable. With both lines at title1 (28pt) the weight
+    // alone (regular vs emphasized) didn't read as a clear hierarchy.
+    // User-flagged 2026-06-01. Amends the safety-flow entry-header
+    // precedent (mirrored in /roadside, /unfamiliar, /share-location).
+    ...typography.title3Regular,
     color: colors.labelTertiary,
   },
   title: {
@@ -1933,7 +1943,12 @@ const officerStyles = StyleSheet.create({
     width: '100%',
   },
   eyebrow: {
-    ...typography.title1Regular,
+    // Drops to title3Regular (20pt) so the size-step against the 28pt
+    // title is unmistakable. With both lines at title1 (28pt) the weight
+    // alone (regular vs emphasized) didn't read as a clear hierarchy.
+    // User-flagged 2026-06-01. Amends the safety-flow entry-header
+    // precedent (mirrored in /roadside, /unfamiliar, /share-location).
+    ...typography.title3Regular,
     color: colors.labelTertiary,
   },
   title: {
