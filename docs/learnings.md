@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## 2026-06-01 session — three durable lessons from a long polish run
+
+A single-day session that shipped 30+ commits across SOS modal redesign, Phosphor migration cleanup, app-wide text-size remediation, cursorrules self-audit, design-token introduction, and a new saved-places settings page. Three lessons worth keeping past the specific work:
+
+**1. "Expand X" rarely means "invent more UI."** When the user asked for a settings expansion, my first instinct was a Driving-Alerts page with toggles for voice prompts, speed warnings, sharp-turn alerts. `docs/next-session.md` had already retired the /en-route Volume FAB because the underlying voice-nav feature doesn't exist; faking those toggles would have re-created the same honesty-of-disclosure problem the FAB was hidden for. The right move was finding a real missing surface — the saved-places adapter had full CRUD but no review/remove screen in settings. Worth keeping: when asked to expand something open-scope, audit for *existing features that lack a surface* before inventing toggles for features that lack an implementation. The thesis's honesty-of-disclosure pattern fails quietly when the temptation is to add depth.
+
+**2. Audits should not anchor on the user's diagnosis.** The user reported "/safety-settings text feels small." The text-size audit found /safety-settings was already at 17pt — the real source of the "small text" impression was /menu's three 15pt strings (rowLabel + tileTitle + signOutText). Fixing /safety-settings would have been the obvious move and missed the actual cause. Worth keeping: when a user names a surface as the problem, investigate the actual surface that *carries the impression*, which can be a different one. The complaint is data; the diagnosis is hypothesis.
+
+**3. Stack density varies; a single card-level gap doesn't.** The SOS countdown card took 4 commits to tune (16pt padding/gap → 24pt → 32pt → split countdown into its own wrapper). Each round the user said "still tight." Root cause: the card's `gap: spacing.md` was right for the *idle* stack (6 elements that benefit from density) but wrong for the *countdown* stack (3 elements that want breathing room). Wrapping each mode in its own View with its own gap rhythm — so flexbox gap is sibling-only and the card's gap stops applying to nested children — is the structural fix. Worth keeping: shared parent styles are an implicit assumption that all child stacks have the same density needs. When stack counts vary meaningfully, give each its own wrapper with its own rhythm.
+
+---
+
 ## fix/live-sharing-pill-blocks-end-trip — moving one floating overlay cascades into others
 
 The LiveSafetySheet "sharing location" pill (full-width, `position: absolute; bottom: spacing.lg`) covered the End-trip button on /en-route. The obvious fix — float it above the bottom sheet (`bottom: bottomSheetHeight + 16`) — *introduced two new collisions*: the pill is full-width, and /en-route's bottom band already has a left speed-sign stack and a right side-button column both floating at `bottomSheetHeight + 24`. Raising the full-width pill into that band put it on top of the bottoms of both columns.
