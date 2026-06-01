@@ -98,7 +98,7 @@ export default function Emergency() {
     router.back();
   }
 
-  function startCountdown(target: Target) {
+  function startCountdown(target: Target, opts?: { isPivot?: boolean }) {
     // No-contact branch for the contact path: route to setup instead
     // of counting down to nothing. `from=emergency` makes the setup
     // screen's Skip/Continue return here via back() — without it they
@@ -112,10 +112,15 @@ export default function Emergency() {
 
     setMode({ kind: 'countdown', target });
     setCountdownSec(COUNTDOWN_SEC);
+    // VoiceOver: a sighted user sees the title swap on a pivot; a
+    // non-sighted user needs the swap stated explicitly so they don't
+    // think the timer simply reset on the same target. Two announcement
+    // variants so the action is unambiguous.
+    const targetSpoken = target === '911' ? '911' : contactName;
     AccessibilityInfo.announceForAccessibility(
-      target === '911'
-        ? `Calling 911 in ${COUNTDOWN_SEC} seconds. Tap Stop to cancel.`
-        : `Calling ${contactName} in ${COUNTDOWN_SEC} seconds. Tap Stop to cancel.`,
+      opts?.isPivot
+        ? `Switched to calling ${targetSpoken}. ${COUNTDOWN_SEC} seconds to cancel.`
+        : `Calling ${targetSpoken} in ${COUNTDOWN_SEC} seconds. Tap Stop to cancel.`,
     );
 
     clearCountdown();
@@ -160,6 +165,43 @@ export default function Emergency() {
         : `Calling ${contactName}`
       : '';
 
+  // Pivot — symmetric de/escalation mid-countdown. The other target,
+  // if reachable from this state:
+  //   - on 911 countdown: contact pivot only when a contact is set
+  //     (else there's nothing to pivot to)
+  //   - on contact countdown: 911 pivot always available
+  // Tapping the pivot stops the current timer and starts a fresh
+  // 3-second countdown for the new target — the user gets another
+  // cancel window on the switch rather than carrying a stale partial
+  // window forward (a punishing pivot punishes deliberation).
+  // Encodes thesis claim C8: the choice between paths stays live
+  // until the dial actually fires, not just on the idle card.
+  const pivotTarget: Target | null =
+    mode.kind === 'countdown'
+      ? mode.target === '911'
+        ? hasContact
+          ? 'contact'
+          : null
+        : '911'
+      : null;
+  const pivotLabel =
+    pivotTarget === '911'
+      ? 'Or call 911'
+      : pivotTarget === 'contact'
+        ? `Or call ${contactName}`
+        : undefined;
+  const pivotA11yLabel =
+    pivotTarget === '911'
+      ? 'Switch to calling 911 instead'
+      : pivotTarget === 'contact'
+        ? `Switch to calling ${contactName} instead`
+        : undefined;
+
+  function handlePivot() {
+    if (!pivotTarget) return;
+    startCountdown(pivotTarget, { isPivot: true });
+  }
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
@@ -188,6 +230,9 @@ export default function Emergency() {
             <CountdownView
               title={countdownTargetLabel}
               seconds={countdownSec}
+              pivotLabel={pivotLabel}
+              pivotA11yLabel={pivotA11yLabel}
+              onPivot={pivotTarget ? handlePivot : undefined}
               onStop={stopCountdown}
             />
           )}
@@ -289,10 +334,16 @@ function IdleView({
 function CountdownView({
   title,
   seconds,
+  pivotLabel,
+  pivotA11yLabel,
+  onPivot,
   onStop,
 }: {
   title: string;
   seconds: number;
+  pivotLabel?: string;
+  pivotA11yLabel?: string;
+  onPivot?: () => void;
   onStop: () => void;
 }) {
   return (
@@ -329,6 +380,24 @@ function CountdownView({
         </View>
         <Text style={styles.stopLabel}>Stop</Text>
       </Pressable>
+
+      {/* Pivot — symmetric mid-countdown target swap. Tertiary chrome
+          (text + leading 16pt Phone glyph, labelSecondary) so it
+          doesn't compete with Stop's primary interrupt weight. Only
+          rendered when there's actually a target to pivot to (911
+          countdown with no contact set → no link). */}
+      {pivotLabel && onPivot && (
+        <Pressable
+          onPress={onPivot}
+          accessibilityRole="button"
+          accessibilityLabel={pivotA11yLabel ?? pivotLabel}
+          hitSlop={8}
+          style={({ pressed }) => [styles.pivotBtn, pressed && pressedDim]}
+        >
+          <Phone size={16} color={colors.labelSecondary} weight="duotone" />
+          <Text style={styles.pivotLabel}>{pivotLabel}</Text>
+        </Pressable>
+      )}
     </>
   );
 }
@@ -458,6 +527,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stopLabel: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
+  },
+  // Tertiary chrome — text link with leading Phone glyph. Sits below
+  // Stop in the visual stack, in the labelSecondary register, so it
+  // reads as a quiet alternative rather than a competing primary CTA.
+  pivotBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+  },
+  pivotLabel: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
   },
