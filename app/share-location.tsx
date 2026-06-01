@@ -12,6 +12,7 @@ import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -239,23 +240,39 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.lg,
   },
+  // Card list mirrors /pulled-over's armed picker (and the matching
+  // pass on /unfamiliar): flex 1 + justifyContent center vertically
+  // centers the cards, gap 48 between them. With 4 reasons at height
+  // 100 the stack can exceed a page-sheet's height on smaller devices;
+  // the ScrollView then scrolls and the rows fall back to top-aligned.
+  // User-flagged 2026-06-01: /pulled-over sets the precedent for the
+  // safety-flow card treatment.
   rowList: {
-    gap: spacing.sm,
+    flex: 1,
+    justifyContent: 'center',
+    gap: 48,
   },
+  // Two-line reason card — elevated white + shadows.e1, height 100,
+  // content vertically centered. Exact match to /pulled-over's
+  // answerCard (was flat systemGroupedBackground at minHeight 76).
   twoLineRow: {
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: spacing.md,
-    gap: spacing.xs,
-    minHeight: 76,
+    gap: spacing.sm,
+    height: 100,
+    justifyContent: 'center',
+    ...shadows.e1,
   },
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
+  // Matches /pulled-over's answerSubtitle (subheadlineRegular +
+  // labelTertiary) — was bodyRegular + labelSecondary.
   rowClarifier: {
-    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
-    color: colors.labelSecondary,
+    ...dynamicType(typography.subheadlineRegular),
+    color: colors.labelTertiary,
   },
   endWrap: {
     marginTop: 'auto',
