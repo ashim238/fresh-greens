@@ -2,6 +2,17 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Zone-overlay tap-info — post-merge follow-ups (2026-06-01)
+
+Shipped `51549ed`. Final-review minors not blocking merge:
+
+- **ESLint exhaustive-deps comment on ZoneDetailCard's useEffect** — `components/ZoneDetailCard.tsx:53` uses `[zone.id]` as the dep but the effect's closure reads `content`. The project doesn't have an ESLint config today, so no warning fires; if one is ever added, `react-hooks/exhaustive-deps` will flag this as a false positive. Pre-empt with a one-line `// eslint-disable-next-line react-hooks/exhaustive-deps` and a comment ("fires once per zone open, not per content-object identity"). Low priority.
+- **`handleZonePress` allocated per-render inside the zones map** — `app/home.tsx:1106`. Negligible at current zone counts; if the overlay set grows, hoist to a `useCallback((zone) => …)` outside the map for referentially-stable Polygon/Polyline props. Post-merge optimization only.
+- **Zone-unmount while card is open** — if the user opens a `ZoneDetailCard` and then toggles `showZones` off (or a category-flag off) in `/zone-preferences`, the card stays mounted holding a stale `Zone` object. Not a crash, but visually weird. Optional `useEffect` on `selectedZone` clearing it when its category's enabled flag flips off. Edge case.
+- **Repeat-tap behavior on the same zone** — currently no-op (React bails on identical refs; the `useEffect([zone.id])` doesn't re-fire so VoiceOver doesn't re-announce). Defer until user feedback says otherwise.
+- **`BottomSheetShell` extraction** — `ReportDetailCard` and `ZoneDetailCard` now share ~30 lines of scrim + sheet + drag-handle chrome. Rule-of-three threshold not yet met (two surfaces), but the next sibling sheet will tempt a third copy — at that point, extract.
+- **Unit test for `zoneCategoryContent`** — pure function, trivial to test; would lock the per-category content contract. Project doesn't have a test runner configured today; consider when one lands.
+
 ## Audit follow-ups — focused session-surfaces pass (2026-05-30)
 
 Minor findings from the focused static audit of the surfaces this session touched (the blocker + 4 importants were fixed in `99fe915`). All low-severity:

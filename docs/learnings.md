@@ -4,6 +4,23 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/zone-overlay-tap-info — subagent-driven development worked, and the two real bugs were both lifecycle/state
+
+First feature this session shipped end-to-end through subagent-driven development (brainstorm → spec → plan → 3 implementer subagents + 2 reviewer subagents per task + a final whole-feature reviewer). Shipped as `51549ed`. Two non-trivial findings worth keeping:
+
+**1. The reviewer loop caught two real bugs that a self-review would have missed.** Both were subtle correctness, not style:
+
+  - The `useEffect([content])` dep on `ZoneDetailCard` — `content` is a new object literal each render, so the effect fired every render and VoiceOver re-announced the title continuously. The fix was a 1-line change to `[zone.id]`. The implementer self-reviewed and shipped this; the code-quality reviewer flagged it.
+  - The community-report `LandmarkMarker.onPress` didn't clear `selectedZone`, breaking mutual exclusion in one direction. (Zone-tap-clears-report worked because I wrote that handler; report-tap-doesn't-clear-zone failed because I only modified one side.) Spec compliance passed; the code-quality reviewer caught the missing symmetry by reading the spec's "If the user taps a community-report point during this state, the existing `ReportDetailCard` opens and `ZoneDetailCard` dismisses" sentence and looking for both directions.
+
+Worth keeping: spec-compliance and code-quality are genuinely different review lenses. Spec-compliance asks "did you build what was requested." Code-quality asks "is what you built correct." Both bugs passed spec-compliance and failed code-quality. Skip code-quality at your peril, even for "obviously small" features.
+
+**2. Per-task model choice mattered for cost.** Task 1 (pure data adapter, mechanical) ran on `haiku`; Tasks 2 and 3 (UI integration, judgment work) ran on the inherited `sonnet`. Total subagent token usage across all 8 dispatches (3 implementers + 2× 2 task reviewers + 1 fix re-review + 1 final reviewer) was ~900k. The mechanical Task 1 dispatch used ~285k of that — significantly less than Tasks 2/3 even though it was the first dispatch. Cheap-model-for-mechanical pays off when the task is genuinely template-following. Reserve standard model for integration/judgment work.
+
+**3. Plan-with-full-code-blocks is the right TDD substitute for UI features.** Fresh Greens has no unit-test runner; the plan can't say "write the failing test first." Instead, every task in the plan included the verbatim code block, the exact typecheck command with expected output, and the exact commit message. The implementer subagents executed without questions because there was nothing to clarify — the plan WAS the test. Worth keeping: TDD's discipline is "verify before commit"; the verification step in a UI codebase can be `tsc` + a simulator pass (Task 4 here), not necessarily a unit test.
+
+---
+
 ## 2026-06-01 session — three durable lessons from a long polish run
 
 A single-day session that shipped 30+ commits across SOS modal redesign, Phosphor migration cleanup, app-wide text-size remediation, cursorrules self-audit, design-token introduction, and a new saved-places settings page. Three lessons worth keeping past the specific work:
