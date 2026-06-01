@@ -5,8 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
-import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
-import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
@@ -16,13 +14,11 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  LayoutAnimation,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   useWindowDimensions,
   View,
@@ -62,9 +58,12 @@ import { typography } from '../theme/typography';
  *
  *   ─────────── divider ───────────
  *
- *   📍 Zone Preferences         ⌄  ← inline-expanded dropdown
- *      👁 Show zones overlay   [⊙]    (toggle always visible, not
- *                                     hidden behind a tap)
+ *   📍 Zone Preferences         ›  ← push to /zone-preferences
+ *                                     (was inline-expanded accordion;
+ *                                     user-flagged 2026-06-01 — the
+ *                                     accordion's discoverability was
+ *                                     weak and the toggle list grew
+ *                                     past a row's vertical budget)
  *
  *   🛡  Safety                   ›
  *
@@ -83,9 +82,13 @@ import { typography } from '../theme/typography';
  *  - Settings rows drop the white-circle icon tile — icon is now
  *    inline at 24pt without a wrapper. Closer to native iOS Settings
  *    than the Waze-style chip register of v1.
- *  - Zone Preferences (renamed from "Zone Settings") moves from an
- *    accordion-on-tap to an inline-expanded layout — toggle is always
- *    visible. Removes a hidden-affordance discoverability concern.
+ *  - Zone Preferences (renamed from "Zone Settings") now pushes to a
+ *    dedicated /zone-preferences page, matching /safety-settings'
+ *    register. v1 used an accordion-on-tap, v1.5 moved to inline-
+ *    expanded; user feedback 2026-06-01 was that the accordion still
+ *    hid the controls behind a tap (compared to the chevron-and-push
+ *    pattern of the other rows). The dedicated page also leaves room
+ *    for the toggle list to grow without warping the menu row.
  *  - Quick-tile carousel: Notifications tile retired, Connect calendar
  *    added. Tile visual register changes from "white card with shadow"
  *    to "white card with wiltedgreen border" — quieter elevation.
@@ -128,8 +131,7 @@ export default function Menu() {
   const { clearContact } = useTrustedContact();
   const { clearAll: clearSavedPlaces } = useSavedPlaces();
   const { clearAll: clearRegularDestinations } = useRegularDestinations();
-  const { preferences, setShowZones, setPreference, clearAll: clearPreferences } =
-    usePreferences();
+  const { clearAll: clearPreferences } = usePreferences();
   const { clearAll: clearFuelProfile } = useFuelProfile();
   const { width: screenWidth } = useWindowDimensions();
   const [signingOut, setSigningOut] = useState(false);
@@ -162,6 +164,10 @@ export default function Menu() {
 
   function handleBack() {
     router.back();
+  }
+
+  function handleZonePreferences() {
+    router.push('/zone-preferences');
   }
 
   function handleSafety() {
@@ -253,15 +259,18 @@ export default function Menu() {
 
           <View style={styles.divider} />
 
-          {/* Settings rows */}
+          {/* Settings rows — three peers, each pushing to its own
+              dedicated page. v1 mixed an accordion-style Zone Prefs
+              row with chevron-push rows for Safety + Legal; the
+              inconsistency cost discoverability. Now all three share
+              the same chevron-push affordance. */}
           <View style={styles.rowList}>
-            <ZonePreferencesRow
-              showZones={preferences?.showZones ?? false}
-              onToggle={setShowZones}
-              flagPolice={preferences?.flagPolice ?? true}
-              flagLowLight={preferences?.flagLowLight ?? true}
-              flagCommunityReports={preferences?.flagCommunityReports ?? true}
-              onFlagToggle={(key, value) => setPreference(key, value)}
+            <SettingsRow
+              icon={
+                <MapPinArea size={24} color={colors.black} weight="duotone" />
+              }
+              label="Zone Preferences"
+              onPress={handleZonePreferences}
             />
 
             <SettingsRow
@@ -367,143 +376,6 @@ export default function Menu() {
 }
 
 // --- Sub-components ------------------------------------------------------
-
-/**
- * Zone Preferences row — collapsible accordion with a single inline
- * toggle child.
- *
- * Tap the header to expand/collapse; the chevron flips between
- * CaretDown (collapsed, "tap to open") and CaretUp (expanded, "tap
- * to close"). LayoutAnimation makes the height transition smooth.
- *
- * Starts collapsed because the toggle's default-off state means the
- * row's information value is low at first paint; the user opens it
- * intentionally to flip the preference.
- */
-function ZonePreferencesRow({
-  showZones,
-  onToggle,
-  flagPolice,
-  flagLowLight,
-  flagCommunityReports,
-  onFlagToggle,
-}: {
-  showZones: boolean;
-  onToggle: (next: boolean) => void;
-  flagPolice: boolean;
-  flagLowLight: boolean;
-  flagCommunityReports: boolean;
-  onFlagToggle: (
-    key: 'flagPolice' | 'flagLowLight' | 'flagCommunityReports',
-    value: boolean,
-  ) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  // M4: every other animation on this screen (the Quick Tiles carousel
-  // snap at line ~278) is gated on useReduceMotion per design-system.md
-  // §4.5; the accordion was missed. A user with Reduce Motion enabled
-  // was still getting the easeInEaseOut expand animation they opted
-  // out of. Calling the hook locally instead of threading a prop down
-  // keeps the surface API of ZonePreferencesRow unchanged.
-  const reduceMotion = useReduceMotion();
-  const handleToggleExpanded = () => {
-    // Only animate the expand direction. Calling configureNext on collapse
-    // can prevent the state update from registering (the collapse tap appears
-    // to do nothing), so the animation is skipped on the way down.
-    // Skipped entirely when reduceMotion is on — the state update still
-    // fires; content snaps in/out instantly.
-    if (!expanded && !reduceMotion) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }
-    setExpanded((v) => !v);
-  };
-  return (
-    <View style={styles.zoneRow}>
-      <Pressable
-        onPress={handleToggleExpanded}
-        accessibilityRole="button"
-        accessibilityLabel="Zone Preferences"
-        // M5: "Zone Preferences" is a noun — accessibilityState.expanded
-        // tells VoiceOver the row is collapsed but not what tapping
-        // does. The hint completes the affordance the same way
-        // FloatingActionButton's hint pattern does (§2.1).
-        accessibilityHint={
-          expanded
-            ? 'Collapse zone display options'
-            : 'Expand zone display options'
-        }
-        accessibilityState={{ expanded }}
-        style={({ pressed }) => [styles.row, pressed && pressedDim]}
-      >
-        <View style={styles.rowIconWrap}>
-          <MapPinArea size={24} color={colors.black} weight="duotone" />
-        </View>
-        <Text style={styles.rowLabel}>Zone Preferences</Text>
-        {expanded ? (
-          <CaretUp size={16} color={colors.labelTertiary} weight="bold" />
-        ) : (
-          <CaretDown size={16} color={colors.labelTertiary} weight="bold" />
-        )}
-      </Pressable>
-      {expanded && (
-        <View>
-          <View style={styles.zoneInner}>
-            <Text style={styles.zoneInnerLabel}>Show zones overlay</Text>
-            <Switch
-              value={showZones}
-              onValueChange={onToggle}
-              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
-              thumbColor={colors.white}
-              accessibilityLabel="Toggle zones overlay"
-              // M6: a VoiceOver user can't see the map; label = WHAT the
-              // control is, hint = what it affects (§2.1 hint-pairing).
-              accessibilityHint="Shows or hides the zone safety overlay on the map"
-            />
-          </View>
-
-          {/* "What we flag" — the safety factors that shape route scoring
-              + map flags, grouped apart from the display-only overlay
-              toggle above. Toggles persist now; wiring them into scoring
-              and the map is a tracked follow-up. */}
-          <Text style={styles.zoneGroupCaption}>What we flag</Text>
-          <View style={styles.zoneInner}>
-            <Text style={styles.zoneInnerLabel}>Police presence</Text>
-            <Switch
-              value={flagPolice}
-              onValueChange={(v) => onFlagToggle('flagPolice', v)}
-              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
-              thumbColor={colors.white}
-              accessibilityLabel="Flag police presence"
-              accessibilityHint="Will affect which areas shape your route scoring and map flags"
-            />
-          </View>
-          <View style={styles.zoneInner}>
-            <Text style={styles.zoneInnerLabel}>Low-light areas</Text>
-            <Switch
-              value={flagLowLight}
-              onValueChange={(v) => onFlagToggle('flagLowLight', v)}
-              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
-              thumbColor={colors.white}
-              accessibilityLabel="Flag low-light areas"
-              accessibilityHint="Will affect which areas shape your route scoring and map flags"
-            />
-          </View>
-          <View style={styles.zoneInner}>
-            <Text style={styles.zoneInnerLabel}>Community reports</Text>
-            <Switch
-              value={flagCommunityReports}
-              onValueChange={(v) => onFlagToggle('flagCommunityReports', v)}
-              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
-              thumbColor={colors.white}
-              accessibilityLabel="Flag community reports"
-              accessibilityHint="Will affect which areas shape your route scoring and map flags"
-            />
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
 
 /**
  * Single push-to-route settings row.
@@ -635,40 +507,6 @@ const styles = StyleSheet.create({
   },
   // Zone Preferences container — wraps the header row + the inline
   // toggle in one vertical stack so they read as one component.
-  zoneRow: {
-    paddingVertical: 4,
-    gap: 4,
-  },
-  // Inline toggle row — indented to align with the header's text
-  // column (24pt icon + 12pt gap = 36pt indent), matching Figma's
-  // `px-8` inner inset.
-  zoneInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 36 + 12,
-    paddingRight: 12,
-    paddingVertical: 4,
-  },
-  zoneInnerLabel: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-    flex: 1,
-  },
-  // "What we flag" — sub-header for the factor toggles. Deliberately a
-  // tier BELOW the "Zone Preferences" row label (subheadlineEmphasized
-  // black): footnoteEmphasized (13pt) + labelSecondary gray, so it reads
-  // as subordinate to the section it sits inside, while the bold weight +
-  // the 14pt top gap distinguish it from the regular-weight toggle labels
-  // below. No full-width rule — that read as a peer-section divider.
-  // Indented to the toggle label column (36 + 12).
-  zoneGroupCaption: {
-    ...dynamicType(relaxedLineHeight(typography.footnoteEmphasized)),
-    color: colors.labelSecondary,
-    paddingLeft: 36 + 12,
-    paddingTop: 14,
-    paddingBottom: 4,
-  },
   // Carousel — pinned outside the ScrollView, sits above Sign out.
   quickWrap: {
     paddingTop: 16,
