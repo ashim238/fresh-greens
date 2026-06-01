@@ -4,11 +4,13 @@
 **Purpose:** Establish the state of Fresh Greens against four quality dimensions (polish, fidelity, accessibility, concept-execution) before pivoting to Phase 5 (portfolio + submission work).
 **Output shape:** A trusted finding-list, not a fix-PR.
 
+**Five dimensions** (polish / fidelity / accessibility / reliability / concept-execution). Concept-execution has three sub-lenses: brand voice, thesis-promise delivery, honesty-of-disclosure.
+
 ## Goal
 
 Produce a **dated, sourced, prioritized finding-list** covering ~13 portfolio-facing surfaces across four dimensions, so the user can defend each surface to a portfolio reviewer and know exactly what's still imperfect on purpose. Findings flow into `docs/next-session.md` as live backlog; the audit doc itself is a static snapshot.
 
-## The four dimensions
+## The five dimensions
 
 Per surface, the audit evaluates:
 
@@ -21,12 +23,29 @@ Comparison against the Figma node cited in the surface's header docblock, when o
 ### 3. Accessibility
 Dynamic Type (AX5), `useReduceMotion` coverage, VoiceOver flow order, `accessibilityRole` + `accessibilityLabel` completeness, color contrast (WCAG AA), tap-target ≥44pt, decorative-vs-meaningful element discrimination, screen-reader gesture compatibility, two-line composite-label correctness.
 
-### 4. Concept-execution (= brand voice + thesis-promise delivery)
-Two sub-lenses, per the brainstorm:
+### 4. Reliability / failure modes
+What does the surface look and behave like when the happy-path breaks? Per surface, the audit asks:
+
+- **No data / cold first-launch** — empty states, never-set-up flows, "no recordings yet" / "no saved places" / etc. Are they designed, or do they show a blank box?
+- **A lot of data** — list virtualization, scroll perf, layout breaks at high counts (50 recordings, 100 saved places).
+- **Permission denied** — Location / Contacts / Microphone refused. Does the surface degrade gracefully or stall?
+- **Network down** — Mapbox unreachable, AsyncStorage write failure, route fetch timeout. Inline-error, silent fail, or crash?
+- **Mid-loading state** — is there a skeleton, spinner, or just a flicker?
+- **Mid-error state** — Alert? inline message? toast? nothing?
+- **App-kill resilience** — does the surface restore correctly after a kill (e.g., active share session, in-progress recording, mid-trip)?
+
+Portfolio reviewers will test these. Failure-mode UX is *categorically* different from polish (which is about happy-path craft) and worth its own row.
+
+### 5. Concept-execution
+Three sub-lenses:
+
 - **Brand voice & tone consistency** — does the copy + visual register read as Fresh Greens (honest, warm, plainspoken — "You're not alone" / "Hang tight" / "On it.")? Or does it lapse into generic-product voice ("Coming soon", "Tap to continue", clinical labels like "Reason: Routine")?
 - **Thesis-promise delivery** — does the surface deliver on the user-promise the thesis stated? E.g., does /safety actually reduce isolation for a stressed user? Does /search surface community-trusted spots first? Does /pulled-over feel like ambient protection rather than a tool you'd reach for in panic?
+- **Honesty of disclosure** — does what each surface CLAIMS match what it actually DOES? Examples: "Myles is being notified" while v1 doesn't actually transmit; "Saved your journey periodically" on Unfamiliar Step 2 (v1 doesn't); "Safest route" claims on /home (does the route actually weight safety, or just say so?); placeholder copy that suggests features not yet built. Overlaps with brand voice but the rigor is different — brand voice asks "does this read as Fresh Greens"; honesty asks "is this true."
 
-Audit fairness note: thesis-promise is interpretive. Subagents will be instructed to anchor their judgments to specific thesis claims (queryable via `fgq query "<short-seed>"` against the merged graph at `~/.graphify/fresh-greens-merged/`) and to flag claims they couldn't substantiate.
+Audit fairness notes:
+- Thesis-promise is interpretive. Subagents will be instructed to anchor their judgments to specific thesis claims (queryable via `fgq query "<short-seed>"` against the merged graph at `~/.graphify/fresh-greens-merged/`) and to flag claims they couldn't substantiate.
+- Honesty findings should always include the *honest framing* the surface could adopt instead. Don't just say "this claim is overstated"; say "swap to X" or "qualify with Y."
 
 ## In-scope surfaces (~13)
 
@@ -91,7 +110,7 @@ The synthesis subagent ingests all 13 per-surface reports + does:
 | **Minor** | Polish nit you can defend leaving as-is. Flag with "defensible by:" reasoning if not fixing. | Backlog. |
 | **Note** | Observation worth recording but not actionable (e.g., "this pattern works but is worth re-examining if a similar surface lands"). | Audit doc only; does NOT flow to next-session.md. |
 
-Each finding must include a one-line **defensibility note** — what the answer would be if a portfolio reviewer asked "why is this still like this?" Forces the audit to surface only findings whose status is genuinely defensible-or-fixable, not "I noticed something."
+Each finding must include a one-line **defensibility note** — what the answer would be if a portfolio reviewer (or, more pointedly, a thesis-defense panel) asked "why is this still like this?" The answer should be thesis-grounded: a specific design decision tied to a thesis claim, scope constraint, or principle — not "it works" or "we ran out of time." If the only defensible answer is the latter, the finding is genuinely actionable and should be tiered Critical or Important.
 
 ## Output structure
 
@@ -151,9 +170,12 @@ Findings here look like: `[F4 Important Concept] /pulled-over's contact phase sh
 The dispatching prompt for each per-surface subagent must include:
 
 - Path to the file(s) under audit (the route + key sibling files)
-- The 4 dimensions with concrete examples for each
-- The severity rubric verbatim
-- The thesis-promise audit method + `fgq query` instructions
+- The 5 dimensions with concrete examples for each (polish, fidelity, accessibility, reliability, concept-execution)
+- For concept-execution: the three sub-lenses (brand voice, thesis-promise delivery, honesty-of-disclosure) with concrete examples for each
+- The severity rubric verbatim, including the thesis-defense-grade defensibility-note requirement
+- The thesis-promise audit method + `fgq query` instructions (short keyword seeds, NOT sentences)
+- For reliability: an explicit list of failure-mode questions to probe (no data, lots of data, denied permissions, network down, mid-loading, mid-error, app-kill resilience)
+- For honesty-of-disclosure: instruction to enumerate every UI claim the surface makes and verify each against actual behavior
 - Required output format (findings array + brief surface summary)
 - Cross-references to the previous audit-pass learnings (`docs/learnings.md` entries `audit/safety-polish` and `ax5/safety-surfaces`)
 - Instruction: "Do NOT report 'Note' findings to next-session.md; those stay in the audit doc"
@@ -188,8 +210,10 @@ The synthesis subagent gets:
 
 ## Self-review
 
-- ✅ All 4 dimensions defined with concrete examples + scope.
-- ✅ Concept-execution = brand voice + thesis-promise (per brainstorm decision; internal-coherence explicitly excluded).
+- ✅ All 5 dimensions defined with concrete examples + scope (polish, fidelity, accessibility, reliability, concept-execution).
+- ✅ Concept-execution has three sub-lenses: brand voice, thesis-promise, honesty-of-disclosure (per brainstorm; internal-coherence explicitly excluded; performance/idiom/discoverability/privacy explicitly skipped).
+- ✅ Reliability dimension covers no-data, lots-of-data, denied-permission, network-down, mid-loading, mid-error, app-kill resilience.
+- ✅ Defensibility note must be thesis-defense-grade — "it works" is not a defense.
 - ✅ 14 in-scope surfaces enumerated.
 - ✅ Out-of-scope items enumerated (onboarding, settings, map primitives, etc.).
 - ✅ Methodology spec'd: A+synthesis with 13 parallel subagents + 1 synthesis subagent.
