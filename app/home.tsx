@@ -1001,17 +1001,42 @@ export default function Home() {
    * normal browse mode shouldn't accidentally move anything.
    */
   function handleMapPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
-    if (!placingReport) {
-      // Empty-map tap dismisses any open detail card. Mutual exclusion
-      // means at most one of these is non-null at a time, but clearing
-      // both is the safe + cheap default.
-      setSelectedReport(null);
-      setSelectedZone(null);
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+
+    // Placement mode takes precedence — the user is deliberately
+    // placing a report pin, and a tap should move the pin even if it
+    // happens to land on a zone overlay.
+    if (placingReport) {
+      Haptics.selectionAsync().catch(() => {});
+      setPlacementPin({ latitude, longitude });
       return;
     }
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    Haptics.selectionAsync().catch(() => {});
-    setPlacementPin({ latitude, longitude });
+
+    // Zone hit-test fallback for iOS Apple Maps. react-native-maps'
+    // Polygon.onPress / Polyline.onPress don't fire reliably on
+    // MKMapView overlays (Apple's MKOverlayRenderer doesn't expose
+    // overlay hit-testing the way Google Maps does). The Polygon /
+    // Polyline `onPress` wired in the zone-overlay render still fires
+    // on Android / Google Maps; this is the iOS-side path that
+    // delivers the same behavior. Reuses `isPointInZone` from the
+    // scoring layer so tap-detection matches the same proximity
+    // thresholds the entered-zone / route-pass-through detection
+    // uses — taps and entries agree on what "in this zone" means.
+    if (showZones && zonesVisibleAtZoom) {
+      const tap = { latitude, longitude };
+      const hit = enabledOsmZones.find((zone) => isPointInZone(tap, zone));
+      if (hit) {
+        setSelectedReport(null);
+        setSelectedZone(hit);
+        return;
+      }
+    }
+
+    // Empty-map tap dismisses any open detail card. Mutual exclusion
+    // means at most one of these is non-null at a time, but clearing
+    // both is the safe + cheap default.
+    setSelectedReport(null);
+    setSelectedZone(null);
   }
 
   // Refresh community reports each time /home gains focus. Two paths
