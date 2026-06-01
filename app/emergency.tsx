@@ -590,7 +590,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   pivotLabel: {
+    // Underlined text-link register — makes the pivot read explicitly
+    // as a navigational alternative ("you can also tap this") rather
+    // than as a static caption sitting under Stop. User-flagged
+    // 2026-06-01. Underline lives on the text only; the leading Phone
+    // glyph stays unmarked.
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
+    textDecorationLine: 'underline',
   },
 });
