@@ -4,6 +4,29 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## State-in-key on `tracksViewChanges={false}` markers — pattern hit three times now, name it
+
+Three independent fixes this session all turned out to be the same pattern. Worth pulling out so the next person (me, next week) doesn't re-derive it.
+
+**The pattern.** `react-native-maps` Markers with `tracksViewChanges={false}` ask MapKit to cache the marker's bitmap snapshot and stop re-rasterizing every frame. That's the right perf choice for a static-looking marker on a moving map (otherwise 60fps rasterization of an Image inside a Marker is a battery hit). But MapKit's cached bitmap can become stale when:
+
+- The marker's **internal visual state** changes (heading rotation, default-vs-extended state, active-vs-alternate state)
+- The **MapView around it** re-renders for a reason that causes re-rasterization (animateToRegion, zoom change)
+
+When that happens, the marker either renders the wrong frame or vanishes entirely (the cache miss returns an empty bitmap). The fix is **state-in-key**: include the relevant state value in the marker's `key` prop so React tears down the marker on state change and remounts it with a fresh snapshot.
+
+**Three instances in the codebase as of 2026-06-01:**
+
+- `components/EnRouteCarMarker.tsx` — `key={`car-${roundedHeading}`}` so the car icon remounts every ~5° of rotation. (Rounding to 5° gates the cost: 72 remounts per full turn instead of 360.)
+- `components/EnRouteZone.tsx` — `key={`zone-${id}-${state}`}` so the zone marker remounts on the default ↔ extended state transition. Same shape for the route-badge markers (`key={`badge-${id}-${active}`}`) added during the polish pass.
+- `app/home.tsx` — `key={`user-loc-${recenterTick}`}` on `UserLocationMarker`, with a `recenterTick` state-counter that bumps inside `handleRecenter`. Forces remount on Recenter taps so the marker survives the `animateToRegion`.
+
+**Heuristic for spotting the next one.** If you're using `tracksViewChanges={false}` on a Marker, ask: what state changes could cause MapKit to re-rasterize? Each candidate needs to be in the key. The cost of being wrong is a marker that visually vanishes — a bad enough symptom that it's worth pre-empting at write-time.
+
+**Why no `useStateInKey` hook.** I considered extracting one, but the implementation is `return String(state)` and the call site is one line of template-literal `key={...}`. Wrapping that in a hook adds weight without simplifying anything. The pattern lives in CLAUDE.md and in this entry instead — documentation is the right abstraction for one-line patterns hit at the call-site.
+
+---
+
 ## feat/zone-overlay-tap-info — subagent-driven development worked, and the two real bugs were both lifecycle/state
 
 First feature this session shipped end-to-end through subagent-driven development (brainstorm → spec → plan → 3 implementer subagents + 2 reviewer subagents per task + a final whole-feature reviewer). Shipped as `51549ed`. Two non-trivial findings worth keeping:

@@ -76,6 +76,12 @@ Hazard avoidance has a ceiling: even the highest-scoring route passes through ri
 - Modal-presented screens (`/safety`, `/pulled-over`) configured in `app/_layout.tsx` via `Stack.Screen options={{ presentation: 'modal' }}`. `/pulled-over` runs the entire pulled-over flow internally (armed → transition → guidance → contact → review) so the stack only ever has one safety modal on top of the map.
 - Theme tokens consumed via spread: `{ ...typography.title1Emphasized, color: colors.white }`.
 
+### Map marker rendering — state-in-key on `tracksViewChanges={false}`
+- `react-native-maps` Markers default to `tracksViewChanges={true}`, which forces MapKit to re-rasterize every frame — a battery / perf hit for non-animating markers. The codebase flips it to `false` for static-looking markers (community-report pins, user-location dot, EnRouteCarMarker, EnRouteZone) so MapKit caches the snapshot.
+- The cached bitmap can go stale when (a) the marker's internal visual state changes, or (b) MapView re-rasterizes around it (zoom change, `animateToRegion`). When that happens, the marker renders the wrong frame or vanishes entirely.
+- **Fix pattern**: include the relevant state in the marker's `key` so React tears it down and remounts it on state change. Examples in the codebase: `key={`car-${roundedHeading}`}` (EnRouteCarMarker), `key={`zone-${id}-${state}`}` (EnRouteZone default↔extended), `key={`user-loc-${recenterTick}`}` (UserLocationMarker on Recenter). See `docs/learnings.md` for the longer rationale.
+- **Heuristic when adding a new marker**: if you're using `tracksViewChanges={false}`, enumerate every state that could cause MapKit to re-rasterize. Each candidate needs to be in the key. The cost of being wrong is a marker that visually vanishes — bad enough to pre-empt at write-time.
+
 ---
 
 ## Design system
