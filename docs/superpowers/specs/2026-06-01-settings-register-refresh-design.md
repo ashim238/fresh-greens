@@ -6,13 +6,15 @@
 
 ## Scope
 
-This is **Phase A** of a four-part settings vision. Phase A is the cross-cutting visual register refresh — the prerequisite all later phases consume. The other three phases are parked for separate brainstorm → spec → plan cycles:
+This is **Phase A** of a four-part settings vision. Phase A is the cross-cutting visual register refresh — the prerequisite all later phases consume — **plus** a folded-in minimal-but-real "Connect calendar" feature (added during the brainstorm; the carousel needs a second real tile to earn its keep, and the feature is built honestly rather than stubbed). The other phases are parked for separate brainstorm → spec → plan cycles:
 
 - **Phase B (parked):** General settings page — distance units (mile/km segmented control), prevent auto-lock toggle, language. First consumer of the `SegmentedRow` primitive.
 - **Phase C (parked):** Preferred gas type discoverability — re-surface the existing `useFuelProfile().fuelType` in the settings hub.
 - **Phase D (parked):** Preferred stations — net-new data (likely `useSavedPlaces` extended with `kind: 'station'`) + list page + add affordance. Green Book–aligned.
 
 Phase A is the dependency: B/C/D all build on the new register, so the register ships first, once, cleanly. After A lands, B/C/D are independent.
+
+**Why the calendar feature is folded in, not stubbed:** the "Connect calendar" tile was deliberately cut at v1 (`menu.tsx:123`) because "the underlying feature doesn't exist and showing a coming-soon tile would lie about state" — the honesty-of-disclosure principle the thesis leans on. To include the tile, we build the real feature: connecting the calendar reads upcoming located events and surfaces them as navigation destinations in `/search`. A tile that connects to nothing would re-create the exact stub the project rejected.
 
 ## Goal
 
@@ -26,6 +28,7 @@ Bring Fresh Greens' settings surfaces to the iOS-native grouped-settings registe
 4. **Progressive carousel survives and earns its keep** (Q4 + follow-ups). The carousel is a nudge toward high-impact *unset* settings. Each tile hides once its underlying setting is configured; the whole carousel section hides when no tiles remain. Anything reachable from a carousel tile is ALSO reachable from the always-available row list — the carousel is a shortcut, never the only path.
 5. **Retrofit all 6 settings pages in one PR** (Q5-a). `/menu`, `/zone-preferences`, `/safety-settings`, `/saved-places`, `/fuel`, `/legal`.
 6. **Child-page hero glyphs retire** (Section 3-i). The 48pt category-glyph + Title2 hero element (introduced earlier this session on `/safety-settings`, `/zone-preferences`, `/saved-places`) is removed; page identity moves to the SettingsHeader title text. Accepted personality tradeoff for the iOS-native register.
+7. **Connect calendar is built real, folded in** (calendar Q1-3). Surfaces upcoming located events as destinations in `/search` (cal-Q1-a); resolves event location text via the existing `searchPlaces` geocode (cal-Q2-b); unresolved/wrong events get an inline pick-sheet whose corrections persist, keyed by location text (cal-Q3-a).
 
 ## Architecture
 
@@ -104,7 +107,10 @@ Top-to-bottom: SettingsHeader(title="Settings", onClose only) → profile card �
 
 - **Header:** was bare back-chevron. Now title="Settings" + close X, no chevron.
 - **Profile:** same avatar + "Hey there, [name]" content, wrapped as a white card on the gray bg. Non-tappable in Phase A (no profile-edit surface yet).
-- **Carousel:** progressive. Fuel tile hides when `useFuelProfile().profile?.remindersEnabled === true`. Whole section unrendered when no eligible tiles. White card when rendered. (The "Connect calendar" tile the user mentioned is a future tile — NOT built in Phase A; the calendar feature doesn't exist yet, so adding the tile would re-create the honesty-of-disclosure problem. Logged as a Phase-B+ candidate.)
+- **Carousel:** progressive. Two real tiles in Phase A:
+  - **Refuel reminders** — hides when `useFuelProfile().profile?.remindersEnabled === true`. Taps → `/fuel`.
+  - **Connect calendar** — hides when `useCalendarConnection().connected === true`. Taps → triggers the connect flow (see Connect Calendar Feature below).
+  - Whole section unrendered when no eligible tiles remain. White card when rendered; horizontal scroll only when 2+ tiles show.
 - **Row list → two RowGroups:**
   - App-config group: **Refuel reminders (NEW)**, Zone Preferences, Safety, Saved places.
   - About group: Privacy & Terms.
@@ -142,14 +148,98 @@ SettingsHeader(title="Refuel reminders", onBack, onClose) → form restructured 
 
 SettingsHeader(title="Privacy & Terms", onBack, onClose) → Privacy/Terms/Licenses tab pills stay (they're the page's primary nav) → content body wrapped in a white RowGroup-style card on gray. Page bg → grouped gray.
 
+## Connect Calendar Feature
+
+A minimal-but-real feature folded into Phase A so the carousel's "Connect calendar" tile connects to something. Connecting the calendar reads the user's upcoming events that have a resolvable location and surfaces them as navigation destinations in `/search`.
+
+### New dependency
+
+`expo-calendar` (Expo SDK module; managed-workflow compatible). **Flagged per `.cursorrules` anti-slop #4.** No lighter built-in exists — iOS calendar access requires the native EventKit bridge, which `expo-calendar` is the canonical Expo wrapper for. Read-only access (`Calendar.requestCalendarPermissionsAsync` + `Calendar.getEventsAsync`); the app never writes events.
+
+### Data model — two new adapters
+
+**`lib/api/calendar.ts`** — connection state + event reading.
+
+```ts
+export type CalendarConnection = { connected: boolean };  // AsyncStorage: fresh-greens.calendar.v1
+
+export type UpcomingEvent = {
+  id: string;            // calendar event id
+  title: string;         // event title ("Dentist")
+  startsAt: number;      // ms epoch
+  locationText: string;  // raw event.location free-text (non-empty — events without location are filtered out upstream)
+};
+
+getCalendarConnection(): Promise<CalendarConnection>
+setCalendarConnected(connected: boolean): Promise<CalendarConnection>
+clearCalendarConnection(): Promise<void>   // sign-out hygiene
+// Reads device calendar events in the next CALENDAR_LOOKAHEAD_DAYS window
+// that have non-empty location text. Pure of geocoding — that's the hook's job.
+getUpcomingLocatedEvents(): Promise<UpcomingEvent[]>
+```
+
+`CALENDAR_LOOKAHEAD_DAYS = 7` (named constant; one week of upcoming appointments is the useful horizon — beyond that the list reads as noise).
+
+**`lib/api/calendar-resolutions.ts`** — persisted manual corrections, keyed by location text.
+
+```ts
+export type ResolvedPlace = { name: string; latitude: number; longitude: number };
+// AsyncStorage: fresh-greens.calendar-resolutions.v1
+// Map<locationText, ResolvedPlace>. Keyed by the raw event location string
+// (NOT event id) so recurring events + repeated venues reuse one correction.
+
+getResolutions(): Promise<Record<string, ResolvedPlace>>
+setResolution(locationText: string, place: ResolvedPlace): Promise<void>
+clearResolutions(): Promise<void>   // sign-out hygiene
+```
+
+### Hooks
+
+**`hooks/useCalendarConnection.ts`** — reactive wrapper over `lib/api/calendar.ts` connection state. `{ connected, loading, connect, disconnect }`. `connect()` runs the permission request; on grant, persists `connected: true`. On denial, stays `false` and surfaces the standard "enable in Settings" Alert (mirrors the `/permissions` + `/report` camera-permission pattern). Drives both the carousel tile's visibility and the `/search` section's gate.
+
+**`hooks/useUpcomingDestinations.ts`** — the resolver. Composes `getUpcomingLocatedEvents()` + `getResolutions()` + `searchPlaces()`:
+
+1. Read upcoming located events (next 7 days, non-empty location).
+2. For each, resolve to coords:
+   - If a stored resolution exists for the event's `locationText` → use it (no geocode call).
+   - Else `searchPlaces(locationText, nearUser)` → first hit becomes the resolved place. (Same geocode path `/unfamiliar` uses.)
+   - If neither yields a place → event is **unresolved** (still listed, but in a "Set location" state, not omitted — the manual-correct affordance is the recovery).
+3. Returns `{ resolved: [...], unresolved: [...], loading }` where each item carries the event + (for resolved) its `ResolvedPlace`.
+
+Resolution results are memoized per render pass; geocode calls are made once per distinct unresolved `locationText`.
+
+### `/search` Upcoming section
+
+A new section in `/search`, rendered only when `useCalendarConnection().connected`. Sits alongside the existing saved-places / regular-destinations rows in the same register.
+
+- **Resolved event row:** event title (primary) + resolved place name + relative time ("Dentist · Dr. Lee Dentistry · in 2h"). Tap → routes to that destination (same `router.replace('/home?destLat=…')` pattern saved-place rows use). A subtle trailing "fix" affordance opens the pick-sheet to correct a wrong match.
+- **Unresolved event row:** event title + relative time + a "Set location" affordance (the row can't route until resolved). Tap "Set location" → pick-sheet.
+- **Empty state:** when connected but no located events in the window, the section doesn't render (no empty card — same honest-omission rule as the rest).
+
+### Pick-sheet (manual correction)
+
+A lightweight bottom-sheet (mirrors the `ReportDetailCard` / `ZoneDetailCard` scrim+sheet chrome) opened from a "Set location" / "fix" tap. Contains a search field pre-filled with the event's `locationText`, runs `searchPlaces` as the user types/submits, lists results. Picking a result calls `setResolution(locationText, place)` → the section re-resolves → that event (and any other event with the same location text) now resolves to the chosen place permanently.
+
+### Sign-out hygiene
+
+`/menu`'s sign-out handler already clears identity-attached stores (contact, saved places, preferences, fuel). Add `clearCalendarConnection()` + `clearResolutions()` to that `Promise.all` so a sign-out doesn't leave another user's calendar resolutions on the device.
+
+### Known limitations (documented, accepted for v1)
+
+- **First-geocode-hit can be wrong** ("Apple Store" → nearest, not intended). Mitigated by the visible resolved place name on the row + the fix affordance. The manual correction persists, so a wrong auto-match is a one-time fix.
+- **Non-geocodable events stay unresolved** until manually set ("Zoom", "Mom's" with no address). They appear in the list with "Set location" rather than being hidden — the user decides.
+- **Read-only, no event editing/creation.** The app never writes to the calendar.
+- **No live event refresh mid-session beyond `/search` focus.** The section re-reads on `/search` focus (matching the `useFocusEffect` re-read pattern used elsewhere); it doesn't subscribe to live calendar-change notifications. Acceptable — appointments don't change minute-to-minute.
+
 ## What this design explicitly does NOT do
 
 - No `SegmentedRow` rendering (interface only — Phase B).
-- No "Connect calendar" carousel tile (feature doesn't exist — Phase B+).
 - No General settings page (Phase B).
 - No preferred-gas-type or preferred-stations surfaces (Phases C/D).
 - No profile-edit affordance (profile card is display-only).
 - No route changes — every existing `router.push('/...')` target is preserved.
+- No calendar *writing* — read-only access; the app never creates or edits events.
+- No live calendar-change subscription — `/search` re-reads on focus, no EventKit change-observer.
 
 ## Accessibility
 
@@ -157,16 +247,20 @@ SettingsHeader(title="Privacy & Terms", onBack, onClose) → Privacy/Terms/Licen
 - RowGroup eyebrow captions use `accessibilityRole="header"` so VoiceOver announces section boundaries.
 - SettingsRow toggle variant pairs `accessibilityLabel` (what it is) + `accessibilityHint` (what it affects), matching the existing `/zone-preferences` toggle a11y.
 - Destructive Sign-out row: `accessibilityRole="button"`, label "Sign out".
+- Calendar Upcoming rows: resolved rows are `accessibilityRole="button"` labelled "[title], [place], [relative time]. Tap to navigate." Unresolved rows label "[title], [relative time]. Location not set — tap Set location to choose." The pick-sheet's search field + result rows follow the same labelling the existing search surface uses.
 - Text sizes inherit the audit-corrected ramp shipped earlier this session (17pt row labels, etc.) — `dynamicType()` wraps preserved.
 
 ## Honesty-of-disclosure / thesis alignment
 
-The progressive carousel is the load-bearing thesis touch: it nudges the user toward the settings that most improve *their* safety experience (refuel reminders so they don't run dry in an unsafe area; later, preferred stations per the Green Book lineage), and it disappears once configured rather than nagging. The "shortcut, never the only path" rule keeps the full settings tree honest and discoverable — the carousel can't hide a setting, only accelerate reaching it.
+The progressive carousel is the load-bearing thesis touch: it nudges the user toward the settings that most improve *their* safety experience (refuel reminders so they don't run dry in an unsafe area; connect-calendar so appointments become one-tap safe-routed destinations; later, preferred stations per the Green Book lineage), and it disappears once configured rather than nagging. The "shortcut, never the only path" rule keeps the full settings tree honest and discoverable — the carousel can't hide a setting, only accelerate reaching it.
+
+The calendar feature is the sharpest honesty test in this PR and the reason it's built rather than stubbed: the tile was *previously cut* for being a coming-soon lie. Shipping it real — read-only access, only routable events surfaced, unresolved events shown honestly as "Set location" rather than hidden or faked — turns the rejected stub into a genuine capability. The "connect" action grants a real OS permission and produces real navigable destinations; nothing claims a state it doesn't have.
 
 ## Deferred / follow-ups
 
-- Phase B: General page + SegmentedRow rendering + distance units + prevent-auto-lock + Connect-calendar carousel tile (once calendar exists).
+- Phase B: General page + SegmentedRow rendering + distance units + prevent-auto-lock.
 - Phase C: preferred-gas-type surfacing.
 - Phase D: preferred stations (Green Book).
 - `/fuel` form may warrant its own polish pass once it's in the new register and the segmented fuel-type primitive lands in B.
 - Profile-edit affordance (tapping the profile card) — out of scope until there's something to edit.
+- Calendar feature enhancements: live event-change subscription, multi-calendar selection, geocode-confidence indicator on auto-resolved rows. All deferred — v1 is the minimal honest version.
