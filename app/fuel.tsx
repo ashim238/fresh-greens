@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { Minus } from 'phosphor-react-native/src/icons/Minus';
 import { Plus } from 'phosphor-react-native/src/icons/Plus';
 
+import { RowGroup } from '../components/settings/RowGroup';
+import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { type FuelType } from '../lib/api/fuel';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { colors } from '../theme/colors';
@@ -34,8 +35,10 @@ const MAX_DAYS = 60;
  * via useFuelProfile. "I filled up" resets the cadence clock. See
  * docs/superpowers/specs/2026-05-30-refuel-reminders-design.md.
  *
- * Visual register matches the app's other settings screens; reconcile
- * against Figma in the next fidelity audit.
+ * Settings register: SettingsHeader (back + close) over a grouped-gray
+ * page; the form's controls are grouped into RowGroups (Your car /
+ * Reminder / current-state) with the Save CTA full-width below them.
+ * Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
  */
 export default function Fuel() {
   const router = useRouter();
@@ -110,116 +113,124 @@ export default function Fuel() {
           style={styles.kav}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            hitSlop={12}
-          >
-            <CaretLeft size={28} color={colors.black} weight="regular" />
-          </Pressable>
-        </View>
-        <Text style={styles.title} accessibilityRole="header">
-          Refuel reminders
-        </Text>
-
-        <View style={styles.body}>
-          <Text style={styles.fieldLabel}>Car name (optional)</Text>
-          <TextInput
-            style={styles.input}
-            value={carName}
-            onChangeText={setCarName}
-            placeholder="e.g. Civic"
-            placeholderTextColor={colors.labelTertiary}
-            returnKeyType="done"
-            accessibilityLabel="Car name, optional"
+          <SettingsHeader
+            title="Refuel reminders"
+            onBack={() => router.back()}
+            onClose={() => router.replace('/home')}
           />
 
-          <Text style={styles.fieldLabel}>Fuel type</Text>
-          <View style={styles.segment}>
-            {FUEL_TYPES.map((ft) => {
-              const selected = fuelType === ft.id;
-              return (
-                <Pressable
-                  key={ft.id}
-                  onPress={() => setFuelType(ft.id)}
-                  style={({ pressed }) => [
-                    styles.segmentItem,
-                    selected && styles.segmentItemSelected,
-                    pressed && pressedDim,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={ft.label}
-                >
-                  <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
-                    {ft.label}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <RowGroup title="Your car">
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Car name (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={carName}
+                  onChangeText={setCarName}
+                  placeholder="e.g. Civic"
+                  placeholderTextColor={colors.labelTertiary}
+                  returnKeyType="done"
+                  accessibilityLabel="Car name, optional"
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Fuel type</Text>
+                <View style={styles.segment}>
+                  {FUEL_TYPES.map((ft) => {
+                    const selected = fuelType === ft.id;
+                    return (
+                      <Pressable
+                        key={ft.id}
+                        onPress={() => setFuelType(ft.id)}
+                        style={({ pressed }) => [
+                          styles.segmentItem,
+                          selected && styles.segmentItemSelected,
+                          pressed && pressedDim,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={ft.label}
+                      >
+                        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                          {ft.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </RowGroup>
+
+            <RowGroup title="Reminder">
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>Remind me to refuel</Text>
+                <Switch
+                  value={enabled}
+                  onValueChange={setEnabled}
+                  trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+                  thumbColor={colors.white}
+                  accessibilityLabel="Refuel reminders"
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Remind me every</Text>
+                <View style={styles.stepperRow}>
+                  <Pressable
+                    onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
+                    style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Fewer days"
+                  >
+                    <Minus size={20} color={colors.black} weight="bold" />
+                  </Pressable>
+                  <Text style={styles.stepValue}>
+                    {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
                   </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                  <Pressable
+                    onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
+                    style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                    accessibilityRole="button"
+                    accessibilityLabel="More days"
+                  >
+                    <Plus size={20} color={colors.black} weight="bold" />
+                  </Pressable>
+                </View>
+              </View>
+            </RowGroup>
 
-          <Text style={styles.fieldLabel}>Remind me every</Text>
-          <View style={styles.stepperRow}>
+            {profile?.remindersEnabled && nextLabel && (
+              <RowGroup footer="Tap “I filled up” to reset the cadence clock.">
+                <View style={styles.statusBlock}>
+                  <Text style={styles.statusText}>Next reminder: {nextLabel}</Text>
+                  <Pressable
+                    onPress={handleFilledUp}
+                    style={({ pressed }) => [styles.filledBtn, pressed && pressedDim]}
+                    accessibilityRole="button"
+                    accessibilityLabel="I filled up — reset the reminder"
+                  >
+                    <Text style={styles.filledBtnText}>I filled up</Text>
+                  </Pressable>
+                </View>
+              </RowGroup>
+            )}
+
             <Pressable
-              onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
-              style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+              onPress={handleSave}
+              disabled={saving}
+              style={({ pressed }) => [styles.saveBtn, pressed && !saving && pressedDim]}
               accessibilityRole="button"
-              accessibilityLabel="Fewer days"
+              accessibilityLabel="Save refuel reminder settings"
+              accessibilityState={{ disabled: saving }}
             >
-              <Minus size={20} color={colors.black} weight="bold" />
+              <Text style={styles.saveBtnText}>Save</Text>
             </Pressable>
-            <Text style={styles.stepValue}>
-              {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
-            </Text>
-            <Pressable
-              onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
-              style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
-              accessibilityRole="button"
-              accessibilityLabel="More days"
-            >
-              <Plus size={20} color={colors.black} weight="bold" />
-            </Pressable>
-          </View>
-
-          <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>Remind me to refuel</Text>
-            <Switch
-              value={enabled}
-              onValueChange={setEnabled}
-              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
-              thumbColor={colors.white}
-              accessibilityLabel="Refuel reminders"
-            />
-          </View>
-
-          {profile?.remindersEnabled && nextLabel && (
-            <View style={styles.statusBlock}>
-              <Text style={styles.statusText}>Next reminder: {nextLabel}</Text>
-              <Pressable
-                onPress={handleFilledUp}
-                style={({ pressed }) => [styles.filledBtn, pressed && pressedDim]}
-                accessibilityRole="button"
-                accessibilityLabel="I filled up — reset the reminder"
-              >
-                <Text style={styles.filledBtnText}>I filled up</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-
-        <Pressable
-          onPress={handleSave}
-          disabled={saving}
-          style={({ pressed }) => [styles.saveBtn, pressed && !saving && pressedDim]}
-          accessibilityRole="button"
-          accessibilityLabel="Save refuel reminder settings"
-          accessibilityState={{ disabled: saving }}
-        >
-          <Text style={styles.saveBtnText}>Save</Text>
-        </Pressable>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -227,25 +238,18 @@ export default function Fuel() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
-  safe: { flex: 1, paddingHorizontal: spacing.lg },
+  root: { flex: 1, backgroundColor: colors.systemGroupedBackground },
+  safe: { flex: 1 },
   kav: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
+  scrollContent: { padding: spacing.lg, gap: spacing.xl },
+  // Each form control sits as a flat row inside its RowGroup card; the
+  // card owns the bg/radius/shadow, so the field just provides the row's
+  // inset padding (matching SettingsRow) and stacks its label + control.
+  field: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
-  // Title sits on its own line below the back chevron (matches /recordings
-  // + /safety-settings) — chevron and title on one row read congested.
-  // paddingTop: spacing.lg mirrors /recordings (scrollContent.paddingTop:
-  // spacing.lg). spacing.sm here was too tight — user-flagged 2026-06-01.
-  title: {
-    ...dynamicType(typography.title2Emphasized),
-    color: colors.black,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  body: { flex: 1, gap: spacing.md },
   fieldLabel: { ...dynamicType(typography.footnoteEmphasized), color: colors.labelSecondary },
   input: {
     ...dynamicType(typography.bodyRegular),
@@ -291,9 +295,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 44,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   toggleLabel: { ...dynamicType(typography.bodyRegular), color: colors.black },
-  statusBlock: { gap: spacing.sm, paddingTop: spacing.sm },
+  statusBlock: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   statusText: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
   filledBtn: {
     alignSelf: 'flex-start',
@@ -311,7 +321,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
   saveBtnText: { ...dynamicType(typography.bodyEmphasized), color: colors.white },
 });

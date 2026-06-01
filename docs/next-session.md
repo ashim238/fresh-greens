@@ -2,6 +2,16 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Settings register refresh (Plan 1) — deferred minors (2026-06-01)
+
+Final-review minors, non-blocking (the one Important — SettingsRow value/label wrap — was fixed in `a8e11a6`):
+
+- **`/menu` sign-out not bottom-pinned.** Spec called for `marginTop: 'auto'` to pin the sign-out RowGroup to the bottom; implementation lets it flow after the About group. Reviewer noted flow-position is arguably better with the profile card + tile above. Decide: pin it, or update the spec note. Cosmetic.
+- **`/menu` onClose uses `router.back()` vs children's `router.replace('/home')`.** Works today (menu is always entered via push from /home), but for symmetry + resilience-against-a-second-entry-point, consider aligning menu's onClose to `router.replace('/home')`.
+- **RowGroup Fragment index keys.** Rows keyed by array index inside RowGroup; fine for static groups, and `/saved-places`' dynamic rows are mitigated by `SavedPlaceRow`'s own `key={place.id}`. Revisit only if RowGroup ever hosts stateful dynamic children directly.
+- **RowGroup separator inset assumes icon-bearing rows.** Icon-less groups (e.g. `/zone-preferences` toggles, `/fuel` Reminder group) get a separator inset past where the label starts. Accepted per the primitive's comment; revisit if it reads off in the simulator.
+- **Settings register = Plan 1 of 2.** Plan 2 (Connect-calendar feature: expo-calendar dep, 2 adapters, 2 hooks, /search Upcoming section, pick-sheet, carousel 2nd tile) is specced in `docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md` — write its plan + execute after this lands + simulator-verifies.
+
 ## Zone-overlay tap-info — post-merge follow-ups (2026-06-01)
 
 Shipped `51549ed`. Final-review minors not blocking merge:

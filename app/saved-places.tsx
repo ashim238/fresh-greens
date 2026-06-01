@@ -4,19 +4,17 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Phosphor deep-imports per CLAUDE.md icon rule.
-import { Bookmark } from 'phosphor-react-native/src/icons/Bookmark';
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { House } from 'phosphor-react-native/src/icons/House';
 import { MapPin } from 'phosphor-react-native/src/icons/MapPin';
 import { Trash } from 'phosphor-react-native/src/icons/Trash';
 
+import { RowGroup } from '../components/settings/RowGroup';
+import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import type { SavedPlace } from '../lib/api/saved-places';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
-import { radii } from '../theme/radii';
-import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -33,10 +31,11 @@ import { typography } from '../theme/typography';
  * app keeps about their navigation (saved anchors persist locally
  * via AsyncStorage) and have first-class control over removing it.
  *
- * Register mirrors /zone-preferences + /safety-settings — header +
- * title row + grouped list of rows. Per-place destructive-action via
- * trailing Trash button with an Alert confirm; explicit two-tap to
- * delete prevents accidental loss of an intentionally-saved anchor.
+ * Register mirrors /zone-preferences + /safety-settings — SettingsHeader
+ * over a grouped-gray page, the saved-place rows wrapped in a RowGroup
+ * card. Per-place destructive-action via trailing Trash button with an
+ * Alert confirm; explicit two-tap to delete prevents accidental loss of
+ * an intentionally-saved anchor.
  *
  * Route: /saved-places
  */
@@ -68,38 +67,16 @@ export default function SavedPlaces() {
       <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            hitSlop={12}
-            style={({ pressed }) => [
-              styles.headerBackBtn,
-              pressed && pressedDim,
-            ]}
-          >
-            <CaretLeft size={28} color={colors.black} weight="regular" />
-          </Pressable>
-        </View>
+        <SettingsHeader
+          title="Saved places"
+          onBack={() => router.back()}
+          onClose={() => router.replace('/home')}
+        />
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/*
-            Title row mirrors /zone-preferences + /safety-settings:
-            48pt duotone glyph + Title2 Emphasized. The three /menu
-            sub-pages share this register so back-to-back viewing
-            reads coherent.
-          */}
-          <View style={styles.titleRow}>
-            <Bookmark size={48} color={colors.black} weight="duotone" />
-            <Text style={styles.pageTitle} accessibilityRole="header">
-              Saved places
-            </Text>
-          </View>
-
           {savedPlaces.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No saved places yet</Text>
@@ -109,7 +86,7 @@ export default function SavedPlaces() {
               </Text>
             </View>
           ) : (
-            <View style={styles.list}>
+            <RowGroup>
               {savedPlaces.map((place) => (
                 <SavedPlaceRow
                   key={place.id}
@@ -117,7 +94,7 @@ export default function SavedPlaces() {
                   onRemove={() => handleRemove(place)}
                 />
               ))}
-            </View>
+            </RowGroup>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -174,40 +151,15 @@ function SavedPlaceRow({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.systemGroupedBackground,
   },
   safe: {
     flex: 1,
   },
 
-  // Header (back chevron strip) — matches /safety-settings + /zone-preferences.
-  header: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  headerBackBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing.lg,
     gap: spacing.xl,
-  },
-
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  pageTitle: {
-    ...dynamicType(typography.title2Emphasized),
-    color: colors.black,
-    flex: 1,
   },
 
   // Empty state — sits where the list would be, same horizontal
@@ -225,20 +177,15 @@ const styles = StyleSheet.create({
     color: colors.labelSecondary,
   },
 
-  // List of saved-place rows.
-  list: {
-    gap: spacing.sm,
-  },
+  // Saved-place row — a flat row inside the RowGroup card; the card
+  // chrome (bg / radius / shadow) lives on RowGroup, not here.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
-    borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 60,
-    ...shadows.e1,
   },
   rowTextStack: {
     flex: 1,

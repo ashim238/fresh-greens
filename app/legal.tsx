@@ -10,11 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
-
+import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
+import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -32,8 +33,10 @@ const SECTIONS: Section[] = [
 /**
  * /legal — Privacy / Terms / Limitations.
  *
- * Single scrollable route with three section anchors. A sticky top tab
- * lets the user jump between sections (and surfaces the current one).
+ * Settings-register page: SettingsHeader chrome over a grouped-gray bg,
+ * with the legal body in a white card. Below the header sits a sticky
+ * tab pill row (Privacy / Terms / Limitations) — the page's primary nav,
+ * which lets the user jump between sections (and surfaces the current one).
  * Content mirrors `docs/legal/{privacy,terms,limitations}.md` verbatim;
  * those markdown files are the canonical source for App Store Connect
  * and any hosted page, this surface is for in-app reading.
@@ -65,19 +68,11 @@ export default function Legal() {
     <View style={styles.root}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            hitSlop={12}
-          >
-            <CaretLeft size={28} color={colors.black} weight="regular" />
-          </Pressable>
-        </View>
-        <Text style={styles.title} accessibilityRole="header">
-          Legal
-        </Text>
+        <SettingsHeader
+          title="Privacy & Terms"
+          onBack={() => router.back()}
+          onClose={() => router.replace('/home')}
+        />
 
         <View style={styles.tabRow}>
           {SECTIONS.map((s) => {
@@ -108,6 +103,7 @@ export default function Legal() {
           contentContainerStyle={styles.body}
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.contentCard}>
           <View
             onLayout={(e) => recordAnchor('privacy', e.nativeEvent.layout.y)}
           >
@@ -307,6 +303,7 @@ export default function Legal() {
               your safety actually depends on a working tool, use a real one.
             </Paragraph>
           </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -361,22 +358,12 @@ function BoldInline({ children }: { children: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.systemGroupedBackground },
   safe: { flex: 1 },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  title: {
-    ...dynamicType(typography.title2Emphasized),
-    color: colors.black,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
   tabRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
@@ -404,6 +391,16 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
+  },
+  // White card holding the legal body on the grouped-gray page. The
+  // section anchor offsets (recordAnchor) are measured relative to this
+  // card now; jumpTo scrolls to a y that's short by the card's own top
+  // offset (~spacing.md), an imperceptible overshoot on a long doc.
+  contentCard: {
+    backgroundColor: colors.white,
+    borderRadius: radii.md,
+    padding: spacing.lg,
+    ...shadows.e1,
   },
   sectionHeader: {
     ...dynamicType(typography.title2Emphasized),
