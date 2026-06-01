@@ -58,6 +58,8 @@ import {
   isZoneCategoryEnabled,
   DEFAULT_PREFERENCES,
 } from '../lib/api/preferences';
+import { useShareSession } from '../hooks/useShareSession';
+import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import {
@@ -339,6 +341,21 @@ export default function EnRoute() {
   // EnRouteZone markers are passive; this panel is the user's
   // explicit "show me what's ahead" affordance.
   const [sheetExpanded, setSheetExpanded] = useState(false);
+
+  // Live-sharing pill coordination. The LiveSafetySheet collapsed pill
+  // floats just above the bottom sheet (bottomInset below). When it's
+  // showing, the left speed-sign stack and right side-button column
+  // must shift up above it — otherwise the full-width pill covers the
+  // End-trip button in the sheet AND the bottoms of both columns.
+  // Mirrors the same session && contact gate LiveSafetySheet uses to
+  // decide whether the pill renders at all. User-flagged 2026-06-01.
+  const { session: shareSession } = useShareSession();
+  const { contact: trustedContact } = useTrustedContact();
+  const safetyPillShowing = !!shareSession && !!trustedContact;
+  // Reserved vertical space for the pill: 16pt inset + 64pt minHeight +
+  // 12pt gap above. Columns sit at this offset when the pill shows,
+  // else the default 24pt above the sheet.
+  const columnBottomOffset = safetyPillShowing ? 92 : 24;
 
   const prefs = preferences ?? DEFAULT_PREFERENCES;
   const enabledOsmZones = useMemo(
@@ -1509,7 +1526,10 @@ export default function EnRoute() {
       */}
       {bottomSheetHeight > 0 && (
         <View
-          style={[styles.speedLimitWrap, { bottom: bottomSheetHeight + 24 }]}
+          style={[
+            styles.speedLimitWrap,
+            { bottom: bottomSheetHeight + columnBottomOffset },
+          ]}
           pointerEvents="box-none"
         >
           <View style={styles.speedLimitCurrentPill}>
@@ -1538,7 +1558,7 @@ export default function EnRoute() {
         <View
           style={[
             styles.sideButtons,
-            { bottom: bottomSheetHeight + 24 },
+            { bottom: bottomSheetHeight + columnBottomOffset },
           ]}
           pointerEvents="box-none"
         >
@@ -1869,7 +1889,16 @@ export default function EnRoute() {
         onClose={() => setShowComparison(false)}
       />
 
-      <LiveSafetySheet />
+      {/*
+        Float the live-sharing pill above the bottom sheet (which hosts
+        the End-trip button) rather than letting it cover End-trip at
+        the screen bottom. +16 clears the sheet's top edge, matching the
+        speed sign + side buttons' `bottomSheetHeight + 24` offset. Falls
+        back to the component default before the sheet is measured.
+      */}
+      <LiveSafetySheet
+        bottomInset={bottomSheetHeight > 0 ? bottomSheetHeight + 16 : undefined}
+      />
     </View>
   );
 }

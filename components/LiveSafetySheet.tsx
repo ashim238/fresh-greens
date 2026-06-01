@@ -38,8 +38,18 @@ import { typography } from '../theme/typography';
  * Privacy: for type='unfamiliar' sessions the widget surfaces "Unfamiliar
  * area" as the session label, NOT the underlying problem (the user's
  * verbatim selection like "I'm being followed"). Glanceability + dignity.
+ *
+ * bottomInset: distance (pt) from the screen bottom to float the
+ * collapsed pill. Defaults to spacing.lg (sits near the bottom edge —
+ * correct for /home). /en-route passes its measured bottomSheetHeight +
+ * gap so the pill floats ABOVE the bottom sheet rather than covering
+ * the End-trip button inside it (user-flagged 2026-06-01).
  */
-export function LiveSafetySheet() {
+export function LiveSafetySheet({
+  bottomInset,
+}: {
+  bottomInset?: number;
+} = {}) {
   const { session, endSession } = useShareSession();
   const { contact } = useTrustedContact();
   const [expanded, setExpanded] = useState(false);
@@ -95,10 +105,15 @@ export function LiveSafetySheet() {
 
   return (
     <>
-      {/* Collapsed pill — anchored to bottom of mounting surface */}
+      {/* Collapsed pill — anchored to bottom of mounting surface, or
+          floated above a host bottom sheet via bottomInset. */}
       <Pressable
         onPress={() => setExpanded(true)}
-        style={({ pressed }) => [styles.collapsed, pressed && pressedDim]}
+        style={({ pressed }) => [
+          styles.collapsed,
+          bottomInset != null && { bottom: bottomInset },
+          pressed && pressedDim,
+        ]}
         accessibilityRole="button"
         accessibilityLabel={`Sharing location with ${contact.name}. Tap to expand.`}
       >
