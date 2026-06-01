@@ -346,8 +346,15 @@ function CountdownView({
   onPivot?: () => void;
   onStop: () => void;
 }) {
+  // Wraps the countdown content in its own stack with a 24pt gap —
+  // breathier than the card's default 16pt rhythm. The idle card has
+  // 6 elements that pack tightly at 16pt; countdown has 3 elements
+  // (title / disc / exit cluster) and reads as a small focused
+  // dialog, which wants the extra breathing. User-flagged
+  // 2026-06-01: 16pt felt congested here. The card's gap doesn't
+  // apply to this wrapper's children — flexbox gap is sibling-only.
   return (
-    <>
+    <View style={styles.countdownStack}>
       <Text style={styles.title} accessibilityRole="header" accessibilityLiveRegion="polite">
         {title}
       </Text>
@@ -405,7 +412,7 @@ function CountdownView({
           </Pressable>
         )}
       </View>
-    </>
+    </View>
   );
 }
 
@@ -435,8 +442,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 20,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
+    // Symmetric vertical padding (was 16 top / 32 bottom). The
+    // asymmetric version made the title hug the top edge while the
+    // bottom had a heavy 32pt cushion — user-flagged 2026-06-01.
+    // 24pt on both edges centers the content visually and gives the
+    // title room to breathe from the card's rounded top corner.
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
     gap: spacing.md,
     alignItems: 'center',
     ...shadows.e2,
@@ -499,6 +511,15 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     textAlign: 'center',
+  },
+
+  // Countdown content stack — own gap rhythm (24pt, breathier than
+  // the idle stack's 16pt). alignSelf: stretch lets the wrapper fill
+  // the card's content width so the title centers under the disc.
+  countdownStack: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing.lg,
   },
 
   // --- Countdown disc + Stop (per Figma) ---
