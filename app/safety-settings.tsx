@@ -6,14 +6,15 @@ import { StatusBar } from 'expo-status-bar';
 // `paths` mapping that keeps TypeScript happy.
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+// Red star glyph — the shared SOS/"get help" mark, identical to
+// /en-route's SOS side-button and /emergency's main button. Replaced
+// the prior red medical-cross SVG (user-flagged 2026-06-01) because
+// the cross shape conflicted with the protected Red Cross emblem.
+// See app/emergency.tsx for the full rationale.
+import { Star } from 'phosphor-react-native/src/icons/Star';
 import { UserCircle } from 'phosphor-react-native/src/icons/UserCircle';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Red medical-cross glyph — the shared SOS/"get help" mark, identical
-// to the /en-route side-button and the /emergency screen's main button.
-// (Filename is `sidebtn-help` for legacy reasons; it IS the SOS cross.)
-import EmergencyCross from '../assets/illustrations/sidebtn-help.svg';
 import { useRecordings } from '../hooks/useRecordings';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
@@ -128,7 +129,7 @@ export default function SafetySettings() {
               accessibilityRole="button"
               accessibilityLabel="Emergency SOS. Reach a trusted contact or 911."
             >
-              <EmergencyCross width={28} height={28} />
+              <Star size={28} color={colors.red} weight="fill" />
               <View style={styles.rowTextStack}>
                 <Text style={styles.rowLabel}>Emergency SOS</Text>
                 <Text style={styles.rowValue}>Reach a trusted contact or 911</Text>

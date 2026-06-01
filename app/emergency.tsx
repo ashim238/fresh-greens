@@ -17,12 +17,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// The red medical-cross glyph — the shared "emergency / get help" mark.
-// Same asset as the /en-route SOS side-button and the /safety-settings
-// SOS row, so the symbol that summons help is identical everywhere it
-// appears. (Filename is `sidebtn-help` for legacy reasons; it IS the
-// SOS cross.)
-import EmergencyCross from '../assets/illustrations/sidebtn-help.svg';
+// Red star glyph — the shared "emergency / get help" mark. Phosphor's
+// fill-weight Star at colors.red. Replaced the prior red medical-cross
+// SVG (user-flagged 2026-06-01) because the cross shape is too close
+// to the International Red Cross emblem — protected under the Geneva
+// Convention. The Star reads as a clear urgency/escalation marker
+// without the brand/legal conflict, and matches the rest of the app's
+// Phosphor-only icon system (CLAUDE.md project_icons_phosphor.md).
+// Same glyph at /en-route's SOS side-button and /safety-settings' SOS
+// row so the SOS symbol stays identical everywhere it appears.
+import { Star } from 'phosphor-react-native/src/icons/Star';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
@@ -308,14 +312,14 @@ export default function Emergency() {
                 {/* Idle/confirm: the red medical cross — the shared "get
                     help" mark. During the countdown we swap to the
                     seconds digit instead, because the live count is
-                    critical feedback the cross can't carry. The cross
+                    critical feedback the star can't carry. The star
                     renders OVER the rising red fill (it's after the fill
                     in z-order); the fill consumes it bottom-up so the
                     escalation still reads as "fills with red." */}
                 {mode === 'countdown' ? (
                   <Text style={styles.sosLabel}>{countdownSec}</Text>
                 ) : (
-                  <EmergencyCross width={104} height={104} />
+                  <Star size={104} color={colors.red} weight="fill" />
                 )}
               </Pressable>
             </View>

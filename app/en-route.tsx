@@ -23,10 +23,14 @@ import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+import { Star } from 'phosphor-react-native/src/icons/Star';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
 import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
-import SidebtnHelp from '../assets/illustrations/sidebtn-help.svg';
+// Note: the SOS side-button glyph is now Phosphor Star (fill+red),
+// not the prior sidebtn-help.svg red-cross — see /emergency for the
+// Red-Cross-conflict rationale (user-flagged 2026-06-01). Star is
+// imported alongside Shield up top.
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
@@ -1554,12 +1558,14 @@ export default function EnRoute() {
             (trusted-contact + guarded-911). Previously this slot was a
             disabled "support chat coming soon" stub, which buried the
             crisis surface two taps deep behind Shield → /safety. The
-            red medical-cross glyph (sidebtn-help.svg) already reads as
-            "emergency help" — wiring it live realizes the documented
-            three-role column (.cursorrules exception 6: Shield =
-            safety menu, Report = observation, this = emergency).
-            Distinct from Shield: Shield opens the full safety MENU;
-            this jumps straight to the acute SOS control.
+            red-star glyph (Phosphor Star fill+red, swapped from the
+            prior red medical-cross 2026-06-01 to avoid the protected
+            Red Cross conflict — see /emergency for the full note)
+            reads as "emergency / escalation" — wiring it live realizes
+            the documented three-role column (.cursorrules exception 6:
+            Shield = safety menu, Report = observation, this =
+            emergency). Distinct from Shield: Shield opens the full
+            safety MENU; this jumps straight to the acute SOS control.
           */}
           <FloatingActionButton
             size="56"
@@ -1570,7 +1576,7 @@ export default function EnRoute() {
             accessibilityLabel="Emergency SOS"
             accessibilityHint="Opens trusted-contact and 911 options"
           >
-            <SidebtnHelp width={32} height={32} />
+            <Star size={32} color={colors.red} weight="fill" />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"
