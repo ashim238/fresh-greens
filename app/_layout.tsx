@@ -103,6 +103,22 @@ export default function RootLayout() {
             animation: 'fade',
           }}
         />
+        {/*
+          Emergency uses transparentModal for the same reason as
+          /report — the calling surface (/en-route map context, or the
+          /safety modal) stays visible behind the 20% scrim so the user
+          doesn't lose situational awareness mid-crisis. Redesigned per
+          Figma 49-5188 / 49-5388 / 49-197 (2026-06-01) to a centered
+          card with idle (choose target) → countdown (Stop window) →
+          auto-dial pattern.
+        */}
+        <Stack.Screen
+          name="emergency"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );
