@@ -1,9 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-import bypasses the package's barrel — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 // Red asterisk glyph — the shared SOS/"get help" mark, identical to
@@ -91,7 +92,7 @@ export default function SafetySettings() {
               pressed && pressedDim,
             ]}
           >
-            <Ionicons name="chevron-back" size={28} color={colors.black} />
+            <CaretLeft size={28} color={colors.black} weight="regular" />
           </Pressable>
         </View>
 
@@ -134,10 +135,10 @@ export default function SafetySettings() {
                 <Text style={styles.rowLabel}>Emergency SOS</Text>
                 <Text style={styles.rowValue}>Reach a trusted contact or 911</Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
+              <CaretRight
                 size={16}
                 color={colors.labelTertiary}
+                weight="regular"
               />
             </Pressable>
 
@@ -159,14 +160,14 @@ export default function SafetySettings() {
                 <Text style={styles.rowLabel}>Trusted Contact</Text>
                 <Text style={styles.rowValue}>{trustedContactValue}</Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
+              <CaretRight
                 // SAF6: 20 → 16 to match /menu's SettingsRow chevron.
                 // This sub-page is reached from /menu's Safety row and
                 // shares its visual register; the 4pt trailing-icon
                 // discrepancy was noticeable in back-to-back viewing.
                 size={16}
                 color={colors.labelTertiary}
+                weight="regular"
               />
             </Pressable>
 
@@ -187,14 +188,14 @@ export default function SafetySettings() {
               <View style={styles.rowTextStack}>
                 <Text style={styles.rowLabel}>Recordings</Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
+              <CaretRight
                 // SAF6: 20 → 16 to match /menu's SettingsRow chevron.
                 // This sub-page is reached from /menu's Safety row and
                 // shares its visual register; the 4pt trailing-icon
                 // discrepancy was noticeable in back-to-back viewing.
                 size={16}
                 color={colors.labelTertiary}
+                weight="regular"
               />
             </Pressable>
           </View>

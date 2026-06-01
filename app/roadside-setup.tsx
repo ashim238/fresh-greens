@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -89,7 +89,7 @@ export default function RoadsideSetup() {
               accessibilityLabel="Back"
               hitSlop={12}
             >
-              <Ionicons name="chevron-back" size={28} color={colors.black} />
+              <CaretLeft size={28} color={colors.black} weight="regular" />
             </Pressable>
           </View>
           <Text style={styles.title} accessibilityRole="header">

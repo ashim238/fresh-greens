@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { usePreventRemove } from '@react-navigation/native';
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index. SpeakerHigh
@@ -6,6 +5,10 @@ import { usePreventRemove } from '@react-navigation/native';
 // (which uses Phosphor Play/Pause/Microphone for the same recording
 // data); UserPlus is the canonical "add a person" affordance per
 // docs/architecture.md (contact phase) and matches /trusted-contact-setup.
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
+import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
+import { Phone } from 'phosphor-react-native/src/icons/Phone';
 import { SpeakerHigh } from 'phosphor-react-native/src/icons/SpeakerHigh';
 import { Stop } from 'phosphor-react-native/src/icons/Stop';
 import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';
@@ -818,11 +821,7 @@ function GuidanceView({
         ]}
       >
         <Text style={guidanceStyles.continueText}>Continue</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={colors.wiltedgreen}
-        />
+        <CaretRight size={20} color={colors.wiltedgreen} weight="bold" />
       </Pressable>
     </View>
   );
@@ -994,7 +993,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             }
             accessibilityState={{ disabled: !canCall }}
           >
-            <Ionicons name="call" size={24} color={colors.white} />
+            <Phone size={24} color={colors.white} weight="duotone" />
             <Text style={contactStyles.callBtnText}>Call</Text>
           </Pressable>
 
@@ -1014,10 +1013,10 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             }
             accessibilityState={{ disabled: !canCall }}
           >
-            <Ionicons
-              name="chatbubble"
+            <ChatCircle
               size={24}
               color={colors.wiltedgreen}
+              weight="duotone"
             />
             <Text style={contactStyles.textBtnText}>Text</Text>
           </Pressable>
@@ -1099,10 +1098,10 @@ function ReviewView({
                 pressed && pressedDim,
               ]}
             >
-              <Ionicons
-                name="chevron-back"
+              <CaretLeft
                 size={24}
                 color={colors.labelTertiary}
+                weight="regular"
               />
             </Pressable>
           ) : (
@@ -1119,10 +1118,10 @@ function ReviewView({
                 pressed && pressedDim,
               ]}
             >
-              <Ionicons
-                name="chevron-forward"
+              <CaretRight
                 size={24}
                 color={colors.labelTertiary}
+                weight="regular"
               />
             </Pressable>
           ) : (

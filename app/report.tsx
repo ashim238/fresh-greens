@@ -1,10 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Camera } from 'phosphor-react-native/src/icons/Camera';
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
 import {
@@ -493,7 +494,7 @@ function DetailView({
           accessibilityLabel="Back"
           hitSlop={12}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.labelTertiary} />
+          <CaretLeft size={24} color={colors.labelTertiary} weight="regular" />
         </Pressable>
         <View style={{ flex: 1 }} />
         <Pressable
@@ -666,7 +667,7 @@ function DetailView({
                 accessibilityRole="button"
                 accessibilityLabel="Add a photo"
               >
-                <Ionicons name="camera-outline" size={32} color={colors.labelTertiary} />
+                <Camera size={32} color={colors.labelTertiary} weight="duotone" />
               </Pressable>
             )}
           </>
@@ -719,7 +720,7 @@ function ThankYouView({
           accessibilityLabel="Undo submission and go back"
           hitSlop={12}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.labelTertiary} />
+          <CaretLeft size={24} color={colors.labelTertiary} weight="regular" />
         </Pressable>
         <View style={{ flex: 1 }} />
         <Pressable

@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Check } from 'phosphor-react-native/src/icons/Check';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -195,11 +195,7 @@ export default function Welcome() {
               accessibilityLabel="I acknowledge the Privacy Policy and agree to Fresh Greens' Terms and Conditions."
             >
               {termsAccepted && (
-                <Ionicons
-                  name="checkmark"
-                  size={18}
-                  color={colors.freshgreen}
-                />
+                <Check size={18} color={colors.freshgreen} weight="bold" />
               )}
             </Pressable>
             <View style={styles.termsTextColumn}>

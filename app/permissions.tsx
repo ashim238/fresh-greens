@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import {
   getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
@@ -7,6 +6,8 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
+import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { useCallback, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -181,17 +182,21 @@ export default function Permissions() {
               <View style={styles.subDirections}>
                 <View style={styles.subRow}>
                   <View style={styles.thumb}>
-                    <Ionicons
-                      name="navigate"
+                    <NavigationArrow
                       size={14}
                       color={colors.freshgreen}
+                      weight="duotone"
                     />
                   </View>
                   <Text style={styles.subText}>Location</Text>
                 </View>
                 <View style={styles.subRow}>
                   <View style={styles.thumb}>
-                    <Ionicons name="mic" size={14} color={colors.black} />
+                    <Microphone
+                      size={14}
+                      color={colors.black}
+                      weight="duotone"
+                    />
                   </View>
                   <Text style={styles.subText}>Microphone</Text>
                 </View>
