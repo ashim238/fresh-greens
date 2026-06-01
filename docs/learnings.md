@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/settings-register-refresh — a cross-cutting refresh that DELETED net code, via 3 primitives + 6 retrofits
+
+Shipped `7fc4cff` (Plan 1 of 2; Plan 2 = Connect-calendar, specced + pending). Retrofitted all 6 settings pages to the iOS grouped register through three new `components/settings/` primitives. Net diff: **−228 lines** (750 added, 978 removed) — the consolidation paid for itself. Four durable takeaways:
+
+**Primitives-first is what made it a deletion, not an addition.** Building SettingsHeader/RowGroup/SettingsRow first (Tasks 1-3), reviewing them hard, THEN retrofitting (Tasks 4-9) meant each page shed its bespoke header/row/card styling in favor of the shared component. Every retrofit was a net-negative diff. If I'd retrofitted page-by-page without extracting primitives first, I'd have copied the register six times. The order is the lever: extract the shared thing, get it right, then collapse the duplicates into it.
+
+**The review loop earned its cost on the foundational layer specifically.** The quality review of the primitive trio caught the `overflow: 'hidden'` + `shadows.e1` collision (iOS clips the shadow — cards would've rendered flat on all 6 pages) and the separator-inset arithmetic (52 vs the correct 56). Both were in the layer that 6 pages depend on, so catching them once at the primitive stage prevented six wrong surfaces. Lesson: spend the most review on the most-depended-on code. The final whole-feature review then caught the value/label flex-wrap — a primitive fix that hardened every value row. Bugs in shared primitives are worth disproportionate review because their blast radius is every consumer.
+
+**Controller-verifies-by-reading is the right adaptation for verbatim + small-mechanical tasks.** For the 3 primitives (verbatim from plan) and the 5 simpler retrofits (small deterministic diffs I could hold fully in context), I did spec+quality verification by reading the diff myself rather than dispatching two reviewer subagents each. The complex one (/menu) and the foundational trio got full subagent review. This kept ~20 review dispatches down to a handful without skipping the lens — the verification happened, just at the altitude that matched the risk. Subagent-driven-development isn't "dispatch a reviewer for every task no matter how trivial"; it's "every task gets independent verification at a depth proportional to its risk."
+
+**A plan transformation can be locally wrong for one page's existing behavior.** The plan said "wrap /legal's content in a card." But /legal uses `onLayout`-recorded anchor offsets for tab-jump scrolling, which the plan didn't account for — wrapping naively would shift the jump targets. The fix was cheap (the card sits at scroll-top so the offset is ~0) but the lesson is: a uniform cross-cutting transformation will have one page where the existing behavior interacts with the change. Read each page's behavior before applying the template, don't assume the template fits.
+
+---
+
 ## State-in-key on `tracksViewChanges={false}` markers — pattern hit three times now, name it
 
 Three independent fixes this session all turned out to be the same pattern. Worth pulling out so the next person (me, next week) doesn't re-derive it.
