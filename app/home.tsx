@@ -171,6 +171,14 @@ export default function Home() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  // Recenter tick — bumped on every handleRecenter call. Passed as the
+  // `key` on UserLocationMarker so it remounts on each recenter and
+  // gets a fresh 50pt-tracking → snapshot cycle. Without this,
+  // animateToRegion's mid-animation re-rasterization can leave
+  // MapKit's cached-but-stale marker bitmap visually empty (the
+  // tracksViewChanges={false} gotcha that EnRouteCarMarker addresses
+  // via heading-in-key). User-flagged 2026-06-01.
+  const [recenterTick, setRecenterTick] = useState(0);
   // Weather — drives cloud-aware daylight strip, route gradient, and
   // conditions tail. `cloudCoverPct` is undefined until the first fix
   // and weather fetch resolve; all consumers accept `number | undefined`.
@@ -566,6 +574,11 @@ export default function Home() {
       },
       400,
     );
+    // Bump the tick → UserLocationMarker remounts → fresh tracking
+    // window → MapKit takes a clean snapshot at the new coord/zoom.
+    // Without this, the marker's stale cached bitmap (from before
+    // tracksViewChanges flipped to false) can vanish mid-animation.
+    setRecenterTick((t) => t + 1);
   }
 
   function handleReportButtonPress() {
@@ -1342,6 +1355,7 @@ export default function Home() {
         */}
         {userLocation && (
           <UserLocationMarker
+            key={`user-loc-${recenterTick}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
           />
