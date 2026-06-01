@@ -501,7 +501,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowLabel: {
-    ...dynamicType(typography.subheadlineEmphasized),
+    // bodyEmphasized (17pt) per the 2026-06-01 text-size audit. The
+    // main nav-drawer labels (Zone Preferences, Safety, Privacy &
+    // Terms) are primary content in a tap-target; Apple's first-party
+    // Settings.app uses 17pt for the same role. v1 was
+    // subheadlineEmphasized (15pt) — a tier below the iOS norm and
+    // the loudest single source of the user's "settings text feels
+    // small" impression.
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
     flex: 1,
   },
@@ -533,7 +540,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileTitle: {
-    ...dynamicType(typography.subheadlineEmphasized),
+    // bodyEmphasized (17pt) per the 2026-06-01 text-size audit —
+    // featured-tile titles deserve the primary-content register; v1's
+    // subheadlineEmphasized (15pt) dropped a tier below the row labels
+    // below them in the visual hierarchy.
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   tileSubtitle: {
@@ -543,9 +554,13 @@ const styles = StyleSheet.create({
     // copy inside an already-tappable card created a false-link
     // signal AND killed the within-card hierarchy (weight 600 title
     // vs weight 600 subtitle read as peers). Regular weight without
-    // underline matches the supporting-copy register used elsewhere
-    // (e.g. zoneInnerLabel).
-    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
+    // underline matches the supporting-copy register used elsewhere.
+    //
+    // Bumped 13pt → 15pt (subheadlineRegular) on 2026-06-01 to
+    // rebalance against the tileTitle's 15pt → 17pt bump above —
+    // keeping the supporting copy one tier below the title preserves
+    // the within-card hierarchy.
+    ...dynamicType(relaxedLineHeight(typography.subheadlineRegular)),
     color: colors.wiltedgreen,
   },
   signOutWrap: {
@@ -567,7 +582,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   signOutText: {
-    ...dynamicType(typography.subheadlineRegular),
+    // bodyRegular (17pt) per the 2026-06-01 text-size audit. Sign
+    // out is destructive — it should match the rest of the menu's
+    // 17pt content register rather than sitting at 15pt and reading
+    // as auxiliary.
+    ...dynamicType(typography.bodyRegular),
     color: colors.labelTertiary,
     // Underline reads as the canonical destructive-link signal —
     // matches the pattern Button uses on fill="transparent" labels.
