@@ -1584,9 +1584,11 @@ export default function Home() {
         depth). Stacking it on the browse sheet read as "two cards
         stacked," which is what the user saw and flagged. The
         ReportDetailCard owns the bottom-of-screen affordance while
-        a report is selected.
+        a report is selected. Same logic for ZoneDetailCard — also a
+        bottom sheet, also owns the bottom affordance when a zone
+        is selected (added 2026-06-01 alongside the zone-tap feature).
       */}
-      {!placingReport && !selectedReport && <SafeAreaView
+      {!placingReport && !selectedReport && !selectedZone && <SafeAreaView
         style={styles.bottomSheet}
         edges={['bottom']}
         onLayout={(e) => {
