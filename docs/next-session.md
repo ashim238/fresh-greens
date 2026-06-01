@@ -64,7 +64,9 @@ Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): 
 
 ## New features
 
+- **Connect-calendar Quick Tile (cut at v1)** — `/menu`'s Quick Tiles carousel originally had a second tile per Figma 1120:7079 — "Connect calendar / Get to events safely and on time" — that linked to a not-yet-built integration. Cut from `QUICK_TILES` in `feat/phase-1-wrapup` because the underlying feature doesn't exist; restore the tile when the calendar-connect feature actually ships.
 - **En-route search** — currently the search bar is /home-only; /en-route has no search affordance. Add a way to change destination mid-trip without backing out to /home.
+- **Turn card "Then" arrow uses the actual next-next maneuver** — `app/en-route.tsx:1462` currently hardcodes `ArrowBendUpRight` because we weren't using the OSRM step N+1 kind. The data is available (`rawSteps[currentStepIdx + 1]?.kind`); a one-line `maneuverIcon(nextNext?.kind, 20, colors.fadedgreen)` swap would make the footer accurately preview the next-next turn. Out of scope for the polish pass (turn-card audit was AX5-focused); ship as a small follow-up when next touching turn-step logic.
 - ~~**Trip summary screen**~~ — shipped (C12: `app/trip-summary.tsx` — arrival inference-validation + "set as default" regular-destination flow).
 - **Code the results page** — search results screen with map+sheet layout (Figma `1133:11400`). Currently /search returns a flat results list; the design is map-with-pins + sheet of result cards.
 

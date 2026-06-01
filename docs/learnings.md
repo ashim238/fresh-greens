@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/phase-1-wrapup — close out the half-shipped items honestly
+
+Closing-out Phase 1 wasn't about new features — it was about removing the lies. Three items, three honest moves.
+
+**Fuel Quick Tile was lying.** The tile said "Coming soon" with disabled opacity, but `/fuel` had shipped weeks earlier. A real refuel-reminders feature lived behind a tile that told users it didn't exist. Lesson: when a feature lands, sweep `coming-soon | not yet supported | TBD` for the affordance pointing at it. The "no-visible-dead-ends" audit was a one-time exercise; landing new features can re-create them.
+
+**Calendar Quick Tile was a future I didn't have.** The Figma frame designed two Quick Tiles (Fuel + Connect Calendar); I didn't have a calendar integration to ship, so the tile was inert. Honest move: cut it, log a backlog note pointing at the Figma node so the future-feature-builder has the design ready. The one-tile carousel reads slightly odd visually but reads honestly — and that's the trade I want at v1.
+
+**Turn-by-turn polish was actually AX5 backfill.** The original Phase 1 list said "turn-by-turn" as if it were a missing feature. The visual turn card on /en-route was already there; voice guidance was parked separately. What was *actually* missing was the AX5 sweep on the turn card — the previous AX5 PR scoped to /safety only. Adding `dynamicType` + `relaxedLineHeight` to `turnInstruction` / `turnStreet` / `offlinePillText` / `thenText` is the highest-stakes accessibility surface in the app (safety-critical text while driving). Closed the gap with a 4-line diff.
+
+**Pattern:** when a "Phase N" item feels vague, look at what's actually visible on the surface in question. The real work is usually one layer deeper or one layer above what the original framing suggested. Don't build the suggested thing if a more honest thing is right there.
+
+---
+
 ## feat/legal-compliance — honest legal copy is faster than generic-template legal copy
 
 Phase 2 compliance pass. Surprise: writing the policies from scratch took less time than configuring a template generator would have, *because* the docs are about what Fresh Greens actually does (foreground location only, no server, no analytics, simulated share). A generator would either over-claim (assume tracking) or require the same per-fact customization anyway.

@@ -91,6 +91,7 @@ import {
   type HazardCategory,
 } from '../lib/scoring';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
 import { shadows } from '../theme/shadows';
@@ -1919,10 +1920,15 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   turnInstruction: {
-    ...typography.title2Emphasized,
+    // dynamicType + relaxedLineHeight — turn instructions are the most
+    // safety-critical text on the screen and frequently wrap to a 2nd
+    // line for the street + distance. AX5 readability matters more
+    // here than anywhere else in the app.
+    ...dynamicType(relaxedLineHeight(typography.title2Emphasized)),
     color: colors.white,
   },
   turnStreet: {
+    ...dynamicType(typography.title2Emphasized),
     color: colors.fadedgreen,
     // F7: tabular-nums prevents glyph-width jitter as the "in 120 m"
     // distance counts down each second. SF Pro on iOS uses proportional
@@ -1957,7 +1963,7 @@ const styles = StyleSheet.create({
     // F5: bumped caption1Emphasized (12pt) → footnoteEmphasized (13pt)
     // to match the 14pt WifiSlash icon's cap-height. Earlier 12pt sat
     // visually low against the icon inside the compact pill.
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.white,
   },
   thenFooter: {
@@ -1976,7 +1982,7 @@ const styles = StyleSheet.create({
     // "Then" is a low-priority preview that should recede vs the 22pt
     // emphasized primary instruction. At 20pt it nearly matched the
     // instruction's weight and broke the hierarchy.
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.fadedgreen,
   },
 

@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
-import { Calendar } from 'phosphor-react-native/src/icons/Calendar';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
@@ -14,7 +13,6 @@ import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   LayoutAnimation,
@@ -32,9 +30,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useReduceMotion } from '../hooks/useReduceMotion';
 
-// SVG asset imports — fuel.svg already exists; calendar tile uses the
-// Phosphor Calendar duotone for v1 (queue a custom illustrated SVG
-// for a future bulk-export pass to match the Fuel tile's register).
 import AvatarPng from '../assets/illustrations/avatar.png';
 import FuelIcon from '../assets/illustrations/fuel.svg';
 
@@ -71,7 +66,7 @@ import { typography } from '../theme/typography';
  *
  *   🛡  Safety                   ›
  *
- *   ┌──── Fuel ────┐ ┌── Calendar ──┐    ← carousel, page-control dots
+ *   ┌──── Fuel ────┐                    ← carousel (single tile at v1)
  *
  *           Sign out                ← bottom-pinned (Figma redesign
  *                                    didn't show this; preserved
@@ -108,23 +103,21 @@ type QuickTile = {
   renderIcon: () => React.ReactNode;
 };
 
-const QUICK_TILES: QuickTile[] = [
+type QuickTileEntry = QuickTile & { href: string };
+
+const QUICK_TILES: QuickTileEntry[] = [
   {
     id: 'fuel',
     label: 'Fuel',
     // Verbatim from Figma 1120:7079 carousel tile copy.
     subtitle: 'Add your fuel level for refuel reminders.',
     renderIcon: () => <FuelIcon width={32} height={32} />,
+    href: '/fuel',
   },
-  {
-    id: 'calendar',
-    label: 'Connect calendar',
-    // Verbatim from Figma 1120:7079.
-    subtitle: 'Get to events safely and on time.',
-    renderIcon: () => (
-      <Calendar size={32} color={colors.wiltedgreen} weight="duotone" />
-    ),
-  },
+  // Note: the Calendar/"Connect calendar" tile from Figma 1120:7079 was
+  // intentionally cut at v1 — the underlying feature doesn't exist and
+  // showing a coming-soon tile would lie about state. Tracked in
+  // docs/next-session.md under New features.
 ];
 
 export default function Menu() {
@@ -295,28 +288,17 @@ export default function Menu() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <Pressable
-                // Coming-soon tiles. Gives a haptic + Alert so the
-                // user gets feedback instead of tapping into dead
-                // pixels; half-opacity surfaces the disabled state
-                // visually (matches the /safety inert-tile pattern).
                 style={({ pressed }) => [
                   styles.tileCard,
                   { width: TILE_WIDTH },
-                  styles.tileCardComingSoon,
                   pressed && pressedDim,
                 ]}
                 onPress={() => {
                   Haptics.selectionAsync().catch(() => {});
-                  Alert.alert(
-                    item.label,
-                    `${item.subtitle} — this tile lands in a future update.`,
-                    [{ text: 'OK' }],
-                  );
+                  router.push(item.href as never);
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.label}. ${item.subtitle}`}
-                accessibilityHint="Coming soon"
-                accessibilityState={{ disabled: true }}
               >
                 <View style={styles.tileIcon}>{item.renderIcon()}</View>
                 <Text style={styles.tileTitle}>{item.label}</Text>
@@ -700,11 +682,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
-  },
-  // Coming-soon visual cue. Matches the /safety tabInert opacity
-  // register so every "not wired yet" surface reads the same way.
-  tileCardComingSoon: {
-    opacity: 0.5,
   },
   tileIcon: {
     width: 32,
