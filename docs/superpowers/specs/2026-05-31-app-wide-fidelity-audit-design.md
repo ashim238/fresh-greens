@@ -19,8 +19,25 @@ Per surface, the audit evaluates:
 ### 1. Polish
 Visual nits, copy quality, spacing, micro-interactions, micro-animations, haptic moments, transition feel. The "would a portfolio reviewer notice this and form a small negative impression?" bar.
 
-### 2. Fidelity (where applicable)
-Comparison against the Figma node cited in the surface's header docblock, when one exists. Not every surface has a Figma reference — some patterns (e.g., HomeBrowseSheet multi-row, /legal route, NotifyingPulse) were designed collaboratively in conversation and have no canonical Figma. For those: skip fidelity dimension; the subagent's prompt notes the absence.
+### 2. Fidelity — compare to canonical reference state, NOT just Figma
+Figma is a starting point, not ground truth. Many surfaces refined past Figma in chat — Roadside, Unfamiliar, the Safety sub-flows, HomeBrowseSheet multi-row, /legal. Treating Figma as canonical generates false-positive drift findings on surfaces whose actual canonical design lives in chat decisions + v2-delta docblocks + learnings entries.
+
+**Composed canonical reference state** (the subagent constructs this before comparing):
+
+1. **Figma node** (where one's cited in the file's docblock) — the starting state.
+2. **The file's docblock "v2 deltas" / "intended deviations" list** — many files explicitly enumerate what diverged from Figma and why (e.g., `app/safety.tsx` has documented v2 deltas). Drift covered by deltas is intended.
+3. **`docs/learnings.md` entries for the surface's shipping branches** — search by branch name (`feat/roadside-assistance`, `feat/unfamiliar-and-share-location`, `audit/safety-polish`, etc.). Refinements documented in learnings are intentional.
+4. **`fgq query` against the merged graph** — chat transcripts story-tell what got refined collaboratively past Figma. The subagent runs short-seed queries to surface design decisions on this surface.
+
+The composed reference state = (1) + (2) + (3) + (4). Then compare shipped vs the composed reference, and classify each fidelity finding as one of:
+
+- **Real drift** — shipped diverges from the composed reference. Finding (severity per rubric).
+- **Undocumented intentional refinement** — shipped diverges from Figma in a way that IS in chat/learnings but NOT in the file's docblock deltas list. Action: update the docblock to make canonical state legible. **Tier Important by default** — future readers will misread the surface otherwise.
+- **Stale Figma citation** — docblock cites a Figma node that's no longer canonical (e.g., HomeBrowseSheet's old `1133:13690` single-row reference, when the shipped surface is the collaborative multi-row). Action: update or remove the citation. **Tier Important** — this is the failure mode that just bit this very audit; fix at the source.
+
+If NO Figma node is cited AND chat/learnings show the surface was designed entirely collaboratively (e.g., /legal, NotifyingPulse): fidelity is N/A — report "no canonical Figma; surface is chat-defined" rather than "skip." The synthesis can verify whether the chat-defined design has its own documentation.
+
+If the Figma MCP is unavailable: report "Figma fetch not assessed — MCP unavailable" but STILL evaluate deltas + learnings + chat-decisions. Partial assessment > no assessment.
 
 ### 3. Accessibility
 Dynamic Type (AX5), `useReduceMotion` coverage, VoiceOver flow order, `accessibilityRole` + `accessibilityLabel` completeness, color contrast (WCAG AA), tap-target ≥44pt, decorative-vs-meaningful element discrimination, screen-reader gesture compatibility, two-line composite-label correctness.

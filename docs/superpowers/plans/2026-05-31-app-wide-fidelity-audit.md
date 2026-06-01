@@ -54,8 +54,29 @@ Read the primary file end-to-end first, then the siblings. Hold the whole surfac
 ### 1. Polish
 Visual nits, copy quality, spacing/token discipline, micro-interactions, haptic moments, transition feel. The "would a portfolio reviewer notice this and form a small negative impression?" bar. Examples of real findings: a spread typography token with a `fontWeight` override (anti-pattern); raw `rgba()`/hex instead of a `colors.*` token; raw spacing ints instead of `spacing.*`; a missing pressed-state; a haptic that's identical to an unrelated action.
 
-### 2. Fidelity
-Read the primary file's header docblock for a cited Figma node (format like `Figma node (v2): 1133:13908`). If a node IS cited: attempt to fetch it via the Figma MCP `get_screenshot` tool (ToolSearch for `mcp__figma__get_screenshot` if it's not already loaded; extract fileKey `7DDh6c7tk7OKF4WiA7pEkp` and the nodeId from the citation). Download + view the PNG, compare to the shipped surface, report drift. If the MCP is unavailable, report fidelity as "NOT ASSESSED — Figma MCP unavailable" (do not guess). If NO node is cited (some surfaces were designed collaboratively in-conversation, e.g. the HomeBrowseSheet multi-row, /legal), report fidelity as "N/A — no canonical Figma node" and move on.
+### 2. Fidelity — compose canonical reference state, then compare
+
+Figma is the STARTING state, NOT canonical. Most Fresh Greens surfaces refined past Figma in chat. Compose the canonical reference state from four sources IN THIS ORDER before judging:
+
+1. **Figma node** (if the docblock cites one, format `Figma node (v2): 1133:13908` or similar). Attempt the Figma MCP `get_screenshot` (ToolSearch for `mcp__figma__get_screenshot` if not loaded; fileKey `7DDh6c7tk7OKF4WiA7pEkp`, nodeId from the citation). Download + view the PNG. If MCP unavailable, note it but continue with the other three sources.
+
+2. **The file's docblock "v2 deltas" / "intended deviations" list.** Many files (e.g., `app/safety.tsx`) explicitly enumerate what diverged from Figma and why. Drift covered by deltas is intentional and is NOT a finding.
+
+3. **`docs/learnings.md` entries for the surface's shipping branches.** Grep that file for branch names mentioning this surface (`feat/roadside-assistance`, `feat/unfamiliar-and-share-location`, `audit/safety-polish`, `ax5/safety-surfaces`, etc.). Refinements documented in learnings entries are intentional.
+
+4. **`fgq query` against the merged graph.** Run short-seed queries on surface-specific design topics (e.g., for /roadside: `fgq query "roadside"`, `fgq query "navy cross-link"`). Chat transcripts surface collaborative decisions that refined the design past Figma. Treat chat-nodes as memory-joggers; verify against code before citing.
+
+The composed canonical reference = Figma + deltas + learnings + chat decisions. THEN compare shipped vs composed reference, and classify EVERY fidelity finding into one of these three buckets:
+
+- **Real drift** — shipped diverges from the composed reference, with no documentation of why. Severity per the rubric (Critical/Important/Minor).
+- **Undocumented intentional refinement** — shipped diverges from Figma in ways that ARE documented in chat/learnings but NOT in the file's docblock deltas list. Action: update the docblock so future readers can read the canonical state. **Default tier: Important.** This failure mode misreads the surface for everyone downstream.
+- **Stale Figma citation** — the docblock cites a Figma node that's no longer canonical (e.g., the HomeBrowseSheet `1133:13690` reference is the old single-row v2; shipped is the collaborative multi-row). Action: update or remove the citation. **Default tier: Important.** This is exactly the failure mode that bit this audit's earlier reconnaissance.
+
+If NO Figma node is cited AND chat/learnings show the surface was designed entirely collaboratively (e.g., /legal): fidelity is **"N/A — chat-defined, no canonical Figma."** Note explicitly. Synthesis will check whether chat-defined surfaces have adequate inline documentation.
+
+If Figma MCP unavailable: report "Figma visual diff not assessed — MCP unavailable" but STILL run sources 2–4. Partial assessment > no assessment.
+
+**Always log:** which of the four sources you actually consulted, and what each contributed to the composed reference. Synthesis needs this to verify coverage.
 
 ### 3. Accessibility
 Dynamic Type (AX5) via `dynamicType()`/`relaxedLineHeight()` from `theme/dynamic-type.ts` — body copy needs both, single-line headers need `dynamicType` only. `useReduceMotion()` coverage on any custom animation. VoiceOver flow order. `accessibilityRole` + `accessibilityLabel` completeness on every interactive element. Two-line rows need composite "Title. Clarifier." labels. Decorative elements need `accessibilityElementsHidden` + `importantForAccessibility="no"`. Color contrast (WCAG AA: 4.5:1 normal text, 3:1 large/UI). Tap targets ≥44pt. The canonical AX5 reference is `app/pulled-over.tsx`. Prior AX5 learnings live in `docs/learnings.md` under `ax5/safety-surfaces` — read that entry's policy (dynamicType broadly; relaxedLineHeight multi-line only; lift fixed `height` to `minHeight` wherever text scales).
@@ -86,9 +107,11 @@ Return EXACTLY this structure (markdown):
 
 **Context:** <1-paragraph: what this surface does in the app, who hits it, when>
 
-**fgq seeds run:** <list the seeds you queried + 1-line gist of what each surfaced>
+**fgq seeds run:** <list the seeds you queried + 1-line gist of what each surfaced. Include both concept-execution seeds AND fidelity-grounding seeds.>
 
-**Fidelity status:** <drift findings | "NOT ASSESSED — Figma MCP unavailable" | "N/A — no canonical Figma node">
+**Fidelity reference composition:** <which of the 4 sources you consulted + what each contributed. Example: "Figma 1133:13908 fetched; v2 deltas listed in docblock; learnings entry `ax5/safety-surfaces` reviewed; fgq seeds 'safety', 'tile cohesion' surfaced 2 collaborative decisions on cross-tile guards." Required so synthesis can verify the canonical-reference layer was built before drift was judged.>
+
+**Fidelity verdict:** <one of: "Matches composed reference" | "Real drift findings (see below)" | "Undocumented intentional refinements (see below)" | "Stale Figma citation in docblock — node X no longer canonical" | "N/A — chat-defined, no canonical Figma" | "Figma visual diff not assessed — MCP unavailable; sources 2-4 consulted">
 
 **Findings:**
 - [F1 | <Critical|Important|Minor|Note> | <Polish|Fidelity|A11y|Reliability|Concept>] <one-line title>
@@ -174,7 +197,7 @@ Per-surface audits are read-only — dispatch each batch's surfaces in a SINGLE 
 - [ ] **Task 13 — /trusted-contact-setup:** Dispatch with row 13's inputs.
 - [ ] **Task 14 — /legal:** Dispatch with row 14's inputs.
 
-**Per-task shape check** (the only per-task review): when a report comes back, confirm it has `## Surface:`, `**Context:**`, `**fgq seeds run:**`, `**Fidelity status:**`, `**Findings:**`, and `**Surface verdict:**`. If a section is missing (especially `fgq seeds run` — the most-likely-skipped), re-dispatch that one surface with an explicit reminder to include it. Don't proceed to synthesis with a malformed report.
+**Per-task shape check** (the only per-task review): when a report comes back, confirm it has `## Surface:`, `**Context:**`, `**fgq seeds run:**`, `**Fidelity reference composition:**`, `**Fidelity verdict:**`, `**Findings:**`, and `**Surface verdict:**`. If a section is missing — especially `fgq seeds run` or `Fidelity reference composition` (the new section subagents are most likely to skip) — re-dispatch that one surface with an explicit reminder. Don't proceed to synthesis with a malformed report; synthesis can't reconstruct the missing reference-composition layer.
 
 ---
 
@@ -197,7 +220,7 @@ You are the synthesis layer of Fresh Greens' app-wide fidelity audit (likely the
 
 1. **Severity normalization.** The 14 reports were written by 14 separate auditors. Calibrate severity across them: if surface A tiered something Important that surface B tiered Minor for the same underlying pattern, decide the correct tier and re-grade both. Bias toward the higher tier (last-gate framing). Note any re-grades.
 
-2. **Cross-cutting pattern detection.** Any pattern appearing on ≥3 surfaces gets promoted to a project-level finding. Enumerate the affected surfaces. Known candidates to check for explicitly: the conditional-setState-during-render hydration anti-pattern (was found in /fuel + /roadside-setup before); spacing-token drift in settings-style screens; missing `dynamicType` on non-/safety surfaces; `router.back()` without `canGoBack()` fallback; honesty-of-disclosure gaps around simulated sharing.
+2. **Cross-cutting pattern detection.** Any pattern appearing on ≥3 surfaces gets promoted to a project-level finding. Enumerate the affected surfaces. Known candidates to check for explicitly: the conditional-setState-during-render hydration anti-pattern (was found in /fuel + /roadside-setup before); spacing-token drift in settings-style screens; missing `dynamicType` on non-/safety surfaces; `router.back()` without `canGoBack()` fallback; honesty-of-disclosure gaps around simulated sharing; **stale Figma citations across multiple file docblocks** (the audit's own reconnaissance hit this — citations pointing at nodes that are no longer canonical); **undocumented intentional refinements** (surfaces where the gap between shipped and Figma is real but documented only in chat, not in the file's docblock deltas — promote these as a systemic "docblock-vs-reality drift" pattern if ≥3 surfaces show it).
 
 3. **fgq coverage check.** Each report should list the fgq seeds it ran. Flag any surface whose concept-execution findings look ungrounded (no seeds run, or seeds that returned nothing substantive). Note these as "thesis-promise NOT verified for <surface>" so the user knows which concept judgments are softer.
 
