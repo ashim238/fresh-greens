@@ -646,13 +646,22 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },
+  // Eyebrow + title pair — sized to match /pulled-over's armed picker
+  // (title1Regular eyebrow above title1Emphasized title) so all four
+  // safety sub-flows share the same entry-header register. Prior
+  // pairing (bodyRegular eyebrow + title2Emphasized title) read
+  // visibly smaller than /pulled-over and broke cross-flow consistency.
+  // User-flagged 2026-06-01: /pulled-over sets the precedent.
+  // Header copy intentionally skips relaxedLineHeight (per design-
+  // system.md §1.4 — relaxed is for stress-state long-reads, not
+  // single-line headers).
   subtitle: {
-    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
-    color: colors.labelSecondary,
+    ...dynamicType(typography.title1Regular),
+    color: colors.labelTertiary,
     marginTop: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.title2Emphasized),
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,

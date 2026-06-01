@@ -401,13 +401,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
+  // Eyebrow + title pair — sized to match /pulled-over's armed picker
+  // (title1Regular eyebrow above title1Emphasized title) so all four
+  // safety sub-flows share the same entry-header register. See
+  // /roadside for the full rationale. User-flagged 2026-06-01.
   subtitle: {
-    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
-    color: colors.labelSecondary,
+    ...dynamicType(typography.title1Regular),
+    color: colors.labelTertiary,
     marginTop: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.title2Emphasized),
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
