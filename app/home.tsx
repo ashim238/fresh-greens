@@ -33,6 +33,7 @@ import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
+import { ZoneDetailCard } from '../components/ZoneDetailCard';
 import { LoadingState } from '../components/StateCard';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
@@ -282,6 +283,12 @@ export default function Home() {
     photoUri?: string;
     timestamp: number;
   } | null>(null);
+
+  // Tapped zone-overlay state — mirrors selectedReport. The two are
+  // mutually exclusive (opening one clears the other); both clear on
+  // map tap. Spec:
+  // docs/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md
+  const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
 
   // Combined zone set fed to scoring. OSM + community reports flow
   // through the same pipeline — same Zone type, same scorer dispatch.
@@ -994,7 +1001,14 @@ export default function Home() {
    * normal browse mode shouldn't accidentally move anything.
    */
   function handleMapPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
-    if (!placingReport) return;
+    if (!placingReport) {
+      // Empty-map tap dismisses any open detail card. Mutual exclusion
+      // means at most one of these is non-null at a time, but clearing
+      // both is the safe + cheap default.
+      setSelectedReport(null);
+      setSelectedZone(null);
+      return;
+    }
     const { latitude, longitude } = e.nativeEvent.coordinate;
     Haptics.selectionAsync().catch(() => {});
     setPlacementPin({ latitude, longitude });
@@ -1084,6 +1098,14 @@ export default function Home() {
             // Polyline zones (real OSM lit-street data) render as colored
             // street overlays — stroke only, no fill. Polygon zones (mock
             // fallback OR landuse from OSM) render as filled areas.
+            // Tap on either → opens ZoneDetailCard; clears any open
+            // selectedReport for mutual exclusion. tappable required
+            // on Polyline (Polygon is tappable by default in
+            // react-native-maps).
+            const handleZonePress = () => {
+              setSelectedReport(null);
+              setSelectedZone(zone);
+            };
             if (zone.geometry === 'polyline') {
               return (
                 <Polyline
@@ -1092,6 +1114,8 @@ export default function Home() {
                   strokeColor={zoneColors[zone.type].stroke}
                   strokeWidth={4}
                   lineDashPattern={zoneDashPattern[zone.type]}
+                  tappable
+                  onPress={handleZonePress}
                 />
               );
             }
@@ -1104,6 +1128,8 @@ export default function Home() {
                   strokeColor={zoneColors[zone.type].stroke}
                   strokeWidth={2}
                   lineDashPattern={zoneDashPattern[zone.type]}
+                  tappable
+                  onPress={handleZonePress}
                 />
               );
             }
@@ -1167,6 +1193,7 @@ export default function Home() {
               selected={selectedReport?.zoneId === zone.id}
               onPress={() => {
                 if (placingReport) return;
+                setSelectedZone(null);
                 setSelectedReport({
                   zoneId: zone.id,
                   categoryId: zone.reportCategoryId as ReportCategoryId,
@@ -2145,6 +2172,12 @@ export default function Home() {
           photoUri={selectedReport.photoUri}
           timestamp={selectedReport.timestamp}
           onDismiss={() => setSelectedReport(null)}
+        />
+      )}
+      {selectedZone && (
+        <ZoneDetailCard
+          zone={selectedZone}
+          onDismiss={() => setSelectedZone(null)}
         />
       )}
 
