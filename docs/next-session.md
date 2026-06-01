@@ -142,3 +142,133 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 ## Workflow note
 
 The `v1.0-thesis` tag marks the submitted state. Any of these items can land in iteration commits past that tag without affecting the submitted snapshot — `git checkout v1.0-thesis` always returns reviewers to exactly what was submitted.
+
+## Audit 2026-05-31 — backlog flow-in
+
+Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Important + Minor only (Notes live in the audit doc). Strike through on landing per workflow Step 11.5.
+
+### Project-wide
+
+- **[PROJECT] Ionicons leak across 8 surfaces (Phosphor-only rule)** — [Audit 2026-05-31 §Cross-cutting PROJECT-A, Critical] sweep PR: replace Ionicons with Phosphor on SearchBar, /menu, /recordings, /trusted-contact-setup, /legal, /fuel, /en-route. Anchor: `CaretLeft` for chevron-back, `MagnifyingGlass` for SearchBar.
+- **[PROJECT] Missing `dynamicType()` on 8 non-/safety surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-B, Critical] sweep PR mirroring `ax5/safety-surfaces`: /home, /en-route bottom sheet, /menu, /search, /recordings, /trip-summary, /trusted-contact-setup, /fuel. Wrap each `typography.*` spread; add `relaxedLineHeight()` to long-read; convert fixed `height` → `minHeight`.
+- **[PROJECT] Honesty-of-disclosure overpromise across 7 surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-C, Critical] per-surface copy tightening + render-gating. Anchor instances: /pulled-over F1, /trusted-contact-setup F3, /legal F1.
+- **[PROJECT] Raw spacing integers / token-discipline drift across 4 surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-D, Important] /search (25+), /safety (SOSBar, documented), /en-route (`rgba()` + `#000` literals), /menu (verify).
+- **[PROJECT] Stale or missing v2-deltas docblocks (emerging)** — [Audit 2026-05-31 §Cross-cutting PROJECT-E, Important] /home `app/home.tsx:1516` cites stale Figma `1133:13690`; /en-route `app/en-route.tsx:101-118` lacks consolidated deltas block.
+
+### /pulled-over
+
+- **[/pulled-over] TrustedContactStatus claims active notification while wiring is decorative** — [Audit 2026-05-31 §/pulled-over F1, Critical] gate render on `useTrustedContact().contact`; revise copy at `components/TrustedContactStatus.tsx:27` (rendered `app/pulled-over.tsx:527`).
+- **[/pulled-over] Recording footnote elides "we don't auto-share" claim** — [Audit 2026-05-31 §/pulled-over F2, Important] tighten copy at `app/pulled-over.tsx:797-799`.
+- **[/pulled-over] "Tap to continue" hint contradicts calming-pause intent** — [Audit 2026-05-31 §/pulled-over F3, Important] `app/pulled-over.tsx:605` → "Tap when ready" or "Tap to skip ahead."
+- **[/pulled-over] `officerStyles.emphasis` reaches into another token's `fontWeight`** — [Audit 2026-05-31 §/pulled-over F4, Minor] use `<Strong>` helper at `app/pulled-over.tsx:1997`.
+- **[/pulled-over] RecordingChip a11y label says "minutes" even at 0** — [Audit 2026-05-31 §/pulled-over F5, Minor] `app/pulled-over.tsx:847`.
+
+### /en-route
+
+- **[/en-route] Bottom-sheet typography not wrapped in `dynamicType()`** — [Audit 2026-05-31 §/en-route F1, Important] wrap at `app/en-route.tsx:2143, 2147, 2162, 2173, 2223, 2231, 2227, 2079, 2269`; lift `endTripBtn.height: 52` → `minHeight`.
+- **[/en-route] Raw `rgba()` and hex literal in styles** — [Audit 2026-05-31 §/en-route F2, Important] tokens at `app/en-route.tsx:1959, 2064`.
+- **[/en-route] Ionicons leak inside en-route surface** — [Audit 2026-05-31 §/en-route F3, Important] `app/en-route.tsx:13, 1723`; `components/RouteComparisonSheet.tsx:1,54,78,91`; `components/FuelStopsSheet.tsx:1,51`.
+- **[/en-route] Speed limit hardcoded to 25 mph** — [Audit 2026-05-31 §/en-route F4, Important] `app/en-route.tsx:1507` — hide when unknown OR show "—" with "Limit unknown" a11y label.
+- **[/en-route] No consolidated v2-deltas docblock** — [Audit 2026-05-31 §/en-route F5, Important] add at `app/en-route.tsx:101-118`.
+- **[/en-route] No empty-state when location permission denied** — [Audit 2026-05-31 §/en-route F6, Important] `app/en-route.tsx:848-927`.
+- **[/en-route] Turn-card a11y wrapper doesn't surface hazards / offline state** — [Audit 2026-05-31 §/en-route F7, Important] promote `turnSign` View to `accessible` with composite label.
+- **[/en-route] LiveSafetySheet collapsed pill overlaps en-route bottom sheet** — [Audit 2026-05-31 §/en-route F8, Important] anchor above measured `bottomSheetHeight`.
+- **[/en-route] Route-badge marker a11y uses only duration** — [Audit 2026-05-31 §/en-route F9, Minor] `app/en-route.tsx:1271`.
+- **[/en-route] Speed-limit "SF Pro Bold stand-in for Overpass Bold"** — [Audit 2026-05-31 §/en-route F10, Minor] no canonical Overpass font queued.
+- **[/en-route] Dead `turnDistance`/`turnDistanceUnit` styles** — [Audit 2026-05-31 §/en-route F11, Minor] `app/en-route.tsx:1910-1917`.
+
+### /home
+
+- **[/home] Stale Figma citation `1133:13690`** — [Audit 2026-05-31 §/home F1, Important] update at `app/home.tsx:1516`; reconcile against `HomeBrowseSheet.tsx:44` (`1114:9047`).
+- **[/home] Outdated browse-mode docblock** — [Audit 2026-05-31 §/home F2, Important] `app/home.tsx:1514-1518` describes single-card; shipped is 7-row.
+- **[/home] SearchBar uses Ionicons (most-seen UI in the app)** — [Audit 2026-05-31 §/home F3, Critical] `components/SearchBar.tsx:1, 65, 130`. Folds into PROJECT-A; called out separately for blast-radius.
+- **[/home] Browse-sheet section/eyebrow/topRow titles missing Dynamic Type** — [Audit 2026-05-31 §/home F4, Important] `components/HomeBrowseSheet.tsx:1244-1257, 1328-1332, 1457-1462, 1494-1504`.
+- **[/home] Carousel `cardTitle` uses `adjustsFontSizeToFit` (wrong primitive)** — [Audit 2026-05-31 §/home F5, Important] `HomeBrowseSheet.tsx:1039` — shrinks under pressure, opposite of AX5.
+- **[/home] `StateCard.card` fixed `width: 326`** — [Audit 2026-05-31 §/home F6, Important] `components/StateCard.tsx:128`.
+- **[/home] "Safest route" caption renders before zones load or with empty zones** — [Audit 2026-05-31 §/home F7, Important] gate at `app/home.tsx:1831` on `enabledZones.length > 0 && !isCalculatingRoute`.
+- **[/home] Cold-start race: `bottomSheetHeight` vs `fabAnchorHeight` lock** — [Audit 2026-05-31 §/home F8, Important] `app/home.tsx:1541-1551`; closed-form anchor proposed.
+- **[/home] `routeArrival` "arrive {time}" lowercase** — [Audit 2026-05-31 §/home F9, Minor] `app/home.tsx:1754`.
+- **[/home] Route-preview labels use spread `typography.*` without `dynamicType`** — [Audit 2026-05-31 §/home F10, Important] `placementHint`, `routeViaLabel`, `routeConditionsCaption`, `routeDistance`, `routeArrival`, `routeMinutes`, `destTitle`.
+- **[/home] `WeatherDrivingCard` uses `CloudSun` regardless of conditions** — [Audit 2026-05-31 §/home F11, Important] `HomeBrowseSheet.tsx:822`.
+- **[/home] `weatherCard` icon/text hierarchy inconsistent** — [Audit 2026-05-31 §/home F12, Minor] icon `labelSecondary` vs text `labelTertiary`.
+- **[/home] `UserLocationMarker` pulse animation runs forever** — [Audit 2026-05-31 §/home F14, Minor] lines 78-85. Defensible-by-comment.
+- **[/home] `daylightStripInline` `accessibilityElementsHidden`** — [Audit 2026-05-31 §/home F15, Minor] defensible-by-comment.
+- **[/home] Identical haptic for home + trusted-friend markers** — [Audit 2026-05-31 §/home F17, Minor] consider `impactAsync(Light)` for trusted-friend.
+
+### /search
+
+- **[/search] Results-phase search-bar mismatches Figma `1105:6462` left-icon variant** — [Audit 2026-05-31 §/search F1, Important] intentional but not disclosed in docblock.
+- **[/search] "More results for X" affordance from Figma results node absent** — [Audit 2026-05-31 §/search F2, Important] Mapbox Search Box pages; surface it.
+- **[/search] 25+ raw integer spacings** — [Audit 2026-05-31 §/search F3, Important] `app/search.tsx:826-1021`, `SearchBar.tsx:147-198`, `StateCard.tsx:126-195`.
+- **[/search] SearchBar uses Ionicons** — [Audit 2026-05-31 §/search F4, Important] `SearchBar.tsx:1, 65, 130`. Folds into PROJECT-A.
+- **[/search] Zero `dynamicType()` calls across the three files** — [Audit 2026-05-31 §/search F5, Important] folds into PROJECT-B.
+- **[/search] Quick Tools horizontal ScrollView lacks `tablist` semantics** — [Audit 2026-05-31 §/search F6, Minor] `app/search.tsx:520-569`.
+- **[/search] `userLocation` failure silently downgrades ErrorState to transient** — [Audit 2026-05-31 §/search F7, Minor] permission denied is hard wall.
+- **[/search] Saved-row a11y label period-as-separator** — [Audit 2026-05-31 §/search F8, Minor] `app/search.tsx:593`.
+
+### /roadside
+
+- **[/roadside] `WrongSpotModal` input bypasses `dynamicType()`** — [Audit 2026-05-31 §/roadside F1, Minor] lines 716-724.
+- **[/roadside] Missing empty-string defensive bail on sanitized phone** — [Audit 2026-05-31 §/roadside F2, Minor] line 302 — references `audit/safety-polish` class-of-bug.
+
+### /menu
+
+- **[/menu] Ionicons chevrons violate Phosphor-only** — [Audit 2026-05-31 §/menu F1, Important] `app/menu.tsx:1, 202, 520-524`. Folds into PROJECT-A.
+- **[/menu] No Dynamic Type on any text node** — [Audit 2026-05-31 §/menu F2, Important] lines 587-733. Folds into PROJECT-B.
+- **[/menu] Sign-out `Promise.all` masks per-adapter errors** — [Audit 2026-05-31 §/menu F3, Minor] lines 172-179 — use `Promise.allSettled` + console.warn.
+- **[/menu] Avatar image has no `onError` / fallback** — [Audit 2026-05-31 §/menu F4, Minor] lines 218-224.
+
+### /recordings
+
+- **[/recordings] Back chevron Ionicons (re-graded from Minor)** — [Audit 2026-05-31 §/recordings F1, Important] lines 1, 174. PROJECT-A retires the "de-facto convention" defense.
+- **[/recordings] No Dynamic Type / `relaxedLineHeight`** — [Audit 2026-05-31 §/recordings F2, Minor] lines 454, 499, 507, 587, 594. Folds into PROJECT-B.
+
+### /unfamiliar
+
+- **[/unfamiliar] "Saves your journey periodically" overstates v1 behavior** — [Audit 2026-05-31 §/unfamiliar F1, Important] `app/unfamiliar.tsx:274-276` — adapter persists exactly once. Fix: "Fresh Greens stays with you until you tell us you're safe."
+- **[/unfamiliar] Auto-share-on-Step-1-pick has no inline disclosure** — [Audit 2026-05-31 §/unfamiliar F2, Minor] lines 99-102.
+- **[/unfamiliar] No-results / Search-failed Alerts collapse state silently** — [Audit 2026-05-31 §/unfamiliar F3, Minor] lines 120-126, 135-141.
+
+### /trip-summary
+
+- **[/trip-summary] Title + stats + inference copy not wrapped in `dynamicType()`** — [Audit 2026-05-31 §/trip-summary F1, Important] lines 349, 353, 363, 368, 378, 382, 396, 422. Folds into PROJECT-B.
+- **[/trip-summary] "Set as default" silently no-ops when `destLat`/`destLng` absent** — [Audit 2026-05-31 §/trip-summary F2, Important] lines 159-178. Folds into PROJECT-C.
+- **[/trip-summary] Title/inferenceHeading register inconsistency** — [Audit 2026-05-31 §/trip-summary F3, Minor] `title1Regular` vs `title3Emphasized` at line 378.
+- **[/trip-summary] No haptic on Confirm/Dismiss or Set-as-default success** — [Audit 2026-05-31 §/trip-summary F4, Minor] lines 159-202.
+
+### /trusted-contact-setup
+
+- **[/trusted-contact-setup] Ionicons `chevron-back`** — [Audit 2026-05-31 §/trusted-contact-setup F1, Important] lines 1, 173. Folds into PROJECT-A.
+- **[/trusted-contact-setup] No `dynamicType()` / `relaxedLineHeight` despite canonical-AX5-reference status** — [Audit 2026-05-31 §/trusted-contact-setup F2, Important] lines 337-352. Direct contradiction of learnings.
+- **[/trusted-contact-setup] "Alerts this person during emergencies" overpromises v1 (re-graded from Important)** — [Audit 2026-05-31 §/trusted-contact-setup F3, Critical] `app/trusted-contact-setup.tsx:186-189`. Anchor finding for PROJECT-C.
+- **[/trusted-contact-setup] Error text has no live-region announcement and no haptic** — [Audit 2026-05-31 §/trusted-contact-setup F4, Minor] lines 249, 121-126.
+
+### /legal
+
+- **[/legal] Ionicons used on the page asserting Phosphor MIT in terms.md** — [Audit 2026-05-31 §/legal F1, Critical] `app/legal.tsx:1, 74`. The internal contradiction is the thesis hit.
+- **[/legal] JSX drops Mapbox URL + "(the map provider)" parenthetical** — [Audit 2026-05-31 §/legal F2, Important] line 125.
+- **[/legal] JSX omits four Privacy sections** — [Audit 2026-05-31 §/legal F3, Important] missing "What we do *not* collect", "Children" (COPPA), "Contact", "Sign out cleanup."
+- **[/legal] JSX omits Terms sections (incl. Phosphor MIT line that conflicts with F1)** — [Audit 2026-05-31 §/legal F4, Important] missing "What Fresh Greens is", "Your account and data", "Intellectual property", "Governing law", "Contact"; limitation-of-liability text shorter than markdown.
+- **[/legal] Limitations tab missing "We are not selling your data" + effective date** — [Audit 2026-05-31 §/legal F5, Important] lines 244, 302.
+- **[/legal] Tab row missing `accessibilityRole="tablist"`** — [Audit 2026-05-31 §/legal F6, Important] lines 81-103.
+- **[/legal] `•` literal bullet glyph not flagged decorative-hidden** — [Audit 2026-05-31 §/legal F7, Minor] lines 351-353.
+- **[/legal] No scroll-to-top reset / no `onScroll` activeSection sync** — [Audit 2026-05-31 §/legal F8, Minor] lines 53-57 — pill desyncs.
+
+### /safety
+
+- **[/safety] Raw spacing literals in SOSBar (documented tech debt)** — [Audit 2026-05-31 §/safety F1, Minor] lines 322-347.
+- **[/safety] `header.gap: 16` / `titleBlock.gap: 8` raw literals** — [Audit 2026-05-31 §/safety F2, Minor] lines 255, 266.
+- **[/safety] SOS Pressable lacks `accessibilityHint`** — [Audit 2026-05-31 §/safety F3, Minor] lines 204-217.
+
+### /share-location
+
+- **[/share-location] `aspirationalNote` style identifier semantic mismatch** — [Audit 2026-05-31 §/share-location F2, Minor] lines 164, 202-207 — rename `reasonNote`.
+- **[/share-location] End-sharing CTA asymmetry — verify dignity rationale inline** — [Audit 2026-05-31 §/share-location F3, Minor] add WHY comment.
+
+### /fuel
+
+- **[/fuel] Ionicons usage drifts from Phosphor** — [Audit 2026-05-31 §/fuel F1, Important] lines 1, 116, 168, 179. Folds into PROJECT-A.
+- **[/fuel] No Dynamic Type / line-height policy** — [Audit 2026-05-31 §/fuel F2, Important] lines 236-307. Folds into PROJECT-B.
+- **[/fuel] Segmented fuel-type buttons lack composite label; toggle row lacks role** — [Audit 2026-05-31 §/fuel F3, Important] lines 148-150, 183-192.
+- **[/fuel] "Next reminder" hides time-of-day reality of TIME_INTERVAL** — [Audit 2026-05-31 §/fuel F4, Minor] lines 92-99, 196 — add WHY comment or surface time.
+- **[/fuel] No haptic on Save / "I filled up"** — [Audit 2026-05-31 §/fuel F5, Minor].

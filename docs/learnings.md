@@ -4,6 +4,24 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## audit/app-wide-fidelity — the methodology, not the findings
+
+The audit itself shipped at `docs/audits/2026-05-31-app-wide-fidelity-audit.md`; this entry captures what the *methodology* taught.
+
+**A+synthesis was right for the per-surface judgment, wrong without the synthesis re-grade pass.** Per-surface subagents hold the whole surface in context, which is exactly what concept-execution and reliability need. But each ran independent severity calls; the same pattern got tiered Critical on one surface and Minor on another. The synthesis re-grade pass is load-bearing — three findings flipped tier in this audit alone (`/recordings` Ionicons Minor→Important; `/trusted-contact-setup` honesty Important→Critical; `/home` SearchBar held at Critical for blast-radius). Worth keeping: never let per-task severity calls stand without a normalization pass.
+
+**Composed-canonical-reference paid off immediately.** Three surfaces caught stale Figma citations (HomeBrowseSheet `1133:13690` and `1114:9047`, /en-route's missing v2-deltas docblock) that a literal Figma-vs-shipped diff would have flagged as drift, but a chat+learnings+fgq composed reference correctly classified as "undocumented intentional refinement." The audit's strongest single methodology choice. Worth keeping for any future fidelity work.
+
+**The "tier up when in doubt" framing produced a meaningfully sharper finding list.** Several surfaces' subagents flagged Minor findings that synthesis promoted to Important once the pattern was visible across surfaces. The last-gate framing was the permission to do that. Worth keeping for any pre-portfolio audit.
+
+**fgq coverage was honest about its gaps.** Tokenizer brittleness drifted three surfaces' thesis-promise judgments toward code-grounding instead of chat-grounding (`/trusted-contact-setup` `trusted contact`, `/search` `community`/`recommendations`, `/legal` `disclosure`). Synthesis named these rather than papered over them. Worth keeping: when a memory-search returns junk, say so in the report; the panel reading the audit later needs to know which judgments are softer.
+
+**Cross-cutting pattern detection at ≥3 surfaces is the right threshold.** Five patterns emerged organically (Ionicons leak, missing dynamicType, honesty overpromise, raw spacing, v2-deltas docblock drift). Three are project-level Critical; one is Important; one is Emerging-not-yet-promoted. The threshold prevents over-claiming "systemic" issues from one or two surfaces.
+
+**The audit found one structural insight worth carrying:** /trusted-contact-setup was cited in learnings as a canonical AX5 reference, but the audit found it doesn't use `dynamicType()` itself. A reference that doesn't follow its own pattern stops being a reference. Worth keeping: when you canonize a surface as a reference, audit it against its own rule before claiming the title.
+
+---
+
 ## feat/phase-1-wrapup — close out the half-shipped items honestly
 
 Closing-out Phase 1 wasn't about new features — it was about removing the lies. Three items, three honest moves.
