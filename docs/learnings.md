@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/live-sharing-pill-blocks-end-trip — moving one floating overlay cascades into others
+
+The LiveSafetySheet "sharing location" pill (full-width, `position: absolute; bottom: spacing.lg`) covered the End-trip button on /en-route. The obvious fix — float it above the bottom sheet (`bottom: bottomSheetHeight + 16`) — *introduced two new collisions*: the pill is full-width, and /en-route's bottom band already has a left speed-sign stack and a right side-button column both floating at `bottomSheetHeight + 24`. Raising the full-width pill into that band put it on top of the bottoms of both columns.
+
+**The lesson: a full-width floating element near a crowded edge isn't a single-axis move.** Fixing its overlap with one element (the sheet) silently created overlaps with every other element sharing that vertical band. The real fix was to treat the bottom edge as a *coordinated stack* — pill just above the sheet, then both columns shift up above the pill (`+24` → `+92`) only while the pill shows. Before moving any absolute-positioned overlay, enumerate everything else anchored to the same edge; they're all in scope.
+
+**Mirror-the-gate, don't re-derive it.** The column shift has to engage exactly when the pill is visible. LiveSafetySheet renders the pill on `session && contact`. Rather than invent a new condition in /en-route, I read the same two hooks and recomputed the identical `!!session && !!contact` gate, so the shift and the pill can't desync. When a layout in screen A depends on whether component B is rendering, copy B's render condition verbatim — a paraphrased condition is a desync bug waiting to happen.
+
+**The reserved-height constant (92) is the soft spot.** It's `16 inset + 64 pill minHeight + 12 gap`. Under large Dynamic Type the pill grows past its 64pt minHeight and the columns would clip into it. Acceptable for v1 (logged as a known limitation), but the robust version measures the pill height via onLayout and feeds it back — the same pattern `bottomSheetHeight` already uses. Hardcoded heights are fine until the content is user-scalable.
+
+---
+
 ## fix/safety-cards-and-contact-routing — a routing bug class that recurs per entry point
 
 The "Home drops as a bottom sheet over the modal stack" bug came back. `/trusted-contact-setup` routes on Continue/Skip based on a `from` query param: `embedded` (settings/emergency) → `router.back()`; anything else → `router.replace('/home')`. When `/safety`'s no-contact gate and `/roadside`'s share-setup pushed the screen **without** `from`, Continue slammed a Home card onto the page-sheet stack.
