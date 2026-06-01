@@ -442,13 +442,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 20,
     paddingHorizontal: spacing.lg,
-    // Symmetric vertical padding (was 16 top / 32 bottom). The
-    // asymmetric version made the title hug the top edge while the
-    // bottom had a heavy 32pt cushion — user-flagged 2026-06-01.
-    // 24pt on both edges centers the content visually and gives the
-    // title room to breathe from the card's rounded top corner.
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+    // Symmetric 32pt vertical padding. Earlier rounds tried 16/32 and
+    // 24/24; the user still read both as tight (2026-06-01). 32pt on
+    // both edges gives the title clear breathing from the card's
+    // rounded top corner AND keeps the bottom edge below the exit
+    // cluster from feeling cramped.
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
     gap: spacing.md,
     alignItems: 'center',
     ...shadows.e2,
@@ -513,13 +513,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Countdown content stack — own gap rhythm (24pt, breathier than
-  // the idle stack's 16pt). alignSelf: stretch lets the wrapper fill
-  // the card's content width so the title centers under the disc.
+  // Countdown content stack — own gap rhythm (32pt, breathier than
+  // the idle stack's 16pt) and an extra 16pt horizontal inset so the
+  // long "Calling [Name]" title doesn't push to the card's left/right
+  // edges (user-flagged 2026-06-01: the title "creased" too close to
+  // the rounded corners). The disc and exit cluster fit comfortably
+  // within the narrower bounds since they're already width-bounded.
+  // alignSelf: stretch lets the wrapper fill the card's content area
+  // so its center-aligned children sit on the card's vertical axis.
   countdownStack: {
     alignSelf: 'stretch',
     alignItems: 'center',
-    gap: spacing.lg,
+    gap: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
 
   // --- Countdown disc + Stop (per Figma) ---
