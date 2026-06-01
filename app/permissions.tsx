@@ -292,7 +292,12 @@ const styles = StyleSheet.create({
     gap: 16, // gap between body and "Tap Settings below:"
   },
   body: {
-    ...typography.subheadlineEmphasized,
+    // bodyEmphasized (17pt) per the 2026-06-01 text-size audit. This
+    // is the primary instructional copy on the permissions screen
+    // ("Allow location access to find safe routes…") — primary
+    // content deserves the iOS-norm body register, not the 15pt
+    // subhead tier v1 had it at.
+    ...typography.bodyEmphasized,
     color: colors.white,
   },
   tapInstruction: {

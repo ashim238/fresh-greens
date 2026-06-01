@@ -328,7 +328,12 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   tabLabel: {
-    ...dynamicType(typography.subheadlineEmphasized),
+    // bodyEmphasized (17pt) per the 2026-06-01 text-size audit. The
+    // three sub-flow tile labels (Pulled-over, Roadside, Unfamiliar
+    // area) are the affordance description for their tap target;
+    // 15pt left them reading as captions under their illustrations
+    // instead of as the primary nav element they actually are.
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
     textAlign: 'center',
   },

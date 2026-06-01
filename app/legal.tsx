@@ -390,7 +390,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
   },
   tabLabel: {
-    ...dynamicType(typography.footnoteEmphasized),
+    // subheadlineEmphasized (15pt) per the 2026-06-01 text-size
+    // audit. The Privacy / Terms / Licenses tab pills are primary
+    // navigation on this page — 13pt left them sitting at caption
+    // tier, which read as auxiliary metadata rather than the active
+    // nav surface.
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.labelSecondary,
   },
   tabLabelActive: {

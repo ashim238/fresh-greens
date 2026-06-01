@@ -229,12 +229,15 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
   },
 
-  // "What we flag" group caption — same hierarchy decision as the v1
-  // accordion: footnoteEmphasized + labelSecondary so it reads as a
-  // sub-group label below the page title, not as a peer-section
-  // divider.
+  // "What we flag" group caption — a section header above the
+  // scoring-affecting toggles. v1.5 was footnoteEmphasized (13pt)
+  // because it inherited the v1 accordion's tier sizing, but at 13pt
+  // it read as metadata rather than a section header. Bumped to
+  // subheadlineEmphasized (15pt) per the 2026-06-01 text-size
+  // audit — keeps it one tier below the 22pt page title so the
+  // hierarchy still reads, but lifts it out of caption territory.
   groupCaption: {
-    ...dynamicType(relaxedLineHeight(typography.footnoteEmphasized)),
+    ...dynamicType(relaxedLineHeight(typography.subheadlineEmphasized)),
     color: colors.labelSecondary,
     paddingBottom: spacing.sm,
   },
