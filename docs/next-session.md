@@ -23,10 +23,10 @@ Minor findings from the focused static audit of the surfaces this session touche
 
 Phase 0 (`ae79812`) removed the *enumerated* dead-ends (Google/Email auth, inert /menu rows, /search Trending, plus the query-tile deselect bug + honest /report copy). A codebase-wide `rg` for `coming soon|future update|not yet supported` then surfaced dead-ends the spec's triage table never listed. Each needs a **cut / hide / wire** decision before "zero visible dead-ends" is literally true:
 
-- **/en-route mic button** (`en-route.tsx:1329`) — "Voice control (not yet supported)", no `onPress` (taps do nothing).
-- **/en-route Volume button** (`en-route.tsx:1438`) — Alert "Voice prompt controls land in a future update."
-- **/en-route alternate-paths FAB** (`en-route.tsx:1607`) — "Show alternate paths (coming soon)"; the app *does* compute alternates, so this is plausibly WIRE-able.
-- **/search Fuel card** (`search.tsx:614`) — "Coming soon" hint, no `onPress`; could WIRE to the /search fuel query like the Quick Tile, or cut.
+- ~~**/en-route mic button** — "Voice control (not yet supported)"~~ — ✅ hidden in `74c2d98` (see triage decisions below); future voice-nav work tracked as its own feature track.
+- ~~**/en-route Volume button** — "Voice prompt controls land in a future update"~~ — ✅ hidden in `74c2d98`; same voice-nav track as above.
+- ~~**/en-route alternate-paths FAB** — "Show alternate paths (coming soon)"~~ — ✅ shipped (`457f3ef`); alternate-route comparison sheet.
+- ~~**/search Fuel card** — "Coming soon" hint~~ — ✅ shipped (`d9cb709` + `1997010`); wired to /fuel.
 
 Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): **/menu Quick Tiles** (Fuel, Notifications) and the **/safety inert tiles** (Roadside, Unfamiliar area, Share my location).
 
@@ -39,9 +39,9 @@ Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): 
 ## Visual fidelity / Figma drift
 
 - ~~**Safety page matches v2 Figma + confirmation modal popup**~~ — verified 2026-05-31. `app/safety.tsx` cites Figma `1133:13908` v2 with documented v2 deltas; 4-tile layout shipped. The "confirmation modal popup" half of this entry has no design or code basis — speculative artifact from early ideation. Closed.
-- ~~**Home bottom sheet matches the v2 version (structural multi-row)**~~ — verified 2026-05-31. The vertical-stack-of-horizontal-carousels structure (Round 4 Round 4 multi-row pattern) is live in `components/HomeBrowseSheet.tsx` with 7 rows (Trusted + Open Now + 5 categories). What remains is **per-card visual fidelity** against Figma `1133:13690` — photo + quote callout + tag rows ARE rendered inside `RecommendationCard` (lines 919–1095) but the *card-shaped layout* may not yet match the v2 spec exactly. Compare a real card to the Figma node before treating this as more than a polish nit.
+- ~~**Home bottom sheet matches the v2 version**~~ — verified 2026-05-31. The original Figma reference `1133:13690` here was the *single-row v2* sheet from way back; the multi-row layout was designed collaboratively in conversation, NOT from a Figma node. The vertical-stack-of-horizontal-carousels structure is live in `components/HomeBrowseSheet.tsx` with 7 rows (Trusted + Open Now + 5 categories). Closed; the Figma node citation was always a mismatch.
 - ~~**Report modals match v2 design**~~ — verified 2026-05-31. `app/report.tsx` cites v2 Figma nodes (`984:5010` picker, `987:4291` / `992:4752` / `992:4933` details, `992:3933` thank-you) and implements the picker → detail → thank-you state machine with v2 typography + padding. Backlog entry was stale.
-- **Custom "community signal" icon for Round 4 surfaces** — Phosphor doesn't have a clean fit for "trusted by your community" semantics. Star (currently used in Row 1 empty state, `HomeBrowseSheet.tsx` `TrustedByCommunityEmpty`) reads as "favorites/saved" — forward-collision with any save-spot feature, and visually inconsistent with the row's framing. Two assets to design, both burntgreen (`#003F04`) single-color SVG so they theme-tint cleanly: (1) **64×64pt** for the Row 1 empty-state card (drops in next to the per-category `PhotoPlaceholderGlyph` family in `HomeBrowseSheet.tsx`); (2) **24×24pt** for section-header glyphs in Round 4 PR B's multi-row layout (matches the section-title row pattern Apple Maps uses for collection rows). Visual directions worth exploring: overlapping silhouettes/hands cradling a pin, a pin with concentric ripples (signal echoing outward), or a chorus of small markers converging on one spot. File names: `community-signal.svg` (slots next to existing `mapmarker-glyph-*` family). The other rows in PR B can keep Phosphor: existing `PhotoPlaceholderGlyph` mappings for the 5 category rows, `Clock` or `Storefront` for "Open Now" — only Trusted needs custom.
+- ~~**Custom "community signal" icon for Round 4 surfaces**~~ — verified 2026-05-31. Both `trustedbycommunity-empty.svg` (64×64pt) AND `trustedbycommunity-empty-24.svg` (24×24pt) exist as imported assets in `HomeBrowseSheet.tsx` (lines 11, 29) and render in `TrustedByCommunityEmpty` (line 672). The Star placeholder has already been replaced. Closed.
 - ~~**Edge markers match Figma (not placeholders)**~~ — shipped across #134–138 (`EdgeIndicator.tsx` cites Figma `1133:13250`). Component implements the full layered composition (42×62 polygon + 36pt disk + 24pt counter-rotated glyph, per-category routing). The "32pt pill with generic glyph" description here hasn't matched reality since the redesign rounds.
 - ~~**Trusted contact text → body regular, not emphasized**~~ — already there. `ContactView` styles (`pulled-over.tsx:1669-1727`) use `title1Regular`/`subheadlineRegular`/`title2Regular`. No `bodyEmphasized` left to swap.
 - ~~**Guidance flow has 24px padding**~~ — already there, via composition. `guidanceStyles.page` uses `paddingHorizontal: 8` inside the modal's 16pt safe-area gutter → 24pt effective. Inline comment at `pulled-over.tsx:1546-1550` explains the math.
@@ -76,13 +76,7 @@ Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): 
 
 ## Round 4 — Discovery experiments
 
-- **Multi-row recommendations sheet (Google Maps-style)** — `components/HomeBrowseSheet.tsx`. Restructure the single-carousel browse mode into a vertical stack of horizontal carousels (each row a different theme). DO NOT replicate Google verbatim; the strongest version is:
-  - **Row 1: "Trusted by your community"** — top-rated mixed across all 5 categories, ranked by recency of *community* signal (the row that's uniquely Fresh Greens-shaped). This row carries the differentiator; without it, the multi-row pattern dilutes the chip-driven mission. If we build this, build Row 1 first and decide if the rest is worth it.
-  - **Row 2: "Open now"** — utility, mixed categories, `isOpen === true` + distance-sorted.
-  - **Rows 3–7: One row per existing category** (Black-Owned, Women-Owned, LGBTQ+, Restrooms, Late Night).
-  - **Keep the chips** as a quick-filter mode that collapses the sheet to a single category (current behavior) when tapped. Default state: multi-row browse. Chip tapped: focus mode.
-  - Watch: data-load cost (5+ parallel proxy calls on mount), empty-state proliferation in low-density areas, total scroll height inside the capped sheet (~360pt × 5 rows = 1800pt inside a ~720pt sheet — vertical sheet scroll already exists, but UX needs validation on device).
-  - Implementation hint: a `useRecommendationsBatch()` hook that fires the per-category requests in parallel with shared cache, vs. firing N copies of `useRecommendations`.
+~~**Multi-row recommendations sheet (Google Maps-style)**~~ — **Round 4 closed (verified 2026-05-31).** Shipped via `BROWSE_ROW_SPECS` in `components/HomeBrowseSheet.tsx` (lines 407–415): 7 rows live — Row 1 "Trusted by your community" (the differentiator), Row 2 "Open now", Rows 3–7 per existing category. The chip-filter mode is preserved as the focus-mode (chip tap collapses to single-category browse). `useRecommendationsBatch()`-equivalent batch loading lives at lines 103–115. Entry was pre-ship planning framing that survived past the actual shipment.
 
 ## Round 5 — Safety surfaces + route-preview departure card
 
