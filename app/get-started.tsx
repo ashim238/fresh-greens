@@ -264,7 +264,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginPrompt: {
-    ...typography.footnoteRegular,
+    // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
+    // "Already have an account? Log in" inline auth-screen link —
+    // matches Apple's auth-screen prompt register (15pt). 13pt sat
+    // at caption tier, which read as auxiliary metadata rather than
+    // the navigation affordance it is.
+    ...typography.subheadlineRegular,
     color: colors.white,
     textAlign: 'center',
   },

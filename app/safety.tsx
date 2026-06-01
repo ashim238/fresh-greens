@@ -360,7 +360,11 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   sosBarSubtitle: {
-    ...typography.footnoteRegular,
+    // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
+    // Sits beneath the SOS bar title on a high-stakes affordance —
+    // 13pt left the supporting copy reading as fine print on a
+    // crisis surface, which is exactly where it shouldn't.
+    ...typography.subheadlineRegular,
     color: colors.fadedgreen,
   },
 });

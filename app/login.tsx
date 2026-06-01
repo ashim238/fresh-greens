@@ -230,7 +230,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginPrompt: {
-    ...typography.footnoteRegular,
+    // Mirrors /get-started's loginPrompt bump (2026-06-01 text-size
+    // audit) — auth-screen inline link, 13pt → 15pt for the auth-
+    // screen prompt register.
+    ...typography.subheadlineRegular,
     color: colors.white,
     textAlign: 'center',
   },

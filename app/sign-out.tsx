@@ -107,7 +107,12 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   subtitle: {
-    ...typography.footnoteRegular,
+    // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
+    // The sign-out screen pairs a 28pt title with this supporting
+    // sentence; 13pt dropped two tiers below the title (caption
+    // tier), reading as fine print on what's actually an onboarding-
+    // class screen. 15pt keeps it subordinate without burying it.
+    ...typography.subheadlineRegular,
     color: colors.signOutSubtitle,
   },
   button: {

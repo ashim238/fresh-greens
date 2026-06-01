@@ -301,7 +301,12 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   tapInstruction: {
-    ...typography.footnoteRegular,
+    // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
+    // The "Tap Settings below:" instruction is part of the step-by-
+    // step guidance flow; 13pt left it reading as caption while the
+    // body above is now 17pt. 15pt keeps it subordinate to the body
+    // (17pt) but lifts it out of fine-print tier.
+    ...typography.subheadlineRegular,
     color: colors.white,
   },
   subDirections: {
@@ -323,7 +328,10 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorderSubtle,
   },
   subText: {
-    ...typography.footnoteRegular,
+    // Bumped 13pt → 15pt to match tapInstruction above — both are
+    // step-by-step guidance copy and want the same supporting-tier
+    // register. Audit 2026-06-01.
+    ...typography.subheadlineRegular,
     color: colors.white,
   },
   cta: {
