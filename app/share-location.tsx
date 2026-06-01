@@ -84,7 +84,9 @@ export default function ShareLocation() {
     <View style={styles.root}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <DragHandle />
+        <View style={styles.dragHandleWrap}>
+          <DragHandle />
+        </View>
         {isActive && session ? (
           <ActiveView
             contactName={contact?.name ?? 'Your contact'}
@@ -183,11 +185,18 @@ function ActiveView({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
   safe: { flex: 1 },
+  // Drag-handle wrapper mirrors /safety's dragHandleWrapper + /roadside's
+  // updated pattern: 16pt above AND below the bar so the breathing room
+  // is symmetric. User-flagged 2026-06-01 — bare DragHandle was too
+  // tight against the safe-area top.
+  dragHandleWrap: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    alignItems: 'center',
+  },
   body: {
     paddingHorizontal: spacing.lg,
-    // Mirror /safety's drag-handle breathing room — see /roadside
-    // stepBody for the same fix and the math behind 16pt.
-    paddingTop: spacing.md,
+    // paddingTop: 0 — dragHandleWrap above provides the separation.
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },

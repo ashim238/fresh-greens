@@ -154,7 +154,9 @@ export default function Roadside() {
     <View style={styles.root}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <DragHandle />
+        <View style={styles.dragHandleWrap}>
+          <DragHandle />
+        </View>
         {step === 'problem' && (
           <ProblemPicker
             locationLabel={locationLabel}
@@ -626,13 +628,21 @@ function WrongSpotModal({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
   safe: { flex: 1 },
+  // Drag-handle wrapper mirrors /safety's dragHandleWrapper: vertical
+  // padding seats the 4pt bar in its own slot rather than slapping it
+  // against the safe-area top. User-flagged 2026-06-01 — the prior
+  // bare DragHandle + 16pt body paddingTop felt incredibly tight; the
+  // wrapper adds 16pt above AND below the bar so the breathing room
+  // is symmetric and visibly generous.
+  dragHandleWrap: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    alignItems: 'center',
+  },
   stepBody: {
     paddingHorizontal: spacing.lg,
-    // Mirror /safety's drag-handle breathing room: SafeAreaView top
-    // inset + DragHandle (4pt) + this paddingTop (16) + subtitle's
-    // own marginTop (8) ≈ 28pt before the first text. The 0-padding
-    // version felt incredibly tight against the drag bar.
-    paddingTop: spacing.md,
+    // Body paddingTop kept at 0 — dragHandleWrap above provides the
+    // separation. Doubling up would push the title too far down.
     paddingBottom: spacing.lg,
     flexGrow: 1,
   },

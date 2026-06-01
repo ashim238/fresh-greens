@@ -23,7 +23,7 @@ import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
-import { Star } from 'phosphor-react-native/src/icons/Star';
+import { StarFour } from 'phosphor-react-native/src/icons/StarFour';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
 import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
@@ -1512,18 +1512,16 @@ export default function EnRoute() {
           style={[styles.speedLimitWrap, { bottom: bottomSheetHeight + 24 }]}
           pointerEvents="box-none"
         >
-          <View
-            style={[
-              styles.speedLimitCurrentPill,
-              inCautionZone && styles.speedLimitCurrentPillCaution,
-            ]}
-          >
+          <View style={styles.speedLimitCurrentPill}>
             <Text style={styles.speedLimitCurrentNumber} numberOfLines={1}>
               {speedMph ?? '—'}
             </Text>
           </View>
           <View
-            style={styles.speedLimitSign}
+            style={[
+              styles.speedLimitSign,
+              inCautionZone && styles.speedLimitSignCaution,
+            ]}
             accessible
             accessibilityLabel="Speed limit unknown"
           >
@@ -1576,7 +1574,7 @@ export default function EnRoute() {
             accessibilityLabel="Emergency SOS"
             accessibilityHint="Opens trusted-contact and 911 options"
           >
-            <Star size={32} color={colors.red} weight="fill" />
+            <StarFour size={32} color={colors.red} weight="fill" />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"
@@ -2041,31 +2039,30 @@ const styles = StyleSheet.create({
     width: 88,
     alignItems: 'stretch',
   },
+  // Current speed pill (driver's GPS-measured speed) reads as a
+  // *digital car dashboard speedometer*: black panel, white digits.
+  // The prior white-on-white treatment doubled up with the speed-
+  // limit sign below it — both looked like road signs, and the
+  // visual hierarchy collapsed. User-flagged 2026-06-01.
+  // The caution-zone signal now lives only on the speed-limit sign
+  // (which flips to yellow inside a zone, mirroring real US
+  // school/curve caution speed-limit signs); doubling the yellow
+  // here was redundant.
   speedLimitCurrentPill: {
-    backgroundColor: colors.white,
-    borderWidth: 4,
-    borderColor: colors.cardBorderSubtle,
+    backgroundColor: colors.black,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    // 56pt (was 46) — the 24pt/28pt-line number needs 38pt of
-    // content room (10pt top padding + 28pt line); the -12pt
-    // overlap with the yellow sign below clipped the bottom of
-    // round digits ("0", "8") into the yellow band. 56pt gives
-    // 8pt of headroom above the overlap.
+    // 56pt — needs to clear the 24pt/28pt-line digits + 10pt top
+    // padding + 8pt headroom above the -12pt overlap with the sign
+    // below. (Same height as the prior white-pill variant.)
     height: 56,
-    // Overlap with the yellow sign below per Figma — `mb-[-12px]` in
-    // the source mocks. Gives the appearance of a unified stack.
+    // Overlap with the speed-limit sign below per Figma — `mb-[-12px]`.
+    // Gives the appearance of a unified stack.
     marginBottom: -12,
-  },
-  // C16: caution-zone border. Yellow (reserved caution color) replaces
-  // the neutral cardBorderSubtle when the driver is inside a caution/
-  // avoid zone — a glanceable "heads up" on the speed cluster.
-  speedLimitCurrentPillCaution: {
-    borderColor: colors.yellow,
   },
   speedLimitCurrentNumber: {
     // SF Pro Bold stand-in for Overpass Bold (the canonical US speed-
@@ -2073,12 +2070,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 24,
     lineHeight: 28,
-    color: colors.black,
+    color: colors.white,
     textAlign: 'center',
     letterSpacing: -0.26,
   },
+  // Speed-limit sign (posted limit from OSM): white normally — the
+  // default US speed-limit sign register — turning yellow inside a
+  // caution zone (school/curve-style warning sign convention).
+  // v1 had this always-yellow, which read as "caution everywhere"
+  // and made the caution-zone state invisible. User-flagged 2026-06-01.
   speedLimitSign: {
-    backgroundColor: colors.yellow,
+    backgroundColor: colors.white,
     borderWidth: 4,
     borderColor: colors.cardBorderSubtle,
     borderRadius: 12,
@@ -2092,6 +2094,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 2,
+  },
+  // Caution-zone fill flip — yellow background only inside a caution
+  // zone. Mirrors real-world US warning speed-limit signs.
+  speedLimitSignCaution: {
+    backgroundColor: colors.yellow,
   },
   speedLimitNumber: {
     fontWeight: '700',

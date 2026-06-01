@@ -11,7 +11,7 @@ import { Shield } from 'phosphor-react-native/src/icons/Shield';
 // the prior red medical-cross SVG (user-flagged 2026-06-01) because
 // the cross shape conflicted with the protected Red Cross emblem.
 // See app/emergency.tsx for the full rationale.
-import { Star } from 'phosphor-react-native/src/icons/Star';
+import { StarFour } from 'phosphor-react-native/src/icons/StarFour';
 import { UserCircle } from 'phosphor-react-native/src/icons/UserCircle';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -129,7 +129,7 @@ export default function SafetySettings() {
               accessibilityRole="button"
               accessibilityLabel="Emergency SOS. Reach a trusted contact or 911."
             >
-              <Star size={28} color={colors.red} weight="fill" />
+              <StarFour size={28} color={colors.red} weight="fill" />
               <View style={styles.rowTextStack}>
                 <Text style={styles.rowLabel}>Emergency SOS</Text>
                 <Text style={styles.rowValue}>Reach a trusted contact or 911</Text>

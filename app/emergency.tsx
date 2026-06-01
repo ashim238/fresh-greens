@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Phosphor-only icon system (CLAUDE.md project_icons_phosphor.md).
 // Same glyph at /en-route's SOS side-button and /safety-settings' SOS
 // row so the SOS symbol stays identical everywhere it appears.
-import { Star } from 'phosphor-react-native/src/icons/Star';
+import { StarFour } from 'phosphor-react-native/src/icons/StarFour';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
@@ -319,7 +319,7 @@ export default function Emergency() {
                 {mode === 'countdown' ? (
                   <Text style={styles.sosLabel}>{countdownSec}</Text>
                 ) : (
-                  <Star size={104} color={colors.red} weight="fill" />
+                  <StarFour size={104} color={colors.red} weight="fill" />
                 )}
               </Pressable>
             </View>
