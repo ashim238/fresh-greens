@@ -22,6 +22,7 @@ import {
 } from '../lib/api/community-reports';
 import { formatDistance, formatDuration } from '../lib/format';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -346,11 +347,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   title: {
-    ...typography.title1Regular,
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
   },
   destination: {
-    ...typography.bodyRegular,
+    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
     color: colors.mutedSecondary,
     marginTop: spacing.xs,
   },
@@ -360,12 +361,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   statValue: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
     fontVariant: ['tabular-nums'],
   },
   statLabel: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.mutedSecondary,
     marginTop: spacing.xs,
   },
@@ -375,11 +376,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   inferenceHeading: {
-    ...typography.title3Emphasized,
+    ...dynamicType(typography.title3Emphasized),
     color: colors.black,
   },
   inferenceSub: {
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.mutedSecondary,
     marginBottom: spacing.sm,
   },

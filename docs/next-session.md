@@ -157,7 +157,7 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 ### /pulled-over
 
-- **[/pulled-over] TrustedContactStatus claims active notification while wiring is decorative** — [Audit 2026-05-31 §/pulled-over F1, Critical] gate render on `useTrustedContact().contact`; revise copy at `components/TrustedContactStatus.tsx:27` (rendered `app/pulled-over.tsx:527`).
+- ~~**[/pulled-over] TrustedContactStatus claims active notification while wiring is decorative**~~ — ✅ closed `3cf2389` (TrustedContactStatus refactored — gated on contact, pulse dropped, copy now forward-looking). Original audit context: [Audit 2026-05-31 §/pulled-over F1, Critical] gate render on `useTrustedContact().contact`; revise copy at `components/TrustedContactStatus.tsx:27` (rendered `app/pulled-over.tsx:527`).
 - **[/pulled-over] Recording footnote elides "we don't auto-share" claim** — [Audit 2026-05-31 §/pulled-over F2, Important] tighten copy at `app/pulled-over.tsx:797-799`.
 - **[/pulled-over] "Tap to continue" hint contradicts calming-pause intent** — [Audit 2026-05-31 §/pulled-over F3, Important] `app/pulled-over.tsx:605` → "Tap when ready" or "Tap to skip ahead."
 - **[/pulled-over] `officerStyles.emphasis` reaches into another token's `fontWeight`** — [Audit 2026-05-31 §/pulled-over F4, Minor] use `<Strong>` helper at `app/pulled-over.tsx:1997`.
@@ -165,9 +165,9 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 ### /en-route
 
-- **[/en-route] Bottom-sheet typography not wrapped in `dynamicType()`** — [Audit 2026-05-31 §/en-route F1, Important] wrap at `app/en-route.tsx:2143, 2147, 2162, 2173, 2223, 2231, 2227, 2079, 2269`; lift `endTripBtn.height: 52` → `minHeight`.
+- ~~**[/en-route] Bottom-sheet typography not wrapped in `dynamicType()`**~~ — ✅ closed `6189847` (9 bottom-sheet styles wrapped; endTripBtn lifted to minHeight). Original audit context: [Audit 2026-05-31 §/en-route F1, Important] wrap at `app/en-route.tsx:2143, 2147, 2162, 2173, 2223, 2231, 2227, 2079, 2269`; lift `endTripBtn.height: 52` → `minHeight`.
 - **[/en-route] Raw `rgba()` and hex literal in styles** — [Audit 2026-05-31 §/en-route F2, Important] tokens at `app/en-route.tsx:1959, 2064`.
-- **[/en-route] Ionicons leak inside en-route surface** — [Audit 2026-05-31 §/en-route F3, Important] `app/en-route.tsx:13, 1723`; `components/RouteComparisonSheet.tsx:1,54,78,91`; `components/FuelStopsSheet.tsx:1,51`.
+- ~~**[/en-route] Ionicons leak inside en-route surface**~~ — ✅ closed `a481cff` (All en-route + RouteComparisonSheet + FuelStopsSheet icons Phosphor). Original audit context: [Audit 2026-05-31 §/en-route F3, Important] `app/en-route.tsx:13, 1723`; `components/RouteComparisonSheet.tsx:1,54,78,91`; `components/FuelStopsSheet.tsx:1,51`.
 - **[/en-route] Speed limit hardcoded to 25 mph** — [Audit 2026-05-31 §/en-route F4, Important] `app/en-route.tsx:1507` — hide when unknown OR show "—" with "Limit unknown" a11y label.
 - **[/en-route] No consolidated v2-deltas docblock** — [Audit 2026-05-31 §/en-route F5, Important] add at `app/en-route.tsx:101-118`.
 - **[/en-route] No empty-state when location permission denied** — [Audit 2026-05-31 §/en-route F6, Important] `app/en-route.tsx:848-927`.
@@ -181,10 +181,10 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 - **[/home] Stale Figma citation `1133:13690`** — [Audit 2026-05-31 §/home F1, Important] update at `app/home.tsx:1516`; reconcile against `HomeBrowseSheet.tsx:44` (`1114:9047`).
 - **[/home] Outdated browse-mode docblock** — [Audit 2026-05-31 §/home F2, Important] `app/home.tsx:1514-1518` describes single-card; shipped is 7-row.
-- **[/home] SearchBar uses Ionicons (most-seen UI in the app)** — [Audit 2026-05-31 §/home F3, Critical] `components/SearchBar.tsx:1, 65, 130`. Folds into PROJECT-A; called out separately for blast-radius.
-- **[/home] Browse-sheet section/eyebrow/topRow titles missing Dynamic Type** — [Audit 2026-05-31 §/home F4, Important] `components/HomeBrowseSheet.tsx:1244-1257, 1328-1332, 1457-1462, 1494-1504`.
-- **[/home] Carousel `cardTitle` uses `adjustsFontSizeToFit` (wrong primitive)** — [Audit 2026-05-31 §/home F5, Important] `HomeBrowseSheet.tsx:1039` — shrinks under pressure, opposite of AX5.
-- **[/home] `StateCard.card` fixed `width: 326`** — [Audit 2026-05-31 §/home F6, Important] `components/StateCard.tsx:128`.
+- ~~**[/home] SearchBar uses Ionicons (most-seen UI in the app)**~~ — ✅ closed `a481cff` (MagnifyingGlass/Microphone/CaretLeft/XCircle in SearchBar). Original audit context: [Audit 2026-05-31 §/home F3, Critical] `components/SearchBar.tsx:1, 65, 130`. Folds into PROJECT-A; called out separately for blast-radius.
+- ~~**[/home] Browse-sheet section/eyebrow/topRow titles missing Dynamic Type**~~ — ✅ closed `73e53dd` (Browse-sheet section/eyebrow/cardTitle etc. wrapped). Original audit context: [Audit 2026-05-31 §/home F4, Important] `components/HomeBrowseSheet.tsx:1244-1257, 1328-1332, 1457-1462, 1494-1504`.
+- ~~**[/home] Carousel `cardTitle` uses `adjustsFontSizeToFit` (wrong primitive)**~~ — ✅ closed `73e53dd` (adjustsFontSizeToFit removed; dynamicType applied). Original audit context: [Audit 2026-05-31 §/home F5, Important] `HomeBrowseSheet.tsx:1039` — shrinks under pressure, opposite of AX5.
+- ~~**[/home] `StateCard.card` fixed `width: 326`**~~ — ✅ closed `a916e6a` (StateCard.card width: 326 → maxWidth). Original audit context: [Audit 2026-05-31 §/home F6, Important] `components/StateCard.tsx:128`.
 - **[/home] "Safest route" caption renders before zones load or with empty zones** — [Audit 2026-05-31 §/home F7, Important] gate at `app/home.tsx:1831` on `enabledZones.length > 0 && !isCalculatingRoute`.
 - **[/home] Cold-start race: `bottomSheetHeight` vs `fabAnchorHeight` lock** — [Audit 2026-05-31 §/home F8, Important] `app/home.tsx:1541-1551`; closed-form anchor proposed.
 - **[/home] `routeArrival` "arrive {time}" lowercase** — [Audit 2026-05-31 §/home F9, Minor] `app/home.tsx:1754`.
@@ -200,8 +200,8 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 - **[/search] Results-phase search-bar mismatches Figma `1105:6462` left-icon variant** — [Audit 2026-05-31 §/search F1, Important] intentional but not disclosed in docblock.
 - **[/search] "More results for X" affordance from Figma results node absent** — [Audit 2026-05-31 §/search F2, Important] Mapbox Search Box pages; surface it.
 - **[/search] 25+ raw integer spacings** — [Audit 2026-05-31 §/search F3, Important] `app/search.tsx:826-1021`, `SearchBar.tsx:147-198`, `StateCard.tsx:126-195`.
-- **[/search] SearchBar uses Ionicons** — [Audit 2026-05-31 §/search F4, Important] `SearchBar.tsx:1, 65, 130`. Folds into PROJECT-A.
-- **[/search] Zero `dynamicType()` calls across the three files** — [Audit 2026-05-31 §/search F5, Important] folds into PROJECT-B.
+- ~~**[/search] SearchBar uses Ionicons**~~ — ✅ closed `a481cff` (Same SearchBar fix as /home F3). Original audit context: [Audit 2026-05-31 §/search F4, Important] `SearchBar.tsx:1, 65, 130`. Folds into PROJECT-A.
+- ~~**[/search] Zero `dynamicType()` calls across the three files**~~ — ✅ closed `a916e6a` (search.tsx + SearchBar + StateCard swept). Original audit context: [Audit 2026-05-31 §/search F5, Important] folds into PROJECT-B.
 - **[/search] Quick Tools horizontal ScrollView lacks `tablist` semantics** — [Audit 2026-05-31 §/search F6, Minor] `app/search.tsx:520-569`.
 - **[/search] `userLocation` failure silently downgrades ErrorState to transient** — [Audit 2026-05-31 §/search F7, Minor] permission denied is hard wall.
 - **[/search] Saved-row a11y label period-as-separator** — [Audit 2026-05-31 §/search F8, Minor] `app/search.tsx:593`.
@@ -213,15 +213,15 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 ### /menu
 
-- **[/menu] Ionicons chevrons violate Phosphor-only** — [Audit 2026-05-31 §/menu F1, Important] `app/menu.tsx:1, 202, 520-524`. Folds into PROJECT-A.
-- **[/menu] No Dynamic Type on any text node** — [Audit 2026-05-31 §/menu F2, Important] lines 587-733. Folds into PROJECT-B.
+- ~~**[/menu] Ionicons chevrons violate Phosphor-only**~~ — ✅ closed `a481cff` (Menu chevron-back + SettingsRow chevron-forward → CaretLeft/CaretRight). Original audit context: [Audit 2026-05-31 §/menu F1, Important] `app/menu.tsx:1, 202, 520-524`. Folds into PROJECT-A.
+- ~~**[/menu] No Dynamic Type on any text node**~~ — ✅ closed `36d03db` (Menu profileGreeting/profileName/rowLabel/zoneInnerLabel/zoneGroupCaption/tile/signOutText wrapped). Original audit context: [Audit 2026-05-31 §/menu F2, Important] lines 587-733. Folds into PROJECT-B.
 - **[/menu] Sign-out `Promise.all` masks per-adapter errors** — [Audit 2026-05-31 §/menu F3, Minor] lines 172-179 — use `Promise.allSettled` + console.warn.
 - **[/menu] Avatar image has no `onError` / fallback** — [Audit 2026-05-31 §/menu F4, Minor] lines 218-224.
 
 ### /recordings
 
-- **[/recordings] Back chevron Ionicons (re-graded from Minor)** — [Audit 2026-05-31 §/recordings F1, Important] lines 1, 174. PROJECT-A retires the "de-facto convention" defense.
-- **[/recordings] No Dynamic Type / `relaxedLineHeight`** — [Audit 2026-05-31 §/recordings F2, Minor] lines 454, 499, 507, 587, 594. Folds into PROJECT-B.
+- ~~**[/recordings] Back chevron Ionicons (re-graded from Minor)**~~ — ✅ closed `a481cff` (Recordings chevron-back → CaretLeft). Original audit context: [Audit 2026-05-31 §/recordings F1, Important] lines 1, 174. PROJECT-A retires the "de-facto convention" defense.
+- ~~**[/recordings] No Dynamic Type / `relaxedLineHeight`**~~ — ✅ closed `2a8cd20` (Recordings pageTitle/cardTimestamp/cardSecondary/confirmTitle/confirmBody wrapped). Original audit context: [Audit 2026-05-31 §/recordings F2, Minor] lines 454, 499, 507, 587, 594. Folds into PROJECT-B.
 
 ### /unfamiliar
 
@@ -231,21 +231,21 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 ### /trip-summary
 
-- **[/trip-summary] Title + stats + inference copy not wrapped in `dynamicType()`** — [Audit 2026-05-31 §/trip-summary F1, Important] lines 349, 353, 363, 368, 378, 382, 396, 422. Folds into PROJECT-B.
+- ~~**[/trip-summary] Title + stats + inference copy not wrapped in `dynamicType()`**~~ — ✅ closed `d4e5141` (trip-summary title/destination/statValue/statLabel/inferenceHeading/Sub/Label/Result wrapped). Original audit context: [Audit 2026-05-31 §/trip-summary F1, Important] lines 349, 353, 363, 368, 378, 382, 396, 422. Folds into PROJECT-B.
 - **[/trip-summary] "Set as default" silently no-ops when `destLat`/`destLng` absent** — [Audit 2026-05-31 §/trip-summary F2, Important] lines 159-178. Folds into PROJECT-C.
 - **[/trip-summary] Title/inferenceHeading register inconsistency** — [Audit 2026-05-31 §/trip-summary F3, Minor] `title1Regular` vs `title3Emphasized` at line 378.
 - **[/trip-summary] No haptic on Confirm/Dismiss or Set-as-default success** — [Audit 2026-05-31 §/trip-summary F4, Minor] lines 159-202.
 
 ### /trusted-contact-setup
 
-- **[/trusted-contact-setup] Ionicons `chevron-back`** — [Audit 2026-05-31 §/trusted-contact-setup F1, Important] lines 1, 173. Folds into PROJECT-A.
-- **[/trusted-contact-setup] No `dynamicType()` / `relaxedLineHeight` despite canonical-AX5-reference status** — [Audit 2026-05-31 §/trusted-contact-setup F2, Important] lines 337-352. Direct contradiction of learnings.
-- **[/trusted-contact-setup] "Alerts this person during emergencies" overpromises v1 (re-graded from Important)** — [Audit 2026-05-31 §/trusted-contact-setup F3, Critical] `app/trusted-contact-setup.tsx:186-189`. Anchor finding for PROJECT-C.
+- ~~**[/trusted-contact-setup] Ionicons `chevron-back`**~~ — ✅ closed `a481cff` (trusted-contact-setup chevron-back → CaretLeft). Original audit context: [Audit 2026-05-31 §/trusted-contact-setup F1, Important] lines 1, 173. Folds into PROJECT-A.
+- ~~**[/trusted-contact-setup] No `dynamicType()` / `relaxedLineHeight` despite canonical-AX5-reference status**~~ — ✅ closed `3eaa95b` (title/body/previewName/previewPhone wrapped — canonical AX5 ref now follows its own rule). Original audit context: [Audit 2026-05-31 §/trusted-contact-setup F2, Important] lines 337-352. Direct contradiction of learnings.
+- ~~**[/trusted-contact-setup] "Alerts this person during emergencies" overpromises v1 (re-graded from Important)**~~ — ✅ closed `25a2654` (Body copy rewritten: "every call and text is yours to send"). Original audit context: [Audit 2026-05-31 §/trusted-contact-setup F3, Critical] `app/trusted-contact-setup.tsx:186-189`. Anchor finding for PROJECT-C.
 - **[/trusted-contact-setup] Error text has no live-region announcement and no haptic** — [Audit 2026-05-31 §/trusted-contact-setup F4, Minor] lines 249, 121-126.
 
 ### /legal
 
-- **[/legal] Ionicons used on the page asserting Phosphor MIT in terms.md** — [Audit 2026-05-31 §/legal F1, Critical] `app/legal.tsx:1, 74`. The internal contradiction is the thesis hit.
+- ~~**[/legal] Ionicons used on the page asserting Phosphor MIT in terms.md**~~ — ✅ closed `a481cff` (/legal chevron-back → CaretLeft). Original audit context: [Audit 2026-05-31 §/legal F1, Critical] `app/legal.tsx:1, 74`. The internal contradiction is the thesis hit.
 - **[/legal] JSX drops Mapbox URL + "(the map provider)" parenthetical** — [Audit 2026-05-31 §/legal F2, Important] line 125.
 - **[/legal] JSX omits four Privacy sections** — [Audit 2026-05-31 §/legal F3, Important] missing "What we do *not* collect", "Children" (COPPA), "Contact", "Sign out cleanup."
 - **[/legal] JSX omits Terms sections (incl. Phosphor MIT line that conflicts with F1)** — [Audit 2026-05-31 §/legal F4, Important] missing "What Fresh Greens is", "Your account and data", "Intellectual property", "Governing law", "Contact"; limitation-of-liability text shorter than markdown.
@@ -267,8 +267,8 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 ### /fuel
 
-- **[/fuel] Ionicons usage drifts from Phosphor** — [Audit 2026-05-31 §/fuel F1, Important] lines 1, 116, 168, 179. Folds into PROJECT-A.
-- **[/fuel] No Dynamic Type / line-height policy** — [Audit 2026-05-31 §/fuel F2, Important] lines 236-307. Folds into PROJECT-B.
+- ~~**[/fuel] Ionicons usage drifts from Phosphor**~~ — ✅ closed `a481cff` (/fuel chevron-back + Plus/Minus steppers). Original audit context: [Audit 2026-05-31 §/fuel F1, Important] lines 1, 116, 168, 179. Folds into PROJECT-A.
+- ~~**[/fuel] No Dynamic Type / line-height policy**~~ — ✅ closed `062546f` (/fuel title/fieldLabel/input/segmentText/stepValue/toggleLabel/statusText/CTAlabels wrapped). Original audit context: [Audit 2026-05-31 §/fuel F2, Important] lines 236-307. Folds into PROJECT-B.
 - **[/fuel] Segmented fuel-type buttons lack composite label; toggle row lacks role** — [Audit 2026-05-31 §/fuel F3, Important] lines 148-150, 183-192.
 - **[/fuel] "Next reminder" hides time-of-day reality of TIME_INTERVAL** — [Audit 2026-05-31 §/fuel F4, Minor] lines 92-99, 196 — add WHY comment or surface time.
 - **[/fuel] No haptic on Save / "I filled up"** — [Audit 2026-05-31 §/fuel F5, Minor].

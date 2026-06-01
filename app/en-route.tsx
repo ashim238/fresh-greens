@@ -10,7 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { BatteryCharging } from 'phosphor-react-native/src/icons/BatteryCharging';
+import { Car } from 'phosphor-react-native/src/icons/Car';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index.
@@ -1720,11 +1721,11 @@ export default function EnRoute() {
               } on your route${refuelDue ? ', refuel due' : ''}`}
               accessibilityHint="Shows fuel stops along your route"
             >
-              <Ionicons
-                name={fuelProfile.fuelType === 'electric' ? 'battery-charging' : 'car'}
-                size={20}
-                color={colors.black}
-              />
+              {fuelProfile.fuelType === 'electric' ? (
+                <BatteryCharging size={20} color={colors.black} weight="regular" />
+              ) : (
+                <Car size={20} color={colors.black} weight="regular" />
+              )}
               <Text style={styles.fuelStopsEntryLabel}>
                 {fuelProfile.fuelType === 'electric' ? 'Charging on route' : 'Gas on route'}
               </Text>
@@ -2076,7 +2077,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.26,
   },
   speedLimitUnit: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.black,
     textAlign: 'center',
   },
@@ -2140,11 +2141,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   hazardCopy: {
-    ...typography.title3Emphasized,
+    ...dynamicType(relaxedLineHeight(typography.title3Emphasized)),
     color: colors.black,
   },
   hazardLengthCopy: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.mutedSecondary,
   },
   // Refuel reminders entry — Full bottom sheet row. Icon + label that
@@ -2159,7 +2160,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   fuelStopsEntryLabel: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
     flex: 1,
   },
@@ -2170,7 +2171,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
   },
   fuelStopsDueText: {
-    ...typography.caption1Emphasized,
+    ...dynamicType(typography.caption1Emphasized),
     color: colors.white,
   },
   // v2 layout — FAB + ETA + FAB with the ETA wrapped in a flex:1
@@ -2220,15 +2221,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryDistance: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   secondarySeparator: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
   },
   secondaryDuration: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
 
@@ -2254,7 +2255,7 @@ const styles = StyleSheet.create({
     // the 56pt FAB family register while staying smaller than the
     // primary CTAs (Go is filled, End Trip is outlined — different
     // visual weight already).
-    height: 52,
+    minHeight: 52,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
@@ -2266,7 +2267,7 @@ const styles = StyleSheet.create({
     // navigation isn't being undone, just stopped).
   },
   endTripText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(relaxedLineHeight(typography.subheadlineEmphasized)),
     color: colors.wiltedgreen,
   },
 });

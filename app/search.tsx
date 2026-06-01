@@ -34,6 +34,7 @@ import { searchPlaces, type Place } from '../lib/api/places';
 import { type RegularDestination } from '../lib/api/regular-destinations';
 import { type SavedPlace } from '../lib/api/saved-places';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
@@ -871,7 +872,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   quickToolLabel: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
   },
   divider: {
@@ -890,11 +891,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fuelTitle: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
   },
   fuelSubtitle: {
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.wiltedgreen,
   },
   recentSection: {
@@ -907,15 +908,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   recentLabel: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   recentClear: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.freshgreen,
   },
   recentEmpty: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(relaxedLineHeight(typography.subheadlineRegular)),
     color: colors.mutedSecondary,
     paddingVertical: 10,
   },
@@ -939,11 +940,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   recentText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
   },
   recentSubtext: {
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.mutedSecondary,
   },
   stateCardWrap: {

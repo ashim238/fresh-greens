@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   eyebrow: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.mutedTertiary,
   },
   topRow: {
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   neighborhood: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
     flex: 1,
   },
@@ -1268,7 +1268,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   weatherText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   chipsRow: {
@@ -1326,7 +1326,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
     flexShrink: 1,
   },
@@ -1456,7 +1456,7 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   toplineText: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.black,
     flexShrink: 1,
   },
@@ -1497,9 +1497,12 @@ const styles = StyleSheet.create({
     // ("Guidance/instruction screens: Title1 Emphasized") — overkill on
     // a 280pt carousel card where it left no weight for the tag rows.
     // Apple Maps / Google Maps place cards sit at 15-17pt semibold.
-    // The existing adjustsFontSizeToFit + minimumFontScale={0.85} on the
-    // Text element still handles long names gracefully at the new size.
-    ...typography.title3Emphasized,
+    // PROJECT-B: dynamicType so the title scales with iOS Larger Text
+    // (WCAG 1.4.4). Replaced the earlier adjustsFontSizeToFit /
+    // minimumFontScale={0.85} primitive on the <Text> — that shrinks
+    // under AX5 pressure (the opposite of the user's intent) instead
+    // of growing. numberOfLines={2} stays to cap overflow.
+    ...dynamicType(typography.title3Emphasized),
     color: colors.black,
   },
   tagRow: {
@@ -1517,7 +1520,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   rating: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     // freshgreen per v2 Figma (1114:9047) — brand-exception accent,
     // same family as the freshgreen Go button and underlined
     // destination link in route mode (.cursorrules: "primary CTA,

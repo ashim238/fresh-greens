@@ -1,13 +1,17 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { Minus } from 'phosphor-react-native/src/icons/Minus';
+import { Plus } from 'phosphor-react-native/src/icons/Plus';
+
 import { type FuelType } from '../lib/api/fuel';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
@@ -113,7 +117,7 @@ export default function Fuel() {
             accessibilityLabel="Back"
             hitSlop={12}
           >
-            <Ionicons name="chevron-back" size={28} color={colors.black} />
+            <CaretLeft size={28} color={colors.black} weight="regular" />
           </Pressable>
         </View>
         <Text style={styles.title} accessibilityRole="header">
@@ -165,7 +169,7 @@ export default function Fuel() {
               accessibilityRole="button"
               accessibilityLabel="Fewer days"
             >
-              <Ionicons name="remove" size={20} color={colors.black} />
+              <Minus size={20} color={colors.black} weight="bold" />
             </Pressable>
             <Text style={styles.stepValue}>
               {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
@@ -176,7 +180,7 @@ export default function Fuel() {
               accessibilityRole="button"
               accessibilityLabel="More days"
             >
-              <Ionicons name="add" size={20} color={colors.black} />
+              <Plus size={20} color={colors.black} weight="bold" />
             </Pressable>
           </View>
 
@@ -234,15 +238,15 @@ const styles = StyleSheet.create({
   // Title sits on its own line below the back chevron (matches /recordings
   // + /safety-settings) — chevron and title on one row read congested.
   title: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
   body: { flex: 1, gap: spacing.md },
-  fieldLabel: { ...typography.footnoteEmphasized, color: colors.labelSecondary },
+  fieldLabel: { ...dynamicType(typography.footnoteEmphasized), color: colors.labelSecondary },
   input: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.black,
     minHeight: 44,
     borderWidth: 1,
@@ -264,28 +268,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
     borderColor: colors.freshgreen,
   },
-  segmentText: { ...typography.subheadlineEmphasized, color: colors.labelSecondary },
+  segmentText: { ...dynamicType(typography.subheadlineEmphasized), color: colors.labelSecondary },
   segmentTextSelected: { color: colors.white },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   stepBtn: {
-    width: 44,
-    height: 44,
+    // 44pt stepper buttons — minHeight not height because at AX5 the
+    // value-row container grows to fit the scaled stepValue and the
+    // buttons should grow with it (per ax5/safety-surfaces minHeight rule).
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
   },
-  stepValue: { ...typography.bodyEmphasized, color: colors.black, minWidth: 72, textAlign: 'center' },
+  stepValue: { ...dynamicType(typography.bodyEmphasized), color: colors.black, minWidth: 72, textAlign: 'center' },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 44,
   },
-  toggleLabel: { ...typography.bodyRegular, color: colors.black },
+  toggleLabel: { ...dynamicType(typography.bodyRegular), color: colors.black },
   statusBlock: { gap: spacing.sm, paddingTop: spacing.sm },
-  statusText: { ...typography.footnoteRegular, color: colors.labelSecondary },
+  statusText: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
   filledBtn: {
     alignSelf: 'flex-start',
     minHeight: 44,
@@ -295,7 +302,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.freshgreen,
   },
-  filledBtnText: { ...typography.subheadlineEmphasized, color: colors.freshgreen },
+  filledBtnText: { ...dynamicType(typography.subheadlineEmphasized), color: colors.freshgreen },
   saveBtn: {
     minHeight: 50,
     borderRadius: 100,
@@ -304,5 +311,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  saveBtnText: { ...typography.bodyEmphasized, color: colors.white },
+  saveBtnText: { ...dynamicType(typography.bodyEmphasized), color: colors.white },
 });

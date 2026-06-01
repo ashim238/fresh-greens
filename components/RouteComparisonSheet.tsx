@@ -1,6 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { ComponentType } from 'react';
+
+import { CheckCircle } from 'phosphor-react-native/src/icons/CheckCircle';
+import { Moon } from 'phosphor-react-native/src/icons/Moon';
+import { PawPrint } from 'phosphor-react-native/src/icons/PawPrint';
+import { ShieldStar } from 'phosphor-react-native/src/icons/ShieldStar';
+import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
+import { X } from 'phosphor-react-native/src/icons/X';
 
 import { type RouteCondition } from '../lib/scoring';
 import { colors } from '../theme/colors';
@@ -19,11 +26,13 @@ export type ComparisonRow = {
   isRecommended: boolean;
 };
 
-const CONDITION_META: Record<RouteCondition, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  'low-light': { label: 'Low light', icon: 'moon' },
-  wildlife: { label: 'Wildlife', icon: 'paw' },
-  police: { label: 'Police', icon: 'shield' },
-  road: { label: 'Road', icon: 'construct' },
+type PhosphorIcon = ComponentType<{ size?: number; color?: string; weight?: 'regular' | 'bold' | 'fill' | 'duotone' | 'thin' | 'light' }>;
+
+const CONDITION_META: Record<RouteCondition, { label: string; Icon: PhosphorIcon }> = {
+  'low-light': { label: 'Low light', Icon: Moon },
+  wildlife: { label: 'Wildlife', Icon: PawPrint },
+  police: { label: 'Police', Icon: ShieldStar },
+  road: { label: 'Road', Icon: Wrench },
 };
 
 /**
@@ -51,7 +60,7 @@ export function RouteComparisonSheet({
             <View style={styles.header}>
               <Text style={styles.title}>Routes</Text>
               <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={12}>
-                <Ionicons name="close" size={24} color={colors.labelSecondary} />
+                <X size={24} color={colors.labelSecondary} weight="regular" />
               </Pressable>
             </View>
 
@@ -75,7 +84,7 @@ export function RouteComparisonSheet({
                   <View style={styles.rowTop}>
                     <Text style={styles.duration}>{item.durationLabel}</Text>
                     {item.isActive && (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.freshgreen} />
+                      <CheckCircle size={20} color={colors.freshgreen} weight="fill" />
                     )}
                   </View>
                   <Text style={[styles.descriptor, item.isRecommended && styles.descriptorSafe]}>
@@ -86,12 +95,15 @@ export function RouteComparisonSheet({
                   </Text>
                   {item.conditions.length > 0 && (
                     <View style={styles.chips}>
-                      {item.conditions.map((c) => (
-                        <View key={c} style={styles.chip}>
-                          <Ionicons name={CONDITION_META[c].icon} size={13} color={colors.labelSecondary} />
-                          <Text style={styles.chipText}>{CONDITION_META[c].label}</Text>
-                        </View>
-                      ))}
+                      {item.conditions.map((c) => {
+                        const { Icon, label } = CONDITION_META[c];
+                        return (
+                          <View key={c} style={styles.chip}>
+                            <Icon size={13} color={colors.labelSecondary} weight="regular" />
+                            <Text style={styles.chipText}>{label}</Text>
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </Pressable>

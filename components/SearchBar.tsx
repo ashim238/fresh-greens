@@ -1,5 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
+
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
+import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
+import { XCircle } from 'phosphor-react-native/src/icons/XCircle';
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -62,7 +66,7 @@ export function SearchBar({
         accessibilityRole="search"
         accessibilityLabel={placeholder}
       >
-        <Ionicons name="search" size={24} color={colors.labelSecondary} />
+        <MagnifyingGlass size={24} color={colors.labelSecondary} weight="regular" />
         <Text style={styles.placeholder} numberOfLines={1}>
           {placeholder}
         </Text>
@@ -127,7 +131,7 @@ function PressableIcon({
   accessibilityLabel?: string;
 }) {
   const size = name === 'mic' ? 20 : 24;
-  const icon = <Ionicons name={name} size={size} color={colors.labelSecondary} />;
+  const icon = renderPhosphorIcon(name, size);
   if (!onPress) {
     return <View style={styles.iconWrap}>{icon}</View>;
   }
@@ -142,6 +146,24 @@ function PressableIcon({
       {icon}
     </Pressable>
   );
+}
+
+/** Maps the SearchBar's legacy icon-name strings to Phosphor components. */
+function renderPhosphorIcon(
+  name: 'search' | 'mic' | 'chevron-back' | 'close-circle',
+  size: number,
+) {
+  const color = colors.labelSecondary;
+  switch (name) {
+    case 'search':
+      return <MagnifyingGlass size={size} color={color} weight="regular" />;
+    case 'mic':
+      return <Microphone size={size} color={color} weight="regular" />;
+    case 'chevron-back':
+      return <CaretLeft size={size} color={color} weight="regular" />;
+    case 'close-circle':
+      return <XCircle size={size} color={color} weight="regular" />;
+  }
 }
 
 const styles = StyleSheet.create({

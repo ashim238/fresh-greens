@@ -2355,13 +2355,13 @@ const styles = StyleSheet.create({
   },
   // Arrival clock time — sits baseline-aligned with the duration headline.
   routeArrival: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelSecondary,
     paddingBottom: 6,
   },
   // Distance line below the hero row.
   routeDistance: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     paddingHorizontal: 24,
   },
@@ -2372,7 +2372,7 @@ const styles = StyleSheet.create({
     // put their ETA in the 34-36pt range. The card already has a
     // type ladder beneath (footnote Via line, caption1 conditions)
     // so the 34pt headline doesn't crush anything.
-    ...typography.largeTitleEmphasized,
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.wiltedgreen,
   },
   // Via + daylight strip share a row per Figma — both are secondary
@@ -2392,7 +2392,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   routeViaLabel: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
     // flex into the left column so the daylight strip on the right
     // gets its fixed 96pt while the via text takes whatever's left.
@@ -2403,7 +2403,7 @@ const styles = StyleSheet.create({
     // match the conditions tail's increased role: it now surfaces the
     // arrivalLabel ("arriving in daylight" etc.) that was previously
     // only in the VoiceOver a11y label.
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     paddingHorizontal: 24,
   },
@@ -2604,7 +2604,7 @@ const styles = StyleSheet.create({
   placementHint: {
     // Quiet footnote instruction above the Confirm/cancel row. Tertiary
     // gray so it reads as a hint, not a heading.
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.labelTertiary,
     // Left-aligned to the gutter — which is also the Confirm button's
     // left edge. Centering looked off against the asymmetric Confirm +

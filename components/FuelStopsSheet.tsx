@@ -1,6 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { X } from 'phosphor-react-native/src/icons/X';
 
 import { type Place } from '../lib/api/places';
 import { type FuelType } from '../lib/api/fuel';
@@ -48,7 +49,7 @@ export function FuelStopsSheet({
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
               <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={12}>
-                <Ionicons name="close" size={24} color={colors.labelSecondary} />
+                <X size={24} color={colors.labelSecondary} weight="regular" />
               </Pressable>
             </View>
 

@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -13,6 +13,7 @@ import { EmptyState } from '../components/StateCard';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
@@ -170,7 +171,7 @@ export default function TrustedContactSetup() {
                 pressed && pressedDim,
               ]}
             >
-              <Ionicons name="chevron-back" size={28} color={colors.black} />
+              <CaretLeft size={28} color={colors.black} weight="regular" />
             </Pressable>
           </View>
         ) : (
@@ -183,9 +184,10 @@ export default function TrustedContactSetup() {
               Set your Trusted Contact
             </Text>
             <Text style={[styles.body, embedded && stylesWhite.body]}>
-              Fresh Greens alerts this person during emergencies and shares
-              your location with them. They're who the Call and Text buttons
-              dial during a safety event.
+              They&apos;re who the Call and Text buttons reach during a
+              safety event, and their location shows on your home map.
+              Fresh Greens never messages them on its own — every call
+              and text is yours to send.
             </Text>
           </View>
 
@@ -337,7 +339,7 @@ const styles = StyleSheet.create({
   title: {
     // Large Title/Emphasized (34pt) per Figma v2 — gives the
     // page-anchoring title weight equal to the onboarding panels.
-    ...typography.largeTitleEmphasized,
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
   },
   body: {
@@ -347,7 +349,7 @@ const styles = StyleSheet.create({
     // register"; in practice the panels' body copy and this page's
     // body copy serve different rhetorical roles — the panels deliver
     // the brand claims, this paragraph explains a setting.)
-    ...typography.bodyRegular,
+    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
     color: colors.white,
   },
 
@@ -369,6 +371,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: {
+    // Avatar initials stay at the fixed token size — the avatar is a
+    // visual element, not text needing AX5 scaling. Documented exception
+    // mirroring LifelineModal's avatar.
     ...typography.title3Emphasized,
     color: colors.white,
   },
@@ -377,11 +382,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   previewName: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.white,
   },
   previewPhone: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.fadedgreen,
   },
 

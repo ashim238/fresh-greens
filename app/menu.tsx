@@ -1,4 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
@@ -41,6 +42,7 @@ import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
@@ -199,7 +201,7 @@ export default function Menu() {
               pressed && pressedDim,
             ]}
           >
-            <Ionicons name="chevron-back" size={28} color={colors.black} />
+            <CaretLeft size={28} color={colors.black} weight="regular" />
           </Pressable>
         </View>
 
@@ -517,11 +519,7 @@ function SettingsRow({
     >
       <View style={styles.rowIconWrap}>{icon}</View>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Ionicons
-        name="chevron-forward"
-        size={16}
-        color={colors.labelTertiary}
-      />
+      <CaretRight size={16} color={colors.labelTertiary} weight="regular" />
     </Pressable>
   );
 }
@@ -592,11 +590,11 @@ const styles = StyleSheet.create({
     // Dropping to title3Regular (20pt/400) lets the regular-vs-bold
     // weight contrast carry the "atmospheric label / identity anchor"
     // distinction the layout intends.
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
   },
   profileName: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
   },
   divider: {
@@ -624,7 +622,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowLabel: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
     flex: 1,
   },
@@ -646,7 +644,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   zoneInnerLabel: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     flex: 1,
   },
@@ -658,7 +656,7 @@ const styles = StyleSheet.create({
   // below. No full-width rule — that read as a peer-section divider.
   // Indented to the toggle label column (36 + 12).
   zoneGroupCaption: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(relaxedLineHeight(typography.footnoteEmphasized)),
     color: colors.labelSecondary,
     paddingLeft: 36 + 12,
     paddingTop: 14,
@@ -690,7 +688,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileTitle: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
   },
   tileSubtitle: {
@@ -702,7 +700,7 @@ const styles = StyleSheet.create({
     // vs weight 600 subtitle read as peers). Regular weight without
     // underline matches the supporting-copy register used elsewhere
     // (e.g. zoneInnerLabel).
-    ...typography.footnoteRegular,
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.wiltedgreen,
   },
   signOutWrap: {
@@ -724,7 +722,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   signOutText: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
     // Underline reads as the canonical destructive-link signal —
     // matches the pattern Button uses on fill="transparent" labels.

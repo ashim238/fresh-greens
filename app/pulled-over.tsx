@@ -179,6 +179,13 @@ function dbToBarHeight(db: number): number {
 export default function PulledOver() {
   const router = useRouter();
   const navigation = useNavigation();
+  // Lifted from ContactView so TrustedContactStatus (rendered by the
+  // parent below, across armed/transition/guidance phases) can gate its
+  // render on contact-set state. Per audit 2026-05-31 §/pulled-over F1,
+  // the prior unconditional render claimed active notification while
+  // none existed — the gated render + forward-looking copy closes the
+  // honesty gap.
+  const { contact } = useTrustedContact();
   const [phase, setPhase] = useState<Phase>('armed');
   const [armed, setArmed] = useState<ArmedAnswer | null>(null);
   const [reviewIndex, setReviewIndex] = useState(0);
@@ -520,11 +527,13 @@ export default function PulledOver() {
           TrustedContactStatus is the persistent indicator across phases.
           Hidden on review (its own footer with chevrons + Close) and on
           contact (the screen IS about the trusted contact — repeating
-          the status under it is noise).
+          the status under it is noise). Also returns null internally
+          when no contact is configured — see audit 2026-05-31 §/pulled-
+          over F1 for the honesty rationale.
         */}
         {(phase === 'armed' ||
           phase === 'transition' ||
-          phase === 'guidance') && <TrustedContactStatus />}
+          phase === 'guidance') && <TrustedContactStatus contact={contact} />}
       </SafeAreaView>
     </View>
   );

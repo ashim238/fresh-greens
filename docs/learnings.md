@@ -4,6 +4,27 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/sweep-must-fix-criticals — burn the audit's must-fix shortlist in one PR
+
+Twelve commits, three substantive layers. The audit's must-fix shortlist gave us a sharp scope — 3 single-surface Critical honesty findings + PROJECT-A (Ionicons → Phosphor across 8 surfaces) + PROJECT-B (dynamicType sweep across 8 surfaces) — and the implementation was mostly mechanical because the audit had pre-resolved every "what's the right fix here" question.
+
+**Mechanical sweeps are subagent food, but watch the rate limit.** Dispatched 8 parallel PROJECT-B subagents (one per surface). 1 committed cleanly (/en-route). 4 modified files but hit the rate-limit before committing. 3 didn't reach their work. Rescued the partial work via inline `git add` + commit per file. Lesson: when dispatching a wave of mechanical subagents, instruct them to commit *before* writing the long-form report — uncommitted work at rate-limit time becomes my problem to clean up. The work itself was fine; the orchestration discipline wasn't.
+
+**The honest-disclosure refactor pattern: gate render + drop the activity signal + reframe to forward-looking.** Both Critical honesty fixes in this PR followed the same shape:
+
+1. /pulled-over `TrustedContactStatus`: pulse claimed activity → drop pulse, gate on `contact`, copy from "is being notified" → "can be reached on the next screen."
+2. /trusted-contact-setup body copy: "alerts this person during emergencies" claimed automation → "every call and text is yours to send" makes the user-initiated reality explicit.
+
+The shape generalizes: any v1 surface promising "the app does X for you" that actually means "the app gives you a tool to do X" should be rewritten with the user as the subject of the verb. The pulse dot's removal is the visual analogue — pulses claim activity, static markers claim configuration.
+
+**The PROJECT-A sweep retired a defensibility-by-convention.** /recordings F1 was originally tiered Minor with the defense "chevron-back in Ionicons is the de-facto convention across /menu, /safety-settings, /recordings, /report." Synthesis re-graded it Important because 8 surfaces using Ionicons means the convention is "we forgot to migrate," not "we chose." Worth keeping: defensibility-by-convention only holds while the count is small. The threshold for "convention" turning into "migration debt" is around the same ≥3-surfaces threshold synthesis uses for cross-cutting patterns.
+
+**The layout-as-data fixes paired cleanly with the dynamicType sweeps.** Three surfaces lifted fixed `height:` to `minHeight:` while wrapping their text styles (en-route `endTripBtn`, trip-summary `inferenceBtn`, fuel `stepBtn`). The ax5/safety-surfaces learning called this "the pair is the contract" — verified once more under stress.
+
+**Strike-through discipline was 20/21.** Step 11.5 of the workflow says strike-through closed backlog entries in the same PR. Batched via a Python script over `docs/next-session.md`; missed one entry to a regex edge case (acceptable — the closure note is still grep-able). The discipline matters; perfect coverage isn't required.
+
+---
+
 ## audit/app-wide-fidelity — the methodology, not the findings
 
 The audit itself shipped at `docs/audits/2026-05-31-app-wide-fidelity-audit.md`; this entry captures what the *methodology* taught.

@@ -1,10 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Pause } from 'phosphor-react-native/src/icons/Pause';
 import { Play } from 'phosphor-react-native/src/icons/Play';
@@ -24,6 +24,7 @@ import { useRecordings } from '../hooks/useRecordings';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -171,7 +172,7 @@ export default function Recordings() {
               pressed && pressedDim,
             ]}
           >
-            <Ionicons name="chevron-back" size={28} color={colors.black} />
+            <CaretLeft size={28} color={colors.black} weight="regular" />
           </Pressable>
         </View>
 
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   pageTitle: {
-    ...typography.title2Emphasized,
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
   },
   recordingsList: {
@@ -497,7 +498,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardTimestamp: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
     // R5: tabular-nums so the timestamp ("May 28 · 3:42 PM") digits
     // hold a fixed column width across rows — proportional digits
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   cardSecondary: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
     // R5: duration strings ("0:12" vs "10:42") in the same column need
     // fixed-width digits so the colon stays aligned row-to-row. Same
