@@ -4,6 +4,22 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/zone-preferences-page — the third iteration is the dedicated page
+
+Zone Preferences has now lived in three shapes in `/menu`:
+
+1. **v1: accordion-on-tap.** Tap the row to expand the toggle list; chevron flipped CaretDown ↔ CaretUp. Discoverability concern flagged early.
+2. **v1.5: inline-expanded.** Reframed as "toggle always visible." But "inline-expanded" still meant "tap the chevron to show the rest," so the rest of the toggles stayed hidden behind a tap.
+3. **v2 (now): dedicated page.** Match `/safety-settings`'s register, push to `/zone-preferences` via a chevron SettingsRow.
+
+The shape change wasn't "we found a better accordion." It was "the accordion was the wrong primitive for a multi-toggle config block from the start." Worth keeping: when a UI keeps regressing toward the same discoverability concern across iterations, the answer is usually "different primitive," not "tune the current one harder." The 4-toggle list is now visible without a tap — and as the user pointed out, the menu row's vertical budget was always too tight for it anyway.
+
+**The cross-page consistency win.** All three `/menu` sub-pages (Zone Preferences, Safety, Privacy & Terms) now share the same register: chevron-push from `/menu`, then back-chevron + 48pt duotone-glyph title row + grouped rows on the destination page. Back-to-back navigation reads coherent. Worth keeping: when two adjacent pages share a register, a third entry into that register is cheaper than adopting a different one — and any new settings page should default to this shape.
+
+**Refactor cleanup discipline.** Deleting the accordion meant 4 styles (zoneRow, zoneInner, zoneInnerLabel, zoneGroupCaption) + 4 imports (CaretDown, CaretUp, LayoutAnimation, Switch) became orphaned. Easy to leave one behind. The `tsc --noEmit` step caught one stale import; a per-file grep of the deleted names caught the rest. Worth keeping: after every component-deletion refactor, grep the deleted symbols' names + run tsc to surface orphans before commit.
+
+---
+
 ## fix/audit-bugs-pass-1 — the walkthrough → polish-pass rhythm
 
 A user walkthrough surfaced ~10 small things in one go (drag-handle spacing, hardwired 25mph, route-switch dropping markers, "Reminders on" copy out of place, "Prefer not to answer" alignment, name placeholder, instruction centering, contact-gate over-blocking). All shipped in one squash-merged PR (`5cf9bf7`) as bite-sized surgical edits.
