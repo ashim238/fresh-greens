@@ -142,7 +142,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    ...typography.subheadlineEmphasized,
+    // bodyEmphasized (17pt) per the 2026-06-01 text-size audit. App-
+    // wide CTA label — every primary action across the app inherits
+    // this register. 15pt sat a tier below iOS's first-party CTA
+    // norm; 17pt matches Settings.app's primary-action buttons and
+    // anchors the label visually inside the 44pt pill. Height stays
+    // 44pt (HIG floor); Apple's compact-button pattern is 44 × 17pt
+    // so this is on-precedent.
+    ...typography.bodyEmphasized,
   },
   labelUnderlined: {
     textDecorationLine: 'underline',
