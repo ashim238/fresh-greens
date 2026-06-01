@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
+import { Bookmark } from 'phosphor-react-native/src/icons/Bookmark';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
@@ -174,6 +175,10 @@ export default function Menu() {
     router.push('/safety-settings');
   }
 
+  function handleSavedPlaces() {
+    router.push('/saved-places');
+  }
+
   function handleLegal() {
     router.push('/legal');
   }
@@ -277,6 +282,14 @@ export default function Menu() {
               icon={<Shield size={24} color={colors.black} weight="duotone" />}
               label="Safety"
               onPress={handleSafety}
+            />
+
+            <SettingsRow
+              icon={
+                <Bookmark size={24} color={colors.black} weight="duotone" />
+              }
+              label="Saved places"
+              onPress={handleSavedPlaces}
             />
 
             <SettingsRow
