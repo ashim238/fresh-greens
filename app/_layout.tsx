@@ -85,6 +85,12 @@ export default function RootLayout() {
           options={{ presentation: 'modal' }}
         />
         {/*
+          /legal — Privacy / Terms / Limitations. Pushed from /menu;
+          standard stack push (not modal) since this is a reading
+          surface, not a sub-flow.
+        */}
+        <Stack.Screen name="legal" />
+        {/*
           Report uses transparentModal (not modal) so the map underneath
           stays visible — the popup is a centered card over a 20% scrim,
           not an iOS-sheet that takes over the screen. Fade animation

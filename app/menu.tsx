@@ -8,6 +8,7 @@ import { Calendar } from 'phosphor-react-native/src/icons/Calendar';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
+import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
@@ -165,6 +166,10 @@ export default function Menu() {
     router.push('/safety-settings');
   }
 
+  function handleLegal() {
+    router.push('/legal');
+  }
+
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
@@ -261,6 +266,12 @@ export default function Menu() {
               icon={<Shield size={24} color={colors.black} weight="duotone" />}
               label="Safety"
               onPress={handleSafety}
+            />
+
+            <SettingsRow
+              icon={<FileText size={24} color={colors.black} weight="duotone" />}
+              label="Privacy & Terms"
+              onPress={handleLegal}
             />
           </View>
         </ScrollView>

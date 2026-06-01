@@ -4,6 +4,22 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/legal-compliance — honest legal copy is faster than generic-template legal copy
+
+Phase 2 compliance pass. Surprise: writing the policies from scratch took less time than configuring a template generator would have, *because* the docs are about what Fresh Greens actually does (foreground location only, no server, no analytics, simulated share). A generator would either over-claim (assume tracking) or require the same per-fact customization anyway.
+
+**Two-surface mirror pattern:** canonical text lives in `docs/legal/{privacy,terms,limitations}.md` (the form App Store Connect's privacy-policy-URL needs once hosted), and the in-app `/legal` route renders the same prose in JSX. Slight duplication, but: markdown stays grep-able for the future hosted page, and the in-app surface gets proper AX5 / dynamic-type scaling that a WebView-around-markdown would not.
+
+**Sticky tab + onLayout-anchored sections** beats nested routes for this shape. One scrollable surface, three `onLayout` callbacks recording each section's Y, tab taps scroll to those Y values. Code is ~280 lines and behaves like a TOC without the routing overhead. Scales to a fourth section just by adding to the SECTIONS array.
+
+**The line that mattered most:** *"Sharing your location is simulated in this version."* The whole Phase-1 work hangs on that honest disclosure. Burying it in legalese would have failed the thesis brief; calling it out in plain language at the top of `/legal` and in the `limitations.md` doc is the correct UX of *what the app does NOT yet do*.
+
+**Export-compliance one-liner.** `ITSAppUsesNonExemptEncryption: false` in `app.json`'s `ios.infoPlist` block. We use only OS-stock TLS, no custom crypto. Without this declaration, every App Store Connect build forces you to answer the encryption-export question manually. Setting it once in `app.json` is the difference between a 1-minute upload and a 5-minute upload per submission.
+
+**Phosphor for icons throughout** — `FileText` for the legal row felt obvious; resisted the urge to invent or import a different family.
+
+---
+
 ## audit/safety-polish — burn the post-ship backlog before opening the next front
 
 Pattern that paid off this session: ship the feature, capture the final-review minors as backlog notes in `docs/next-session.md` with file:line precision, then dedicate one focused PR to burning them down before moving on. Cheaper than fixing them inline (each one disrupts a tightly-scoped commit) and cheaper than carrying them forever.
