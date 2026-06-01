@@ -27,14 +27,17 @@ export const typography = {
     fontWeight: '700',
     letterSpacing: 0.4,
   },
-  // Oversized numeral for the /emergency SOS disc (the "SOS" label and the
-  // 3-2-1 countdown digit). Larger than any heading tier on purpose — it's
-  // the single focal numeral on a full-screen crisis control.
+  // Numeral for the /emergency SOS countdown disc. v1 was 56/60 sized
+  // for a 220pt full-screen disc; v2 sits inside an 88pt card-modal
+  // disc per the 2026-06-01 redesign (Figma 49-5188/49-5388), so the
+  // numeral steps down proportionally to 40/44. Still distinctly above
+  // any heading tier — it's the single focal numeral on the card —
+  // but no longer crowding the 88pt disc's interior.
   sosCountdown: {
-    fontSize: 56,
-    lineHeight: 60,
+    fontSize: 40,
+    lineHeight: 44,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   title1Emphasized: {
     fontSize: 28,
