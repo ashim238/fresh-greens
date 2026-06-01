@@ -124,7 +124,7 @@ export default function Fuel() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <RowGroup title="Your car">
+            <RowGroup>
               <View style={styles.field}>
                 <Text style={styles.fieldLabel}>Car name (optional)</Text>
                 <TextInput
@@ -166,7 +166,7 @@ export default function Fuel() {
               </View>
             </RowGroup>
 
-            <RowGroup title="Reminder">
+            <RowGroup>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Remind me to refuel</Text>
                 <Switch
