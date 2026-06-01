@@ -28,6 +28,7 @@ import { searchPlaces } from '../lib/api/places';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -295,7 +296,7 @@ function DestinationPicker({
         Fresh Greens saves your journey periodically to ensure we can get you back on track.
       </Text>
 
-      <View style={styles.rowList}>
+      <View style={styles.destinationList}>
         {DESTINATIONS.map((d) => (
           <Pressable
             key={d.id}
@@ -439,30 +440,57 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.lg,
   },
+  // Card list mirrors /pulled-over's armed picker (armedStyles
+  // answersWrapper): flex 1 + justifyContent center vertically centers
+  // the cards in the space between the title and the footer, gap 48
+  // between cards. User-flagged 2026-06-01: /pulled-over sets the
+  // precedent for the safety-flow card treatment.
   rowList: {
-    gap: spacing.sm,
+    flex: 1,
+    justifyContent: 'center',
+    gap: 48,
   },
+  // DestinationPicker keeps its own list — it has a bottom-pinned
+  // "I'm safe now" button (safeNowWrap, marginTop: auto), so the rows
+  // can't be flex:1-centered or they'd consume the space the button
+  // needs. Elevated cards (via iconRow) at a 16pt gap that suits the
+  // shadow separation.
+  destinationList: {
+    gap: spacing.md,
+  },
+  // Two-line problem card — elevated white + shadows.e1, height 100,
+  // content vertically centered. Exact match to /pulled-over's
+  // answerCard (was flat systemGroupedBackground at minHeight 76).
   twoLineRow: {
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: spacing.md,
-    gap: spacing.xs,
-    minHeight: 76,
+    gap: spacing.sm,
+    height: 100,
+    justifyContent: 'center',
+    ...shadows.e1,
   },
+  // Destination icon row — same elevated white register as the problem
+  // cards so the two /unfamiliar screens read as one flow. Single-line
+  // (icon + label) so it keeps its row height rather than the 100pt
+  // two-line card height.
   iconRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: spacing.md,
     minHeight: 60,
+    ...shadows.e1,
   },
   iconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.white,
+    // fillsTertiary (was white) — the card itself is now white, so a
+    // white circle would vanish. Matches /roadside's iconCircle.
+    backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -470,9 +498,11 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
+  // Matches /pulled-over's answerSubtitle (subheadlineRegular +
+  // labelTertiary) — was bodyRegular + labelSecondary.
   rowClarifier: {
-    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
-    color: colors.labelSecondary,
+    ...dynamicType(typography.subheadlineRegular),
+    color: colors.labelTertiary,
   },
   safeNowWrap: {
     marginTop: 'auto',

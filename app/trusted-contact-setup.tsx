@@ -34,8 +34,12 @@ import { typography } from '../theme/typography';
  * Routing depends on entry point. The `from` query param distinguishes:
  *   - undefined / "onboarding" → Continue + Skip both `replace('/home')`,
  *     ending the onboarding stack. Default behavior.
- *   - "settings" → Continue + Skip both `back()`, returning to /menu
- *     so the user lands back where they came from.
+ *   - "settings" → Continue + Skip both `back()`, returning to whatever
+ *     pushed here. Used by /menu's Safety row, the /safety modal's
+ *     no-contact gate, and /roadside's share setup — all page-sheet or
+ *     in-app surfaces that need to land the user back where they came
+ *     from. Without the param these fell through to replace('/home'),
+ *     which dropped a Home card as a sheet over the live modal stack.
  *   - "emergency" → Continue + Skip both `back()`, returning to the
  *     /emergency SOS screen that pushed here (when the user has no
  *     trusted contact yet). Without this, Skip fell through to the

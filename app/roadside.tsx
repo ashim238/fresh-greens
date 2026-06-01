@@ -335,7 +335,11 @@ function ActionMenu({
   }
 
   function handleShareSetup() {
-    router.push('/trusted-contact-setup');
+    // from=settings → setup returns via router.back() to this roadside
+    // modal on Continue/Skip. Without the param it fell through to
+    // replace('/home'), dropping Home as a sheet over the page-sheet
+    // stack (same bug as the /safety gate, user-flagged 2026-06-01).
+    router.push('/trusted-contact-setup?from=settings');
   }
 
   return (
@@ -678,8 +682,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
   },
+  // Card list mirrors /pulled-over's vertical centering (flex 1 +
+  // justifyContent center centers the rows in the space between the
+  // title and the location footer). Gap bumped spacing.sm (8) →
+  // spacing.lg (24) so the 5 problem cards read as a spaced stack
+  // rather than a tight cluster. User-flagged 2026-06-01. On small
+  // viewports where the cards exceed the available height the
+  // ScrollView scrolls and the rows fall back to top-aligned.
   rowList: {
-    gap: spacing.sm,
+    flex: 1,
+    justifyContent: 'center',
+    gap: spacing.lg,
   },
   row: {
     flexDirection: 'row',
