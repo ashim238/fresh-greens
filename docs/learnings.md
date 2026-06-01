@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix/safety-cards-and-contact-routing — a routing bug class that recurs per entry point
+
+The "Home drops as a bottom sheet over the modal stack" bug came back. `/trusted-contact-setup` routes on Continue/Skip based on a `from` query param: `embedded` (settings/emergency) → `router.back()`; anything else → `router.replace('/home')`. When `/safety`'s no-contact gate and `/roadside`'s share-setup pushed the screen **without** `from`, Continue slammed a Home card onto the page-sheet stack.
+
+The non-obvious part: the docblock **already documented this exact bug** — it was fixed once for the `emergency` entry point ("Without this, Skip fell through to the onboarding `replace('/home')`, which dropped a fresh Home card on top of the live stack"). So this is a *recurring* bug class, not a new one. Every new surface that pushes `/trusted-contact-setup` from inside a modal stack re-introduces it unless the author remembers the param.
+
+**The real fix is structural, deferred:** the safe default is inverted. `replace('/home')` should be the *opt-in* (onboarding only), and `back()` the default — because every in-app entry wants `back()` and only the one-time onboarding flow wants the hard reset. A param whose absence causes a bug is a footgun; flip it so the dangerous behavior is the one you have to ask for. Logged in docs/next-session.md. For now all three in-app callers pass `from=settings`.
+
+**Card-register matching is a token-swap, not a rebuild.** Making `/unfamiliar` + `/roadside` cards match `/pulled-over` was almost entirely: white bg + `shadows.e1` (elevation), `height: 100` + `justifyContent: center` (the card), and `flex: 1` + `justifyContent: center` on the list wrapper (the vertical centering). The centering is the same three-property recipe as `armedStyles.answersWrapper`. Worth keeping: "make X match Y" across screens usually means copying Y's specific token values, not reasoning from scratch — pull up both style blocks side by side and diff them. The one gotcha was the white-on-white iconCircle vanishing once the card went white (→ `fillsTertiary`); changing a container's bg can silently erase children that shared the old contrast.
+
+---
+
 ## refactor/sos-icon-star — the brand-conflict-coded icon swap
 
 The SOS glyph (`sidebtn-help.svg`, a red medical-cross plus) was visually too close to the Red Cross emblem — protected under the Geneva Convention. User flagged it 2026-06-01, suggested a red star. Phosphor's `Star` at `weight="fill", color={colors.red}` lands the right register: clear urgency/escalation marker, no protected-mark conflict, and the icon system stays Phosphor-only per `project_icons_phosphor.md`.
