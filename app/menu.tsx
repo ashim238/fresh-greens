@@ -278,7 +278,7 @@ export default function Menu() {
                   key={tile.key}
                   style={({ pressed }) => [
                     styles.tileCard,
-                    carouselTiles.length > 1 && styles.tileCardCarousel,
+                    styles.tileCardCarousel,
                     pressed && pressedDim,
                   ]}
                   onPress={tile.onPress}
@@ -408,8 +408,12 @@ const styles = StyleSheet.create({
   carouselContent: {
     gap: spacing.md,
   },
-  // When ≥2 tiles, each is a fixed width so the next peeks at the edge;
-  // a lone tile uses the default full-width tileCard.
+  // Fixed-width tile (always applied). With ≥2 tiles the next one peeks
+  // at the edge; with 1 tile it sits left-aligned with scroll-space to
+  // its right — the iOS progressive-carousel pattern that says "more
+  // might appear here." User-flagged 2026-06-01: the prior solo-tile
+  // stretched to the ScrollView's full width and read underfilled
+  // because the title/subtitle text didn't grow with it.
   tileCardCarousel: {
     width: 280,
   },
