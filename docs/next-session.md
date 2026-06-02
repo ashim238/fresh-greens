@@ -138,7 +138,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 
 - **Turn-by-turn instructions are static placeholder copy** — `app/en-route.tsx:86-89, 271-272`. OSRM provides geometry, not steps. v1.5 cheap path: OSRM `steps=true` parameter gives a minimal maneuver list (`Turn left in 0.3 mi`). v2: Mapbox Directions or Google Directions for production-quality narration.
 - ~~**Weather card is mocked at "66° / Moderate"**~~ — shipped: real Open-Meteo via `lib/api/weather.ts` (now incl. `cloud_cover`); driving label relabeled Easy/Moderate/Tough → Good/Fair/Poor.
-- **/safety modal has 3 of 4 tiles inert** — `app/safety.tsx`. "Roadside assistance," "Unfamiliar area," "Share my location" have `href: null` and silently no-op. Only "I was pulled over" is wired.
+- ~~**/safety modal has 3 of 4 tiles inert**~~ — **stale (verified 2026-06-02).** All four tiles in `app/safety.tsx` are wired: "I was pulled over" → `/pulled-over`, "Roadside assistance" → `/roadside`, "Unfamiliar area" → `/unfamiliar`, "Share my location" → `/share-location`. The `href: null` no-op state no longer exists.
 - **/menu has inert rows + Quick Tiles** — "Settings," "Schedule a drive," "Theme" rows; Quick Tiles carousel is decorative. The "replaces vs. augments Safety row" call from Round 5 PR C will land here.
 - **Reports submit as `'mock-user'`** — `app/report.tsx`. No auth wiring. AsyncStorage is device-local — "the community" is functionally one anonymous user per phone, and reports don't sync across devices.
 
@@ -150,7 +150,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 - **Saved-home + trusted-friend markers don't get a `selected` state** — tapping them fires handlers but no visual feedback.
 - **Cluster marker + placement pin missing `accessibilityRole`** — both have `accessibilityLabel` but no role.
 - **Dynamic Type expansion** — only ~3 `dynamicType()` invocations across the codebase. Needs broader application + breakpoint testing.
-- **Daylight gradient is color-only signaling (WCAG 1.4.1 failure)** — the route polyline encodes daylight via orange → mauve → indigo. Colorblind users (deuteranopia ~8% of men, tritanopia, monochromacy) can't read the transitions. Two layered fixes: (1) non-color cue along the polyline via `lineDashPattern` (solid = day, dashed = twilight, dotted = night) or width changes; (2) accessibility label / inline legend overlay calling out the transitions explicitly ("Daylight for first 12 mi, twilight from mile 12 to mile 18…"). Same problem applies to the bottom-sheet daylight strip key.
+- ~~**Daylight gradient is color-only signaling (WCAG 1.4.1 failure)**~~ — **substantially fixed (2026-06-02).** `lib/daylight.ts` exposes `DAYLIGHT_DASH_PATTERN` (solid = day, dashes = twilight, dots = night); `/home`'s route-preview polyline consumed it, and `/en-route`'s active-route polyline now does too (`9e2fe5d`, the impeccable audit fix) — so the non-color cue rides the line on both the preview and the live drive. The bottom-sheet daylight legend carries `DaylightSun` / `DaylightMoon` glyph brackets as its non-color poles. Remaining (optional): an explicit inline accessibility-label narration ("daylight for first 12 mi, twilight from mile 12…") if a fuller text channel is wanted later.
 
 ## Visual / polish nits
 
