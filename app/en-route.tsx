@@ -84,7 +84,7 @@ import {
   zoneDashPattern,
 } from '../lib/api/zones';
 import { clusterPointZones } from '../lib/clustering';
-import { gradientSegments } from '../lib/daylight';
+import { DAYLIGHT_DASH_PATTERN, gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
 import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
 import {
@@ -782,6 +782,14 @@ export default function EnRoute() {
               coordinates={segment.coordinates}
               strokeColor={segment.color}
               strokeWidth={routeColors.recommended.width}
+              // WCAG 1.4.1 non-color cue — parity with /home's route-
+              // preview polyline. Solid = day, medium dashes = twilight,
+              // short dashes = night, so the daylight band reads through
+              // deuteranopia/tritanopia/monochromacy during the live
+              // drive, not just on the preview card. Without this the
+              // colorblind cue dropped exactly where the user spends the
+              // most time looking at the route.
+              lineDashPattern={DAYLIGHT_DASH_PATTERN[segment.band]}
             />
           ));
         }

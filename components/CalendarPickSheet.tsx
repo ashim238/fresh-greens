@@ -115,7 +115,7 @@ export function CalendarPickSheet({
           <ActivityIndicator style={styles.spinner} color={colors.labelSecondary} />
         ) : searched && results.length === 0 ? (
           <Text style={styles.emptyResults}>
-            No matches — try a different search.
+            No matches. Try a different search.
           </Text>
         ) : (
           <View style={styles.results}>
