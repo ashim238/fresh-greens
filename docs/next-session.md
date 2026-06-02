@@ -146,10 +146,10 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 
 - **ScrollView snap doesn't respect Reduce Motion** — `snapToInterval` + `decelerationRate="fast"` not gated on `useReduceMotion()` in the home browse carousel.
 - **Carousel container has no `accessibilityRole="list"`** — screen readers don't announce "list of N" on entry to the recommendations row.
-- **`cardTitle` doesn't truncate at AX5** — `numberOfLines` is missing; long names + max Dynamic Type push layout.
+- ~~**`cardTitle` doesn't truncate at AX5**~~ — **stale (verified 2026-06-02).** `HomeBrowseSheet.tsx:1039` cardTitle has `numberOfLines={2}` (+ `adjustsFontSizeToFit minimumFontScale={0.85}`). Truncation is handled.
 - **Saved-home + trusted-friend markers don't get a `selected` state** — tapping them fires handlers but no visual feedback.
 - **Cluster marker + placement pin missing `accessibilityRole`** — both have `accessibilityLabel` but no role.
-- **Dynamic Type expansion** — only ~3 `dynamicType()` invocations across the codebase. Needs broader application + breakpoint testing.
+- ~~**Dynamic Type expansion** — only ~3 `dynamicType()` invocations~~ — **stale (verified 2026-06-02).** Now **140 `dynamicType()` invocations across 27 files** — the 2026-05-31 PROJECT-B sweep + the per-surface closures landed it. Breakpoint testing at AX5 on device is the only remaining (non-code) piece.
 - ~~**Daylight gradient is color-only signaling (WCAG 1.4.1 failure)**~~ — **substantially fixed (2026-06-02).** `lib/daylight.ts` exposes `DAYLIGHT_DASH_PATTERN` (solid = day, dashes = twilight, dots = night); `/home`'s route-preview polyline consumed it, and `/en-route`'s active-route polyline now does too (`9e2fe5d`, the impeccable audit fix) — so the non-color cue rides the line on both the preview and the live drive. The bottom-sheet daylight legend carries `DaylightSun` / `DaylightMoon` glyph brackets as its non-color poles. Remaining (optional): an explicit inline accessibility-label narration ("daylight for first 12 mi, twilight from mile 12…") if a fuller text channel is wanted later.
 
 ## Visual / polish nits
@@ -159,12 +159,12 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 - **Cluster marker missing `tracksViewChanges` lifecycle** — hardcoded to `false` from t=0. Inconsistent with the LandmarkMarker pattern (track-then-settle).
 - ~~**Curated-fallback distance pill is jarring**~~ — shipped in #217. `annotateDistance` leaves `distanceMiles` undefined for curated entries beyond 50mi from the user; the card already gates the pill on `!= null`. Mobile-area users keep the useful read.
 - ~~**Rapid chip tapping causes flicker**~~ — closed by #216 (chips-as-jump-links). Chips no longer trigger per-tap fetches or `LayoutAnimation`; rapid taps just animate the vertical scroller to the latest target.
-- **"Coming soon" Alert mid-report flow** — `app/report.tsx` (photo capture) and `app/home.tsx` (Schedule). Breaks the rhythm. v2: inline disabled-state copy instead of modal Alert.
+- **"Coming soon" Alert mid-report flow** — the `app/report.tsx` photo half is **stale** (real `expo-image-picker` camera capture now, no alert); verify whether `app/home.tsx` Schedule still surfaces a "coming soon" Alert (the Schedule→notification CTA shipped, so this may be fully stale). If a stray Alert remains, prefer inline disabled-state copy.
 
 ## Architecture / data v2
 
 - **User auth + report sync** — currently device-local AsyncStorage. v2 needs Supabase / Firebase / similar so community reports persist across phones. Unlocks real `submittedBy` IDs (the hold-to-delete and Round-4 weighted-recency work would benefit).
-- **Real photo capture in /report** — `app/report.tsx` photo button currently `Alert.alert` stub. Needs `expo-camera` or `expo-image-picker`.
+- ~~**Real photo capture in /report**~~ — **stale, shipped (verified 2026-06-02).** `app/report.tsx` uses `expo-image-picker` — `requestCameraPermissionsAsync` + `launchCameraAsync` (camera capture only, copied out of the picker's cache), with a `photoUri` state. Real, not a stub.
 - ~~**Schedule CTA → expo-notifications**~~ — shipped: `scheduleDepartureNotification` fires a real local notification (inline permission request) at the suggested departure.
 - **Curated catalog as catastrophic fallback feels invisible** — only fires when external + community both empty. With Google Places returning worldwide results, curated rarely runs. Consider letting curated participate when it's category-appropriate AND user is near the curated entry's region.
 - **Demo-mode toggle / offline seed** — a `/menu` switch that swaps the external adapter for a richer curated catalog (more cities, more cards, real photos) would let you demo without internet anxiety.
@@ -181,8 +181,8 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 ### Project-wide
 
-- **[PROJECT] Ionicons leak across 8 surfaces (Phosphor-only rule)** — [Audit 2026-05-31 §Cross-cutting PROJECT-A, Critical] sweep PR: replace Ionicons with Phosphor on SearchBar, /menu, /recordings, /trusted-contact-setup, /legal, /fuel, /en-route. Anchor: `CaretLeft` for chevron-back, `MagnifyingGlass` for SearchBar.
-- **[PROJECT] Missing `dynamicType()` on 8 non-/safety surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-B, Critical] sweep PR mirroring `ax5/safety-surfaces`: /home, /en-route bottom sheet, /menu, /search, /recordings, /trip-summary, /trusted-contact-setup, /fuel. Wrap each `typography.*` spread; add `relaxedLineHeight()` to long-read; convert fixed `height` → `minHeight`.
+- ~~**[PROJECT] Ionicons leak across 8 surfaces (Phosphor-only rule)**~~ — **stale, done (verified 2026-06-02).** Zero non-Phosphor icon imports remain anywhere (`rg` for `@expo/vector-icons` / `Ionicons` / `react-native-vector-icons` imports → empty; the only "Ionicons" hits are docblock comments saying "was previously Ionicons"). The per-surface closures (`a481cff` et al.) completed the sweep.
+- ~~**[PROJECT] Missing `dynamicType()` on 8 non-/safety surfaces**~~ — **stale, done (verified 2026-06-02).** 140 `dynamicType()` invocations across 27 files; every named surface (/home, /en-route, /menu, /search, /recordings, /trip-summary, /trusted-contact-setup, /fuel) has its per-surface closure struck below.
 - **[PROJECT] Honesty-of-disclosure overpromise across 7 surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-C, Critical] per-surface copy tightening + render-gating. Anchor instances: /pulled-over F1, /trusted-contact-setup F3, /legal F1.
 - **[PROJECT] Raw spacing integers / token-discipline drift across 4 surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-D, Important] /search (25+), /safety (SOSBar, documented), /en-route (`rgba()` + `#000` literals), /menu (verify).
 - **[PROJECT] Stale or missing v2-deltas docblocks (emerging)** — [Audit 2026-05-31 §Cross-cutting PROJECT-E, Important] /home `app/home.tsx:1516` cites stale Figma `1133:13690`; /en-route `app/en-route.tsx:101-118` lacks consolidated deltas block.
@@ -236,7 +236,7 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 - ~~**[/search] Zero `dynamicType()` calls across the three files**~~ — ✅ closed `a916e6a` (search.tsx + SearchBar + StateCard swept). Original audit context: [Audit 2026-05-31 §/search F5, Important] folds into PROJECT-B.
 - **[/search] Quick Tools horizontal ScrollView lacks `tablist` semantics** — [Audit 2026-05-31 §/search F6, Minor] `app/search.tsx:520-569`.
 - **[/search] `userLocation` failure silently downgrades ErrorState to transient** — [Audit 2026-05-31 §/search F7, Minor] permission denied is hard wall.
-- **[/search] Saved-row a11y label period-as-separator** — [Audit 2026-05-31 §/search F8, Minor] `app/search.tsx:593`.
+- ~~**[/search] Saved-row a11y label period-as-separator**~~ — **stale, fixed `57055bf` (2026-06-02).** Label now uses a comma (`Route to ${name}, ${subtitle}`) so VoiceOver reads one phrase; an `accessibilityHint` was added too.
 
 ### /roadside
 
