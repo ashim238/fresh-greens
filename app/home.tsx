@@ -13,6 +13,8 @@ import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 import { Check } from 'phosphor-react-native/src/icons/Check';
 import { PathIcon } from 'phosphor-react-native/src/icons/Path';
 import { Star } from 'phosphor-react-native/src/icons/Star';
@@ -336,36 +338,113 @@ export default function Home() {
     [rawRoutes, enabledZones],
   );
 
-  // Recommended route is the one we explain in the bottom sheet. May be
+  // Recommended route is the safest one (pickWinner's index 0). May be
   // undefined briefly on first render before the fetch completes.
   const recommended = routes.find((route) => route.type === 'recommended');
+
+  // The route the preview card + colored gradient reflect. Defaults to the
+  // recommended (safest); the user can swipe the ETA (chevrons flank it) or
+  // tap an alternate's gray line to take a different one. Falls back to
+  // recommended when the selection is stale (routes refetched) or unset.
+  // Safety still PICKS the recommended; this is the user choosing to take a
+  // different one — the conditions caption stays honest about which it is.
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const selectedRoute =
+    (selectedRouteId != null && routes.find((r) => r.id === selectedRouteId)) ||
+    recommended;
+  const isRecommendedSelected = selectedRoute?.id === recommended?.id;
+
+  // Swipe / chevron route cycling. `routes` is recommended-first; left swipe
+  // → next, right → previous (clamped, no wrap, so the chevrons can hint the
+  // ends).
+  function cycleRoute(dir: 1 | -1) {
+    if (routes.length < 2) return;
+    const cur = routes.findIndex((r) => r.id === selectedRoute?.id);
+    const next = Math.min(routes.length - 1, Math.max(0, cur + dir));
+    if (next === cur) return;
+    Haptics.selectionAsync().catch(() => {});
+    setSelectedRouteId(routes[next].id);
+  }
+  const selectedIndex = routes.findIndex((r) => r.id === selectedRoute?.id);
+  const canPrevRoute = selectedIndex > 0;
+  const canNextRoute = selectedIndex >= 0 && selectedIndex < routes.length - 1;
+
+  // Horizontal swipe on the ETA cycles routes. A useRef'd PanResponder
+  // stays stable across renders but would capture a stale cycleRoute —
+  // so it calls the latest via a ref. Left → next, right → previous.
+  // Gated to clearly-horizontal gestures so it doesn't fight the sheet's
+  // vertical drag.
+  const cycleRouteRef = useRef(cycleRoute);
+  cycleRouteRef.current = cycleRoute;
+  const routeSwipe = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx <= -24) cycleRouteRef.current(1);
+        else if (g.dx >= 24) cycleRouteRef.current(-1);
+      },
+    }),
+  ).current;
 
   // The primary road the recommended route travels (longest named
   // step). This is what the "Via" line should surface — the main road
   // you take to get there — NOT the destination, which already sits in
   // the search bar above. Null when the source returned step-less or
   // unnamed geometry (mock routes, some OSRM responses).
-  const viaRoad = primaryRoadName(recommended?.steps);
+  const viaRoad = primaryRoadName(selectedRoute?.steps);
 
   // Arrival clock time = now + ETA. Distance from the route (m → mi).
+  // (All derive from selectedRoute so the card follows route switching.)
   const arrivalTime =
-    recommended != null
-      ? formatTimeOfDay(new Date(Date.now() + recommended.estimatedMinutes * 60_000))
+    selectedRoute != null
+      ? formatTimeOfDay(new Date(Date.now() + selectedRoute.estimatedMinutes * 60_000))
       : null;
   const METERS_PER_MILE = 1609.34;
   const distanceLabel =
-    recommended?.distanceMeters != null
-      ? formatDistance(recommended.distanceMeters / METERS_PER_MILE)
+    selectedRoute?.distanceMeters != null
+      ? formatDistance(selectedRoute.distanceMeters / METERS_PER_MILE)
       : null;
   // Arrival daylight band = the last gradient segment's band (≈ destination).
   // Sighted users also read this via the daylight strip's sun/moon glyphs +
   // the polyline gradient; the strip is accessibilityElementsHidden, so the
   // arrival context is folded into the conditions caption's a11y label below.
-  const arrivalSegs = recommended ? gradientSegments(recommended) : [];
+  const arrivalSegs = selectedRoute ? gradientSegments(selectedRoute) : [];
   const arrivalBand = arrivalSegs.length
     ? arrivalSegs[arrivalSegs.length - 1].band
     : null;
   const arrivalLabel = arrivalBand ? arrivalLightLabel(arrivalBand, cloudCoverPct) : null;
+
+  // Honest conditions caption: the recommended route IS the safest, so it
+  // gets the "Safest route" framing. An alternate the user switched to is
+  // NOT — relabeling it "safest" would lie — so it reads "Alternate route
+  // · {faster/longer}" instead. Safety still picked the recommended; this
+  // reflects the user's choice to take a different one.
+  const routeIsAlternate = selectedRoute != null && !isRecommendedSelected;
+  const routeSpeedVsRecommended =
+    selectedRoute && recommended
+      ? Math.round(selectedRoute.estimatedMinutes - recommended.estimatedMinutes)
+      : 0;
+  const routeSpeedLabel =
+    routeSpeedVsRecommended < 0
+      ? `${Math.abs(routeSpeedVsRecommended)} min faster`
+      : routeSpeedVsRecommended > 0
+        ? `${routeSpeedVsRecommended} min longer`
+        : 'about the same time';
+  const routeConditionsText = routeIsAlternate
+    ? `Alternate route · ${routeSpeedLabel}${arrivalLabel ? ` · ${arrivalLabel}` : ''}.`
+    : arrivalLabel
+      ? `Safest route · ${arrivalLabel}.`
+      : 'Safest route with current conditions.';
+  const routeConditionsA11y = routeIsAlternate
+    ? routeConditionsText
+    : arrivalLabel || arrivalTime
+      ? `Safest route. ${
+          arrivalLabel
+            ? arrivalLabel.charAt(0).toUpperCase() + arrivalLabel.slice(1)
+            : 'Arriving'
+        }${arrivalTime ? ` at ${arrivalTime}` : ''}.`
+      : 'Safest route with current conditions.';
 
   // Route polylines memoized so unrelated re-renders don't rebuild
   // them on the native side. Same pattern in /en-route.
@@ -387,12 +466,16 @@ export default function Home() {
       // over the colored gradient where the two share streets — the
       // gradient gets visibly "cut" by gray segments. Render alternates
       // first, recommended last, so the colored stroke stays on top.
+      // The SELECTED route carries the daylight gradient (painted last so
+      // it sits on top); every other route renders gray, regardless of
+      // its recommended/alternate type — the colored stroke marks "the
+      // one you're taking", which the user can now switch.
       const ordered = [
-        ...routes.filter((r) => r.type !== 'recommended'),
-        ...routes.filter((r) => r.type === 'recommended'),
+        ...routes.filter((r) => r.id !== selectedRoute?.id),
+        ...routes.filter((r) => r.id === selectedRoute?.id),
       ];
       return ordered.flatMap((route) => {
-        if (route.type === 'recommended') {
+        if (route.id === selectedRoute?.id) {
           return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
             <Polyline
               key={`${route.id}-seg-${idx}`}
@@ -414,13 +497,13 @@ export default function Home() {
           <Polyline
             key={route.id}
             coordinates={route.coordinates}
-            strokeColor={routeColors[route.type].stroke}
-            strokeWidth={routeColors[route.type].width}
+            strokeColor={routeColors.alternate.stroke}
+            strokeWidth={routeColors.alternate.width}
           />,
         ];
       });
     },
-    [routes, cloudCoverPct],
+    [routes, cloudCoverPct, selectedRoute?.id],
   );
 
   // PanResponder for the bottom-sheet drag handle in browse mode.
@@ -490,13 +573,13 @@ export default function Home() {
   // route between waypoints; OSRM's geometry is dense enough at the
   // city scale that this is acceptable for v1.
   const routeZoneCounts = useMemo(() => {
-    if (!recommended) return { police: 0, lowLight: 0 };
+    if (!selectedRoute) return { police: 0, lowLight: 0 };
     let police = 0;
     let lowLight = 0;
     for (const zone of enabledZones) {
       if (zone.category !== 'police' && zone.category !== 'lighting') continue;
       if (zone.category === 'lighting' && zone.type !== 'avoid') continue;
-      const hit = recommended.coordinates.some((coord) =>
+      const hit = selectedRoute.coordinates.some((coord) =>
         isPointInZone(coord, zone),
       );
       if (!hit) continue;
@@ -504,24 +587,24 @@ export default function Home() {
       else lowLight += 1;
     }
     return { police, lowLight };
-  }, [recommended, enabledZones]);
+  }, [selectedRoute, enabledZones]);
 
   const { profile: fuelProfile } = useFuelProfile();
   const { stations: preferredStations } = usePreferredStations();
 
-  // Read-only over scoring: is a trusted station near the recommended
-  // route? ~150m tolerance — "near your way", looser than the ~78m
-  // station-identity match. Does NOT influence which route is chosen.
+  // Read-only over scoring: is a trusted station near the selected route?
+  // ~150m tolerance — "near your way", looser than the ~78m station-
+  // identity match. Does NOT influence which route is chosen.
   const trustedStationOnRoute = useMemo(() => {
-    if (!recommended || preferredStations.length === 0) return false;
+    if (!selectedRoute || preferredStations.length === 0) return false;
     return preferredStations.some((s) =>
       isPointNearPolyline(
         { latitude: s.latitude, longitude: s.longitude },
-        recommended.coordinates,
+        selectedRoute.coordinates,
         150,
       ),
     );
-  }, [recommended, preferredStations]);
+  }, [selectedRoute, preferredStations]);
 
   // "station" vs "charger" by fuel type (fuelProfile is the existing
   // useFuelProfile() value — use the file's actual variable name).
@@ -537,8 +620,8 @@ export default function Home() {
   const minutesOpacity = useRef(new Animated.Value(1)).current;
   const lastMinutesRevealKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!recommended || !params.destLat || !params.destLng) return;
-    const key = `${params.destLat}|${params.destLng}|${recommended.estimatedMinutes}`;
+    if (!selectedRoute || !params.destLat || !params.destLng) return;
+    const key = `${params.destLat}|${params.destLng}|${selectedRoute.id}|${selectedRoute.estimatedMinutes}`;
     if (lastMinutesRevealKeyRef.current === key) return;
     const isFirstReveal = lastMinutesRevealKeyRef.current === null;
     lastMinutesRevealKeyRef.current = key;
@@ -557,7 +640,7 @@ export default function Home() {
         useNativeDriver: true,
       }).start();
     }
-  }, [recommended, params.destLat, params.destLng, reduceMotion, minutesOpacity]);
+  }, [selectedRoute, params.destLat, params.destLng, reduceMotion, minutesOpacity]);
 
   // Clustered report markers — groups nearby points at low zoom to
   // prevent overlapping pins in dense neighborhoods. Recomputes on
@@ -1104,6 +1187,27 @@ export default function Home() {
       if (hit) {
         setSelectedReport(null);
         setSelectedZone(hit);
+        return;
+      }
+    }
+
+    // Route-switch hit-test — tap a gray ALTERNATE route line to take it
+    // (tapping the colored selected route is a no-op). Same iOS rationale
+    // as the zone hit-test above: Polyline.onPress doesn't fire reliably
+    // on MKMapView, so we hit-test against each route's polyline via the
+    // exported isPointNearPolyline. Runs after zones (so a zone tap still
+    // wins on overlap) with a tight ~40m tolerance so it doesn't swallow
+    // empty-map taps. Only when there's a real choice (>1 route).
+    if (routes.length > 1) {
+      const tap = { latitude, longitude };
+      const tappedAlt = routes.find(
+        (r) =>
+          r.id !== selectedRoute?.id &&
+          isPointNearPolyline(tap, r.coordinates, 40),
+      );
+      if (tappedAlt) {
+        Haptics.selectionAsync().catch(() => {});
+        setSelectedRouteId(tappedAlt.id);
         return;
       }
     }
@@ -1891,20 +1995,48 @@ export default function Home() {
             double-padding. The animated style array is preserved verbatim.
           */}
           <View style={styles.routeHeroRow}>
-            <Animated.Text
-              style={[styles.routeMinutes, { opacity: minutesOpacity }]}
-              // S3 of PR E review: defensive numberOfLines at 34pt. The
-              // current longest formatDuration output ("59 hr 59 min")
-              // fits comfortably on SE (~200pt vs 272pt available), but
-              // future copy expansion or localization shouldn't be able
-              // to wrap the headline number to a second line and break
-              // the card's vertical rhythm. Matches the H17 guard.
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
+            {/* ETA + flanking chevrons — swipe horizontally (or tap a gray
+                alternate line) to switch routes. Chevrons render only when
+                there's more than one route, and go transparent at the ends
+                so the layout doesn't jump as you reach the first/last. */}
+            <View
+              style={styles.routeEtaSwipeGroup}
+              {...routeSwipe.panHandlers}
+              accessibilityRole="adjustable"
+              accessibilityLabel={`${
+                selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : 'No route'
+              }${routes.length > 1 ? `, route ${selectedIndex + 1} of ${routes.length}` : ''}`}
+              accessibilityHint={routes.length > 1 ? 'Swipe to switch routes' : undefined}
             >
-              {recommended ? formatDuration(recommended.estimatedMinutes) : '—'}
-            </Animated.Text>
+              {routes.length > 1 && (
+                <CaretLeft
+                  size={18}
+                  weight="bold"
+                  color={canPrevRoute ? colors.labelTertiary : 'transparent'}
+                />
+              )}
+              <Animated.Text
+                style={[styles.routeMinutes, { opacity: minutesOpacity }]}
+                // S3 of PR E review: defensive numberOfLines at 34pt. The
+                // current longest formatDuration output ("59 hr 59 min")
+                // fits comfortably on SE (~200pt vs 272pt available), but
+                // future copy expansion or localization shouldn't be able
+                // to wrap the headline number to a second line and break
+                // the card's vertical rhythm. Matches the H17 guard.
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
+              </Animated.Text>
+              {routes.length > 1 && (
+                <CaretRight
+                  size={18}
+                  weight="bold"
+                  color={canNextRoute ? colors.labelTertiary : 'transparent'}
+                />
+              )}
+            </View>
             {arrivalTime && <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>}
           </View>
           {distanceLabel && <Text style={styles.routeDistance}>{distanceLabel}</Text>}
@@ -1972,17 +2104,9 @@ export default function Home() {
           */}
           <Text
             style={styles.routeConditionsCaption}
-            accessibilityLabel={
-              arrivalLabel || arrivalTime
-                ? `Safest route. ${
-                    arrivalLabel
-                      ? arrivalLabel.charAt(0).toUpperCase() + arrivalLabel.slice(1)
-                      : 'Arriving'
-                  }${arrivalTime ? ` at ${arrivalTime}` : ''}.`
-                : 'Safest route with current conditions.'
-            }
+            accessibilityLabel={routeConditionsA11y}
           >
-            {arrivalLabel ? `Safest route · ${arrivalLabel}.` : 'Safest route with current conditions.'}
+            {routeConditionsText}
           </Text>
 
           {recommended && trustedStationOnRoute && (
@@ -2153,17 +2277,22 @@ export default function Home() {
                   ...(params.destLat ? { destLat: params.destLat } : {}),
                   ...(params.destLng ? { destLng: params.destLng } : {}),
                   ...(params.destName ? { destName: params.destName } : {}),
-                  // Prime /en-route with the recommended route's
+                  // Prime /en-route with the SELECTED route's
                   // estimatedMinutes + distanceMeters so its ETA,
                   // duration, and mileage all render immediately on
                   // mount instead of waiting for /en-route's own
                   // OSRM fetch to resolve. /en-route still re-fetches
                   // and refines the values; this just removes the
                   // visible "—" placeholders during the network call.
-                  ...(recommended
+                  // destRouteRank carries WHICH route the user chose
+                  // (0 = recommended/safest, 1+ = an alternate) so
+                  // /en-route starts navigating that one, not its own
+                  // default recommended.
+                  ...(selectedRoute
                     ? {
-                        destEstMinutes: String(recommended.estimatedMinutes),
-                        destDistanceMeters: String(recommended.distanceMeters),
+                        destEstMinutes: String(selectedRoute.estimatedMinutes),
+                        destDistanceMeters: String(selectedRoute.distanceMeters),
+                        destRouteRank: String(Math.max(0, selectedIndex)),
                       }
                     : {}),
                 },
@@ -2537,6 +2666,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 12,
     paddingHorizontal: 24,
+  },
+  // Chevrons + ETA, centered as one unit so the carets align to the 34pt
+  // number's optical middle (the outer row is flex-end for the arrival time).
+  routeEtaSwipeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   // Arrival clock time — sits baseline-aligned with the duration headline.
   routeArrival: {

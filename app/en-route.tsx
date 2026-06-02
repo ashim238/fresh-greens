@@ -269,6 +269,14 @@ export default function EnRoute() {
      */
     destEstMinutes?: string;
     destDistanceMeters?: string;
+    /**
+     * Which route the user picked on /home's preview (0 = recommended/
+     * safest, 1+ = an alternate). /en-route refetches its own routes, so
+     * we match by RANK: once routes resolve, start with routes[rank]
+     * active instead of the default recommended. Applied once — the user
+     * can still switch routes here afterward.
+     */
+    destRouteRank?: string;
   }>();
   // Zone overlay rendering follows /home — driven by the user's
   // preference, which lives in AsyncStorage and is toggled from
@@ -399,6 +407,21 @@ export default function EnRoute() {
   const activeRoute =
     (activeRouteId != null && routes.find((r) => r.id === activeRouteId)) ||
     recommended;
+
+  // Honor the route the user picked on /home (destRouteRank). Once routes
+  // first resolve, start with routes[rank] active. Ref-guarded so it runs
+  // ONCE — the user can switch routes here afterward without this snapping
+  // them back.
+  const appliedRouteRankRef = useRef(false);
+  useEffect(() => {
+    if (appliedRouteRankRef.current) return;
+    if (routes.length === 0) return;
+    appliedRouteRankRef.current = true;
+    const rank = params.destRouteRank ? parseInt(params.destRouteRank, 10) : 0;
+    if (Number.isFinite(rank) && rank > 0 && rank < routes.length) {
+      setActiveRouteId(routes[rank].id);
+    }
+  }, [routes, params.destRouteRank]);
 
   const [showComparison, setShowComparison] = useState(false);
 
