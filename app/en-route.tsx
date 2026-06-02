@@ -118,10 +118,14 @@ import { useWeather } from '../hooks/useWeather';
  * Map setup is intentionally duplicated from /home — this is the second use,
  * extraction waits for a third (rule of three).
  *
- * Turn instruction copy is a static placeholder for v1: OSRM gives route
- * geometry, not turn-by-turn instructions. Real navigation engines (Mapbox
- * Directions, Google Directions) would slot in later. The placeholder
- * communicates the design intent without faking instruction data.
+ * Turn instructions are live, not placeholder: Mapbox Directions
+ * (primary) returns banner_instructions + lane data, OSRM (fallback)
+ * supplies templated steps, and `stepInstruction` renders the next
+ * maneuver's `step.instruction` with live GPS distance. The
+ * "Heading toward {destination}" header is the graceful fallback for
+ * mock / no-network routes that carry no steps — not the default path.
+ * (This docblock previously claimed static-placeholder copy; that was
+ * stale, predating the Mapbox Directions integration — 80fda0e/d59c2e3.)
  */
 // Hazard ids carry hyphens (e.g. "road-condition") which screen
 // readers literalize — VoiceOver says "road dash condition." Maps to
