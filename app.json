@@ -57,6 +57,13 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Fresh Greens uses your photo library so you can set a profile picture.",
+          "cameraPermission": "Fresh Greens uses your camera so you can take a profile picture or attach a photo to a community report."
+        }
+      ],
+      [
         "expo-contacts",
         {
           "contactsPermission": "Fresh Greens lets you pick a trusted contact to be alerted during safety events. We only read the contact you select."

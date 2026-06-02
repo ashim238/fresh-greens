@@ -5,13 +5,19 @@ import { StatusBar } from 'expo-status-bar';
 // `paths` mapping that keeps TypeScript happy.
 import { Bookmark } from 'phosphor-react-native/src/icons/Bookmark';
 import { CalendarBlank } from 'phosphor-react-native/src/icons/CalendarBlank';
+import { Camera } from 'phosphor-react-native/src/icons/Camera';
 import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+// Legacy API (documentDirectory + copyAsync) — same import the /report
+// photo flow uses; SDK 54 moved the classic surface under /legacy.
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { useState, type ReactNode } from 'react';
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -99,7 +105,7 @@ import { typography } from '../theme/typography';
 
 export default function Menu() {
   const router = useRouter();
-  const { user, signOut } = useUser();
+  const { user, signOut, updateProfile } = useUser();
   const { clearContact } = useTrustedContact();
   const { clearAll: clearSavedPlaces } = useSavedPlaces();
   const { clearAll: clearRegularDestinations } = useRegularDestinations();
@@ -139,6 +145,100 @@ export default function Menu() {
     user?.displayName ??
     user?.email?.split('@')[0] ??
     'friend';
+
+  /**
+   * Edit the greeting name. iOS-native text prompt (the app is
+   * iPhone-first) seeded with the current name. An empty save clears the
+   * name back to the email/"friend" fallback. Fixes the "still says
+   * friend" gap for users whose Apple Sign-In never returned a name
+   * (Apple only sends it on first authorization).
+   */
+  function handleEditName() {
+    Alert.prompt(
+      'Your name',
+      'How should Fresh Greens greet you?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: (text?: string) => {
+            void updateProfile({ displayName: text ?? '' });
+          },
+        },
+      ],
+      'plain-text',
+      user?.displayName ?? '',
+    );
+  }
+
+  /** Photo-source action sheet → library or camera, with a Remove
+   *  option once a custom avatar is set. */
+  function handleChangeAvatar() {
+    Haptics.selectionAsync().catch(() => {});
+    Alert.alert('Profile photo', undefined, [
+      { text: 'Choose from Library', onPress: () => void pickAvatar('library') },
+      { text: 'Take Photo', onPress: () => void pickAvatar('camera') },
+      ...(user?.avatarUri
+        ? [
+            {
+              text: 'Remove Photo',
+              style: 'destructive' as const,
+              onPress: () => void updateProfile({ avatarUri: null }),
+            },
+          ]
+        : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
+  /**
+   * Pick a square avatar from the library or camera, copy it out of the
+   * volatile picker cache into documentDirectory for durability (same
+   * pattern as /report's photo), and persist the URI. Falls back to the
+   * cache URI if the copy fails. Permission denied → Settings-pointing
+   * Alert; cancel → no-op.
+   */
+  async function pickAvatar(source: 'library' | 'camera') {
+    const perm =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        source === 'camera' ? 'Camera access needed' : 'Photo access needed',
+        `Allow ${source === 'camera' ? 'Camera' : 'Photos'} access for Fresh Greens in Settings to set a profile photo.`,
+      );
+      return;
+    }
+    const opts: ImagePicker.ImagePickerOptions = {
+      mediaTypes: 'images',
+      quality: 0.7,
+      allowsEditing: true,
+      aspect: [1, 1],
+    };
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync(opts)
+        : await ImagePicker.launchImageLibraryAsync(opts);
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+    try {
+      const dir = `${FileSystem.documentDirectory}avatars/`;
+      await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(
+        () => {},
+      );
+      const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const durableUri = `${dir}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      await FileSystem.copyAsync({ from: asset.uri, to: durableUri });
+      await updateProfile({ avatarUri: durableUri });
+    } catch {
+      await updateProfile({ avatarUri: asset.uri });
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {},
+    );
+  }
 
   function handleBack() {
     router.back();
@@ -239,20 +339,40 @@ export default function Menu() {
         >
           {/* Profile card — identity anchor, non-tappable (no profile
               edit surface yet). */}
-          <View
-            style={styles.profileCard}
-            accessible
-            accessibilityRole="text"
-            accessibilityLabel={`Hey there, ${displayName}`}
-          >
-            <Image
-              source={AvatarPng}
-              style={styles.profileAvatar}
-              resizeMode="cover"
-              accessible={false}
-              accessibilityIgnoresInvertColors
-            />
-            <View style={styles.profileTextStack}>
+          <View style={styles.profileCard}>
+            <Pressable
+              onPress={handleChangeAvatar}
+              accessibilityRole="button"
+              accessibilityLabel="Profile photo"
+              accessibilityHint="Change your profile photo"
+              style={({ pressed }) => [
+                styles.avatarPressable,
+                pressed && pressedDim,
+              ]}
+            >
+              <Image
+                source={user?.avatarUri ? { uri: user.avatarUri } : AvatarPng}
+                style={styles.profileAvatar}
+                resizeMode="cover"
+                accessible={false}
+                accessibilityIgnoresInvertColors
+              />
+              {/* Camera badge — the discoverability cue that the avatar
+                  is editable (iOS Contacts / iMessage convention). */}
+              <View style={styles.avatarBadge}>
+                <Camera size={14} color={colors.white} weight="fill" />
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={handleEditName}
+              accessibilityRole="button"
+              accessibilityLabel={`Hey there, ${displayName}`}
+              accessibilityHint="Edit your name"
+              style={({ pressed }) => [
+                styles.profileTextStack,
+                pressed && pressedDim,
+              ]}
+            >
               <Text style={styles.profileGreeting}>Hey there,</Text>
               <Text
                 style={styles.profileName}
@@ -261,7 +381,7 @@ export default function Menu() {
               >
                 {displayName}
               </Text>
-            </View>
+            </Pressable>
           </View>
 
           {/* Progressive carousel — only renders while at least one
@@ -371,23 +491,39 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     ...shadows.e1,
   },
+  // Relative wrapper so the camera badge can pin to the avatar's
+  // bottom-right. Sized to the 80pt avatar.
+  avatarPressable: {
+    width: 80,
+    height: 80,
+  },
   profileAvatar: {
     // 80pt circular slot per Figma 1120:7476. Defensive fill +
     // borderRadius ensure a visible circle even when the PNG fails
     // to load or has a transparent background — the previous
     // setup (no fill, no radius) made a missing image read as a
     // blank space rather than a placeholder. Image fills via
-    // resizeMode='cover' at the JSX site.
-    //
-    // Future: real-photo support is a v2 feature gated on auth
-    // (expo-image-picker for camera roll; persisted path via the
-    // user adapter). Tracked in docs/next-session.md under
-    // "Architecture / data v2."
+    // resizeMode='cover' at the JSX site. Real-photo support shipped
+    // 2026-06-02: source switches to { uri: user.avatarUri } when set.
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: colors.freshgreen,
     overflow: 'hidden',
+  },
+  // Camera badge pinned to the avatar's bottom-right — the editable cue.
+  avatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.wiltedgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.white,
   },
   profileTextStack: {
     flex: 1,

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   clearStoredUser,
   getStoredUser,
+  updateUserProfile,
   upsertUser,
   type User,
 } from '../lib/api/user';
@@ -80,5 +81,19 @@ export function useUser() {
     setUser(null);
   }, []);
 
-  return { user, loading, signInWithApple, signOut };
+  /**
+   * Edit the display name and/or avatar photo. No-op (returns null) if
+   * nobody's signed in. Reflects the change into local state so the
+   * /menu profile card updates immediately.
+   */
+  const updateProfile = useCallback(
+    async (patch: { displayName?: string | null; avatarUri?: string | null }) => {
+      const updated = await updateUserProfile(patch);
+      if (updated) setUser(updated);
+      return updated;
+    },
+    [],
+  );
+
+  return { user, loading, signInWithApple, signOut, updateProfile };
 }

@@ -37,6 +37,10 @@ export type User = {
   email: string | null;
   /** Two-letter avatar string. Derived from displayName at sign-in. */
   initials: string;
+  /** documentDirectory URI of a user-set avatar photo, or null/undefined
+      for the illustrated placeholder. Set via the /menu profile editor;
+      preserved across sign-in merges so re-auth doesn't wipe it. */
+  avatarUri?: string | null;
   /** ms timestamp of the latest successful sign-in. */
   signedInAt: number;
 };
@@ -88,7 +92,39 @@ export async function upsertUser(
     displayName,
     email,
     initials: deriveInitials(displayName, email),
+    // Keep a user-set avatar across re-auth — the same newest-wins-but-
+    // don't-clobber logic as displayName/email.
+    avatarUri: existing?.avatarUri ?? null,
     signedInAt: Date.now(),
+  };
+  return setStoredUser(merged);
+}
+
+/**
+ * Patches the stored user's editable profile fields — display name
+ * and/or avatar photo — without touching auth identity. Re-derives
+ * initials when the name changes. Returns the updated user, or null if
+ * no user is stored. Passing a field is opt-in: an omitted key is left
+ * unchanged; a trimmed-empty displayName clears the name back to null
+ * (greeting falls through to email local-part, then "friend").
+ */
+export async function updateUserProfile(patch: {
+  displayName?: string | null;
+  avatarUri?: string | null;
+}): Promise<User | null> {
+  const existing = await getStoredUser();
+  if (!existing) return null;
+  const displayName =
+    patch.displayName !== undefined
+      ? patch.displayName?.trim() || null
+      : existing.displayName;
+  const avatarUri =
+    patch.avatarUri !== undefined ? patch.avatarUri : existing.avatarUri ?? null;
+  const merged: User = {
+    ...existing,
+    displayName,
+    avatarUri,
+    initials: deriveInitials(displayName, existing.email),
   };
   return setStoredUser(merged);
 }
