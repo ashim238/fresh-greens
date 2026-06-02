@@ -77,6 +77,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: radii.md,
     overflow: 'hidden',
+    // A bit of vertical air so the first/last rows don't sit flush to
+    // the card's rounded edges (user-flagged 2026-06-02). Insets the
+    // rows top + bottom; the hairline separators between rows are
+    // unaffected.
+    paddingVertical: spacing.xs,
   },
   // Hairline separator inset to clear the row's icon column so it runs
   // under the label text, not the icon — iOS-style. Inset = row
