@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/preferred-stations — a "read-only over scoring" feature + the duplicated-constant desync the review caught
+
+Shipped `2141cb2`. Green Book-aligned trusted stations (mark/surface/route-detect). Three durable takeaways:
+
+**A magic constant copied into N call sites is a latent desync bug, not just style.** The match delta (`0.0007°`) lived in 4 places: the adapter const, a hook "mirror" const, and inlined as a bare literal in BOTH toggle handlers (`/search` + `/en-route`). All four agreed at ship time, so tsc was happy and it worked. The final review flagged the real failure mode: retune the adapter's delta and the two inline literals silently drift — `isPreferred` (hook delta) renders a station as starred, but the toggle's `find(... < 0.0007)` (stale literal) can't find it, so it becomes un-un-starrable. The fix collapsed all four to one (`export const PREFERRED_MATCH_DELTA` + a `removeNear(place)` hook method so callers never re-derive proximity), which ALSO deleted the verbatim-duplicated toggle handler. Lesson: when the same literal threshold appears in 3+ places, it's not DRY-pedantry — it's a correctness time-bomb that only detonates on the next edit. Single-source it, and push the logic that uses it into the owning module so callers can't re-implement it slightly wrong.
+
+**"Detect-and-surface" vs "nudge the score" is the line that keeps a thesis honest — and it's enforceable as a one-line diff.** The feature could have made trusted stations a scoring factor (route toward them). We deliberately chose detect-only: safety scoring picks the route unchanged, we just NOTE if a trusted station is near it. The enforcement was concrete — the ONLY change to `lib/scoring.ts` was adding `export` to an existing pure helper (`isPointNearPolyline`); zero logic touched. That's a reviewable invariant: "the scoring diff must be exactly one line." When a feature layers on top of a load-bearing system (here, the safety pipeline that IS the thesis), make "I didn't change the core" a checkable property, not a promise.
+
+**Proportional review paid off again, and the heaviest integration is where the real bug lived.** 3 net-new files (verbatim → haiku, verify-by-read) + 5 integrations (standard model, full review) + a whole-feature review. The net-new layer was flawless; the one Important finding was in the cross-cutting glue (the delta duplicated across the two integration screens), exactly where verbatim-correctness can't help because the bug is in how the pieces fit. Spend review budget on the seams, not the parts.
+
+---
+
 ## feat/portfolio-polish-pass — default-inversion fixes whole bug classes; honest READMEs read more confident
 
 Shipped `498cda9`. Four-fix polish batch — three were straightforward but one taught something:
