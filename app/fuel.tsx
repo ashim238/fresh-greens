@@ -178,30 +178,36 @@ export default function Fuel() {
                 />
               </View>
 
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Remind me every</Text>
-                <View style={styles.stepperRow}>
-                  <Pressable
-                    onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
-                    style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Fewer days"
-                  >
-                    <Minus size={20} color={colors.black} weight="bold" />
-                  </Pressable>
-                  <Text style={styles.stepValue}>
-                    {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
-                  </Text>
-                  <Pressable
-                    onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
-                    style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
-                    accessibilityRole="button"
-                    accessibilityLabel="More days"
-                  >
-                    <Plus size={20} color={colors.black} weight="bold" />
-                  </Pressable>
+              {/* Cadence only matters once reminders are on — hide it
+                  when the toggle is off so the group doesn't show a
+                  setting that has no effect (and the separator above it
+                  collapses with it). */}
+              {enabled && (
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Remind me every</Text>
+                  <View style={styles.stepperRow}>
+                    <Pressable
+                      onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
+                      style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Fewer days"
+                    >
+                      <Minus size={20} color={colors.black} weight="bold" />
+                    </Pressable>
+                    <Text style={styles.stepValue}>
+                      {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
+                    </Text>
+                    <Pressable
+                      onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
+                      style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                      accessibilityRole="button"
+                      accessibilityLabel="More days"
+                    >
+                      <Plus size={20} color={colors.black} weight="bold" />
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
+              )}
             </RowGroup>
 
             {profile?.remindersEnabled && nextLabel && (
