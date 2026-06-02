@@ -26,6 +26,7 @@ type Size = '48' | '56';
 export function FloatingActionButton({
   children,
   onPress,
+  onLongPress,
   disabled,
   size = '56',
   accessibilityLabel,
@@ -34,6 +35,9 @@ export function FloatingActionButton({
 }: {
   children: ReactNode;
   onPress?: () => void;
+  /** Optional long-press handler. Used for hidden affordances (e.g. the
+      menu FAB toggling dev-only chrome) — never the primary action. */
+  onLongPress?: () => void;
   disabled?: boolean;
   size?: Size;
   accessibilityLabel?: string;
@@ -48,6 +52,7 @@ export function FloatingActionButton({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}

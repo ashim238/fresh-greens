@@ -236,6 +236,11 @@ export default function Home() {
   // when in the viewport and as EdgeIndicators when out — the "trusted
   // community" signal layer, distinct from OSM infrastructure zones.
   const [reportZones, setReportZones] = useState<Zone[]>([]);
+  // __DEV__-only: lets a long-press on the menu button hide the "Clear
+  // reports" dev chip so it stays out of screenshots, while keeping the
+  // tool one long-press away for re-staging. Never matters in production
+  // (the chip is __DEV__-gated regardless).
+  const [devChipHidden, setDevChipHidden] = useState(false);
   // Raw OSRM routes — pre-scoring. Ranking is derived (useMemo below)
   // so it recomputes automatically when zones change without needing
   // another effect.
@@ -1591,6 +1596,14 @@ export default function Home() {
             // bar dominates the top-row hierarchy.
             size="48"
             onPress={() => router.push('/menu')}
+            onLongPress={
+              __DEV__
+                ? () => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setDevChipHidden((h) => !h);
+                  }
+                : undefined
+            }
             accessibilityLabel="Menu"
           >
             <MenuGlyph width={24} height={24} />
@@ -1608,7 +1621,7 @@ export default function Home() {
             clears all community reports for a clean map (screenshots/
             demos) and never renders in production builds.
           */}
-          {__DEV__ && (
+          {__DEV__ && !devChipHidden && (
             <Pressable
               onPress={handleDevClearReports}
               style={({ pressed }) => [styles.devResetChip, pressed && pressedDim]}
