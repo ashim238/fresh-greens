@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/portfolio-polish-pass — default-inversion fixes whole bug classes; honest READMEs read more confident
+
+Shipped `498cda9`. Four-fix polish batch — three were straightforward but one taught something:
+
+**A wrong default is a bug factory; inverting it is the structural fix.** `/trusted-contact-setup` used to default to `replace('/home')` when no `from` param was set, with `from=settings`/`from=emergency` as opt-OUT escape hatches. The same bug ("Home card drops as a sheet over the modal stack") had to be patched TWICE — once at the emergency-screen entry, then again at /safety+/roadside — because the destructive case was the default and a forgotten param fell into it. The right fix wasn't a third patch: it was inverting the polarity so the SAFE behavior is the default and the destructive one needs an explicit `?from=onboarding` opt-in. After inversion, four callers got *shorter* (no workaround param) and the one onboarding caller got *longer* (explicit opt-in to the home-reset) — but a forgotten param now degrades to the safe behavior, killing the entire bug class. The lesson: when the same bug recurs across callers, look at the contract's default, not the callers. Default-safe + explicit-destructive beats default-destructive + N escape hatches. Same pattern would apply to anything where forgetting an option leads to data loss, unintended writes, broken navigation, etc.
+
+**Honest scaffold-disclosure makes a portfolio read MORE confident, not less.** Counterintuitive: the README's new "What's shipped vs. what's v2" section names five gaps (mock-user reports, placeholder turn-by-turn, /report photo stub, calendar verification-pending, Sign-In/Push prereqs). The instinct is to hide those — they look like incompleteness. But a code-reading reviewer will find them in 5 minutes regardless. Naming them first means YOU control the framing ("intentional v1 scope," not "abandoned half-build"); going silent means the reviewer's framing wins. Apply broadly: in design crits, code reviews, demo walkthroughs — flag the known gaps first.
+
+---
+
 ## feat/connect-calendar — first native-module feature; merged unverified-on-device, but caught two real surprises before merge
 
 Shipped `0365c1f` (Plan 2 of 2 — Plan 1 = settings register was `7fc4cff`). Merged to main without a live device pass because the dev-build path stacked three blockers (no iOS simulators installed, then no code signing certs, then disk full) and the code itself was tsc-clean + final-reviewed. Four takeaways:
