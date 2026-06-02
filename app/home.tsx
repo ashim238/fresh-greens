@@ -45,6 +45,7 @@ import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
 import { useWeather } from '../hooks/useWeather';
 import {
+  clearAllCommunityReports,
   getCommunityReportsAsZones,
   removeCommunityReport,
   type ReportCategoryId,
@@ -1005,6 +1006,39 @@ export default function Home() {
   }
 
   /**
+   * __DEV__-only: wipe every community report from the store for a clean
+   * map (screenshots, demos). Bypasses the per-marker hold-to-delete's
+   * author + anonymity gate, which can't touch anonymous incident/
+   * felt-unsafe reports or reports made under a prior sign-in. Never
+   * ships — the chip that calls this is gated on `__DEV__`.
+   */
+  function handleDevClearReports() {
+    Alert.alert(
+      'Clear all reports? (dev)',
+      'Removes every community report from this device. Dev-only — not in production builds.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear all',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllCommunityReports();
+              setReportZones(await getCommunityReportsAsZones());
+              setSelectedReport(null);
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              ).catch(() => {});
+            } catch {
+              Alert.alert('Could not clear', 'Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  /**
    * Tap-to-move for the report placement pin. While placing a report,
    * any tap on the map (including taps that visually land on the pin
    * itself — the Marker is `tappable={false}` so they fall through)
@@ -1568,7 +1602,22 @@ export default function Home() {
             stays as the single Settings entry. The user's identity
             glyph (UserCar) lives on /menu's profile row, which is
             the surface where identity actually belongs.
+
+            The right slot now hosts the __DEV__-only reset chip the
+            menuRow's space-between layout was always built for. It
+            clears all community reports for a clean map (screenshots/
+            demos) and never renders in production builds.
           */}
+          {__DEV__ && (
+            <Pressable
+              onPress={handleDevClearReports}
+              style={({ pressed }) => [styles.devResetChip, pressed && pressedDim]}
+              accessibilityRole="button"
+              accessibilityLabel="Clear all reports (dev only)"
+            >
+              <Text style={styles.devResetChipText}>Clear reports</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
 
@@ -2315,6 +2364,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  // __DEV__-only reset chip in the menuRow's right slot. Low-key pill so
+  // it reads as a dev tool, not a shipped affordance — and it never
+  // renders in production (the JSX is gated on `__DEV__`).
+  devResetChip: {
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: colors.systemGroupedBackground,
+    borderWidth: 1,
+    borderColor: colors.separatorSubtle,
+  },
+  devResetChipText: {
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.labelSecondary,
   },
   // menuButton + avatarButton style blocks retired — both consume
   // the FloatingActionButton component now (size="48").

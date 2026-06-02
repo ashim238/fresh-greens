@@ -314,6 +314,17 @@ export async function removeCommunityReport(id: string): Promise<void> {
 }
 
 /**
+ * Wipes every community report from the store. Unlike removeCommunityReport,
+ * this ignores authorship + anonymity (those gate the per-marker hold-to-
+ * delete, so anonymous `incident`/`felt-unsafe` reports and reports made
+ * under a prior sign-in can't be cleared that way). Used only by the
+ * __DEV__ reset affordance on /home to get a clean map for screenshots.
+ */
+export async function clearAllCommunityReports(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+/**
  * Returns reports as Zone[] with point geometry, ready to feed the
  * scoring pipeline alongside OSM zones. Each report becomes one point
  * zone whose ZoneType is determined by its category (CATEGORIES table).
