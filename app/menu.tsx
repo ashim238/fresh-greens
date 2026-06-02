@@ -7,6 +7,7 @@ import { Bookmark } from 'phosphor-react-native/src/icons/Bookmark';
 import { CalendarBlank } from 'phosphor-react-native/src/icons/CalendarBlank';
 import { Camera } from 'phosphor-react-native/src/icons/Camera';
 import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
+import { Gear } from 'phosphor-react-native/src/icons/Gear';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
@@ -60,7 +61,8 @@ import { typography } from '../theme/typography';
  *
  * Layout (top → bottom):
  *
- *   Settings                    ✕   ← SettingsHeader: close-X only.
+ *   ⚙ Settings                  ✕   ← SettingsHeader `large`: big LEFT-
+ *                                     aligned title + gear, close-X only.
  *                                     This is the settings-tree ROOT, so
  *                                     no chevron-back (nothing above it
  *                                     inside settings). Close exits to
@@ -330,7 +332,12 @@ export default function Menu() {
       <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <SettingsHeader title="Settings" onClose={handleBack} />
+        <SettingsHeader
+          title="Settings"
+          large
+          icon={<Gear size={28} color={colors.black} weight="bold" />}
+          onClose={handleBack}
+        />
 
         <ScrollView
           style={styles.scroll}
