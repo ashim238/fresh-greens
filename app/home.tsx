@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
 import { Check } from 'phosphor-react-native/src/icons/Check';
 import { PathIcon } from 'phosphor-react-native/src/icons/Path';
+import { Star } from 'phosphor-react-native/src/icons/Star';
 import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
 import { X } from 'phosphor-react-native/src/icons/X';
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
@@ -37,7 +38,9 @@ import { ZoneDetailCard } from '../components/ZoneDetailCard';
 import { LoadingState } from '../components/StateCard';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
+import { useFuelProfile } from '../hooks/useFuelProfile';
 import { usePreferences } from '../hooks/usePreferences';
+import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
@@ -85,7 +88,7 @@ import {
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
-import { isPointInZone, pickWinner } from '../lib/scoring';
+import { isPointInZone, isPointNearPolyline, pickWinner } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
@@ -502,6 +505,27 @@ export default function Home() {
     }
     return { police, lowLight };
   }, [recommended, enabledZones]);
+
+  const { profile: fuelProfile } = useFuelProfile();
+  const { stations: preferredStations } = usePreferredStations();
+
+  // Read-only over scoring: is a trusted station near the recommended
+  // route? ~150m tolerance — "near your way", looser than the ~78m
+  // station-identity match. Does NOT influence which route is chosen.
+  const trustedStationOnRoute = useMemo(() => {
+    if (!recommended || preferredStations.length === 0) return false;
+    return preferredStations.some((s) =>
+      isPointNearPolyline(
+        { latitude: s.latitude, longitude: s.longitude },
+        recommended.coordinates,
+        150,
+      ),
+    );
+  }, [recommended, preferredStations]);
+
+  // "station" vs "charger" by fuel type (fuelProfile is the existing
+  // useFuelProfile() value — use the file's actual variable name).
+  const trustedNoun = fuelProfile?.fuelType === 'electric' ? 'charger' : 'station';
 
   // Route-preview headline reveal — fire a single light haptic + a
   // 240ms opacity fade on the "{N} min" text the first time a given
@@ -1961,6 +1985,15 @@ export default function Home() {
             {arrivalLabel ? `Safest route · ${arrivalLabel}.` : 'Safest route with current conditions.'}
           </Text>
 
+          {recommended && trustedStationOnRoute && (
+            <View style={styles.trustedOnRouteRow}>
+              <Star size={16} color={colors.burntgreen} weight="fill" />
+              <Text style={styles.trustedOnRouteText}>
+                A {trustedNoun} you trust is on this route.
+              </Text>
+            </View>
+          )}
+
           {recommended && enabledZones.length > 0 && (
             <View style={styles.routeChipsBlock}>
               {/*
@@ -2558,6 +2591,17 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     paddingHorizontal: 24,
+  },
+  trustedOnRouteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 24,
+  },
+  trustedOnRouteText: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.burntgreen,
   },
   routeChipsBlock: {
     gap: 8,

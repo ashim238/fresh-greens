@@ -62,6 +62,7 @@ import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
+import { usePreferredStations } from '../hooks/usePreferredStations';
 import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
@@ -450,6 +451,30 @@ export default function EnRoute() {
     fuelType: fuelProfile?.fuelType ?? 'gas',
     userLocation,
   });
+
+  const { isPreferred, add: addPreferred, removeNear: removePreferredNear } =
+    usePreferredStations();
+
+  // Preferred stations first, then the hook's existing distance order.
+  const sortedFuelStops = useMemo(
+    () =>
+      [...fuelStops.stops].sort(
+        (a, b) => Number(isPreferred(b)) - Number(isPreferred(a)),
+      ),
+    [fuelStops.stops, isPreferred],
+  );
+
+  function handleTogglePreferred(stop: Place) {
+    if (isPreferred(stop)) {
+      void removePreferredNear(stop);
+    } else {
+      void addPreferred({
+        name: stop.name,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+      });
+    }
+  }
 
   // On-map caution/avoid zone markers — polygon/polyline OSM zones
   // surface as En-Route Zone markers at the zone's anchor point
@@ -1899,10 +1924,12 @@ export default function EnRoute() {
         visible={showFuelStops}
         loading={fuelStops.loading}
         error={fuelStops.error}
-        stops={fuelStops.stops}
+        stops={sortedFuelStops}
         fuelType={fuelProfile?.fuelType ?? 'gas'}
         onSelectStop={handleSelectFuelStop}
         onClose={() => setShowFuelStops(false)}
+        isPreferred={isPreferred}
+        onTogglePreferred={handleTogglePreferred}
       />
       <RouteComparisonSheet
         visible={showComparison}

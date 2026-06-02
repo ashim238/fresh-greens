@@ -6,11 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Minus } from 'phosphor-react-native/src/icons/Minus';
 import { Plus } from 'phosphor-react-native/src/icons/Plus';
+import { Trash } from 'phosphor-react-native/src/icons/Trash';
 
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { type FuelType } from '../lib/api/fuel';
 import { useFuelProfile } from '../hooks/useFuelProfile';
+import { usePreferredStations } from '../hooks/usePreferredStations';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -43,6 +45,19 @@ const MAX_DAYS = 60;
 export default function Fuel() {
   const router = useRouter();
   const { profile, loading, saveProfile, markFilledUp } = useFuelProfile();
+  const { stations: preferredStations, remove: removePreferredStation } =
+    usePreferredStations();
+
+  function handleRemoveStation(id: string, name: string) {
+    Alert.alert('Remove station', `Remove "${name}" from your preferred stations?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => void removePreferredStation(id),
+      },
+    ]);
+  }
 
   // Local form state, seeded from the stored profile once loaded.
   const [carName, setCarName] = useState('');
@@ -226,6 +241,39 @@ export default function Fuel() {
               </RowGroup>
             )}
 
+            <RowGroup
+              title="Preferred stations"
+              footer="Stations you trust — starred from the on-route fuel list or a Gas search."
+            >
+              {preferredStations.length === 0 ? (
+                <View style={styles.emptyStationRow}>
+                  <Text style={styles.emptyStationText}>
+                    Star a gas station you trust and it&apos;ll show up here.
+                  </Text>
+                </View>
+              ) : (
+                preferredStations.map((s) => (
+                  <View key={s.id} style={styles.stationRow}>
+                    <View style={styles.stationTextStack}>
+                      <Text style={styles.stationName} numberOfLines={1}>{s.name}</Text>
+                      {s.brand ? (
+                        <Text style={styles.stationBrand} numberOfLines={1}>{s.brand}</Text>
+                      ) : null}
+                    </View>
+                    <Pressable
+                      onPress={() => handleRemoveStation(s.id, s.name)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${s.name}`}
+                      style={({ pressed }) => [pressed && pressedDim]}
+                    >
+                      <Trash size={20} color={colors.red} weight="regular" />
+                    </Pressable>
+                  </View>
+                ))
+              )}
+            </RowGroup>
+
             <Pressable
               onPress={handleSave}
               disabled={saving}
@@ -329,4 +377,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: { ...dynamicType(typography.bodyEmphasized), color: colors.white },
+  stationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  stationTextStack: { flex: 1, gap: 2 },
+  stationName: { ...dynamicType(typography.bodyRegular), color: colors.black },
+  stationBrand: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
+  emptyStationRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  emptyStationText: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
 });

@@ -33,6 +33,7 @@ import FuelIcon from '../assets/illustrations/fuel.svg';
 
 import { clearCalendarConnection } from '../lib/api/calendar';
 import { clearResolutions } from '../lib/api/calendar-resolutions';
+import { clearPreferredStations } from '../lib/api/preferred-stations';
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { SettingsRow } from '../components/settings/SettingsRow';
@@ -281,6 +282,7 @@ export default function Menu() {
         clearFuelProfile(),
         clearCalendarConnection(),
         clearResolutions(),
+        clearPreferredStations(),
       ]);
       router.replace('/sign-out');
     } finally {

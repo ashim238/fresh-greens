@@ -26,10 +26,12 @@ import QuickToolGas from '../assets/illustrations/safety-tools-gas.svg';
 import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 
 import { CalendarPickSheet } from '../components/CalendarPickSheet';
+import { PreferredStar } from '../components/PreferredStar';
 import { SearchBar } from '../components/SearchBar';
 import { ErrorState, LoadingState } from '../components/StateCard';
 import { useCalendarConnection } from '../hooks/useCalendarConnection';
 import { useFuelProfile } from '../hooks/useFuelProfile';
+import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
@@ -224,6 +226,26 @@ export default function Search() {
     () => buildSavedRows(savedPlaces, regulars),
     [savedPlaces, regulars],
   );
+  // Preferred (trusted) gas stations — surfaced as a trust-star on Gas
+  // result rows. The star toggles a station in/out of the user's trusted
+  // set; the set is consumed by the fuel-stop ranking elsewhere.
+  const {
+    isPreferred: isPreferredStation,
+    add: addPreferredStation,
+    removeNear: removePreferredStationNear,
+  } = usePreferredStations();
+
+  function handleToggleStation(place: Place) {
+    if (isPreferredStation(place)) {
+      void removePreferredStationNear(place);
+    } else {
+      void addPreferredStation({
+        name: place.name,
+        latitude: place.latitude,
+        longitude: place.longitude,
+      });
+    }
+  }
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('landing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -951,6 +973,20 @@ export default function Search() {
                 <Text style={styles.resultDistance} numberOfLines={1}>
                   {formatResultDistance(place.distanceMiles)}
                 </Text>
+                {/*
+                  Trust-star — Gas tool only. PreferredStar is its own
+                  Pressable, so tapping it wins RN's responder system and
+                  the row's handleSelectPlace onPress does NOT fire (the
+                  star toggles trust without navigating). Sits at the row's
+                  trailing edge after the distance; the resultRow gap: 24
+                  spaces it from the distance label.
+                */}
+                {selectedToolId === 'gas' && (
+                  <PreferredStar
+                    preferred={isPreferredStation(place)}
+                    onToggle={() => handleToggleStation(place)}
+                  />
+                )}
                 {idx < results.length - 1 && (
                   <View style={styles.resultSeparator} />
                 )}

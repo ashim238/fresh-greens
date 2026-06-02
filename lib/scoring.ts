@@ -439,7 +439,7 @@ function isPointInPolygon(point: Coordinate, polygon: Coordinate[]): boolean {
  * (lat/lng deltas scaled to meters). Accurate enough at neighborhood
  * scale; would matter at country scale.
  */
-function isPointNearPolyline(
+export function isPointNearPolyline(
   point: Coordinate,
   polyline: Coordinate[],
   thresholdMeters: number,

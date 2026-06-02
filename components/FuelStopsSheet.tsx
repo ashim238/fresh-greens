@@ -9,6 +9,7 @@ import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { PreferredStar } from './PreferredStar';
 
 /**
  * FuelStopsSheet — gas/charging stations along the active route. Presented
@@ -24,6 +25,8 @@ export function FuelStopsSheet({
   fuelType,
   onSelectStop,
   onClose,
+  isPreferred,
+  onTogglePreferred,
 }: {
   visible: boolean;
   loading: boolean;
@@ -32,6 +35,8 @@ export function FuelStopsSheet({
   fuelType: FuelType;
   onSelectStop: (stop: Place) => void;
   onClose: () => void;
+  isPreferred: (stop: Place) => boolean;
+  onTogglePreferred: (stop: Place) => void;
 }) {
   const title = fuelType === 'electric' ? 'Charging on your route' : 'Gas on your route';
 
@@ -71,14 +76,24 @@ export function FuelStopsSheet({
                     style={({ pressed }) => [styles.row, pressed && pressedDim]}
                     onPress={() => onSelectStop(item)}
                     accessibilityRole="button"
-                    accessibilityLabel={`${item.name}, ${item.distanceMiles} miles away`}
+                    accessibilityLabel={`${item.name}, ${item.distanceMiles} miles away${isPreferred(item) ? ', trusted by you' : ''}`}
                     accessibilityHint="Shows this stop on the map"
                   >
                     <View style={styles.rowText}>
                       <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
-                      <Text style={styles.rowAddress} numberOfLines={1}>{item.address}</Text>
+                      {isPreferred(item) ? (
+                        <View style={styles.trustedBadge}>
+                          <Text style={styles.trustedBadgeText}>Trusted by you</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.rowAddress} numberOfLines={1}>{item.address}</Text>
+                      )}
                     </View>
                     <Text style={styles.rowDistance}>{item.distanceMiles} mi</Text>
+                    <PreferredStar
+                      preferred={isPreferred(item)}
+                      onToggle={() => onTogglePreferred(item)}
+                    />
                   </Pressable>
                 )}
               />
@@ -126,4 +141,13 @@ const styles = StyleSheet.create({
   rowName: { ...typography.bodyEmphasized, color: colors.black },
   rowAddress: { ...typography.footnoteRegular, color: colors.labelSecondary },
   rowDistance: { ...typography.subheadlineRegular, color: colors.labelSecondary },
+  trustedBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+    backgroundColor: colors.fadedgreen,
+  },
+  trustedBadgeText: { ...typography.caption1Emphasized, color: colors.burntgreen },
 });
