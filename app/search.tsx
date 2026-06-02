@@ -275,16 +275,10 @@ export default function Search() {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
-        // Reverse-geocode the user's location once so the Results
-        // subhead can read ""{query}" results in {city}" instead of
-        // the generic fallback.
-        const reverse = await Location.reverseGeocodeAsync({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        if (cancelled) return;
-        const city = reverse[0]?.city ?? reverse[0]?.subregion;
-        if (city) setResultsCity(city);
+        // (Subhead geo-context is derived from the search RESULTS, not
+        // the user — see runSearch. Reverse-geocoding the user here was
+        // the bug: searching "Atlanta" from NY read "results in New
+        // York" because the subhead borrowed the user's city.)
       } catch (err) {
         console.warn('[search] could not acquire user location:', err);
       }
@@ -357,6 +351,22 @@ export default function Search() {
         return;
       }
       setResults(places);
+      // Subhead geo-context comes from the RESULTS, not the user: a
+      // search for "Atlanta" while in NY should read "results in
+      // Atlanta", not "in New York". Reverse-geocode the top result
+      // (best-effort, off the critical path); the stale-query guard
+      // drops it if the user has typed on, and it falls back to the
+      // prior value on failure.
+      void Location.reverseGeocodeAsync({
+        latitude: places[0].latitude,
+        longitude: places[0].longitude,
+      })
+        .then((rev) => {
+          if (lastQueryRef.current !== trimmed) return;
+          const city = rev[0]?.city ?? rev[0]?.subregion;
+          if (city) setResultsCity(city);
+        })
+        .catch(() => {});
       setPhase('results');
     } catch (err) {
       if (lastQueryRef.current !== trimmed) return;
