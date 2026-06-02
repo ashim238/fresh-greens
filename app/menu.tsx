@@ -358,6 +358,12 @@ export default function Menu() {
               ]}
             >
               <Image
+                // Key on the URI so the Image remounts when the avatar
+                // changes — RN doesn't always refresh an <Image> when its
+                // source switches between a static require() and a {uri}
+                // (or between two file:// URIs), which read as "the photo
+                // didn't update."
+                key={user?.avatarUri ?? 'placeholder'}
                 source={user?.avatarUri ? { uri: user.avatarUri } : AvatarPng}
                 style={styles.profileAvatar}
                 resizeMode="cover"
