@@ -29,6 +29,8 @@ Mark deferred items with a `TODO:` comment so they don't get lost.
 ## 4. Update theme if needed
 Before writing a hex color, font size, or spacing value inline — check `theme/`. If it doesn't exist, add it to the right file in `theme/` first, then consume it from the screen. **Never inline a design value.**
 
+**If you added a color token to `theme/colors.ts`, mirror it into the design specimen** (`fresh-greens-specimen/index.html` — both the `:root` block and the visible swatch grid) and commit + push that sibling repo. The specimen is README-linked, so a missing token leaves portfolio visitors on a stale design system. Run `npm run check:specimen` to catch drift — it fails on any theme hex missing from the specimen (and skips cleanly if the sibling repo isn't cloned). This is the enforcement that prevents the hand-mirror from silently drifting; the Step 13 pre-merge audit runs it too.
+
 ## 5. Build, iterate on phone
 Save → Expo Go reloads on phone within ~1s. Tweak numbers (`marginBottom`, `width`, `borderRadius`) directly until it looks right. Don't be precious about reverting — the loop is the point.
 
