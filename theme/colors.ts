@@ -38,7 +38,11 @@ export const colors = {
   mutedTertiary: 'rgba(80, 80, 80, 0.7)',
 
   // iOS system backgrounds
-  systemGroupedBackground: '#F2F2F7',
+  // Lightened from iOS-stock #F2F2F7 → #F6F6FA (user-flagged 2026-06-02:
+  // the grouped gray read a touch heavy). Subtle lift toward white while
+  // keeping the cool tint; white RowGroup cards stay distinct via their
+  // shadows.e1. Used app-wide as the light-gray page bg, not just settings.
+  systemGroupedBackground: '#F6F6FA',
 
   // Daylight gradient anchors — documented exception to the reserved-
   // color rule (orange used as functional daylight encoding, not as
