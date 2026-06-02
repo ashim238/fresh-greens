@@ -5,8 +5,8 @@ import {
   addPreferredStation as addToStore,
   clearPreferredStations as clearFromStore,
   getPreferredStations,
-  PREFERRED_MATCH_DELTA,
   removePreferredStation as removeFromStore,
+  stationsMatch,
   type PreferredStation,
 } from '../lib/api/preferred-stations';
 
@@ -33,12 +33,8 @@ export function usePreferredStations() {
   );
 
   const isPreferred = useCallback(
-    (place: { latitude: number; longitude: number }): boolean =>
-      stations.some(
-        (s) =>
-          Math.abs(s.latitude - place.latitude) < PREFERRED_MATCH_DELTA &&
-          Math.abs(s.longitude - place.longitude) < PREFERRED_MATCH_DELTA,
-      ),
+    (place: { name: string; latitude: number; longitude: number }): boolean =>
+      stations.some((s) => stationsMatch(s, place)),
     [stations],
   );
 
@@ -71,12 +67,8 @@ export function usePreferredStations() {
    * place and collapses the duplicated toggle handlers.
    */
   const removeNear = useCallback(
-    async (place: { latitude: number; longitude: number }) => {
-      const match = stations.find(
-        (s) =>
-          Math.abs(s.latitude - place.latitude) < PREFERRED_MATCH_DELTA &&
-          Math.abs(s.longitude - place.longitude) < PREFERRED_MATCH_DELTA,
-      );
+    async (place: { name: string; latitude: number; longitude: number }) => {
+      const match = stations.find((s) => stationsMatch(s, place));
       if (match) await remove(match.id);
     },
     [stations, remove],

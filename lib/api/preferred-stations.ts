@@ -35,11 +35,24 @@ export type PreferredStation = {
   setAt: number;
 };
 
-function near(
-  a: { latitude: number; longitude: number },
-  b: { latitude: number; longitude: number },
+/** Case/whitespace-insensitive name key for matching. */
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/**
+ * Two station-like records refer to the same station when their names
+ * match AND they sit within PREFERRED_MATCH_DELTA. Name is the
+ * disambiguator — proximity alone conflated distinct neighbors (a Shell
+ * and a Wawa within ~78m both read as "preferred", lighting two stars
+ * for one tap). Exported so the hook matches identically (single source).
+ */
+export function stationsMatch(
+  a: { name: string; latitude: number; longitude: number },
+  b: { name: string; latitude: number; longitude: number },
 ): boolean {
   return (
+    normalizeName(a.name) === normalizeName(b.name) &&
     Math.abs(a.latitude - b.latitude) < PREFERRED_MATCH_DELTA &&
     Math.abs(a.longitude - b.longitude) < PREFERRED_MATCH_DELTA
   );
@@ -70,7 +83,7 @@ export async function addPreferredStation(input: {
   longitude: number;
 }): Promise<PreferredStation> {
   const existing = await getPreferredStations();
-  const dup = existing.find((s) => near(s, input));
+  const dup = existing.find((s) => stationsMatch(s, input));
   if (dup) return dup;
 
   const station: PreferredStation = {
@@ -91,13 +104,14 @@ export async function removePreferredStation(id: string): Promise<void> {
   );
 }
 
-/** True if a place sits within PREFERRED_MATCH_DELTA of a preferred station. */
+/** True if `place` (by name + proximity) is a preferred station. */
 export async function isPreferredStation(place: {
+  name: string;
   latitude: number;
   longitude: number;
 }): Promise<boolean> {
   const all = await getPreferredStations();
-  return all.some((s) => near(s, place));
+  return all.some((s) => stationsMatch(s, place));
 }
 
 /** Sign-out / factory-reset cleanup. */

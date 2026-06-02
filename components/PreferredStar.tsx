@@ -33,10 +33,17 @@ export function PreferredStar({
       accessibilityState={{ selected: preferred }}
       style={({ pressed }) => [pressed && pressedDim]}
     >
+      {/* Filled YELLOW star when trusted — the universal "favorite"
+          mark. Documented reserved-color carve-out: yellow is otherwise
+          the caution signal, but a filled favorite-star is iconographic
+          enough (App Store / ratings convention) to read as "favorite",
+          not "caution" — same universal-iconography logic as the
+          recording-red carve-out. See .cursorrules carve-out #9. Hollow
+          gray when not trusted. */}
       <Star
         size={24}
         weight={preferred ? 'fill' : 'regular'}
-        color={preferred ? colors.wiltedgreen : colors.labelTertiary}
+        color={preferred ? colors.yellow : colors.labelTertiary}
       />
     </Pressable>
   );
