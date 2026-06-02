@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/route-switching + the preferred-stations follow-ups — three patterns worth keeping
+
+Shipped `4d36a20` (route switching) + `b05b8a9` (preferred-stations fixes). Three:
+
+**Proximity-only identity conflates neighbors; add the name.** The "tap one star, two light up" bug: `isPreferred` matched stations by lat/lng within ~78m, so a Shell and a Wawa across the street both read as preferred. Coordinates alone are not identity for dense POIs. Fix: match on normalized name AND proximity (`stationsMatch`, exported so adapter + hook agree). The general rule: when you're de-duping or identity-matching real-world places by location, a radius will eventually swallow a distinct neighbor — pair it with a second key (name/brand) or you'll conflate. (Tension noted: tight radius alone risks missing the SAME place across geocoders with coordinate jitter; name + moderate radius beats either extreme.)
+
+**To make a single-subject screen multi-subject, parameterize the derivations, not the render.** The /home route-preview hardcoded `recommended` everywhere — card ETA, via, daylight gradient, zone chips, the map polyline. Making it switch between routes looked like a hundred-site change, but the render mostly reads *derived* values (`arrivalTime`, `viaRoad`, `arrivalSegs`, `routeZoneCounts`). Introduce one `selectedRoute` (defaulting to recommended) and repoint the ~8 derivation sites at it; the render follows automatically. The lesson for "make X switchable": find the funnel where the single subject becomes the derived values, swap it there, and most of the UI comes along for free. Hardcoded-singular → parameterized-with-a-default is a small, safe diff if you change it at the derivation layer.
+
+**A useRef'd PanResponder captures a stale closure — route the call through a ref.** The swipe-to-switch gesture used a `useRef(PanResponder.create(...))` so the responder stays stable across renders — but `create()` runs once and closes over the first render's `cycleRoute` (stale `selectedRoute`/`routes`). Fix: a `cycleRouteRef` reassigned every render (`cycleRouteRef.current = cycleRoute`) and the responder calls `cycleRouteRef.current(dir)`. The general pattern for any long-lived callback container (PanResponder, event listeners, timers created once): keep the container stable, but call the latest closure through a ref you update each render. And for the cross-screen handoff (the chosen route → /en-route): both screens refetch independently, so pass the selection by RANK (recommended-first ordering is stable across pickWinner runs), apply it once with a ref guard, then leave the user free to switch.
+
+---
+
 ## feat/preferred-stations — a "read-only over scoring" feature + the duplicated-constant desync the review caught
 
 Shipped `2141cb2`. Green Book-aligned trusted stations (mark/surface/route-detect). Three durable takeaways:
