@@ -32,45 +32,45 @@ import { typography } from '../theme/typography';
  *   - preview (contact picked) → avatar + name + Continue / change
  *
  * Routing depends on entry point. The `from` query param distinguishes:
- *   - undefined / "onboarding" → Continue + Skip both `replace('/home')`,
- *     ending the onboarding stack. Default behavior.
- *   - "settings" → Continue + Skip both `back()`, returning to whatever
- *     pushed here. Used by /menu's Safety row, the /safety modal's
- *     no-contact gate, and /roadside's share setup — all page-sheet or
- *     in-app surfaces that need to land the user back where they came
- *     from. Without the param these fell through to replace('/home'),
- *     which dropped a Home card as a sheet over the live modal stack.
- *   - "emergency" → Continue + Skip both `back()`, returning to the
- *     /emergency SOS screen that pushed here (when the user has no
- *     trusted contact yet). Without this, Skip fell through to the
- *     onboarding `replace('/home')`, which dropped a fresh Home card on
- *     top of the live stack — the "Home overlays as a sheet" bug.
- * Any `from` value other than onboarding ("embedded" entry) returns via
- * back(); without the param, editing from /menu or skipping from SOS
- * would push the user to /home instead — wrong stack semantics.
+ *   - "onboarding" → Continue + Skip both `replace('/home')`, ending the
+ *     first-run onboarding stack. The dark brand splash chrome stays.
+ *   - undefined (or any other value) → Continue + Skip both `back()`,
+ *     returning to whatever pushed here. The white-on-light chrome
+ *     applies. This is the DEFAULT — every in-app caller (Settings,
+ *     /safety modal, /roadside, /emergency) wants this behavior.
  *
- * Embedded entries (settings + emergency) also swap the visual register
- * from wiltedgreen-on-dark to white-on-light, matching the white
- * /safety-settings and /emergency surfaces that push here. The
- * onboarding register stays the dark brand splash — flipping it
- * mid-onboarding would feel disjointed.
+ * The default was inverted on 2026-06-01 because the prior default
+ * (`replace('/home')` when no `from` param was set) caused the "Home
+ * card drops as a sheet over the live modal stack" bug TWICE — once at
+ * the emergency-screen entry, then again at /safety + /roadside. The
+ * lesson: a forgotten query param should degrade to the SAFE behavior,
+ * not the destructive one. Now a missing `from` falls through to back(),
+ * which is correct for every in-app caller. The one screen that
+ * legitimately wants the home-reset (`/permissions`, end of onboarding)
+ * passes `?from=onboarding` explicitly.
+ *
+ * The dark/light visual register tracks the same boolean: onboarding =
+ * dark brand splash, default = white-on-light to match the embedded
+ * surfaces (/safety-settings, /emergency) that push here.
  *
  * Skipping is always allowed: /pulled-over falls back to a "no contact
  * set" state when there's nothing stored.
  *
  * Route: /trusted-contact-setup
  */
-type EntryPoint = 'onboarding' | 'settings' | 'emergency';
+type EntryPoint = 'onboarding';
 
 export default function TrustedContactSetup() {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: EntryPoint }>();
-  // "Embedded" = reached from inside the app (Settings or the Emergency
-  // SOS screen), NOT the first-run onboarding flow. Embedded entries
-  // return via back() to where the user came from and use the white
-  // register; onboarding (no param) ends the onboarding stack with
-  // replace('/home') and keeps the dark brand splash.
-  const embedded = params.from === 'settings' || params.from === 'emergency';
+  // "Embedded" = reached from inside the app (default — any in-app push
+  // without a `from=onboarding` opt-in). Embedded entries return via
+  // back() to where the user came from and use the white register.
+  // The ONE caller that opts out is /permissions (end of onboarding),
+  // which passes ?from=onboarding to get the replace('/home') exit + the
+  // dark brand splash. Default-safe: a forgotten param falls through to
+  // back(), not the home-reset bug.
+  const embedded = params.from !== 'onboarding';
   const { contact, loading: contactLoading, pickContact } = useTrustedContact();
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);

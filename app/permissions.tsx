@@ -120,7 +120,11 @@ export default function Permissions() {
     Haptics.selectionAsync().catch(() => {});
     await Location.requestForegroundPermissionsAsync();
     await requestRecordingPermissionsAsync();
-    router.push('/trusted-contact-setup');
+    // Only caller that wants the home-reset exit (end of onboarding).
+    // ?from=onboarding opts into the dark brand splash + replace('/home')
+    // exit — every other caller defaults to back() + white register.
+    // See trusted-contact-setup.tsx's docblock.
+    router.push('/trusted-contact-setup?from=onboarding');
   }
 
   return (

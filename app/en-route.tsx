@@ -1609,6 +1609,7 @@ export default function EnRoute() {
             size="56"
             onPress={() => router.push('/safety')}
             accessibilityLabel="Open safety menu"
+            accessibilityHint="Opens the safety menu — pulled-over, roadside, unfamiliar area, share location"
           >
             <Shield size={32} color={colors.navy} weight="duotone" />
           </FloatingActionButton>

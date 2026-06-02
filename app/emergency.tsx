@@ -102,12 +102,11 @@ export default function Emergency() {
   function startCountdown(target: Target, opts?: { isPivot?: boolean }) {
     // No-contact branch for the contact path: route to setup instead
     // of counting down to nothing. `from=emergency` makes the setup
-    // screen's Skip/Continue return here via back() — without it they
-    // fall through to replace('/home'), dropping a Home card on top of
-    // the modal stack (the "Home overlays as a sheet" bug, fixed in
-    // fd0417c for the other entry points).
+    // screen's Skip/Continue return here via back() — that's the default
+    // now (param-less call). The earlier ?from=emergency was the legacy
+    // opt-out from a destructive default; default was inverted 2026-06-01.
     if (target === 'contact' && !hasContact) {
-      router.push('/trusted-contact-setup?from=emergency');
+      router.push('/trusted-contact-setup');
       return;
     }
 

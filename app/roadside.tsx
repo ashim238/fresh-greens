@@ -335,11 +335,10 @@ function ActionMenu({
   }
 
   function handleShareSetup() {
-    // from=settings → setup returns via router.back() to this roadside
-    // modal on Continue/Skip. Without the param it fell through to
-    // replace('/home'), dropping Home as a sheet over the page-sheet
-    // stack (same bug as the /safety gate, user-flagged 2026-06-01).
-    router.push('/trusted-contact-setup?from=settings');
+    // Setup returns via router.back() to this roadside modal on
+    // Continue/Skip — that's the default since the 2026-06-01 routing
+    // inversion. No `from` param needed.
+    router.push('/trusted-contact-setup');
   }
 
   return (

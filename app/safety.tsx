@@ -120,14 +120,12 @@ export default function SafetyModal() {
         'Share Location shares your location with your trusted contact. Set one up first.',
         [
           { text: 'Cancel', style: 'cancel' },
-          // from=settings → the setup screen returns via router.back() to
-          // this safety modal on Continue/Skip. Without the param it fell
-          // through to replace('/home'), which dropped Home as a sheet
-          // over the page-sheet modal stack (user-flagged 2026-06-01).
+          // The setup screen returns via router.back() to this safety
+          // modal on Continue/Skip — that's the default since the
+          // 2026-06-01 routing inversion.
           {
             text: 'Set up',
-            onPress: () =>
-              router.push('/trusted-contact-setup?from=settings'),
+            onPress: () => router.push('/trusted-contact-setup'),
           },
         ],
       );

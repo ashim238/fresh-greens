@@ -47,9 +47,9 @@ export default function SafetySettings() {
   const trustedContactValue = trustedContactName ?? 'Add someone you trust';
 
   function handleEditTrustedContact() {
-    // Reuse /trusted-contact-setup with from=settings so the screen
-    // routes back here on save/skip rather than replacing with /home.
-    router.push('/trusted-contact-setup?from=settings');
+    // Default routing returns here via back() on save/skip — that's the
+    // default since the 2026-06-01 inversion. No `from` param needed.
+    router.push('/trusted-contact-setup');
   }
 
   function handleRecordings() {
@@ -77,6 +77,7 @@ export default function SafetySettings() {
               label="Emergency SOS"
               value="Reach a trusted contact or 911"
               onPress={() => router.push('/emergency')}
+              accessibilityHint="Opens the SOS screen to call your trusted contact or 911"
             />
             <SettingsRow
               icon={<UserCircle size={24} color={colors.black} weight="duotone" />}

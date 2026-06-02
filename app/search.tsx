@@ -642,7 +642,12 @@ export default function Search() {
                           ]}
                           onPress={() => handleSelectSaved(row)}
                           accessibilityRole="button"
-                          accessibilityLabel={`Route to ${row.name}. ${row.subtitle}.`}
+                          // Comma not period inside the label — VoiceOver
+                          // reads a period as a sentence break, producing
+                          // a two-sentence announcement. Hint adds the
+                          // action prompt (parity with the SOS FAB on /home).
+                          accessibilityLabel={`Route to ${row.name}, ${row.subtitle}`}
+                          accessibilityHint="Routes to this saved place"
                         >
                           <MapPin
                             size={24}

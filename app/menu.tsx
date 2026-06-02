@@ -104,7 +104,11 @@ export default function Menu() {
   const { clearAll: clearSavedPlaces } = useSavedPlaces();
   const { clearAll: clearRegularDestinations } = useRegularDestinations();
   const { clearAll: clearPreferences } = usePreferences();
-  const { profile: fuelProfile, clearAll: clearFuelProfile } = useFuelProfile();
+  const {
+    profile: fuelProfile,
+    loading: fuelLoading,
+    clearAll: clearFuelProfile,
+  } = useFuelProfile();
   const [signingOut, setSigningOut] = useState(false);
 
   const {
@@ -116,12 +120,11 @@ export default function Menu() {
   // Progressive carousel: a tile shows only while its underlying setting
   // is UNSET. Refuel reminders is set once remindersEnabled is true;
   // Connect calendar is set once the calendar connection is established.
-  // Gate the calendar tile on !calendarLoading too — without it, an
-  // already-connected user sees a one-frame "Connect your calendar"
-  // flash on cold mount before useFocusEffect's async read resolves
-  // (a small honesty-of-disclosure ding — showing an affordance for a
-  // state they've already satisfied).
-  const showFuelTile = !fuelProfile?.remindersEnabled;
+  // Both gate on !loading so an already-configured user doesn't see a
+  // one-frame "Set up X" flash on cold mount before useFocusEffect's
+  // async read resolves (a small honesty-of-disclosure ding — showing
+  // an affordance for a state they've already satisfied).
+  const showFuelTile = !fuelLoading && !fuelProfile?.remindersEnabled;
   const showCalendarTile = !calendarLoading && !calendarConnected;
 
   // Greeting copy — Figma shows "Hey there," + "First name, Last name"
