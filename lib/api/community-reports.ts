@@ -34,10 +34,6 @@ const STORAGE_KEY = 'fresh-greens.community-reports.v1';
  * The six report categories. ID is the stable identifier (used in
  * storage + as React keys); the rest is presentation metadata consumed
  * by the /report screen.
- *
- * `iconName` is typed loosely as `string` here so this file stays free
- * of UI-layer imports (Ionicons). The consumer (app/report.tsx) types
- * it precisely on use.
  */
 export type ReportCategoryId =
   | 'lighting'
@@ -51,8 +47,6 @@ export type ReportCategory = {
   id: ReportCategoryId;
   /** Tile label in the picker grid + title in the detail screen. */
   label: string;
-  /** Ionicons glyph name. Typed as string here; consumer narrows. */
-  iconName: string;
   /** Detail-screen subtitle. The question the modal asks the user. */
   subtitle: string;
   /** How a submission of this category translates to safety scoring. */
@@ -112,7 +106,6 @@ export const CATEGORIES: ReportCategory[] = [
   {
     id: 'incident',
     label: 'Incident',
-    iconName: 'flag',
     subtitle: 'What did you see?',
     zoneType: 'avoid',
     anonymous: true,
@@ -122,7 +115,6 @@ export const CATEGORIES: ReportCategory[] = [
   {
     id: 'felt-unsafe',
     label: 'Felt unsafe',
-    iconName: 'eye-outline',
     subtitle: 'Talk to us. What’s going on?',
     zoneType: 'avoid',
     anonymous: true,
@@ -133,7 +125,6 @@ export const CATEGORIES: ReportCategory[] = [
   {
     id: 'lighting',
     label: 'Lighting',
-    iconName: 'bulb-outline',
     subtitle: 'Street lights down or dimmer than normal?',
     zoneType: 'caution',
     anonymous: false,
@@ -143,7 +134,6 @@ export const CATEGORIES: ReportCategory[] = [
   {
     id: 'hazard',
     label: 'Hazard',
-    iconName: 'warning',
     subtitle: 'Anything in the road?',
     zoneType: 'caution',
     anonymous: false,
@@ -154,7 +144,6 @@ export const CATEGORIES: ReportCategory[] = [
   {
     id: 'felt-welcome',
     label: 'Felt welcome',
-    iconName: 'heart-outline',
     subtitle: 'What made it feel that way?',
     zoneType: 'safe',
     anonymous: false,
@@ -214,7 +203,6 @@ export const CATEGORIES: ReportCategory[] = [
   {
     id: 'black-owned',
     label: 'Black-owned',
-    iconName: 'star-outline',
     subtitle: 'A new community staple?',
     zoneType: 'safe',
     anonymous: false,
