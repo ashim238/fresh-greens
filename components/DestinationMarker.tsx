@@ -89,14 +89,19 @@ export function DestinationMarker({
       accessibilityLabel={name ? `Destination: ${name}` : 'Destination'}
     >
       <View
-        // H3: enroute variant gets shadows.e3 so the flag-on-pole lifts
-        // off busy basemap content (the most semantically important
-        // marker when a route is active). The home variant SVG (Figma
-        // 1245:10977) already bakes its own dual drop-shadow filter
-        // into the SVG itself, so adding RN shadow there would
-        // compound. Per-variant shadow keeps both visually consistent
-        // with their canonical Figma sources.
-        style={[styles.frame, variant === 'enroute' && shadows.e3]}
+        // Both variants now use shadows.e3 on the wrapper so the
+        // destination pin reads with a marker-grade lift against busy
+        // basemap content. Earlier rev applied e3 only to enroute on
+        // the theory that the home variant SVG (Figma 1245:10977) baked
+        // its own dual drop-shadow filter and a second RN shadow would
+        // compound. In practice react-native-svg's <filter>+feGaussianBlur
+        // support is patchy on native and the in-SVG shadow renders
+        // significantly fainter than the Figma source — user-flagged
+        // 2026-06-03 ("Finish pin shadow looks faint"). RN shadow on
+        // the wrapper is the reliable surface to control elevation;
+        // any residual SVG-filter rendering just compounds toward the
+        // intended Figma weight rather than away from it.
+        style={[styles.frame, shadows.e3]}
         accessibilityIgnoresInvertColors
       >
         <Svg width={48} height={48} />
