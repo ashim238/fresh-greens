@@ -2938,12 +2938,12 @@ const styles = StyleSheet.create({
     // gray so it reads as a hint, not a heading.
     ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.labelTertiary,
-    // Left-aligned to the gutter — which is also the Confirm button's
-    // left edge. Centering looked off against the asymmetric Confirm +
-    // X action row (the X eats the right side, pulling the buttons'
-    // visual center left of the bar's center); a deliberate left set
-    // reads cleaner and anchors to the same edge as the CTA.
-    textAlign: 'left',
+    // Centered in the placement bar. Earlier rev anchored this left to
+    // the Confirm CTA on the theory the asymmetric Confirm+X row pulled
+    // the visual center off-axis; user-tested and overridden 2026-06-03 —
+    // centered reads as instruction (addressed to the whole bar), left
+    // read as a stray caption beside the buttons.
+    textAlign: 'center',
   },
   placementActions: {
     flexDirection: 'row',
