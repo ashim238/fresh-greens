@@ -1,9 +1,4 @@
-import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
-import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
-import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
-import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
-import { Tree } from 'phosphor-react-native/src/icons/Tree';
-import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
+import { House } from 'phosphor-react-native/src/icons/House';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
@@ -20,7 +15,6 @@ import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg'
 import GlyphLateNight from '../assets/illustrations/mapmarker-glyph-late-night.svg';
 import GlyphLgbtq from '../assets/illustrations/mapmarker-glyph-lgbtq.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
-import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
 import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg';
 import GlyphTrustedFriend from '../assets/illustrations/mapmarker-glyph-trusted-friend.svg';
 import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
@@ -87,67 +81,33 @@ export function variantForCategoryId(categoryId: string | undefined): Variant {
 }
 
 /**
- * Phosphor (duotone) icon component per place sub-tag. Sub-tags
- * come from two contexts:
- *   - Place-type (Restaurant, Bar/Cafe, Salon/Barber, etc.) — what
- *     kind of place it is.
- *   - Identity / context (Women-owned, LGBTQ+ welcoming, Open
- *     restroom, Late-night welcome) — what about the place earned
- *     the affirmation. These also drive which Around Me chip the
- *     report surfaces under (see `recommendations.ts`).
- *
- * `'Other'` and any unrecognized value return null so the caller
- * can fall back to the category-level SVG glyph.
- */
-function phosphorForSubTag(subTag: string | undefined) {
-  switch (subTag) {
-    case 'Restaurant':
-      return ForkKnife;
-    case 'Bar/Cafe':
-      return Coffee;
-    case 'Retail':
-      return ShoppingBag;
-    case 'Salon/Barber':
-      return Scissors;
-    case 'Services':
-      return Wrench;
-    case 'Park/Public space':
-      return Tree;
-    // 'Personal' deliberately falls through to the category-level
-    // felt-welcome glyph (the bespoke heart-shape SVG). Earlier rev
-    // mapped it to Phosphor `House`, which collided visually with the
-    // existing saved-places `home` pin (House = "your home" elsewhere
-    // in the app); user-flagged 2026-06-03. Personal is also a thin
-    // routing signal — a private place strangers can't find or visit —
-    // so the heart fallback fits its actual semantic better than a
-    // typed place-icon would.
-    //
-    // Identity / context sub-tags (Women-owned, LGBTQ+ welcoming,
-    // Open restroom, Late-night welcome) used to dispatch here to
-    // Phosphor icons (HandHeart / Heart / Toilet / MoonStars). They
-    // now dispatch to bespoke SVG glyphs upstream — see the SVG
-    // switch in `glyphFor` above. Don't add them back unless you've
-    // also removed that branch.
-    default:
-      return null;
-  }
-}
-
-/**
  * The illustrated glyph for a given category — same SVG the
  * /report picker tile renders, scaled down to 16pt for the marker.
  *
- * When a `subTag` is set on a place-category report (e.g. a
- * felt-welcome restaurant), the marker swaps in a per-type
- * Phosphor duotone icon so a barber and a cafe read distinctly
- * even when both fall under the same sentiment variant. The
- * Phosphor color matches the variant's high-contrast foreground:
- * brand green inside the black-owned pin's black bg, white inside
- * the positive pin's wiltedgreen bg.
+ * Dispatch rule (kept narrow on purpose):
+ *   - SubTag bespoke SVGs are reserved for the four identity tags
+ *     that ALSO have matching chips in the recommendation sheet:
+ *     Women-owned, LGBTQ+ welcoming, Open restroom, Late-night
+ *     welcome. Marker glyph ↔ browse-sheet chip alignment is the
+ *     load-bearing reason this dispatch exists — so a pin a user
+ *     dropped surfaces under the same icon they'll later tap in
+ *     the Around Me sheet to find it. (HomeBrowseSheet renders
+ *     the same SVGs in its recommendation cards.)
+ *   - Every other subTag — place-type (Restaurant, Bar/Cafe,
+ *     Retail, Park/Public space, Residential), `'Other'`, or unset
+ *     — falls through to the category-level glyph (the bespoke
+ *     felt-welcome heart for felt-welcome reports, etc.). Earlier
+ *     rev dispatched place-type subTags to Phosphor icons (Coffee,
+ *     ForkKnife, etc.) for visual differentiation between same-
+ *     variant pins, but those icons had no companion in the
+ *     recommendation sheet — picker, marker, and browse drifted —
+ *     so the per-type dispatch was removed in favor of category-
+ *     level consistency. Don't reintroduce place-type dispatches
+ *     unless the browse sheet grows matching chips.
  *
- * `'Other'` and unset sub-tags fall through to the original
- * category SVG glyph — the same illustration the picker tile
- * renders — so the marker stays legible without a typed icon.
+ * The saved-places `'home'` category renders the Phosphor House
+ * duotone (not a bespoke SVG) — the iOS-universal house affordance
+ * reads instantly without paying for a dedicated illustration.
  */
 function GlyphForCategory({
   categoryId,
@@ -161,10 +121,11 @@ function GlyphForCategory({
   size?: number;
 }) {
   // Identity-tag bespoke SVGs (multi-color illustrative, per Figma
-  // 1255:1060). Take precedence over the Phosphor place-type
-  // dispatch when the user picked an identity subTag — same icons
-  // HomeBrowseSheet uses in the recommendation-card placeholder, so
-  // chip / picker / marker glyphs all line up visually.
+  // 1255:1060) — same icons HomeBrowseSheet uses in the
+  // recommendation-card placeholder, so chip / picker / marker
+  // glyphs all line up visually for the four browse-sheet
+  // identity chips. Place-type subTags (Restaurant, etc.) don't
+  // appear here — they fall through to the category glyph.
   switch (subTag) {
     case 'Women-owned':
       return <GlyphWomenOwned width={size} height={size} />;
@@ -176,15 +137,18 @@ function GlyphForCategory({
       return <GlyphLateNight width={size} height={size} />;
   }
 
-  const PhosphorIcon = phosphorForSubTag(subTag);
-  if (PhosphorIcon) {
-    const color = variant === 'black-owned' ? colors.freshgreen : colors.white;
-    return <PhosphorIcon size={size} color={color} weight="duotone" />;
-  }
-
   switch (categoryId) {
-    case 'home':
-      return <GlyphHome width={size} height={size} />;
+    case 'home': {
+      // Phosphor duotone House — universal iOS "home" affordance.
+      // Color follows the same per-variant convention the earlier
+      // Phosphor subTag dispatch used: green inside black-owned's
+      // black bg, white inside positive's wiltedgreen bg. variant
+      // for `'home'` resolves to 'positive' (see variantForCategoryId),
+      // so in practice this renders white.
+      const color =
+        variant === 'black-owned' ? colors.freshgreen : colors.white;
+      return <House size={size} color={color} weight="duotone" />;
+    }
     case 'trusted-friend':
       // Unreachable in practice — the special-case render in
       // `LandmarkMarker` below uses the full `trusted-friend.svg`

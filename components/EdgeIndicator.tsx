@@ -1,3 +1,4 @@
+import { House } from 'phosphor-react-native/src/icons/House';
 import { type ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -9,7 +10,6 @@ import GlyphBlackOwned from '../assets/illustrations/mapmarker-glyph-black-owned
 import GlyphFeltUnsafe from '../assets/illustrations/mapmarker-glyph-felt-unsafe.svg';
 import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welcome.svg';
 import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
-import GlyphHome from '../assets/illustrations/mapmarker-glyph-home.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
@@ -163,7 +163,13 @@ function DefaultGlyph({
     case 'trusted-friend':
       return <EdgeGlyphCar width={22.14} height={15.03} />;
     case 'home':
-      return <GlyphHome width={24} height={24} />;
+      // Phosphor duotone House on the positive (wiltedgreen) circle bg —
+      // white foreground matches the LandmarkMarker convention so the
+      // off-viewport indicator and the on-map pin read as the same
+      // affordance. Swapped from the bespoke GlyphHome SVG 2026-06-03;
+      // the universal iOS house affordance reads instantly without
+      // paying for a dedicated illustration.
+      return <House size={24} color={colors.white} weight="duotone" />;
     case 'felt-welcome':
       return <GlyphFeltWelcome width={24} height={24} />;
     case 'felt-unsafe':

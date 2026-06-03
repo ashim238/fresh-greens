@@ -172,7 +172,7 @@ export const CATEGORIES: ReportCategory[] = [
       'Bar/Cafe',
       'Retail',
       'Park/Public space',
-      'Personal',
+      'Residential',
       'Women-owned',
       'LGBTQ+ welcoming',
       'Open restroom',
@@ -186,7 +186,7 @@ export const CATEGORIES: ReportCategory[] = [
     subTagGroups: [
       {
         label: 'What kind of place is it?',
-        tags: ['Restaurant', 'Bar/Cafe', 'Retail', 'Park/Public space', 'Personal'],
+        tags: ['Restaurant', 'Bar/Cafe', 'Retail', 'Park/Public space', 'Residential'],
       },
       {
         label: 'What made it welcoming?',

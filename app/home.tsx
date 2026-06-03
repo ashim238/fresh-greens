@@ -1443,11 +1443,12 @@ export default function Home() {
         )}
         {/*
           Saved home — green teardrop pin (positive variant) with the
-          Figma house glyph. Matches the LandmarkMarker system; green
-          preserves the "home as welcoming" association from the
-          previous freshgreen MapMarker. Only visible when in the
-          viewport; the EdgeIndicator overlay below handles the
-          off-viewport case.
+          Phosphor duotone House inside (universal iOS home affordance,
+          rendered white on the wiltedgreen bg). Matches the
+          LandmarkMarker system; green preserves the "home as welcoming"
+          association from the previous freshgreen MapMarker. Only
+          visible when in the viewport; the EdgeIndicator overlay below
+          handles the off-viewport case with the same Phosphor House.
         */}
         {home &&
           (!mapRegion || isPointInRegion(home, mapRegion)) && (
