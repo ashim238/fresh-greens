@@ -185,6 +185,19 @@ export default function Home() {
   // tracksViewChanges={false} gotcha that EnRouteCarMarker addresses
   // via heading-in-key). User-flagged 2026-06-01.
   const [recenterTick, setRecenterTick] = useState(0);
+  // Bottom-sheet camera offset. The route-preview sheet covers ~40% of
+  // the screen, so a camera centered on the user's coord puts the GPS
+  // pin geometrically dead-center — which is UNDER the sheet, invisible.
+  // Biasing the camera south by ~0.2 × latitudeDelta shifts the visible
+  // center up to ~30% from the screen top, which is the visual center of
+  // the above-sheet area for a ~40%-sheet. In browse mode (smaller sheet)
+  // it just sits the user slightly above center, which reads natural for
+  // "what's ahead, not what's behind." User-flagged 2026-06-03 — recenter
+  // overshot the sheet after the route-preview height grew.
+  // Applied in handleRecenter + handleHomeMarkerPress (handleReportButtonPress
+  // is exempt — it uses a tighter latitudeDelta + a much smaller placement bar
+  // and doesn't have the visibility problem).
+  const SHEET_CAMERA_OFFSET_RATIO = 0.2;
   // Weather — drives cloud-aware daylight strip, route gradient, and
   // conditions tail. `cloudCoverPct` is undefined until the first fix
   // and weather fetch resolve; all consumers accept `number | undefined`.
@@ -708,11 +721,15 @@ export default function Home() {
   function handleRecenter() {
     if (!userLocation) return;
     Haptics.selectionAsync().catch(() => {});
+    const latitudeDelta = 0.02;
     mapRef.current?.animateToRegion(
       {
-        ...userLocation,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
+        // Bias the camera south so the user pin lands above the bottom
+        // sheet rather than under it — see SHEET_CAMERA_OFFSET_RATIO note.
+        latitude: userLocation.latitude - SHEET_CAMERA_OFFSET_RATIO * latitudeDelta,
+        longitude: userLocation.longitude,
+        latitudeDelta,
+        longitudeDelta: latitudeDelta,
       },
       400,
     );
@@ -762,12 +779,15 @@ export default function Home() {
     // pin relocates, not open recenter/detail surfaces.
     if (placingReport) return;
     Haptics.selectionAsync().catch(() => {});
+    const latitudeDelta = 0.008;
     mapRef.current?.animateToRegion(
       {
-        latitude: home.latitude,
+        // Same south-bias as handleRecenter — the saved-home pin needs
+        // to land above the bottom sheet, not under it.
+        latitude: home.latitude - SHEET_CAMERA_OFFSET_RATIO * latitudeDelta,
         longitude: home.longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
+        latitudeDelta,
+        longitudeDelta: latitudeDelta,
       },
       400,
     );
@@ -1522,6 +1542,19 @@ export default function Home() {
         */}
         {params.destLat && params.destLng && (
           <DestinationMarker
+            // State-in-key: bin latitudeDelta into 0.01° increments and
+            // include in the key so the marker remounts on each
+            // meaningful zoom change. The internal tracksViewChanges
+            // flips to false after a 50ms paint settle (DestinationMarker
+            // header comment) — without remount, MapKit's cached bitmap
+            // can be evicted on pinch-zoom reflow and the marker renders
+            // empty until the next mount. User-flagged 2026-06-03 ("the
+            // finish pin disappears if I readjust zoom"). Binning at *100
+            // (not raw latitudeDelta or *1000) avoids remount churn on
+            // pan-induced floating-point epsilon while still firing on
+            // any real zoom tick. mapRegion is settled (onRegionChange-
+            // Complete) so this updates discretely, not per frame.
+            key={`dest-${mapRegion ? Math.round(mapRegion.latitudeDelta * 100) : 'init'}`}
             latitude={parseFloat(params.destLat)}
             longitude={parseFloat(params.destLng)}
             name={params.destName}
