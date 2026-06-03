@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -508,6 +509,20 @@ function DetailView({
         </Pressable>
       </View>
 
+      {/*
+        Scrollable middle (title + form). Header (back/X) above and
+        Submit below stay pinned. Without the cap + scroll, the felt-
+        welcome popup (3 chip groups, ~10 chips, optional TextInput)
+        outgrows the screen-minus-keyboard space and Submit lands
+        under the keyboard. keyboardShouldPersistTaps='handled' keeps
+        chip-tap selection working while the input is focused.
+      */}
+      <ScrollView
+        style={styles.detailScrollBody}
+        contentContainerStyle={styles.detailScrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.titleBlock}>
         <View style={styles.detailIdentityIcon}>
           <CategoryGlyph categoryId={category.id} size={48} />
@@ -674,6 +689,7 @@ function DetailView({
           </>
         )}
       </View>
+      </ScrollView>
 
       {/*
         Submit CTA — v2 `Button` primary/fill matches the previous
@@ -778,6 +794,14 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 20,
     maxWidth: 400,
+    // Cap the popup at 90% of available height so KeyboardAvoidingView
+    // can lift it cleanly when the detail TextInput focuses, and so
+    // the tallest category (felt-welcome — 3 chip groups + ~10 chips +
+    // optional input) doesn't outgrow the screen. The interior body
+    // (titleBlock + formBlock) is wrapped in a ScrollView; flexShrink
+    // lets the popup honor the cap rather than overflowing the parent.
+    maxHeight: '90%',
+    flexShrink: 1,
     backgroundColor: colors.white,
     borderRadius: radii.xl,
     // v2 spec (1112:8900): px-24 py-32 gap-24. Bumped horizontal from
@@ -792,6 +816,20 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Scrollable middle of the detail view (title + form). flexShrink:1
+  // lets it cede space inside the height-capped popup so headerRow
+  // and the Submit Button stay pinned, while the form content scrolls
+  // when it would otherwise overflow the cap.
+  detailScrollBody: {
+    flexShrink: 1,
+  },
+  // Re-supplies the 24pt gap that the popup's column-gap previously
+  // gave between titleBlock and formBlock when they were direct
+  // children — moving them inside ScrollView's contentContainer means
+  // the gap has to live here instead.
+  detailScrollContent: {
+    gap: 24,
   },
   titleBlock: {
     // Center-aligned title stack (icon + title + subtitle + optional
