@@ -354,38 +354,29 @@ export default function Home() {
     recommended;
   const isRecommendedSelected = selectedRoute?.id === recommended?.id;
 
-  // Swipe / chevron route cycling. `routes` is recommended-first; left swipe
-  // → next, right → previous (clamped, no wrap, so the chevrons can hint the
-  // ends).
+  // Route cycling via the chevron pair in routeTopRow. `routes` is
+  // recommended-first; right chevron → next (dir: 1), left → previous
+  // (dir: -1). Clamped (no wrap) so the chevrons can hint the ends by
+  // going transparent. Each tap stamps `lastCycleDirRef` so the
+  // minutesOpacity entrance animation below knows which way the ETA
+  // should slide in from (right tap → slides in from the right, mirror
+  // for left). The earlier rev had a PanResponder-driven swipe on the
+  // ETA group; user-flagged 2026-06-03 — chevrons in the middle of the
+  // headline interrupted the ETA's reading flow, so they moved to the
+  // top row and the gesture became tap + a directional slide animation.
+  const lastCycleDirRef = useRef<1 | -1 | null>(null);
   function cycleRoute(dir: 1 | -1) {
     if (routes.length < 2) return;
     const cur = routes.findIndex((r) => r.id === selectedRoute?.id);
     const next = Math.min(routes.length - 1, Math.max(0, cur + dir));
     if (next === cur) return;
+    lastCycleDirRef.current = dir;
     Haptics.selectionAsync().catch(() => {});
     setSelectedRouteId(routes[next].id);
   }
   const selectedIndex = routes.findIndex((r) => r.id === selectedRoute?.id);
   const canPrevRoute = selectedIndex > 0;
   const canNextRoute = selectedIndex >= 0 && selectedIndex < routes.length - 1;
-
-  // Horizontal swipe on the ETA cycles routes. A useRef'd PanResponder
-  // stays stable across renders but would capture a stale cycleRoute —
-  // so it calls the latest via a ref. Left → next, right → previous.
-  // Gated to clearly-horizontal gestures so it doesn't fight the sheet's
-  // vertical drag.
-  const cycleRouteRef = useRef(cycleRoute);
-  cycleRouteRef.current = cycleRoute;
-  const routeSwipe = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-      onPanResponderRelease: (_, g) => {
-        if (g.dx <= -24) cycleRouteRef.current(1);
-        else if (g.dx >= 24) cycleRouteRef.current(-1);
-      },
-    }),
-  ).current;
 
   // The primary road the recommended route travels (longest named
   // step). This is what the "Via" line should surface — the main road
@@ -618,6 +609,13 @@ export default function Home() {
   // every re-render. Reduce Motion → skip the fade, fire the haptic
   // (the haptic doesn't depend on motion).
   const minutesOpacity = useRef(new Animated.Value(1)).current;
+  // Paired with minutesOpacity for the route-cycle entrance — when a
+  // chevron tap drove the selectedRoute change, the ETA slides in from
+  // the direction of the tap (right chevron → slides in from +24pt;
+  // left → from -24pt). Re-uses minutesOpacity's duration/easing so the
+  // fade and slide land together. Reduce Motion → skip the translate,
+  // keep the fade (the haptic carries the change either way).
+  const routeShiftX = useRef(new Animated.Value(0)).current;
   const lastMinutesRevealKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!selectedRoute || !params.destLat || !params.destLng) return;
@@ -632,15 +630,46 @@ export default function Home() {
     // "appears" on first paint; subsequent route-changes get the
     // fade as a "we recalculated" cue.
     if (!isFirstReveal && !reduceMotion) {
+      const cycleDir = lastCycleDirRef.current;
+      lastCycleDirRef.current = null;
       minutesOpacity.setValue(0);
-      Animated.timing(minutesOpacity, {
-        toValue: 1,
-        duration: 240,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
+      // cycleDir non-null = the change came from a chevron tap, so
+      // pair the fade with a directional slide-in. null = the change
+      // came from somewhere else (route refetch, map-tap on an alt
+      // line) — fade only, no slide.
+      if (cycleDir != null) {
+        routeShiftX.setValue(cycleDir * 24);
+        Animated.parallel([
+          Animated.timing(routeShiftX, {
+            toValue: 0,
+            duration: 240,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(minutesOpacity, {
+            toValue: 1,
+            duration: 240,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      } else {
+        Animated.timing(minutesOpacity, {
+          toValue: 1,
+          duration: 240,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }).start();
+      }
     }
-  }, [selectedRoute, params.destLat, params.destLng, reduceMotion, minutesOpacity]);
+  }, [
+    selectedRoute,
+    params.destLat,
+    params.destLng,
+    reduceMotion,
+    minutesOpacity,
+    routeShiftX,
+  ]);
 
   // Clustered report markers — groups nearby points at low zoom to
   // prevent overlapping pins in dense neighborhoods. Recomputes on
@@ -1892,13 +1921,55 @@ export default function Home() {
         */}
         <View style={styles.bottomSheetContent}>
           {/*
-            Clear-destination row — right-aligned 44pt X above the
-            headline. Previously absolute-positioned, but the 44pt
-            footprint overlapped the moon glyph at the right edge of
-            the daylight strip. Dedicated row clears the conflict and
-            gives the affordance explicit layout space.
+            Clear-destination row — right-aligned 44pt X plus, when
+            there's more than one route, a chevron pair to switch
+            between them. Chevrons sit immediately left of the X so
+            all three controls right-align together as one cluster.
+            Previously the chevrons flanked the ETA inline (with a
+            swipe gesture as the primary interaction); user-flagged
+            2026-06-03 — that interrupted the headline's reading
+            flow, so they moved up here and the gesture became a
+            tap + a directional slide-in animation on the ETA.
           */}
           <View style={styles.routeTopRow}>
+            {routes.length > 1 && (
+              <>
+                <Pressable
+                  onPress={() => cycleRoute(-1)}
+                  disabled={!canPrevRoute}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous route"
+                  accessibilityState={{ disabled: !canPrevRoute }}
+                  style={({ pressed }) => [
+                    styles.routeCycleBtn,
+                    pressed && canPrevRoute && pressedDim,
+                  ]}
+                >
+                  <CaretLeft
+                    size={22}
+                    weight="bold"
+                    color={canPrevRoute ? colors.labelSecondary : 'transparent'}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => cycleRoute(1)}
+                  disabled={!canNextRoute}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next route"
+                  accessibilityState={{ disabled: !canNextRoute }}
+                  style={({ pressed }) => [
+                    styles.routeCycleBtn,
+                    pressed && canNextRoute && pressedDim,
+                  ]}
+                >
+                  <CaretRight
+                    size={22}
+                    weight="bold"
+                    color={canNextRoute ? colors.labelSecondary : 'transparent'}
+                  />
+                </Pressable>
+              </>
+            )}
             <Pressable
               onPress={() => {
                 Haptics.selectionAsync().catch(() => {});
@@ -1996,48 +2067,34 @@ export default function Home() {
             double-padding. The animated style array is preserved verbatim.
           */}
           <View style={styles.routeHeroRow}>
-            {/* ETA + flanking chevrons — swipe horizontally (or tap a gray
-                alternate line) to switch routes. Chevrons render only when
-                there's more than one route, and go transparent at the ends
-                so the layout doesn't jump as you reach the first/last. */}
-            <View
-              style={styles.routeEtaSwipeGroup}
-              {...routeSwipe.panHandlers}
-              accessibilityRole="adjustable"
+            {/* ETA — reads clean as the headline number. Route-switching
+                lives in the chevron pair in routeTopRow above (tap to
+                advance) and as direct taps on the gray alternate route
+                lines on the map. The translateX paired with opacity gives
+                the ETA a directional slide-in when a chevron drives the
+                change — right chevron → slides in from +24pt, left chevron
+                → from -24pt — so the swap feels spatially anchored to
+                which side was tapped. */}
+            <Animated.Text
+              style={[
+                styles.routeMinutes,
+                { opacity: minutesOpacity, transform: [{ translateX: routeShiftX }] },
+              ]}
               accessibilityLabel={`${
                 selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : 'No route'
               }${routes.length > 1 ? `, route ${selectedIndex + 1} of ${routes.length}` : ''}`}
-              accessibilityHint={routes.length > 1 ? 'Swipe to switch routes' : undefined}
+              // S3 of PR E review: defensive numberOfLines at 34pt. The
+              // current longest formatDuration output ("59 hr 59 min")
+              // fits comfortably on SE (~200pt vs 272pt available), but
+              // future copy expansion or localization shouldn't be able
+              // to wrap the headline number to a second line and break
+              // the card's vertical rhythm. Matches the H17 guard.
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
             >
-              {routes.length > 1 && (
-                <CaretLeft
-                  size={18}
-                  weight="bold"
-                  color={canPrevRoute ? colors.labelTertiary : 'transparent'}
-                />
-              )}
-              <Animated.Text
-                style={[styles.routeMinutes, { opacity: minutesOpacity }]}
-                // S3 of PR E review: defensive numberOfLines at 34pt. The
-                // current longest formatDuration output ("59 hr 59 min")
-                // fits comfortably on SE (~200pt vs 272pt available), but
-                // future copy expansion or localization shouldn't be able
-                // to wrap the headline number to a second line and break
-                // the card's vertical rhythm. Matches the H17 guard.
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}
-              >
-                {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
-              </Animated.Text>
-              {routes.length > 1 && (
-                <CaretRight
-                  size={18}
-                  weight="bold"
-                  color={canNextRoute ? colors.labelTertiary : 'transparent'}
-                />
-              )}
-            </View>
+              {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
+            </Animated.Text>
             {arrivalTime && <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>}
           </View>
           {distanceLabel && <Text style={styles.routeDistance}>{distanceLabel}</Text>}
@@ -2668,13 +2725,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 24,
   },
-  // Chevrons + ETA, centered as one unit so the carets align to the 34pt
-  // number's optical middle (the outer row is flex-end for the arrival time).
-  routeEtaSwipeGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   // Arrival clock time — sits baseline-aligned with the duration headline.
   routeArrival: {
     ...dynamicType(typography.subheadlineRegular),
@@ -2761,13 +2811,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   // Clear-destination row — dedicated top slot so the 44pt X doesn't
-  // overlap the daylight strip's moon glyph below. 24pt right gutter
-  // matches the content-sheet padding so the X aligns to the same
-  // vertical edge as the daylight strip + chip rows below.
+  // overlap the daylight strip's moon glyph below. Also houses the
+  // route-cycle chevron pair (when there's >1 route), sitting left of
+  // the X so all three controls right-align as one cluster. alignItems
+  // centers the smaller chevrons vertically against the 44pt X. The
+  // chevrons are bare (transparent bg) so the X stays the only filled
+  // circle in the row — three fillsTertiary circles would read heavy.
   routeTopRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 24,
+  },
+  // Route-cycle chevron button — 44pt HIG-compliant tap target (painted,
+  // not hitSlop, per .cursorrules), bare bg so it doesn't compete with
+  // the X's filled-circle treatment beside it. Caret renders transparent
+  // when the direction is unavailable (clamped to first/last route) so
+  // the layout doesn't jump as you reach the ends.
+  routeCycleBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // 44pt painted tap target per HIG, same fillsTertiary circular
   // treatment as the recordings delete-confirm modal X for visual
