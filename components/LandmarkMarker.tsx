@@ -1,6 +1,5 @@
 import { Coffee } from 'phosphor-react-native/src/icons/Coffee';
 import { ForkKnife } from 'phosphor-react-native/src/icons/ForkKnife';
-import { House } from 'phosphor-react-native/src/icons/House';
 import { Scissors } from 'phosphor-react-native/src/icons/Scissors';
 import { ShoppingBag } from 'phosphor-react-native/src/icons/ShoppingBag';
 import { Tree } from 'phosphor-react-native/src/icons/Tree';
@@ -114,8 +113,15 @@ function phosphorForSubTag(subTag: string | undefined) {
       return Wrench;
     case 'Park/Public space':
       return Tree;
-    case 'Personal':
-      return House;
+    // 'Personal' deliberately falls through to the category-level
+    // felt-welcome glyph (the bespoke heart-shape SVG). Earlier rev
+    // mapped it to Phosphor `House`, which collided visually with the
+    // existing saved-places `home` pin (House = "your home" elsewhere
+    // in the app); user-flagged 2026-06-03. Personal is also a thin
+    // routing signal — a private place strangers can't find or visit —
+    // so the heart fallback fits its actual semantic better than a
+    // typed place-icon would.
+    //
     // Identity / context sub-tags (Women-owned, LGBTQ+ welcoming,
     // Open restroom, Late-night welcome) used to dispatch here to
     // Phosphor icons (HandHeart / Heart / Toilet / MoonStars). They
