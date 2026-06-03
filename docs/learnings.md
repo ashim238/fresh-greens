@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix(report): "the keyboard covers Submit on Felt Welcome" — a category-specific symptom of a structural bug
+
+Shipped `93b1973`. User-reported as Felt Welcome–specific; the fix lands once for every category. Three patterns worth keeping:
+
+**A user-reported "X breaks" symptom usually points at the limit case of a structural bug, not at X.** Felt Welcome was just the tallest category (3 chip groups + ~10 chips + optional TextInput + Submit) — it hit the screen-minus-keyboard ceiling first. Incident (chip + photo stub + detail) was queued up to break next. The instinct fixes were felt-welcome-only ("hide a chip group when the keyboard's up", "shorten the place-type group", "scroll only the chip section") — each would have patched the immediate report and left the structural debt in place for the next category to add a chip. The proper question after a "X is broken" report: *what's the structural property that makes X the worst case, and would fixing it generalize?* If yes, fix the structure. If the fix only works on X, you've bought a future bug.
+
+**`KeyboardAvoidingView` with `behavior="padding"` is necessary but not sufficient — the popup inside has to be willing to shrink.** KAV adds bottom padding equal to the keyboard height, which shrinks its visible content area. If the popup inside has neither `maxHeight` nor a flex-shrink behavior, it overflows the available space and KAV can't lift it any higher than the safe-area top — Submit lands below the keyboard. The fix is two-part: cap the popup (`maxHeight: '90%'` + `flexShrink: 1` so it actually honors the cap), and wrap the middle content in a `ScrollView` so the bounded middle scrolls instead of clipping. Swapping KAV behavior (`'height'`, `'position'`) is a common red herring here — it papers over the missing height contract without actually giving the popup anywhere to go.
+
+**`keyboardShouldPersistTaps="handled"` is the right default for any `ScrollView` wrapping a `TextInput` + tappable controls.** Without it, the first tap on a chip while the keyboard is up just dismisses the keyboard and the chip doesn't toggle — the second tap does. The misfire is invisible (no visual feedback) and reads as "the app ate my tap." `'handled'` lets the chip's Pressable claim the tap before the scroll-view's tap-to-dismiss logic runs, so single-tap-toggles-chip works while the keyboard stays up. Default on; opt out only when the explicit goal is "tap anywhere on the scroll surface to dismiss."
+
+---
+
 ## feat/route-switching + the preferred-stations follow-ups — three patterns worth keeping
 
 Shipped `4d36a20` (route switching) + `b05b8a9` (preferred-stations fixes). Three:
