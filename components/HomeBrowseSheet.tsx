@@ -2,9 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
-import { CloudSun } from 'phosphor-react-native/src/icons/CloudSun';
 import { Star } from 'phosphor-react-native/src/icons/Star';
-import { SteeringWheel } from 'phosphor-react-native/src/icons/SteeringWheel';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, LayoutAnimation, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -20,6 +18,13 @@ import GlyphLateNight from '../assets/illustrations/mapmarker-glyph-late-night.s
 import GlyphLgbtq from '../assets/illustrations/mapmarker-glyph-lgbtq.svg';
 import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg';
 import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
+// Weather + driving-conditions glyphs are bespoke multi-color
+// illustrations (Figma 1100:8749) — they replace the monochrome
+// Phosphor CloudSun/SteeringWheel placeholders so the card matches
+// the design source of truth. Baked-in yellow (sun, wheel hub) is
+// illustrative, covered by .cursorrules reserved-color carve-out #2.
+import DrivingGlyph from '../assets/illustrations/driving-glyph.svg';
+import WeatherGlyph from '../assets/illustrations/weather-glyph.svg';
 
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
 import { useRecommendationsBatch, type BrowseRowSpec } from '../hooks/useRecommendationsBatch';
@@ -819,11 +824,11 @@ function WeatherDrivingCard({
       }
     >
       <View style={styles.weatherRow}>
-        <CloudSun size={16} color={colors.labelSecondary} weight="fill" />
+        <WeatherGlyph width={16} height={16} />
         <Text style={styles.weatherText}>{temp}</Text>
       </View>
       <View style={styles.weatherRow}>
-        <SteeringWheel size={16} color={colors.labelSecondary} weight="fill" />
+        <DrivingGlyph width={16} height={16} />
         <Text style={styles.weatherText}>{condition}</Text>
       </View>
     </View>
