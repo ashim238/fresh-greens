@@ -70,6 +70,16 @@ export function DestinationMarker({
       ? { x: 0.5, y: 92 / 96 }
       : { x: 10.5 / 48, y: 41 / 48 };
 
+  // Home pin renders at 72, not 48. Its teardrop fills only 60×78 of the
+  // 96 viewBox, so at 48 the visible pin was ~30×39 — about ⅔ the size of
+  // the on-map LandmarkMarker pins (60×78 teardrop at the unselected 0.75
+  // scale ≈ 45×58.5), so the destination read as the smallest pin on the
+  // map, worst when zoomed out among dense content (user-flagged
+  // 2026-06-03). At 72 the teardrop is ~45×58.5 — a match. The enroute
+  // flag keeps 48 (different shape, not flagged). Anchors are ratios, so
+  // they hold at either size.
+  const size = variant === 'home' ? 72 : 48;
+
   return (
     <Marker
       coordinate={{ latitude, longitude }}
@@ -94,19 +104,18 @@ export function DestinationMarker({
         // the wrapper is the reliable surface to control elevation;
         // any residual SVG-filter rendering just compounds toward the
         // intended Figma weight rather than away from it.
-        style={[styles.frame, shadows.e3]}
+        style={[styles.frame, { width: size, height: size }, shadows.e3]}
         accessibilityIgnoresInvertColors
       >
-        <Svg width={48} height={48} />
+        <Svg width={size} height={size} />
       </View>
     </Marker>
   );
 }
 
 const styles = StyleSheet.create({
+  // width/height are set inline per variant (see `size`).
   frame: {
-    width: 48,
-    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
