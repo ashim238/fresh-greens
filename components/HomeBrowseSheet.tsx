@@ -932,6 +932,20 @@ function RecommendationCard({
 }) {
   const r = recommendation;
   const quoteText = r.curatorQuote ?? r.reportDetail;
+  // When the rec is a multi-vouch same-place group (Trusted row only),
+  // the category pill shows the combined vouch label ("Black-owned ·
+  // Felt welcome") instead of the single categoryLabel. Capped at 2
+  // facets with a "+N" overflow so the pill never wraps; numberOfLines
+  // on the Text is the backstop. facets is undefined for every other
+  // card, so this is a no-op outside the Trusted row.
+  const FACET_DISPLAY_CAP = 2;
+  const categoryPillText =
+    r.facets && r.facets.length > 0
+      ? r.facets.slice(0, FACET_DISPLAY_CAP).join(' · ') +
+        (r.facets.length > FACET_DISPLAY_CAP
+          ? ` +${r.facets.length - FACET_DISPLAY_CAP}`
+          : '')
+      : r.categoryLabel;
   // Resolve the topline variant against the entry's actual data —
   // if the variant's payload is missing (e.g. closing-soon on an
   // entry with no `hoursLabel`), skip the topline rather than
@@ -954,7 +968,7 @@ function RecommendationCard({
     // Topline reads first when present — it's also visually first.
     toplinePayload?.a11yPrefix,
     r.name,
-    r.categoryLabel,
+    categoryPillText,
     r.rating != null
       ? `${r.rating.toFixed(1)} stars${r.reviewCount != null ? `, ${r.reviewCount} reviews` : ''}`
       : null,
@@ -1056,7 +1070,7 @@ function RecommendationCard({
             </View>
           ) : null}
           <View style={styles.tag}>
-            <Text style={styles.tagText}>{r.categoryLabel}</Text>
+            <Text style={styles.tagText} numberOfLines={1}>{categoryPillText}</Text>
           </View>
         </View>
 
