@@ -820,39 +820,37 @@ export default function EnRoute() {
   // alone is the v1 design.
   const routePolylines = useMemo(
     () => {
-      // Active route renders LAST (its gradient paints over the faint
-      // alternates), matching /home's paint-order workaround.
+      // EVERY route renders as the SAME daylight-segmented set with stable
+      // keys (`${route.id}-seg-${idx}`); selection only flips each segment's
+      // color/width/dash. This is load-bearing — react-native-maps on iOS
+      // LEAKS unmounted Polyline overlays, so the earlier "active = N
+      // segments, alternates = 1 line" shape churned the child set whenever
+      // the user tapped "Compare routes" mid-trip and the orphaned colored
+      // overlay lingered on the alternate. Mirrors the /home fix (commit
+      // 57b99d8). Active route emitted LAST so its colored stroke wins at
+      // shared segments; reordering stable keys removes nothing, so no leak.
       const ordered = [
         ...routes.filter((r) => r.id !== activeRoute?.id),
         ...routes.filter((r) => r.id === activeRoute?.id),
       ];
       return ordered.flatMap((route) => {
-        if (route.id === activeRoute?.id) {
-          return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
-            <Polyline
-              key={`${route.id}-seg-${idx}`}
-              coordinates={segment.coordinates}
-              strokeColor={segment.color}
-              strokeWidth={routeColors.recommended.width}
-              // WCAG 1.4.1 non-color cue — parity with /home's route-
-              // preview polyline. Solid = day, medium dashes = twilight,
-              // short dashes = night, so the daylight band reads through
-              // deuteranopia/tritanopia/monochromacy during the live
-              // drive, not just on the preview card. Without this the
-              // colorblind cue dropped exactly where the user spends the
-              // most time looking at the route.
-              lineDashPattern={DAYLIGHT_DASH_PATTERN[segment.band]}
-            />
-          ));
-        }
-        return [
+        const isActive = route.id === activeRoute?.id;
+        return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
           <Polyline
-            key={route.id}
-            coordinates={route.coordinates}
-            strokeColor={routeColors.alternate.stroke}
-            strokeWidth={routeColors.alternate.width}
-          />,
-        ];
+            key={`${route.id}-seg-${idx}`}
+            coordinates={segment.coordinates}
+            strokeColor={isActive ? segment.color : routeColors.alternate.stroke}
+            strokeWidth={
+              isActive ? routeColors.recommended.width : routeColors.alternate.width
+            }
+            // WCAG 1.4.1 non-color cue on the active route — parity with
+            // /home's route-preview polyline. Solid = day, medium dashes =
+            // twilight, short dashes = night, so the daylight band reads
+            // through deuteranopia/tritanopia/monochromacy during the live
+            // drive. Gray alternates render solid (no band semantics).
+            lineDashPattern={isActive ? DAYLIGHT_DASH_PATTERN[segment.band] : undefined}
+          />
+        ));
       });
     },
     [routes, activeRoute?.id, cloudCoverPct],
