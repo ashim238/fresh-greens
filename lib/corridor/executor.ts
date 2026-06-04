@@ -6,12 +6,7 @@ import {
 } from '../api/zones';
 import { PREVIEW_BUDGET, TRIP_MOCK_ON_EMPTY } from './constants';
 import { planCorridor, planGapFills, planHotLegTighten } from './planner';
-import type {
-  CorridorFetchMeta,
-  FetchBudget,
-  GetZonesForTripOptions,
-  SampleRequest,
-} from './types';
+import type { FetchBudget, GetZonesForTripOptions, SampleRequest } from './types';
 
 function mergeZones(into: Map<string, Zone>, batch: Zone[]): void {
   for (const z of batch) into.set(z.id, z);
@@ -29,7 +24,11 @@ async function runBatch(
   while (i < requests.length) {
     if (state.calls >= budget.maxCalls) break;
     if (Date.now() - state.start >= budget.maxMs) break;
-    const slice = requests.slice(i, i + maxParallel);
+    const remaining = budget.maxCalls - state.calls;
+    const slice = requests.slice(
+      i,
+      i + Math.min(maxParallel, remaining),
+    );
     const settled = await Promise.allSettled(
       slice.map(async (req) => {
         state.calls += 1;
