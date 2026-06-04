@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/corridor-sampling (2026-06-04)
+
+- **Planner → executor split.** `planCorridor` classifies legs (straight bbox vs curved segment anchors), emits wave-1 anchors + wave-2 remainder; `executeCorridorTrip` runs wave 1, `onPartial`, then gap-fill + hot-leg tighten + wave 2 under `PREVIEW_BUDGET` (`maxMs` 10s / `maxCalls` 16). Knobs live in `lib/corridor/constants.ts` — segment spacing, gap arc, hot-leg zone count, long-trip copy thresholds.
+- **Zone cache handoff.** On preview success, `/home` calls `saveCorridorZones` (OSM-only, 24h TTL, destination grid key ~50m). `/en-route` `loadCorridorZones` on mount so Go with a finished preview skips a second full corridor stall; navigation rolls `saveCorridorZones` after merges. Community reports stay screen-local (`COMMUNITY_IN_CORRIDOR_CACHE` false).
+- **Navigation rolls.** `executeNavigationRoll` projects GPS with haversine segment search (`projectPointOntoPath`), plans 1–2 `around` samples ahead under `NAV_BUDGET` (`maxCalls` 2), skips when `isArcCovered` (zone hit on slice or ≥50% overlap in `fetchedAlong`). En-route must pass a **stable** `fetchedAlong` array ref so intervals accumulate across rolls; omitting it still fetches but coverage tracking resets every roll (`__DEV__` warns once).
+- **Home loading + long-trip copy.** `tripZonesStatus`: idle → loading on new destination → ready only after corridor completes; gray "Checking route…" while loading — never All clear on partial/empty. `tripZonesCorridorComplete` gates green All clear and the long-trip footnote (`LONG_TRIP_FOOTNOTE_COPY` when path ≥ `LONG_TRIP_COPY_METERS`). On fetch throw, fail-open to ready with prior zones + `tripZonesFetchFailed` (gray chip), not empty osmZones implying clear.
+- **Gotcha: `maxCalls` slice width.** `runCorridorBatch` caps each parallel slice with `Math.min(maxParallel, budget.maxCalls - state.calls)` — not just `maxParallel`. Last batch with one call left must not launch an 8-wide slice or you overspend the budget.
+- **Gotcha: `fetchedAlong` ref.** Task 7 pattern: `useRef<{ startM; endM }[]>([])` on en-route, passed into every roll; `executeNavigationRoll` **pushes** covered arcs — a fresh `[]` per call defeats dedup and retriggers the same ahead fetches.
+- **Gotcha: haversine projection.** Closest point on a leg uses tertiary search on haversine distance to `pointOnSegment`, not planar lng/lat — matters on long legs and curved megatrips where euclidean error would mis-place the ahead window.
+
+Worth keeping: **orchestrate sampling in `lib/corridor` (plan → batch → partial → cache), and treat preview/en-route as a handoff** — same zones, stable refs, and chip state that never claims "All clear" until the corridor that fed scoring actually finished (or explicitly failed without wiping prior data).
+
+---
+
 ## feat/on-route-hazard-markers (2026-06-04)
 
 The hazard feature shipped on `main` in `9555bda` before the feature branch landed; the follow-up commit only wired **spec lifecycle § snapshot epoch** — `key={hazard-${id}-${markerSnapshotEpoch}}` from `mapRegion.latitudeDelta` bin, not `selectedRoute.id` (two-layer polylines made route-switch reflow-safe for user/dest pins; EnRouteZone still needs zoom remounts). Worth keeping: when a design spec names a lifecycle key the first PR skipped, grep the spec's "Lifecycle" section at branch time — don't assume the feature commit closed every acceptance line.
