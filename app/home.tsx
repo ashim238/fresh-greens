@@ -593,17 +593,28 @@ export default function Home() {
   // score — including the line-based detection that catches a police
   // POINT zone the per-waypoint test would miss between sparse waypoints.
   const routeZoneCounts = useMemo(() => {
-    if (!selectedRoute) return { police: 0, lowLight: 0 };
+    if (!selectedRoute) return { police: 0, lowLight: 0, community: 0 };
     let police = 0;
     let lowLight = 0;
+    let community = 0;
     for (const zone of enabledZones) {
-      if (zone.category !== 'police' && zone.category !== 'lighting') continue;
-      if (zone.category === 'lighting' && zone.type !== 'avoid') continue;
+      // Bucket the zone, or skip it. community-report AVOID zones
+      // (felt-unsafe + incident) are charted too — without this the
+      // "All clear" chip ignored community reports entirely (it only
+      // looked at OSM police + low-light), so a route with felt-unsafe
+      // pins dead on it still read "All clear" while the SCORE was
+      // penalizing it. Chip + score now agree (user-flagged 2026-06-03).
+      let bucket: 'police' | 'lowLight' | 'community' | null = null;
+      if (zone.category === 'police') bucket = 'police';
+      else if (zone.category === 'lighting' && zone.type === 'avoid') bucket = 'lowLight';
+      else if (zone.category === 'community-report' && zone.type === 'avoid') bucket = 'community';
+      if (!bucket) continue;
       if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
-      if (zone.category === 'police') police += 1;
-      else lowLight += 1;
+      if (bucket === 'police') police += 1;
+      else if (bucket === 'lowLight') lowLight += 1;
+      else community += 1;
     }
-    return { police, lowLight };
+    return { police, lowLight, community };
   }, [selectedRoute, enabledZones]);
 
   const { profile: fuelProfile } = useFuelProfile();
@@ -2222,12 +2233,19 @@ export default function Home() {
                 zone-fetch race, giving false reassurance before the
                 zones have actually arrived.
               */}
-              {routeZoneCounts.police > 0 || routeZoneCounts.lowLight > 0 ? (
+              {routeZoneCounts.community > 0 ||
+              routeZoneCounts.police > 0 ||
+              routeZoneCounts.lowLight > 0 ? (
                 <>
                   <Text style={styles.routeChipsHeader}>Along this route:</Text>
                   <View
                     style={styles.routeChipsRow}
                     accessibilityLabel={[
+                      // Community flags lead — community knowledge is the
+                      // most directly relevant "someone felt unsafe HERE".
+                      routeZoneCounts.community > 0
+                        ? `${routeZoneCounts.community} community ${routeZoneCounts.community === 1 ? 'flag' : 'flags'}`
+                        : null,
                       routeZoneCounts.police > 0
                         ? `${routeZoneCounts.police} police ${routeZoneCounts.police === 1 ? 'zone' : 'zones'}`
                         : null,
@@ -2236,9 +2254,15 @@ export default function Home() {
                         : null,
                     ]
                       .filter(Boolean)
-                      .join(' and ')
+                      .join(', ')
                       .concat(' along this route.')}
                   >
+                    {routeZoneCounts.community > 0 && (
+                      <RouteWarningChip
+                        count={routeZoneCounts.community}
+                        label={routeZoneCounts.community === 1 ? 'community flag' : 'community flags'}
+                      />
+                    )}
                     {routeZoneCounts.police > 0 && (
                       <RouteWarningChip
                         count={routeZoneCounts.police}
@@ -2256,7 +2280,7 @@ export default function Home() {
               ) : (
                 <View
                   style={styles.routeChipsRow}
-                  accessibilityLabel="No reported zones along this route."
+                  accessibilityLabel="No reported hazards or flagged zones along this route."
                 >
                   <RouteAllClearChip />
                 </View>
