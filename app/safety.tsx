@@ -8,8 +8,8 @@ import type { SvgProps } from 'react-native-svg';
 // Phosphor deep-import — see trusted-contact-setup.tsx for the note on
 // bypassing the barrel index.
 import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
-import { ShieldWarning } from 'phosphor-react-native/src/icons/ShieldWarning';
 
+import SidebtnSos from '../assets/illustrations/sidebtn-sos.svg';
 import SafetyCarTroubles from '../assets/illustrations/safety-car-troubles.svg';
 import SafetyLost from '../assets/illustrations/safety-lost.svg';
 import SafetyPulledOver from '../assets/illustrations/safety-pulled-over.svg';
@@ -224,10 +224,9 @@ export default function SafetyModal() {
           {/*
             Emergency / SOS (thesis claim C8) — separate lane below the
             situational toolkit. Grouped-surface row (same register as the
-            tiles) keeps the modal in the green/gray family; navy scopes to
-            the shield icon only (.cursorrules #6 — control-scoped, not
-            full-bleed like the old bar). Red 911 escalation stays inside
-            /emergency.
+            tiles) keeps the modal in the green/gray family; the red burst
+            icon is sidebtn-sos.svg — same glyph as /en-route's SOS FAB.
+            Red 911 escalation stays inside /emergency.
           */}
           <View style={styles.emergencySection}>
             <Text style={styles.emergencySectionLabel}>Need help now?</Text>
@@ -239,11 +238,7 @@ export default function SafetyModal() {
               style={({ pressed }) => [styles.sosBar, pressed && pressedDim]}
             >
               <View style={styles.sosBarIcon}>
-                <ShieldWarning
-                  size={28}
-                  color={colors.navy}
-                  weight="duotone"
-                />
+                <SidebtnSos width={32} height={32} accessible={false} />
               </View>
               <View style={styles.sosBarText}>
                 <Text style={styles.sosBarTitle}>Emergency</Text>
@@ -388,8 +383,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // C8 — Emergency/SOS entry row. Same grouped surface + e1 lift as the
-  // toolkit tiles; navy only on the shield (matches /roadside's navy
-  // Siren row pattern and /emergency's control-scoped navy register).
+  // toolkit tiles; sidebtn-sos.svg matches /en-route's SOS FAB glyph.
   sosBar: {
     flexDirection: 'row',
     alignItems: 'center',
