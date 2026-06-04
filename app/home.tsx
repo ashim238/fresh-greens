@@ -468,50 +468,59 @@ export default function Home() {
 
   const routePolylines = useMemo(
     () => {
-      // EVERY route renders as the SAME daylight-segmented polyline set,
-      // keyed stably by `route.id` + segment index. Selection only flips
-      // each segment's COLOR/width/dash (selected = daylight gradient;
-      // others = flat thin gray) — never the polyline structure. This is
-      // load-bearing: react-native-maps on iOS LEAKS unmounted Polyline
-      // overlays, so the earlier "selected = N segments, others = 1 gray
-      // line" shape churned the child set on every switch (A's seg-keys
-      // unmount, B's mount) and the orphaned colored overlay lingered —
-      // the "selected route overlaps into the alternate" bug
-      // (user-flagged 2026-06-03). A structurally constant, stably-keyed
-      // set means switching recolors in place with zero mount/unmount.
-      //
-      // Paint order still matters for shared segments near origin/dest:
-      // react-native-maps paints overlays in document order, so the
-      // selected route is emitted LAST (its colored stroke wins where it
-      // overlaps a gray alternate). Reordering stable-keyed children
-      // doesn't remove any key, so it doesn't trigger the leak. Segments
-      // come precomputed from routeSegments — this memo only maps them to
-      // elements + selection colors, so a switch is cheap (no SunCalc).
-      const ordered = [
-        ...routeSegments.filter((rs) => rs.route.id !== selectedRoute?.id),
-        ...routeSegments.filter((rs) => rs.route.id === selectedRoute?.id),
-      ];
-      return ordered.flatMap(({ route, segments }) => {
+      // TWO STABLE LAYERS so a route-switch is COLOR-ONLY — no reorder, no
+      // coordinate change, no mount/unmount. This is load-bearing for two
+      // separate iOS react-native-maps quirks:
+      //   1. reordering keyed Polyline children → it removes + re-adds the
+      //      overlays to reorder them → a MapKit reflow that EVICTS the
+      //      (tracksViewChanges) marker bitmaps. The earlier "emit selected
+      //      last for paint order" reorder is exactly what made the user
+      //      dot + finish pin vanish on a chevron tap (user-flagged
+      //      2026-06-03) — a camera-less switch, so always-track couldn't
+      //      heal it (nothing re-renders the markers).
+      //   2. changing a Polyline's coordinates recreates its overlay (same
+      //      reflow). So routes must keep fixed coordinates per key.
+      // Every route is rendered in BOTH layers, in stable `routes` order
+      // with stable keys; selection only flips strokeColor (an in-place
+      // renderer update — no overlay churn, no reflow). Layer order gives
+      // paint order: the highlight layer (selected) draws over the base
+      // layer (alternates), so the selected stroke wins at shared segments
+      // WITHOUT reordering. ~2× the Polyline count, but half are
+      // 'transparent' (MapKit skips drawing them) and segments are
+      // precomputed (no SunCalc on switch).
+      const base = routeSegments.flatMap(({ route, segments }) => {
         const isSelected = route.id === selectedRoute?.id;
         return segments.map((segment, idx) => (
           <Polyline
-            key={`${route.id}-seg-${idx}`}
+            key={`${route.id}-base-${idx}`}
             coordinates={segment.coordinates}
-            strokeColor={isSelected ? segment.color : routeColors.alternate.stroke}
-            strokeWidth={
-              isSelected ? routeColors.recommended.width : routeColors.alternate.width
-            }
+            // Selected route's base is transparent so its own dashed
+            // gradient (highlight) shows the MAP through the dash gaps,
+            // not a gray base line.
+            strokeColor={isSelected ? 'transparent' : routeColors.alternate.stroke}
+            strokeWidth={routeColors.alternate.width}
+          />
+        ));
+      });
+      const highlight = routeSegments.flatMap(({ route, segments }) => {
+        const isSelected = route.id === selectedRoute?.id;
+        return segments.map((segment, idx) => (
+          <Polyline
+            key={`${route.id}-hl-${idx}`}
+            coordinates={segment.coordinates}
+            strokeColor={isSelected ? segment.color : 'transparent'}
+            strokeWidth={routeColors.recommended.width}
             // WCAG 1.4.1 non-color cue on the selected route: pair the
             // daylight color gradient with a dash pattern so day/twilight/
             // night reads through deuteranopia/tritanopia/monochromacy.
             // Solid = day, medium dashes = twilight, short dashes = night.
             // The bottom-sheet daylight legend uses the same color anchors
-            // so the polyline + legend tell the same story two ways. Gray
-            // alternates render solid (no band semantics to convey).
+            // so the polyline + legend tell the same story two ways.
             lineDashPattern={isSelected ? DAYLIGHT_DASH_PATTERN[segment.band] : undefined}
           />
         ));
       });
+      return [...base, ...highlight];
     },
     [routeSegments, selectedRoute?.id],
   );

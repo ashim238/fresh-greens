@@ -837,40 +837,48 @@ export default function EnRoute() {
 
   const routePolylines = useMemo(
     () => {
-      // EVERY route renders as the SAME daylight-segmented set with stable
-      // keys (`${route.id}-seg-${idx}`); selection only flips each segment's
-      // color/width/dash. This is load-bearing — react-native-maps on iOS
-      // LEAKS unmounted Polyline overlays, so the earlier "active = N
-      // segments, alternates = 1 line" shape churned the child set whenever
-      // the user tapped "Compare routes" mid-trip and the orphaned colored
-      // overlay lingered on the alternate. Mirrors the /home fix (commit
-      // 57b99d8). Active route emitted LAST so its colored stroke wins at
-      // shared segments; reordering stable keys removes nothing, so no leak.
-      // Segments come precomputed from routeSegments — this memo only maps
-      // them to elements + colors, so a switch is cheap (no SunCalc).
-      const ordered = [
-        ...routeSegments.filter((rs) => rs.route.id !== activeRoute?.id),
-        ...routeSegments.filter((rs) => rs.route.id === activeRoute?.id),
-      ];
-      return ordered.flatMap(({ route, segments }) => {
+      // TWO STABLE LAYERS so switching the active route (the "Compare
+      // routes" control) is COLOR-ONLY — no reorder, no coordinate change,
+      // no mount/unmount. Reordering keyed Polyline children makes
+      // react-native-maps remove + re-add the overlays on iOS, a MapKit
+      // reflow that evicts the (tracksViewChanges) marker bitmaps; the
+      // earlier "emit active last for paint order" reorder is what made the
+      // markers vanish on a route switch (the /home equivalent was
+      // user-flagged 2026-06-03). Every route renders in BOTH layers in
+      // stable order with stable keys; selection only flips strokeColor (an
+      // in-place renderer update). Layer order gives paint order: highlight
+      // (active) over base (alternates). Mirrors /home.
+      const base = routeSegments.flatMap(({ route, segments }) => {
         const isActive = route.id === activeRoute?.id;
         return segments.map((segment, idx) => (
           <Polyline
-            key={`${route.id}-seg-${idx}`}
+            key={`${route.id}-base-${idx}`}
             coordinates={segment.coordinates}
-            strokeColor={isActive ? segment.color : routeColors.alternate.stroke}
-            strokeWidth={
-              isActive ? routeColors.recommended.width : routeColors.alternate.width
-            }
+            // Active route's base is transparent so its dashed gradient
+            // (highlight) shows the map through the dash gaps.
+            strokeColor={isActive ? 'transparent' : routeColors.alternate.stroke}
+            strokeWidth={routeColors.alternate.width}
+          />
+        ));
+      });
+      const highlight = routeSegments.flatMap(({ route, segments }) => {
+        const isActive = route.id === activeRoute?.id;
+        return segments.map((segment, idx) => (
+          <Polyline
+            key={`${route.id}-hl-${idx}`}
+            coordinates={segment.coordinates}
+            strokeColor={isActive ? segment.color : 'transparent'}
+            strokeWidth={routeColors.recommended.width}
             // WCAG 1.4.1 non-color cue on the active route — parity with
             // /home's route-preview polyline. Solid = day, medium dashes =
             // twilight, short dashes = night, so the daylight band reads
             // through deuteranopia/tritanopia/monochromacy during the live
-            // drive. Gray alternates render solid (no band semantics).
+            // drive.
             lineDashPattern={isActive ? DAYLIGHT_DASH_PATTERN[segment.band] : undefined}
           />
         ));
       });
+      return [...base, ...highlight];
     },
     [routeSegments, activeRoute?.id],
   );
