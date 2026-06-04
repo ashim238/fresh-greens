@@ -18,6 +18,8 @@
 // from the user's current location. Same shape any future provider
 // (MKLocalSearch, Google Places, Foursquare) would slot into.
 
+import type { FuelPriceQuote } from './fuel-prices';
+
 export type Place = {
   /** Stable identifier from the geocoder. */
   id: string;
@@ -30,6 +32,8 @@ export type Place = {
   longitude: number;
   /** Distance from the user's location in miles, rounded to 1 decimal. */
   distanceMiles: number;
+  /** Set by `enrichPlacesWithFuelPrices` — Gas/on-route fuel contexts only. */
+  fuelPrice?: FuelPriceQuote;
 };
 
 // v6 Search Box API response shape. Only the fields we use are typed.
