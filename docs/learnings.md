@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/gas-search-prices (2026-06-04)
+
+Mapbox Search Box returns POI identity, not pump prices — so prices live in a **caller-side enrich** (`enrichPlacesWithFuelPrices`) after `searchPlaces`, not inside the geocoder adapter. Demo mode hashes `place.id` → stable cents in `$3.19–$4.29` so rows stay consistent across revisits without implying a live feed; `/search` shows an explicit footnote when `source === 'demo'`. Worth keeping: **compose enrichment at the screen/hook that owns the Gas context** (search Gas tool, on-route fuel hook) rather than baking it into `searchPlaces`, so Food/Parking paths never pay for or display fuel metadata.
+
+---
+
 ## feat/recommendation-place-id-enrichment: place id is identity; within-row "dedup" must merge fields
 
 Shipped cross-row enrichment assumed **name + 50m** was enough to link a community Sisters card to its Google twin. Device debugging showed JSON with `photoName` on *other* recs while Sisters stayed bare — the API had data, but `samePlace` never grouped them because display names diverged (`Sisters` vs `Sister's Soul Food`) and the black-owned text search often never returns the tagged business at all.
