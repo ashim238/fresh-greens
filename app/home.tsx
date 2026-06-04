@@ -401,6 +401,11 @@ export default function Home() {
   const [tripZonesStatus, setTripZonesStatus] = useState<
     'idle' | 'loading' | 'ready'
   >('idle');
+  /** True when getZonesForTrip threw — suppress false "All clear". */
+  const [tripZonesFetchFailed, setTripZonesFetchFailed] = useState(false);
+  /** True only after a successful corridor fetch for the current trip. */
+  const [tripZonesCorridorComplete, setTripZonesCorridorComplete] =
+    useState(false);
   // Community-submitted point reports. Refreshed every time /home gains
   // focus, so a freshly-submitted report from /report appears
   // immediately when the user closes the modal. Rendered as LandmarkMarkers
@@ -1213,6 +1218,8 @@ export default function Home() {
       setRouteFetchSource(null);
       setIsCalculatingRoute(false);
       setTripZonesStatus('idle');
+      setTripZonesFetchFailed(false);
+      setTripZonesCorridorComplete(false);
     } else {
       // Mark calculating BEFORE awaiting permission/GPS so the route-
       // preview bottom sheet shows LoadingState immediately on
@@ -1224,9 +1231,14 @@ export default function Home() {
       // clear" against old geometry while the new corridor loads.
       setOsmZones([]);
       setTripZonesStatus('loading');
+      setTripZonesFetchFailed(false);
+      setTripZonesCorridorComplete(false);
     }
 
     let cancelled = false;
+    let partialTimer: ReturnType<typeof setTimeout> | null = null;
+    let corridorFetchCompleted = false;
+    const hadDestination = Boolean(params.destLat && params.destLng);
 
     async function fetchAndCenterOnUser() {
       // try/finally ensures isCalculatingRoute clears on ALL exit paths
@@ -1328,7 +1340,6 @@ export default function Home() {
       if (destination) {
         // Corridor preview: partial OSM updates while waves run; cache on ready.
         try {
-          let partialTimer: ReturnType<typeof setTimeout> | null = null;
           const flushPartial = (zones: Zone[]) => {
             if (PARTIAL_DEBOUNCE_MS <= 0) {
               setOsmZones(zones);
@@ -1350,8 +1361,15 @@ export default function Home() {
               onPartial: (zones) => flushPartial(zones),
             },
           );
+          if (partialTimer) {
+            clearTimeout(partialTimer);
+            partialTimer = null;
+          }
           if (!cancelled) {
             setOsmZones(tripZones);
+            setTripZonesFetchFailed(false);
+            setTripZonesCorridorComplete(true);
+            corridorFetchCompleted = true;
             setTripZonesStatus('ready');
             const coords = fetchedResult.routes[0]?.coordinates;
             if (coords && coords.length >= 2) {
@@ -1363,7 +1381,8 @@ export default function Home() {
           }
         } catch {
           if (!cancelled) {
-            setOsmZones([]);
+            // Fail-open to ready but keep prior osmZones — never imply All clear.
+            setTripZonesFetchFailed(true);
             setTripZonesStatus('ready');
           }
         }
@@ -1379,13 +1398,21 @@ export default function Home() {
         // race so a post-cancel setState doesn't fire on a stale
         // component. The success path also calls setIsCalculatingRoute(false)
         // before this finally — idempotent.
-        if (!cancelled) setIsCalculatingRoute(false);
+        if (!cancelled) {
+          setIsCalculatingRoute(false);
+          // Permission denied, GPS error, or early return before corridor:
+          // tripZonesStatus may still be 'loading' — exit without false All clear.
+          if (hadDestination && !corridorFetchCompleted) {
+            setTripZonesStatus('ready');
+          }
+        }
       }
     }
 
     fetchAndCenterOnUser();
     return () => {
       cancelled = true;
+      if (partialTimer) clearTimeout(partialTimer);
     };
     // Re-run whenever the destination URL params change, so submitting
     // a new search refetches routes for the new endpoint without
@@ -2688,6 +2715,14 @@ export default function Home() {
                 >
                   <RouteZonesLoadingChip />
                 </View>
+              ) : tripZonesFetchFailed ? (
+                <View
+                  style={styles.routeChipsRow}
+                  accessibilityLabel="Couldn't check route for hazards along this path."
+                  accessibilityLiveRegion="polite"
+                >
+                  <RouteZonesFetchFailedChip />
+                </View>
               ) : routeHazardChips.length > 0 ? (
                 <>
                   <Text style={styles.routeChipsHeader}>Along this route:</Text>
@@ -2716,7 +2751,7 @@ export default function Home() {
                     ))}
                   </View>
                 </>
-              ) : tripZonesStatus === 'ready' ? (
+              ) : tripZonesStatus === 'ready' && tripZonesCorridorComplete ? (
                 <View
                   style={styles.routeChipsRow}
                   accessibilityLabel={
@@ -2734,7 +2769,9 @@ export default function Home() {
             {selectedRoute &&
               pathLengthMeters(selectedRoute.coordinates) >
                 LONG_TRIP_COPY_METERS &&
-              tripZonesStatus === 'ready' && (
+              tripZonesStatus === 'ready' &&
+              tripZonesCorridorComplete &&
+              !tripZonesFetchFailed && (
                 <Text
                   style={[
                     styles.routeChipsFootnote,
@@ -3110,6 +3147,19 @@ function RouteZonesLoadingChip() {
     >
       <ActivityIndicator size="small" color={colors.labelSecondary} />
       <Text style={styles.routeZonesLoadingText}>Checking route…</Text>
+    </View>
+  );
+}
+
+/** Gray chip when corridor OSM fetch failed — not All clear. */
+function RouteZonesFetchFailedChip() {
+  return (
+    <View
+      style={styles.routeZonesLoadingChip}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Text style={styles.routeZonesLoadingText}>Couldn't check route</Text>
     </View>
   );
 }
