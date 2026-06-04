@@ -356,16 +356,38 @@ export default function Home() {
   const recommended = routes.find((route) => route.type === 'recommended');
 
   // The route the preview card + colored gradient reflect. Defaults to the
-  // recommended (safest); the user can swipe the ETA (chevrons flank it) or
-  // tap an alternate's gray line to take a different one. Falls back to
-  // recommended when the selection is stale (routes refetched) or unset.
-  // Safety still PICKS the recommended; this is the user choosing to take a
-  // different one — the conditions caption stays honest about which it is.
+  // recommended (safest); the user can tap the chevron pair in the top row
+  // or tap an alternate's gray line on the map to take a different one.
+  // Falls back to recommended when the selection is stale (routes refetched)
+  // or unset. Safety still PICKS the recommended; this is the user choosing
+  // to take a different one — the conditions caption stays honest about
+  // which it is.
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const selectedRoute =
     (selectedRouteId != null && routes.find((r) => r.id === selectedRouteId)) ||
     recommended;
   const isRecommendedSelected = selectedRoute?.id === recommended?.id;
+
+  // Marker bitmap epoch — the single source for the "State-in-key on
+  // tracksViewChanges={false} markers" pattern (see docs/learnings.md).
+  // Our custom SVG markers run tracksViewChanges={false} for perf, which
+  // lets MapKit evict their cached bitmap on ANY map reflow and then
+  // render empty until the marker is forced to remount. We've now seen
+  // three distinct reflow triggers bite (zoom, recenter, route-switch);
+  // rather than bolt each onto every marker's key separately (whack-a-
+  // mole — the next reflow cause re-breaks every marker), this folds the
+  // shared reflow causes into ONE derived epoch that every affected
+  // marker mixes into its key. New reflow triggers get added HERE, once.
+  //   - latitudeDelta bin (*100): zoom changes. mapRegion is settled via
+  //     onRegionChangeComplete, so this updates discretely, not per frame.
+  //   - selectedRoute.id: switching routes re-renders the Polyline
+  //     children, which reflows the overlay layer and evicts marker
+  //     bitmaps even though the markers themselves didn't change.
+  // (recenterTick stays user-pin-specific — it's about a fresh GPS
+  // snapshot, not just reflow — so it's appended to that key, not here.)
+  const markerBitmapEpoch = `${
+    mapRegion ? Math.round(mapRegion.latitudeDelta * 100) : 'init'
+  }-${selectedRoute?.id ?? 'none'}`;
 
   // Route cycling via the chevron pair in routeTopRow. `routes` is
   // recommended-first; right chevron → next (dir: 1), left → previous
@@ -1542,19 +1564,15 @@ export default function Home() {
         */}
         {params.destLat && params.destLng && (
           <DestinationMarker
-            // State-in-key: bin latitudeDelta into 0.01° increments and
-            // include in the key so the marker remounts on each
-            // meaningful zoom change. The internal tracksViewChanges
-            // flips to false after a 50ms paint settle (DestinationMarker
-            // header comment) — without remount, MapKit's cached bitmap
-            // can be evicted on pinch-zoom reflow and the marker renders
-            // empty until the next mount. User-flagged 2026-06-03 ("the
-            // finish pin disappears if I readjust zoom"). Binning at *100
-            // (not raw latitudeDelta or *1000) avoids remount churn on
-            // pan-induced floating-point epsilon while still firing on
-            // any real zoom tick. mapRegion is settled (onRegionChange-
-            // Complete) so this updates discretely, not per frame.
-            key={`dest-${mapRegion ? Math.round(mapRegion.latitudeDelta * 100) : 'init'}`}
+            // State-in-key via the shared markerBitmapEpoch (zoom bin +
+            // selected route) so the finish pin remounts + re-snapshots
+            // on both zoom changes AND route switches — both reflow the
+            // overlay layer and would otherwise evict its cached bitmap
+            // (tracksViewChanges={false}). User-flagged 2026-06-03,
+            // twice: "disappears if I readjust zoom", then "disappears
+            // if I switch between routes". See the epoch's derive
+            // comment for the full rationale.
+            key={`dest-${markerBitmapEpoch}`}
             latitude={parseFloat(params.destLat)}
             longitude={parseFloat(params.destLng)}
             name={params.destName}
@@ -1585,17 +1603,14 @@ export default function Home() {
         */}
         {userLocation && (
           <UserLocationMarker
-            // State-in-key: bumps on recenter (existing tick) AND on
-            // each meaningful zoom change (binned latitudeDelta), so
-            // the marker remounts and MapKit re-snapshots cleanly.
-            // Earlier rev keyed on recenterTick only — user-flagged
-            // 2026-06-03 "current disappears on zoom, reappears if i
-            // click recenter": zoom alone didn't bump the key, so the
-            // tracksViewChanges={false} cached bitmap got evicted on
-            // pinch-zoom reflow and the marker stayed empty until the
-            // next recenter forced a remount. Mirrors the binning
-            // applied to DestinationMarker (`f0d6a4d`).
-            key={`user-loc-${recenterTick}-${mapRegion ? Math.round(mapRegion.latitudeDelta * 100) : 'init'}`}
+            // State-in-key: recenterTick (a fresh-GPS-snapshot request,
+            // user-pin-specific) plus the shared markerBitmapEpoch (zoom
+            // bin + selected route). The epoch covers the reflow triggers
+            // the destination pin also needs — zoom and route-switch —
+            // which both evicted this marker's cached bitmap. User-flagged
+            // 2026-06-03 across three reports: "disappears on zoom,
+            // reappears on recenter", then "disappears if I switch routes."
+            key={`user-loc-${recenterTick}-${markerBitmapEpoch}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
           />
