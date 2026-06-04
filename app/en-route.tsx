@@ -2172,13 +2172,21 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingTop: 10,
+    // 22, not 10: the digit is bottom-aligned (justifyContent flex-end),
+    // and the pill's bottom 12pt are hidden behind the speed-limit sign
+    // (marginBottom -12 overlap). At paddingBottom 10 the digit's baseline
+    // landed INSIDE that 12pt overlap — it sat crowded against, and ~2pt
+    // clipped by, the sign below (a "0" read as a tight squeeze, user-
+    // flagged 2026-06-03). 22 = 12 (overlap) + 10 (real clearance) so the
+    // digit clears the sign.
+    paddingBottom: 22,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    // 56pt — needs to clear the 24pt/28pt-line digits + 10pt top
-    // padding + 8pt headroom above the -12pt overlap with the sign
-    // below. (Same height as the prior white-pill variant.)
-    height: 56,
+    // 64pt: paddingTop 10 + 28pt digit line + paddingBottom 22. The extra
+    // 8pt over the old 56 buys the clearance above without shrinking the
+    // visible digit area. Grows upward (anchored above the bottom sheet).
+    height: 64,
     // Overlap with the speed-limit sign below per Figma — `mb-[-12px]`.
     // Gives the appearance of a unified stack.
     marginBottom: -12,
