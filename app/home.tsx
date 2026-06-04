@@ -29,6 +29,7 @@ import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { ClusterMarker } from '../components/ClusterMarker';
 import { DestinationMarker } from '../components/DestinationMarker';
+import { EnRouteZone } from '../components/EnRouteZone';
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
@@ -90,7 +91,16 @@ import {
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
-import { isPointInZone, isPointNearPolyline, pickWinner, routePassesZone } from '../lib/scoring';
+import {
+  isPointInZone,
+  isPointNearPolyline,
+  nearestPointOnPolyline,
+  pickWinner,
+  routePassesZone,
+  zoneAnchor,
+  zoneToHazardCategory,
+  type HazardCategory,
+} from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
@@ -661,6 +671,62 @@ export default function Home() {
       return { type: t, count, label: count === 1 ? ROUTE_HAZARD_LABEL[t][0] : ROUTE_HAZARD_LABEL[t][1] };
     });
   }, [selectedRoute, enabledZones]);
+
+  // On-route hazard markers — the yellow EnRouteZone teardrop dropped on
+  // the route line at each OSM hazard the route passes (low-light /
+  // wildlife / road / police). Reuses the canonical /en-route marker
+  // (Figma 1133:13297) so the preview and the live drive show hazards in
+  // the same visual language. Sourced from enabledOsmZones (NOT community
+  // reports — the orange eye pins already mark those spots), and gated by
+  // the same routePassesZone predicate as the chips + score, so marker
+  // presence ⇄ chip presence ⇄ score all agree on what a route passes.
+  // Each zone's anchor is SNAPPED onto the route line via
+  // nearestPointOnPolyline — a polygon centroid off to the side becomes
+  // an on-route glyph, reading as "the hazard is HERE on your path."
+  // Capped at 6 (chip carries the authoritative count if more); ordering
+  // follows ROUTE_HAZARD_ORDER (police first among OSM types) so the cap
+  // bites the lowest-priority items if it ever triggers.
+  const routeHazardMarkers = useMemo(() => {
+    if (!selectedRoute) {
+      return [] as { id: string; coord: Coordinate; category: HazardCategory }[];
+    }
+    const markers: {
+      id: string;
+      coord: Coordinate;
+      category: HazardCategory;
+      orderIdx: number;
+    }[] = [];
+    for (const zone of enabledOsmZones) {
+      // OSM-only: community-report eye pins cover those spots already.
+      if (zone.category === 'community-report') continue;
+      const hazardType = routeHazardType(zone);
+      // Only the four charted on-route hazard types.
+      if (
+        hazardType !== 'police' &&
+        hazardType !== 'lowLight' &&
+        hazardType !== 'wildlife' &&
+        hazardType !== 'road'
+      ) {
+        continue;
+      }
+      if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
+      const anchor = zoneAnchor(zone);
+      if (!anchor) continue;
+      const category = zoneToHazardCategory(zone);
+      // zoneToHazardCategory may return 'community-alert' for
+      // community-report zones — already filtered above, but the type
+      // narrows here so we keep it tight.
+      if (!category || category === 'community-alert') continue;
+      markers.push({
+        id: zone.id,
+        coord: nearestPointOnPolyline(anchor, selectedRoute.coordinates),
+        category,
+        orderIdx: ROUTE_HAZARD_ORDER.indexOf(hazardType),
+      });
+    }
+    markers.sort((a, b) => a.orderIdx - b.orderIdx);
+    return markers.slice(0, 6).map(({ id, coord, category }) => ({ id, coord, category }));
+  }, [selectedRoute, enabledOsmZones]);
 
   const { profile: fuelProfile } = useFuelProfile();
   const { stations: preferredStations } = usePreferredStations();
@@ -1630,6 +1696,27 @@ export default function Home() {
           on the map's native overlay layer.
         */}
         {routePolylines}
+
+        {/*
+          On-route hazard markers — the yellow EnRouteZone teardrop dropped
+          on the route line at each OSM hazard the selected route passes
+          (police, low-light, wildlife, road). Same component as /en-route's
+          on-map zone markers, so the preview and the live drive share the
+          visual language. Rendered AFTER routePolylines (sits on top of the
+          line) but BEFORE the user/destination markers (which keep their
+          higher zIndex). Community-report eye pins continue to mark those
+          spots separately — no double-marking.
+        */}
+        {routeHazardMarkers.map((m) => (
+          <EnRouteZone
+            key={`hazard-${m.id}`}
+            latitude={m.coord.latitude}
+            longitude={m.coord.longitude}
+            category={m.category}
+            state="default"
+            lengthMiles={0}
+          />
+        ))}
 
         {/*
           Custom user-location dot — replaces showsUserLocation so it

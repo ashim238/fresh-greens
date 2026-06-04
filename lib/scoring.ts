@@ -383,20 +383,25 @@ export type HazardCategory =
   | 'lighting'
   | 'road-condition'
   | 'wildlife'
-  | 'community-alert';
+  | 'community-alert'
+  | 'police';
 
 /**
  * Per-category severity for ordering when more hazards cross threshold
- * than a turn card can show. Higher = worse = wins the slot. All four
- * categories have distinct values — ties would resolve by zone-
- * iteration order, which is data-dependent and non-deterministic from
- * the user's perspective.
+ * than a turn card can show. Higher = worse = wins the slot. All five
+ * categories have distinct values — ties would resolve by zone-iteration
+ * order, which is data-dependent and non-deterministic from the user's
+ * perspective. Police sits at the bottom: presence awareness, not an
+ * immediate hazard, so when more than 2 hazards cluster near a turn,
+ * police yields the slot to anything more urgent (a deer/pothole/dark
+ * stretch wins).
  */
 const HAZARD_SEVERITY: Record<HazardCategory, number> = {
-  'community-alert': 4, // people-reported, most immediate
-  'wildlife': 3,        // time-sensitive at dawn/dusk
-  'road-condition': 2,  // surface damage / construction; chronic but specific
-  'lighting': 1,        // chronic, contextual
+  'community-alert': 5, // people-reported, most immediate
+  'wildlife': 4,        // time-sensitive at dawn/dusk
+  'road-condition': 3,  // surface damage / construction; chronic but specific
+  'lighting': 2,        // chronic, contextual
+  'police': 1,          // presence awareness, not action-required
 };
 
 const HAZARD_PROXIMITY_METERS = 200;
@@ -461,13 +466,27 @@ function isWaypointInProximity(turn: Coordinate, zone: Zone): boolean {
 
 /**
  * Map a zone's category → hazard category, or null if the zone doesn't
- * surface as a hazard glyph (police, landuse, park, safe community
- * reports). Community reports collapse `felt-unsafe` and `incident`
- * subcategories into the single `community-alert` bucket; the more
- * granular distinction belongs on the map markers, not on the turn card.
+ * surface as a hazard glyph (landuse, park, safe community reports).
+ * Community reports collapse `felt-unsafe` and `incident` subcategories
+ * into the single `community-alert` bucket; the more granular distinction
+ * belongs on the map markers, not on the turn card.
+ *
+ * Police: returns `'police'` so a stationary OSM precinct within
+ * HAZARD_PROXIMITY_METERS of a turn surfaces a presence-awareness glyph
+ * on the turn card. The earlier rev returned null on the theory that
+ * police is stationary and not "watch out, this is on your route" —
+ * correct when the alternative was a blanket warning, but it left a real
+ * gap as a driver approaches a precinct. With the 200m gate already in
+ * place and `police: 1` at the bottom of HAZARD_SEVERITY (so it yields
+ * the slot to anything more urgent), this is awareness without alarm.
+ * Forward-looking: today the data is static OSM precincts; the SURFACE
+ * is the same when live police-location data lands, the definition of a
+ * "police zone" just widens.
  */
 export function zoneToHazardCategory(zone: Zone): HazardCategory | null {
   switch (zone.category) {
+    case 'police':
+      return 'police';
     case 'lighting':
       return 'lighting';
     case 'road-condition':
@@ -534,6 +553,68 @@ export function isPointNearPolyline(
     }
   }
   return false;
+}
+
+/**
+ * Snap `point` to the nearest point on `polyline`. Walks each segment,
+ * projects the point onto it (clamped to the segment's extent), and
+ * returns the closest projection. Used by the route-preview hazard
+ * markers to place a zone glyph ON the route line rather than at the
+ * zone's own anchor (which can sit off to the side of the road).
+ *
+ * Empty / single-vertex polyline → returns the input (defensive; callers
+ * should gate on route presence before drawing). Pure.
+ */
+export function nearestPointOnPolyline(
+  point: Coordinate,
+  polyline: Coordinate[],
+): Coordinate {
+  if (polyline.length === 0) return point;
+  if (polyline.length === 1) return polyline[0];
+
+  // Equirectangular projection — same trick the segment-distance helper
+  // uses (1° lat ≈ 111,000m; 1° lng ≈ 111,000m × cos(lat)). Pick the
+  // scale from `point.latitude` so the projection is consistent across
+  // segments at city scale (matters less for the snap itself than for
+  // sub-meter agreement with pointToSegmentDistanceMeters).
+  const latToMeters = 111000;
+  const lngToMeters = 111000 * Math.cos((point.latitude * Math.PI) / 180);
+
+  let bestDistSq = Infinity;
+  let best: Coordinate = polyline[0];
+
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = polyline[i];
+    const b = polyline[i + 1];
+
+    // Meters relative to `a`.
+    const px = (point.longitude - a.longitude) * lngToMeters;
+    const py = (point.latitude - a.latitude) * latToMeters;
+    const sx = (b.longitude - a.longitude) * lngToMeters;
+    const sy = (b.latitude - a.latitude) * latToMeters;
+
+    const segLenSq = sx * sx + sy * sy;
+    // Project + clamp to [0, 1] so we stay inside the segment, not on
+    // its infinite line extension.
+    const t = segLenSq === 0 ? 0 : Math.max(0, Math.min(1, (px * sx + py * sy) / segLenSq));
+    const cx = sx * t;
+    const cy = sy * t;
+
+    const dx = px - cx;
+    const dy = py - cy;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      // Convert closest-point back to lat/lng. cx/cy are meters from
+      // `a`; reverse the scale.
+      best = {
+        latitude: a.latitude + cy / latToMeters,
+        longitude: a.longitude + cx / lngToMeters,
+      };
+    }
+  }
+  return best;
 }
 
 function pointToSegmentDistanceMeters(

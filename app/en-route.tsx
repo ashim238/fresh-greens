@@ -151,6 +151,8 @@ function humanReadableHazard(category: HazardCategory): string {
       return 'wildlife';
     case 'community-alert':
       return 'community alert';
+    case 'police':
+      return 'police presence';
   }
 }
 
@@ -259,6 +261,8 @@ function hazardFullCopy(category: HazardCategory): string {
       return 'Wildlife crossing ahead';
     case 'community-alert':
       return 'Recent community alert ahead';
+    case 'police':
+      return 'Police presence near this turn';
   }
 }
 

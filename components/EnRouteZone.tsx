@@ -7,6 +7,7 @@ import EnrouteHazardExtendedLight from '../assets/illustrations/enroute-hazard-e
 import EnrouteHazardExtendedRoad from '../assets/illustrations/enroute-hazard-extended-road.svg';
 import EnrouteHazardExtendedWildlife from '../assets/illustrations/enroute-hazard-extended-wildlife.svg';
 import EnrouteHazardLight from '../assets/illustrations/enroute-hazard-light.svg';
+import EnrouteHazardPolice from '../assets/illustrations/enroute-hazard-police.svg';
 import EnrouteHazardRoad from '../assets/illustrations/enroute-hazard-road.svg';
 import EnrouteHazardWildlife from '../assets/illustrations/enroute-hazard-wildlife.svg';
 
@@ -98,6 +99,13 @@ function DefaultMarker({ category }: { category: HazardCategory }) {
       {category === 'community-alert' && (
         <EnrouteHazardCommunityAlert width={62} height={50} />
       )}
+      {/* Police-presence marker. Consumed by the /home route-preview
+          on-route hazard pipeline. NOT rendered in en-route's own on-map
+          zone-marker pipeline (that explicitly filters out point zones +
+          the police category — police precincts are points and don't get
+          length-based "For X mi." treatment). Police gets NO ExtendedPill
+          branch for the same reason. */}
+      {category === 'police' && <EnrouteHazardPolice width={62} height={50} />}
     </View>
   );
 }
@@ -131,6 +139,8 @@ function humanReadableHazard(category: HazardCategory): string {
       return 'Wildlife';
     case 'community-alert':
       return 'Community alert';
+    case 'police':
+      return 'Police presence';
   }
 }
 
