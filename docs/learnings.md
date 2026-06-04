@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix(destination-marker): in-SVG drop-shadow filters under-render on react-native-svg; RN shadow on the wrapper is the source of truth
+
+Shipped `02dbb9e`. User-flagged "finish pin shadow looks faint." Root cause was a tooling assumption breaking silently. Two patterns worth keeping:
+
+**Figma-exported `<filter>` elements (drop-shadow / feGaussianBlur) are unreliable on react-native-svg's native rendering — treat them as decorative, not load-bearing.** The home destination SVG (Figma 1245:10977) baked a dual drop-shadow filter at M3 Elev/1 spec — subtle by design. The earlier rev gated `shadows.e3` to the enroute variant only on the explicit theory that adding RN shadow to the home variant would *compound* with the SVG-baked one and over-darken. In practice react-native-svg's `<filter>` + `feGaussianBlur` support is patchy on native (it's known to render zero, partial, or wrong across SDK versions and platforms), so the SVG shadow under-rendered — the marker had no marker-grade lift and the "don't compound" guard was guarding against a thing that wasn't happening. General lesson: when a designer exports SVGs from Figma that include drop-shadow filters, *don't* rely on those filters to render at the Figma weight on react-native-svg. Apply elevation via RN's `shadowOffset`/`shadowOpacity`/`shadowRadius` (via the `shadows` token tier) on the wrapping `<View>`, treat any in-SVG filter as decorative bonus that may or may not compose. The reliable surface for elevation in RN is the View shadow, not the SVG filter.
+
+**This is the second marker-platform-quirk in this codebase — the pattern is "react-native-maps + react-native-svg + MapKit each have a native quirk; the docs don't surface them, debugging surfaces them."** The first was the cached-bitmap problem (markers vanishing on zoom when `tracksViewChanges={false}` — fix: state-in-key remount). This one is the SVG filter under-render. Both come from the same architectural shape: a third-party library bridges React content to a native subsystem (MapKit / SVG canvas) that has its own caching/rendering rules the React layer doesn't know about. When something "looks wrong but compiles cleanly" on a map marker, the next debug-step is "what's the native-layer doing with the bridged content?" — not "what's my JSX doing." The fix usually lives at the native boundary (key for remount, RN shadow instead of SVG filter), not in the bridged content itself. Worth carrying forward as a default debugging direction for the marker layer.
+
+---
+
 ## refactor(markers): "the felt-welcome personal pin shows a duotone house" — three turns on one rule
 
 Shipped across `e0b2365` → `6d3dee3` → `794cf10`. Started as a one-icon bug ("Personal renders House"), ended as a cross-feature alignment refactor that collapsed the whole subtag-icon dispatcher. Three patterns:
