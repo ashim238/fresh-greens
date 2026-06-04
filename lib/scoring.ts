@@ -372,12 +372,11 @@ export function pickWinner(
 }
 
 /**
- * Hazard categories surfaced on /en-route's turn card. Subset of zone
- * categories — police is intentionally excluded (it's a stationary
- * caution marker, not a "watch out, this is on your route" symbol).
- * Community reports collapse into a single 'community-alert' bucket
- * since the icon distinction (felt-unsafe vs incident) doesn't read
- * mid-drive at 24pt.
+ * Hazard categories surfaced on /en-route's turn card and /home route-
+ * preview markers. Community reports collapse into a single
+ * 'community-alert' bucket since the icon distinction (felt-unsafe vs
+ * incident) doesn't read mid-drive at 24pt. Police is the lowest
+ * HAZARD_SEVERITY — presence awareness on the turn card, not alarm.
  */
 export type HazardCategory =
   | 'lighting'

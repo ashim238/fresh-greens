@@ -502,6 +502,14 @@ export default function Home() {
     recommended;
   const isRecommendedSelected = selectedRoute?.id === recommended?.id;
 
+  // EnRouteZone on the route preview runs tracksViewChanges={false}; MapKit
+  // can evict the cached bitmap on zoom reflow. State-in-key remounts refresh
+  // the snapshot (see docs/learnings.md — safe for EnRouteZone; zIndex 350
+  // only needs to stay below community-report pins at 550).
+  const markerSnapshotEpoch = mapRegion
+    ? String(Math.round(mapRegion.latitudeDelta * 100))
+    : 'init';
+
   // Route cycling via the chevron pair in routeTopRow. `routes` is
   // recommended-first; right chevron → next (dir: 1), left → previous
   // (dir: -1). Clamped (no wrap) so the chevrons can hint the ends by
@@ -1839,7 +1847,7 @@ export default function Home() {
         */}
         {routeHazardMarkers.map((m) => (
           <EnRouteZone
-            key={`hazard-${m.id}`}
+            key={`hazard-${m.id}-${markerSnapshotEpoch}`}
             latitude={m.coord.latitude}
             longitude={m.coord.longitude}
             category={m.category}
