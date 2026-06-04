@@ -384,7 +384,11 @@ export function pickWinner(
 ): RankedRoute[] {
   const scored = routes.map((route) => ({
     ...route,
-    score: scoreRoute(route, zones, departureTime),
+    score: scoreRoute(
+      route,
+      [...zones, ...(route.mapboxIncidentZones ?? [])],
+      departureTime,
+    ),
   }));
 
   scored.sort((a, b) => b.score - a.score);

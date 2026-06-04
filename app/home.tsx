@@ -120,6 +120,7 @@ import {
   type Region,
 } from '../lib/edge-indicators';
 import type { Place } from '../lib/api/places';
+import { collapseHazardZones } from '../lib/corridor/merge-hazards';
 import {
   isPointInZone,
   isPointNearPolyline,
@@ -496,9 +497,17 @@ export default function Home() {
   // Zones gated by the user's flag toggles (filtered per-source so the
   // overlay, scoring, counts, and report markers all respect the flags).
   const prefs = preferences ?? DEFAULT_PREFERENCES;
+  // Corridor OSM/511 + Mapbox Directions incidents (same token as routing).
+  const corridorZones = useMemo(() => {
+    const incidents =
+      routeFetchSource === 'mapbox'
+        ? rawRoutes.flatMap((r) => r.mapboxIncidentZones ?? [])
+        : [];
+    return collapseHazardZones([...osmZones, ...incidents]);
+  }, [osmZones, rawRoutes, routeFetchSource]);
   const enabledOsmZones = useMemo(
-    () => osmZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
-    [osmZones, prefs],
+    () => corridorZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
+    [corridorZones, prefs],
   );
   const enabledReportZones = useMemo(
     () => reportZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
@@ -786,10 +795,14 @@ export default function Home() {
   const routeHazardChips = useMemo(() => {
     if (!selectedRoute) return [] as { type: RouteHazardType; count: number; label: string }[];
     const counts = {} as Record<RouteHazardType, number>;
+    const seen = new Set<string>();
     for (const zone of enabledZones) {
       const type = routeHazardType(zone);
       if (!type) continue;
       if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
+      const dedupeKey = `${type}:${zone.canonicalHazardKey ?? zone.id}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
       counts[type] = (counts[type] ?? 0) + 1;
     }
     return ROUTE_HAZARD_ORDER.filter((t) => (counts[t] ?? 0) > 0).map((t) => {
@@ -1358,6 +1371,7 @@ export default function Home() {
             fetchedResult.routes[0]?.coordinates,
             {
               mode: 'preview',
+              routeSource: fetchedResult.source,
               onPartial: (zones) => flushPartial(zones),
             },
           );

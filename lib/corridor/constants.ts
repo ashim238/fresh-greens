@@ -61,6 +61,27 @@ export const CLASSIFY_USE_DENSIFIED_POLYLINE = false;
 export const COMMUNITY_MERGE_AFTER_WAVE = 1;
 export const COMMUNITY_IN_CORRIDOR_CACHE = false;
 
-/** Part B½ — cross-source hazard equivalence (enabled in B4). */
+/** Part B½ — cross-source hazard equivalence (B4). */
 export const HAZARD_GRID_METERS = 250;
-export const HAZARD_MERGE_ENABLED = false;
+export const HAZARD_MERGE_ENABLED = true;
+
+/** States where straight-leg bbox samples include `dot-511` (demo corridor). */
+export const SUPPORTED_511_STATES = [
+  'AL',
+  'GA',
+  'TN',
+  'MS',
+  'NY',
+  'NJ',
+  'PA',
+  'DE',
+  'MD',
+  'VA',
+  'NC',
+  'SC',
+  'KY',
+  'FL',
+  'LA',
+] as const;
+
+export const SUPPORTED_511_STATE_SET = new Set<string>(SUPPORTED_511_STATES);

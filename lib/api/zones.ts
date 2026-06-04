@@ -257,26 +257,52 @@ export async function getZonesForTrip(
 export async function fetchCorridorSample(
   request: SampleRequest,
 ): Promise<Zone[]> {
-  if (!request.sources.includes('osm-overpass')) return [];
-  if (request.kind === 'around') {
-    return fetchZonesAroundCenter(
-      request.center,
-      request.radiusMeters,
-    );
-  }
-  const query = buildOverpassQueryBbox(request.bounds);
-  for (let i = 0; i < OVERPASS_MIRROR_COUNT; i++) {
-    try {
-      return await fetchOverpassZones(
-        OVERPASS_ENDPOINTS[i],
-        query,
-        SEGMENT_TIMEOUT_MS,
-      );
-    } catch {
-      // next mirror
+  const batches = await Promise.all(
+    request.sources.map((source) => fetchCorridorSourceSample(request, source)),
+  );
+  return batches.flat();
+}
+
+async function fetchCorridorSourceSample(
+  request: SampleRequest,
+  source: ZoneSourceId, // zones.ts export — same union as corridor/types
+): Promise<Zone[]> {
+  switch (source) {
+    case 'osm-overpass':
+      if (request.kind === 'around') {
+        return fetchZonesAroundCenter(request.center, request.radiusMeters);
+      }
+      {
+        const query = buildOverpassQueryBbox(request.bounds);
+        for (let i = 0; i < OVERPASS_MIRROR_COUNT; i++) {
+          try {
+            return await fetchOverpassZones(
+              OVERPASS_ENDPOINTS[i],
+              query,
+              SEGMENT_TIMEOUT_MS,
+            );
+          } catch {
+            // next mirror
+          }
+        }
+        return [];
+      }
+    case 'dot-511': {
+      if (request.kind !== 'bbox') return [];
+      const { dominantUsStateCode } = await import('../corridor/dominant-state');
+      const { fetchDot511ZonesForBbox } = await import('./sources/dot-511');
+      const state = dominantUsStateCode(request.bounds);
+      if (!state) return [];
+      return fetchDot511ZonesForBbox(request.bounds, state);
     }
+    case 'mapbox-incidents':
+      // Retired: incidents attach to Mapbox Directions routes, not bbox samples.
+      return [];
+    case 'community-report':
+      return [];
+    default:
+      return [];
   }
-  return [];
 }
 
 /**

@@ -114,6 +114,7 @@ import {
   NAV_ROLL_INTERVAL_MS,
   NAV_ROLL_WHEN_BACKGROUNDED,
 } from '../lib/corridor/constants';
+import { collapseHazardZones } from '../lib/corridor/merge-hazards';
 import { haversineMeters, pathLengthMeters } from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
 import { DAYLIGHT_DASH_PATTERN, gradientSegments } from '../lib/daylight';
@@ -415,9 +416,16 @@ export default function EnRoute() {
   const columnBottomOffset = safetyPillShowing ? 92 : 24;
 
   const prefs = preferences ?? DEFAULT_PREFERENCES;
+  const corridorZones = useMemo(() => {
+    const incidents =
+      routeSource === 'mapbox'
+        ? rawRoutes.flatMap((r) => r.mapboxIncidentZones ?? [])
+        : [];
+    return collapseHazardZones([...osmZones, ...incidents]);
+  }, [osmZones, rawRoutes, routeSource]);
   const enabledOsmZones = useMemo(
-    () => osmZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
-    [osmZones, prefs],
+    () => corridorZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
+    [corridorZones, prefs],
   );
   const enabledReportZones = useMemo(
     () => reportZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
@@ -1075,7 +1083,7 @@ export default function EnRoute() {
               center,
               destination,
               coords,
-              { mode: 'preview' },
+              { mode: 'preview', routeSource: source },
             );
             if (cancelled) return;
             setOsmZones(zones);
@@ -1138,6 +1146,7 @@ export default function EnRoute() {
           route.coordinates,
           {
             mode: 'navigation',
+            routeSource,
             userLocation,
             priorZones: osmZonesRef.current,
             fetchedAlong: fetchedAlongRef.current,

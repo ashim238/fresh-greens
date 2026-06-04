@@ -19,8 +19,9 @@
 // (same env var as the Search Box adapter in lib/api/places.ts). When
 // absent, the Mapbox tier is skipped and OSRM becomes effective primary.
 
+import { zonesFromMapboxLegIncidents } from './sources/mapbox-incidents';
 import { loadActiveRoute, saveActiveRoute } from './route-cache';
-import type { Coordinate } from './zones';
+import type { Coordinate, Zone } from './zones';
 
 export type RouteType = 'recommended' | 'alternate';
 
@@ -118,6 +119,8 @@ export type Route = {
       them on a long route (A20) — consumers should fall back to a
       neutral "Heading toward destination" copy in either case. */
   steps?: RouteStep[];
+  /** Live traffic incidents from Mapbox Directions (`legs[].incidents`). */
+  mapboxIncidentZones?: Zone[];
 };
 
 /**
@@ -801,6 +804,7 @@ function parseMapboxRoute(r: any, index: number, destination: Coordinate): Route
     .map(parseMapboxStep)
     .filter((s: RouteStep | null): s is RouteStep => s !== null);
   const steps: RouteStep[] | undefined = parsed.length > 0 ? parsed : undefined;
+  const mapboxIncidentZones = zonesFromMapboxLegIncidents(legs, coordinates);
 
   return {
     id: `mapbox-route-${index}`,
@@ -809,6 +813,8 @@ function parseMapboxRoute(r: any, index: number, destination: Coordinate): Route
     distanceMeters: r.distance,
     coordinates,
     steps,
+    mapboxIncidentZones:
+      mapboxIncidentZones.length > 0 ? mapboxIncidentZones : undefined,
   };
 }
 

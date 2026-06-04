@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/corridor-b4-b5 (2026-06-04)
+
+- **B5 = Directions incidents, not a corridor source.** `legs[].incidents` on the existing `driving-traffic` response → `Route.mapboxIncidentZones` in `parseMapboxRoute`; merged with corridor OSM/511 via `collapseHazardZones` on home/en-route. `pickWinner` scores each route with its own incident zones. Corridor planner no longer lists `mapbox-incidents` on bbox legs.
+- **B4/B5 share one fetch fan-out.** `fetchCorridorSample` runs each `sources[]` entry in parallel inside a single budget "call" — OSM + `dot-511` on the same bbox don't double `maxCalls`. L3 `collapseHazardZones` runs after merge; home chips dedupe with `canonicalHazardKey ?? id`.
+- **511 is demo-first.** `EXPO_PUBLIC_DOT_511_MODE` defaults to `demo` — deterministic road-work polylines on supported-state bbox legs (dominant state from coarse state boxes). Live feed is a URL template hook, not wired per-state yet.
+- **511 live is a hook, not shipped.** `EXPO_PUBLIC_DOT_511_FEED_URL` template exists; per-state vendor APIs are out of scope for thesis — demo polylines carry the road-work signal.
+
+Worth keeping: **planner owns `sources[]`** — adapters stay dumb; `corridorSourcesForBbox` gates 511 by state + Mapbox by routing source.
+
+---
+
 ## feat/community-cloud-b1 (2026-06-04)
 
 - **Supabase without SDK.** B1 uses PostgREST + `EXPO_PUBLIC_SUPABASE_URL` / `ANON_KEY` — no `@supabase/supabase-js` install. Read path merges cloud then overlays local by `id` (device wins collisions). Write path: local-first, `sync-queue` AsyncStorage key, `flush` on every merged read and after submit.

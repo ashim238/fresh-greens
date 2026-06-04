@@ -1,4 +1,4 @@
-import type { Coordinate, Zone, ZoneBounds } from '../api/zones';
+import type { Coordinate, Zone, ZoneBounds, ZoneSourceId } from '../api/zones';
 import { pathLengthMeters, sampleAlongPath } from '../geo';
 import { routePassesZone, routePointsForZoneTest } from '../scoring';
 import {
@@ -20,9 +20,26 @@ import {
   SEGMENT_MAX_RADIUS_M,
   SEGMENT_MIN_RADIUS_M,
   SEGMENT_TARGET_SPACING_M,
+  SUPPORTED_511_STATE_SET,
   WAVE1_ANCHOR_CAP,
 } from './constants';
-import type { CorridorPlan, SampleRequest } from './types';
+import { dominantUsStateCode } from './dominant-state';
+import type { CorridorPlan, CorridorPlanOptions, SampleRequest } from './types';
+
+function corridorSourcesForBbox(
+  bounds: ZoneBounds,
+  legPoints: Coordinate[] | undefined,
+  options: CorridorPlanOptions = {},
+): ZoneSourceId[] {
+  const sources: ZoneSourceId[] = ['osm-overpass'];
+  const state = dominantUsStateCode(bounds, legPoints);
+  if (state && SUPPORTED_511_STATE_SET.has(state)) {
+    sources.push('dot-511');
+  }
+  // Mapbox incidents come from Directions `legs[].incidents` on the Route
+  // object (lib/api/routes.ts), not corridor bbox samples.
+  return sources;
+}
 
 /** Bearing degrees 0–360 from a → b. */
 export function bearingDeg(a: Coordinate, b: Coordinate): number {
@@ -203,14 +220,23 @@ function pointCoveredByBboxLeg(
   return false;
 }
 
-export function planCorridor(path: Coordinate[]): CorridorPlan {
+export function planCorridor(
+  path: Coordinate[],
+  options: CorridorPlanOptions = {},
+): CorridorPlan {
   const pathMeters = pathLengthMeters(path);
-  const osm: SampleRequest['sources'] = ['osm-overpass'];
+  const aroundSources: ZoneSourceId[] = ['osm-overpass'];
 
   if (pathMeters <= LONG_TRIP_METERS) {
     const bounds = boundsForPathSlice(path, 1500);
     return {
-      wave1: [{ kind: 'bbox', bounds, sources: osm }],
+      wave1: [
+        {
+          kind: 'bbox',
+          bounds,
+          sources: corridorSourcesForBbox(bounds, path, options),
+        },
+      ],
       wave2: [],
       pathMeters,
     };
@@ -220,7 +246,12 @@ export function planCorridor(path: Coordinate[]): CorridorPlan {
   const wave1: SampleRequest[] = [];
   for (const leg of legs) {
     if (leg.kind === 'straight') {
-      wave1.push({ kind: 'bbox', bounds: leg.bounds, sources: osm, legId: leg.legId });
+      wave1.push({
+        kind: 'bbox',
+        bounds: leg.bounds,
+        sources: corridorSourcesForBbox(leg.bounds, leg.points, options),
+        legId: leg.legId,
+      });
     }
   }
 
@@ -232,7 +263,7 @@ export function planCorridor(path: Coordinate[]): CorridorPlan {
       kind: 'around',
       center,
       radiusMeters: radius,
-      sources: osm,
+      sources: aroundSources,
     });
   }
 

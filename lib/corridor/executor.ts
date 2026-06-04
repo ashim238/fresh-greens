@@ -56,7 +56,7 @@ export async function executeCorridorTrip(
   options: GetZonesForTripOptions = {},
 ): Promise<Zone[]> {
   const budget = options.budget ?? PREVIEW_BUDGET;
-  const plan = planCorridor(path);
+  const plan = planCorridor(path, { routeSource: options.routeSource });
   const state = { calls: 0, start: Date.now() };
   const all = new Map<string, Zone>();
 

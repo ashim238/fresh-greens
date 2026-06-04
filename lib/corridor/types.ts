@@ -1,6 +1,12 @@
+import type { RouteSource } from '../api/routes';
 import type { Coordinate, Zone, ZoneBounds, ZoneSourceId } from '../api/zones';
 
 export type { ZoneSourceId };
+
+export type CorridorPlanOptions = {
+  /** Mapbox routing source tag — used for 511 gating, not bbox incidents. */
+  routeSource?: RouteSource;
+};
 
 export type SampleRequest =
   | {
@@ -34,6 +40,7 @@ export type CorridorMode = 'preview' | 'navigation';
 export type GetZonesForTripOptions = {
   mode?: CorridorMode;
   budget?: FetchBudget;
+  routeSource?: RouteSource;
   onPartial?: (zones: Zone[], meta: CorridorFetchMeta) => void;
   userLocation?: Coordinate | null;
   /** Navigation only — prior rolls + preview coverage. */

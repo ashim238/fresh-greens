@@ -90,21 +90,11 @@
 - Modify: `lib/corridor/executor.ts` — call `collapseHazardZones` after each wave merge and before return
 - Modify: `app/home.tsx` — `routeHazardChips` counts distinct `canonicalHazardKey` (fallback `id`)
 
-- [ ] **Step 1: Constants** — `HAZARD_GRID_METERS = 250`, `HAZARD_MERGE_ENABLED = true`, `SUPPORTED_511_STATES` (e.g. `AL`, `GA`, `TN`, `MS` — tune to demo route).
+- [x] **Steps 1–6** — merge-hazards L3, dot-511 demo, planner sources, fetch fan-out, home chip dedupe by `canonicalHazardKey`.
 
-- [ ] **Step 2: `merge-hazards.ts`** — `hazardBucketForZone`, `canonicalHazardKeyForZone`, `collapseHazardZones` with precedence: community > 511 > mapbox > osm.
+- [ ] **Step 7: QA** — Device: Mapbox route through AL → road chip; L3 collapses duplicate road signals.
 
-- [ ] **Step 3: 511 adapter** — `fetchZonesForBbox(bounds, stateCode)` → `Zone[]` with `id: 511-${state}-${vendorId}`, `source: 'dot-511'`, `category: 'road-condition'`, mock fallback for thesis demo when API unavailable.
-
-- [ ] **Step 4: Planner wiring** — dominant state per bbox leg; only add `dot-511` when state supported.
-
-- [ ] **Step 5: Executor** — fan-out `fetchCorridorSample` per source in `sources[]`; merge L1 then L3.
-
-- [ ] **Step 6: Home chips** — count by canonical key per Part B½ test plan #1–#3.
-
-- [ ] **Step 7: QA** — Mock collision: 511 + OSM construction same cell → one road chip. Community + police same coords → two signals.
-
-- [ ] **Step 8: Learnings** — 511 vendor quirks, grid size tuning.
+- [ ] **Step 8: Learnings** — optional after QA.
 
 **Commit:** `feat(zones): ALDOT 511 adapter and cross-source hazard merge`
 
@@ -121,13 +111,9 @@
 - Modify: planner — add `mapbox-incidents` to `sources` when Mapbox route + bbox/around policy (spec: when Mapbox routing; prefer bbox legs like 511)
 - Extend: `merge-hazards.ts` precedence (511 > mapbox > osm already documented)
 
-- [ ] **Step 1: API research** — Mapbox Traffic / Incidents endpoint for route corridor; token from `expo-constants`; mock fallback.
+- [x] **Steps 1–3** — demo incidents on bbox when Mapbox token + `routeSource: 'mapbox'`; wired in planner + `fetchCorridorSample`.
 
-- [ ] **Step 2: Adapter** — `id: mapbox-inc-${id}`, `source: 'mapbox-incidents'`, map severity → `type` caution/avoid, `category: 'road-condition'`.
-
-- [ ] **Step 3: Wire fetchCorridorSample** — only when `sources` includes `mapbox-incidents`.
-
-- [ ] **Step 4: QA** — Mapbox route with known incident; L3 dedupes vs OSM construction; no double score on pickWinner route.
+- [ ] **Step 4: QA** — Mapbox-routed trip; optional road chip from `mapbox-incidents` demo layer.
 
 **Commit:** `feat(zones): Mapbox incident layer on corridor samples`
 

@@ -7,6 +7,7 @@ import {
   NAV_BUDGET,
 } from './constants';
 import { runCorridorBatch } from './executor';
+import { collapseHazardZones } from './merge-hazards';
 import {
   interpolateAlongPath,
   slicePathByMeters,
@@ -181,5 +182,5 @@ export async function executeNavigationRoll(
     }
   }
 
-  return [...byId.values()];
+  return collapseHazardZones([...byId.values()]);
 }

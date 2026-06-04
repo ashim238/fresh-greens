@@ -57,4 +57,12 @@ assert(
   'long trip: wave1 includes bbox',
 );
 
+const mapboxPlan = planCorridor(interstate, { routeSource: 'mapbox' });
+const bboxReq = mapboxPlan.wave1.find((r) => r.kind === 'bbox');
+assert(bboxReq?.sources.includes('dot-511'), 'AL corridor bbox includes dot-511');
+assert(
+  !bboxReq?.sources.includes('mapbox-incidents'),
+  'mapbox incidents come from Directions legs, not corridor bbox',
+);
+
 console.log('corridor planner: OK');
