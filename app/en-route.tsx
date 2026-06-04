@@ -88,6 +88,7 @@ import {
   routeColors,
 } from '../lib/api/routes';
 import { clearActiveRoute } from '../lib/api/route-cache';
+import { clearCorridorZones } from '../lib/api/zone-cache';
 import { type Place } from '../lib/api/places';
 import {
   getZonesForRegion,
@@ -676,6 +677,7 @@ export default function EnRoute() {
     if (nextStepInfo?.status !== 'arrived') return;
     arrivalCleanedRef.current = true;
     void clearActiveRoute();
+    void clearCorridorZones();
     // C12: surface the post-trip summary on arrival. Previously the
     // arrival terminal state only cleared the route cache — the
     // trip-summary screen existed but was unreachable. Pushed as a
