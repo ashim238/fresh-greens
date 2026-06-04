@@ -71,6 +71,7 @@ import {
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useFuelProfile } from '../hooks/useFuelProfile';
+import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import {
@@ -476,6 +477,7 @@ export default function EnRoute() {
   // fetches while the sheet is open (active), and filters POIs to the
   // recommended route's polyline.
   const { profile: fuelProfile } = useFuelProfile();
+  const { addRecent } = useRecentSearches();
   const [showFuelStops, setShowFuelStops] = useState(false);
   const [highlightFuelStopId, setHighlightFuelStopId] = useState<string | null>(
     null,
@@ -1214,29 +1216,35 @@ export default function EnRoute() {
     );
   }
 
-  // Tapping a fuel stop closes the sheet and recenters the map on the
-  // station, reusing the same animateToRegion mechanism the cluster-tap
-  // handler uses. A tight delta (matches the cluster floor) frames the
-  // single station at a useful zoom without dropping a marker — display-
-  // only recenter is the v1 contract.
   const openFuelStopsSheet = useCallback((stopId: string) => {
     setSelectedReport(null);
     setHighlightFuelStopId(stopId);
     setShowFuelStops(true);
   }, []);
 
-  const handleSelectFuelStop = useCallback((stop: Place) => {
-    setHighlightFuelStopId(stop.id);
-    mapRef.current?.animateToRegion(
-      {
+  // Tapping a fuel stop reroutes mid-trip: same dest params contract as
+  // /search?from=enroute (router.replace there; setParams here because
+  // we're already on /en-route). Route refetch is owned by the existing
+  // useEffect keyed on params.destLat/destLng.
+  const handleSelectFuelStop = useCallback(
+    (stop: Place) => {
+      setShowFuelStops(false);
+      setHighlightFuelStopId(null);
+      void addRecent({
+        id: stop.id,
+        name: stop.name,
+        address: stop.address,
         latitude: stop.latitude,
         longitude: stop.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      },
-      400,
-    );
-  }, []);
+      });
+      router.setParams({
+        destLat: String(stop.latitude),
+        destLng: String(stop.longitude),
+        destName: stop.name,
+      });
+    },
+    [addRecent, router],
+  );
 
   function handleEndTrip() {
     router.back();

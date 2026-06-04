@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/fuel-stop-reroute (2026-06-04)
+
+Mid-trip destination changes on /en-route should use `router.setParams({ destLat, destLng, destName })`, not `router.replace('/en-route', …)` — same URL contract as `/search?from=enroute`, but `setParams` avoids remounting the screen. The existing `useEffect` on `params.destLat/destLng` already refetches routes; fuel-sheet tap only needs to close the sheet and write params (no `animateToRegion` — that was display-only v1).
+
+---
+
 ## feat/gas-search-prices (2026-06-04)
 
 Mapbox Search Box returns POI identity, not pump prices — so prices live in a **caller-side enrich** (`enrichPlacesWithFuelPrices`) after `searchPlaces`, not inside the geocoder adapter. Demo mode hashes `place.id` → stable cents in `$3.19–$4.29` so rows stay consistent across revisits without implying a live feed; `/search` shows an explicit footnote when `source === 'demo'`. Worth keeping: **compose enrichment at the screen/hook that owns the Gas context** (search Gas tool, on-route fuel hook) rather than baking it into `searchPlaces`, so Food/Parking paths never pay for or display fuel metadata.

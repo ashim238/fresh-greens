@@ -176,7 +176,7 @@ export function FuelStopsSheet({
                 contentContainerStyle={styles.listContent}
                 ListHeaderComponent={
                   <Text style={styles.listHeader}>
-                    Tap a stop to center it on the map. Star a stop to trust it on future trips.
+                    Tap a stop to reroute there. Star a stop to trust it on future trips.
                   </Text>
                 }
                 onScrollToIndexFailed={(info) => {
@@ -202,7 +202,7 @@ export function FuelStopsSheet({
                         onPress={() => onSelectStop(item)}
                         accessibilityRole="button"
                         accessibilityLabel={`${item.name}, ${pricePart ? `${pricePart}, ` : ''}${item.distanceMiles} miles from you along your route${isPreferred(item) ? ', trusted by you' : ''}`}
-                        accessibilityHint="Centers this stop on the map"
+                        accessibilityHint="Reroutes to this stop as your destination"
                       >
                         <View style={styles.rowText}>
                           <Text style={styles.rowName} numberOfLines={1}>
