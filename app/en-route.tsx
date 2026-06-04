@@ -1869,9 +1869,18 @@ export default function EnRoute() {
               ) : (
                 <Car size={20} color={colors.black} weight="regular" />
               )}
-              <Text style={styles.fuelStopsEntryLabel}>
-                {fuelProfile.fuelType === 'electric' ? 'Charging on route' : 'Gas on route'}
-              </Text>
+              <View style={styles.fuelStopsEntryText}>
+                <Text style={styles.fuelStopsEntryLabel}>
+                  {fuelProfile.fuelType === 'electric'
+                    ? 'Charging on route'
+                    : 'Gas on route'}
+                </Text>
+                <Text style={styles.fuelStopsEntryDetail} numberOfLines={2}>
+                  {refuelDue
+                    ? 'Reminder due — see stops along this drive'
+                    : 'Stations near this route'}
+                </Text>
+              </View>
               {refuelDue && (
                 <View style={styles.fuelStopsDueBadge}>
                   <Text style={styles.fuelStopsDueText}>Due</Text>
@@ -1979,6 +1988,8 @@ export default function EnRoute() {
         error={fuelStops.error}
         stops={sortedFuelStops}
         fuelType={fuelProfile?.fuelType ?? 'gas'}
+        refuelDue={refuelDue}
+        carName={fuelProfile?.carName}
         onSelectStop={handleSelectFuelStop}
         onClose={() => setShowFuelStops(false)}
         isPreferred={isPreferred}
@@ -2327,10 +2338,17 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: 16,
   },
+  fuelStopsEntryText: {
+    flex: 1,
+    gap: 2,
+  },
   fuelStopsEntryLabel: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
-    flex: 1,
+  },
+  fuelStopsEntryDetail: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.labelSecondary,
   },
   fuelStopsDueBadge: {
     paddingHorizontal: 8,

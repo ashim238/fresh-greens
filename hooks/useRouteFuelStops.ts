@@ -7,7 +7,10 @@ import { distanceToPolylineMeters } from '../lib/geo';
 
 /** Keep stops within this distance of the route polyline. ~1.5 km is a
     short detour; tune on device (spec risk note). */
-const ROUTE_PROXIMITY_METERS = 1500;
+export const ROUTE_PROXIMITY_METERS = 1500;
+
+/** Human-readable proximity copy for fuel-sheet subtitles. */
+export const ROUTE_PROXIMITY_MILES = 1;
 
 /** Mapbox category query per fuel type — electric searches charging,
     everything else searches gas. */
