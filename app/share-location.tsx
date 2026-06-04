@@ -43,7 +43,7 @@ const REASONS: ReasonOption[] = [
  */
 export default function ShareLocation() {
   const router = useRouter();
-  const { session, startSession, endSession } = useShareSession();
+  const { session, startSession, endSession, resendSessionSms } = useShareSession();
   const { contact } = useTrustedContact();
   const [busy, setBusy] = useState(false);
 
@@ -93,6 +93,9 @@ export default function ShareLocation() {
             contactName={contact?.name ?? 'Your contact'}
             sessionReason={session.reason}
             onEnd={handleEnd}
+            onResendSms={() => {
+              void resendSessionSms();
+            }}
           />
         ) : (
           <ReasonPicker
@@ -146,7 +149,10 @@ function ReasonPicker({
       </View>
 
       <View style={styles.pulseFooter}>
-        <NotifyingPulse contactName={contactName} />
+        <NotifyingPulse
+          contactName={contactName}
+          label={`Choosing a reason opens Messages for ${contactName}`}
+        />
       </View>
     </ScrollView>
   );
@@ -156,10 +162,12 @@ function ActiveView({
   contactName,
   sessionReason,
   onEnd,
+  onResendSms,
 }: {
   contactName: string;
   sessionReason: string;
   onEnd: () => void;
+  onResendSms: () => void;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -183,7 +191,7 @@ function ActiveView({
       </View>
 
       <View style={styles.pulseFooter}>
-        <NotifyingPulse contactName={contactName} />
+        <NotifyingPulse contactName={contactName} onPress={onResendSms} />
       </View>
     </ScrollView>
   );

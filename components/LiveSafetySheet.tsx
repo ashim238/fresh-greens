@@ -50,7 +50,7 @@ export function LiveSafetySheet({
 }: {
   bottomInset?: number;
 } = {}) {
-  const { session, endSession } = useShareSession();
+  const { session, endSession, resendSessionSms } = useShareSession();
   const { contact } = useTrustedContact();
   const [expanded, setExpanded] = useState(false);
   const [tickSeconds, setTickSeconds] = useState(0);
@@ -92,7 +92,7 @@ export function LiveSafetySheet({
     if (session.type === 'unfamiliar') {
       Alert.alert(
         'End sharing?',
-        'Your trusted contact will stop seeing your location.',
+        'This ends your active safety check-in. Send another text anytime from Safety.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'End', style: 'destructive', onPress: doEnd },
@@ -115,12 +115,15 @@ export function LiveSafetySheet({
           pressed && pressedDim,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={`Sharing location with ${contact.name}. Tap to expand.`}
+        accessibilityLabel={`Safety check-in with ${contact.name}, ${duration}. Tap to expand.`}
       >
         <NotifyingPulse
           contactName={contact.name}
           label={`${sessionTypeLabel} · ${duration}`}
           align="start"
+          onPress={() => {
+            void resendSessionSms();
+          }}
         />
         <CaretUp size={18} color={colors.labelSecondary} weight="bold" />
       </Pressable>
@@ -184,7 +187,12 @@ export function LiveSafetySheet({
               </View>
 
               <View style={styles.expandedFooter}>
-                <NotifyingPulse contactName={contact.name} />
+                <NotifyingPulse
+                  contactName={contact.name}
+                  onPress={() => {
+                    void resendSessionSms();
+                  }}
+                />
               </View>
             </View>
           </Pressable>

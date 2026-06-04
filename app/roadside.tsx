@@ -35,6 +35,8 @@ import { DragHandle } from '../components/DragHandle';
 import { NotifyingPulse } from '../components/NotifyingPulse';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { getTrustedContact } from '../lib/api/trusted-contact';
+import { notifyTrustedContact } from '../lib/notify-trusted-contact';
 import { type ProblemType } from '../lib/api/roadside';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
@@ -178,6 +180,17 @@ export default function Roadside() {
               if (next) {
                 setShareToggledAtIso(new Date().toISOString());
                 if (!actionTaken) markActionTaken();
+                const problemLabel =
+                  PROBLEMS.find((p) => p.id === problem)?.label ?? 'Need help';
+                void (async () => {
+                  const contact = await getTrustedContact();
+                  await notifyTrustedContact(contact, {
+                    flow: 'roadside',
+                    reason: problemLabel,
+                    locationLabel: locationLabel ?? 'Your location',
+                    coordinates: locationCoords ?? undefined,
+                  });
+                })();
               }
             }}
             onFiguredOut={() => router.back()}
@@ -479,7 +492,7 @@ function LiveStatus({
       hour: 'numeric',
       minute: '2-digit',
     });
-    sharedFacts.push(`${contact.name} was notified at ${time}`);
+    sharedFacts.push(`Messages opened for ${contact.name} at ${time}`);
   }
 
   return (

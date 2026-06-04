@@ -81,7 +81,8 @@ const DESTINATIONS: DestinationOption[] = [
  */
 export default function Unfamiliar() {
   const router = useRouter();
-  const { session, loading, startSession, endSession } = useShareSession();
+  const { session, loading, startSession, endSession, resendSessionSms } =
+    useShareSession();
   const { contact } = useTrustedContact();
   // Step initializer reads `session` lazily on mount. While the hook is
   // still hydrating from AsyncStorage (loading=true), `session` is null —
@@ -189,6 +190,9 @@ export default function Unfamiliar() {
             hasLifeline={!!contact}
             sessionReason={session.reason}
             onEnd={handleSafeNow}
+            onResendSms={() => {
+              void resendSessionSms();
+            }}
           />
         )}
       </SafeAreaView>
@@ -251,7 +255,7 @@ function ProblemPicker({
           onPress={onLifeline}
           style={styles.pulseFooter}
           accessibilityRole="button"
-          accessibilityLabel={`${contactName} is being notified. Tap to call or text.`}
+          accessibilityLabel={`Messages opened for ${contactName}. Tap to call or text.`}
           hitSlop={8}
         >
           <NotifyingPulse contactName={contactName} />
@@ -293,7 +297,7 @@ function DestinationPicker({
         Where do you want to go?
       </Text>
       <Text style={styles.aspirationalNote}>
-        Fresh Greens saves your journey periodically to ensure we can get you back on track.
+        Pick a safe destination and we&apos;ll route you there. Your contact already has a text draft in Messages.
       </Text>
 
       <View style={styles.destinationList}>
@@ -329,7 +333,7 @@ function DestinationPicker({
           onPress={onLifeline}
           style={styles.pulseFooter}
           accessibilityRole="button"
-          accessibilityLabel={`${contactName} is being notified. Tap to call or text.`}
+          accessibilityLabel={`Messages opened for ${contactName}. Tap to call or text.`}
           hitSlop={8}
         >
           <NotifyingPulse contactName={contactName} />
@@ -344,11 +348,13 @@ function ActiveSessionView({
   hasLifeline,
   sessionReason,
   onEnd,
+  onResendSms,
 }: {
   contactName: string;
   hasLifeline: boolean;
   sessionReason: string;
   onEnd: () => void;
+  onResendSms: () => void;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -377,7 +383,7 @@ function ActiveSessionView({
           the pulse would claim notification it can't perform. */}
       {hasLifeline && (
         <View style={styles.pulseFooter}>
-          <NotifyingPulse contactName={contactName} />
+          <NotifyingPulse contactName={contactName} onPress={onResendSms} />
         </View>
       )}
     </ScrollView>

@@ -5,9 +5,9 @@
 //   - 'unfamiliar'   → started inside /unfamiliar, persists until "I'm safe now"
 //   - 'share-location' → started inside /share-location, persists until widget-end
 //
-// v1 is UI-state simulation — no real SMS or live-tracking; the session reflects
-// the user's *intent* to share. Mirrors the existing Roadside / Pulled-over
-// share-toggle patterns. Real backend hookup explicitly deferred.
+// v1 opens the system Messages composer when a session starts (user taps Send
+// in Messages). No silent SMS and no live GPS feed to the contact — continuous
+// location sharing needs a backend. Roadside uses the same SMS helper.
 //
 // See docs/superpowers/specs/2026-05-31-unfamiliar-and-share-location-design.md.
 
@@ -25,6 +25,8 @@ export type ShareSession = {
   reason: string;
   /** ISO string; anchors the duration counter. */
   startedAtIso: string;
+  /** When the app opened Messages with a pre-filled text (not delivery proof). */
+  smsOpenedAtIso?: string;
 };
 
 /** Returns null when no session active. Same shape as roadside-profile adapter. */
