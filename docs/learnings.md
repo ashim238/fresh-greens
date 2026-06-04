@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix(scoring): "dropped reports don't change the route" was TWO bugs — sample the line not the vertices, and never let the reassurance diverge from the decision
+
+Shipped `c22210b` (line-based point scoring) + `e8407ad` + `78a689c` (chip honesty). The user dropped felt-unsafe reports on a route and nothing changed; chasing it surfaced two distinct, generalizable bugs:
+
+**Sampling a path by its vertices drops point-sized targets through the gaps — measure to the LINE.** `scoreRoute` (and `routeConditions`) tested each route WAYPOINT against each zone. For a POINT zone (a community report, an OSM police node) that asks "is any waypoint within 30m of this spot?" — but Mapbox/OSRM waypoints are sparse on straight blocks, so a report sitting dead on the route could be 500m+ from the nearest waypoint and score ZERO (verified: a report whose nearest waypoint was 555m away registered nothing). The fix is to flip the question: measure the report's distance to the route's LINE (`isPointNearPolyline` is point-to-SEGMENT, not point-to-vertex), and score it ONCE per zone (a single spot is binary; the old per-waypoint loop also double-counted by however many waypoints clustered near it). General rule: **when you discretize a continuous path into sample points, anything smaller than your sample spacing can hide between samples. For point-vs-path tests, compute distance to the segments, not the vertices.** Area/line zones are large enough to survive vertex sampling, but points are not — and "points" was both the community reports AND the OSM police markers, so the fix is route-geometry-level, not feature-specific.
+
+**A reassurance computed from different inputs than the decision it reassures about will quietly lie.** "All clear" was driven by a counter that only bucketed OSM `police` + `lighting` zones — community reports were structurally invisible to it. So the SCORE penalized a report-laden route (it briefly re-ranked — "the other route was safest for a sec") while the CHIP serenely said "All clear." Two systems answering "is this route safe?" from different data → they drift, and the user catches the lie. The fix routed both the score and every "all clear / conditions" surface (/home chips, /en-route comparison) through ONE predicate (`routePassesZone`) over the SAME zone set, with the same safe-zone exclusion. General rule: **the user-facing signal and the decision it represents must be derived from the same source. If "we chose route A because it's safer" and "route A is all clear" can disagree, you've built two truths.** A bonus catch from the same audit: `routeConditions` never gated on `zone.type`, so a lit=YES street or a felt-WELCOME report could have charted as a warning — fixed by skipping safe-typed zones.
+
+**Meta:** the user's phrasing — "can I trust that all clear actually means all clear" — was the whole diagnosis. A trust question about a UI label is a prompt to check what that label is actually computed from, vs. what the user assumes it means. The gap between those two is the bug.
+
+---
+
 ## fix(routes): the marker-vanish was the POLYLINE REORDER all along — "color-only updates" is the rule for react-native-maps overlays
 
 Shipped `c3b9d12`. The marker-disappears saga (five+ fixes) finally closed when the user pinpointed the trigger: **tapping the route chevrons** — a route switch with NO camera change. Three takeaways, including a correction:
