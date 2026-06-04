@@ -88,10 +88,28 @@ export type RankedRoute = Route & {
 };
 
 /**
- * Score a single route against the active zones. For each waypoint,
- * test against every zone using the right geometric primitive (in-polygon
- * for areas, near-polyline for streets). Sum weighted scores. Higher is
- * better.
+ * Score a single route against the active zones. Higher is better.
+ *
+ * Two passes, because a route is sampled at the Mapbox/OSRM waypoints —
+ * which are SPARSE on straight blocks — and the two zone shapes need
+ * different treatment to survive that:
+ *
+ *   - POINT zones (community reports + OSM police nodes) are scored ONCE
+ *     per zone, by the reported spot's distance to the route LINE (see
+ *     `routePassesZone`). A point is a tiny target, so the old "is any
+ *     waypoint within 30m of the point?" test let a route slip right past
+ *     a report whenever its waypoints fell >30m to either side — exactly
+ *     the case where a felt-unsafe report on a straight stretch failed to
+ *     demote the route. Measuring to the line fixes it, and scoring once
+ *     keeps a single spot from being double-counted by however many
+ *     waypoints happen to cluster near it (a single reported spot is
+ *     binary — passing it is passing it, regardless of route length).
+ *
+ *   - POLYGON / POLYLINE zones (areas, unlit streets) stay per-waypoint,
+ *     so the penalty scales with how much of the route is exposed (a route
+ *     that spends more length in a dark/avoid zone is penalized more).
+ *     These are large targets the route reliably samples, so waypoint
+ *     sparsity isn't the acute problem it is for points.
  *
  * `departureTime` enables per-category time-of-day modulation (e.g.,
  * wildlife dawn/dusk amplification). Defaults to now — most trips are
@@ -104,18 +122,29 @@ export function scoreRoute(
   departureTime: Date = new Date(),
 ): number {
   let total = 0;
+
+  // Point zones — once per zone, line-based.
+  for (const zone of zones) {
+    if (zone.geometry !== 'point' || zone.coordinates.length === 0) continue;
+    if (routePassesZone(route.coordinates, zone)) {
+      total +=
+        SCORE_WEIGHTS[zone.type] *
+        categoryMultiplier(zone.category, zone.coordinates[0], departureTime);
+    }
+  }
+
+  // Area / street zones — per-waypoint, exposure-proportional.
   for (const point of route.coordinates) {
     for (const zone of zones) {
+      if (zone.geometry === 'point') continue;
       if (isPointInZone(point, zone)) {
-        const multiplier = categoryMultiplier(
-          zone.category,
-          point,
-          departureTime,
-        );
-        total += SCORE_WEIGHTS[zone.type] * multiplier;
+        total +=
+          SCORE_WEIGHTS[zone.type] *
+          categoryMultiplier(zone.category, point, departureTime);
       }
     }
   }
+
   return total;
 }
 
@@ -148,6 +177,37 @@ export function isPointInZone(point: Coordinate, zone: Zone): boolean {
   }
 }
 
+/**
+ * Whether a route's PATH passes through `zone` — the route-level question
+ * `scoreRoute` and `routeConditions` actually ask (vs. `isPointInZone`,
+ * which answers it for one point).
+ *
+ * For POINT zones (community reports, OSM police nodes) this measures the
+ * reported spot's distance to the route LINE: `isPointNearPolyline` is
+ * point-to-segment, so it follows the route's true geometry and is immune
+ * to how sparse the Mapbox/OSRM waypoints are — a report sitting on a
+ * straight block between two distant waypoints is still caught. For
+ * AREA/STREET zones it tests the route's waypoints against the zone (large
+ * targets the route reliably samples). Shared so the comparison chips and
+ * the safety score agree on what a route passes.
+ */
+export function routePassesZone(
+  routeCoordinates: Coordinate[],
+  zone: Zone,
+): boolean {
+  if (zone.geometry === 'point') {
+    return (
+      zone.coordinates.length > 0 &&
+      isPointNearPolyline(
+        zone.coordinates[0],
+        routeCoordinates,
+        POINT_PROXIMITY_METERS,
+      )
+    );
+  }
+  return routeCoordinates.some((point) => isPointInZone(point, zone));
+}
+
 /** Safety-condition categories surfaced as chips in the route comparison. */
 export type RouteCondition = 'low-light' | 'wildlife' | 'police' | 'road';
 
@@ -172,16 +232,18 @@ function conditionForCategory(
 
 /**
  * The deduped set of safety conditions a route passes near — powers the
- * comparison-sheet chips. Reuses `isPointInZone` (the same proximity
- * dispatch `scoreRoute` uses), so chips and score stay consistent. Pure.
- * Order is stable: low-light, wildlife, police, road.
+ * comparison-sheet chips. Reuses `routePassesZone` (the same route-level
+ * test `scoreRoute` uses), so chips and score stay consistent — including
+ * the line-based detection that catches a point report on a straight block
+ * the per-waypoint test would miss. Pure. Order is stable: low-light,
+ * wildlife, police, road.
  */
 export function routeConditions(route: Route, zones: Zone[]): RouteCondition[] {
   const present = new Set<RouteCondition>();
   for (const zone of zones) {
     const condition = conditionForCategory(zone.category);
     if (!condition || present.has(condition)) continue;
-    if (route.coordinates.some((point) => isPointInZone(point, zone))) {
+    if (routePassesZone(route.coordinates, zone)) {
       present.add(condition);
     }
   }

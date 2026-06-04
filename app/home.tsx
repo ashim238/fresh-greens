@@ -90,7 +90,7 @@ import {
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
-import { isPointInZone, isPointNearPolyline, pickWinner } from '../lib/scoring';
+import { isPointInZone, isPointNearPolyline, pickWinner, routePassesZone } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
@@ -588,9 +588,10 @@ export default function Home() {
   //
   // Recomputes only when the recommended route or enabledZones change —
   // not on every pan/zoom (mapRegion is intentionally not a dep).
-  // For sparse polylines this could miss a zone that crosses the
-  // route between waypoints; OSRM's geometry is dense enough at the
-  // city scale that this is acceptable for v1.
+  // Uses `routePassesZone` (same route-level test as scoreRoute +
+  // routeConditions) so the chip COUNTS match the chip presence and the
+  // score — including the line-based detection that catches a police
+  // POINT zone the per-waypoint test would miss between sparse waypoints.
   const routeZoneCounts = useMemo(() => {
     if (!selectedRoute) return { police: 0, lowLight: 0 };
     let police = 0;
@@ -598,10 +599,7 @@ export default function Home() {
     for (const zone of enabledZones) {
       if (zone.category !== 'police' && zone.category !== 'lighting') continue;
       if (zone.category === 'lighting' && zone.type !== 'avoid') continue;
-      const hit = selectedRoute.coordinates.some((coord) =>
-        isPointInZone(coord, zone),
-      );
-      if (!hit) continue;
+      if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
       if (zone.category === 'police') police += 1;
       else lowLight += 1;
     }
