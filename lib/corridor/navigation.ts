@@ -1,5 +1,5 @@
-import { fetchCorridorSample, type Coordinate, type Zone } from '../api/zones';
-import { pathLengthMeters } from '../geo';
+import type { Coordinate, Zone } from '../api/zones';
+import { haversineMeters, pathLengthMeters } from '../geo';
 import { routePassesZone } from '../scoring';
 import {
   NAV_AHEAD_METERS,
@@ -11,54 +11,54 @@ import {
   interpolateAlongPath,
   slicePathByMeters,
 } from './planner';
-import type { GetZonesForTripOptions, SampleRequest } from './types';
+import type { FetchBudget, GetZonesForTripOptions, SampleRequest } from './types';
+
+function pointOnSegment(a: Coordinate, b: Coordinate, t: number): Coordinate {
+  return {
+    latitude: a.latitude + t * (b.latitude - a.latitude),
+    longitude: a.longitude + t * (b.longitude - a.longitude),
+  };
+}
+
+/** Fraction along segment [a,b] minimizing haversine distance to `loc`. */
+function closestFractionOnSegment(loc: Coordinate, a: Coordinate, b: Coordinate): number {
+  if (a.latitude === b.latitude && a.longitude === b.longitude) return 0;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 20; i++) {
+    const m1 = lo + (hi - lo) / 3;
+    const m2 = hi - (hi - lo) / 3;
+    const d1 = haversineMeters(loc, pointOnSegment(a, b, m1));
+    const d2 = haversineMeters(loc, pointOnSegment(a, b, m2));
+    if (d1 < d2) hi = m2;
+    else lo = m1;
+  }
+  return (lo + hi) / 2;
+}
 
 /** Project `loc` onto `path`; return distance along path in meters from start. */
 export function projectPointOntoPath(loc: Coordinate, path: Coordinate[]): number {
   if (path.length < 2) return 0;
 
-  const latToMeters = 111_000;
-  const lngToMeters = 111_000 * Math.cos((loc.latitude * Math.PI) / 180);
-
-  let bestDistSq = Infinity;
+  let bestDist = Infinity;
   let bestAlong = 0;
   let accumulated = 0;
 
   for (let i = 0; i < path.length - 1; i++) {
     const a = path[i];
     const b = path[i + 1];
-    const px = (loc.longitude - a.longitude) * lngToMeters;
-    const py = (loc.latitude - a.latitude) * latToMeters;
-    const sx = (b.longitude - a.longitude) * lngToMeters;
-    const sy = (b.latitude - a.latitude) * latToMeters;
-    const segLenSq = sx * sx + sy * sy;
-    const segLen = Math.sqrt(segLenSq);
-    const t =
-      segLenSq === 0 ? 0 : Math.max(0, Math.min(1, (px * sx + py * sy) / segLenSq));
-    const dx = px - sx * t;
-    const dy = py - sy * t;
-    const distSq = dx * dx + dy * dy;
+    const segLen = pathLengthMeters([a, b]);
+    const t = closestFractionOnSegment(loc, a, b);
+    const dist = haversineMeters(loc, pointOnSegment(a, b, t));
 
-    if (distSq < bestDistSq) {
-      bestDistSq = distSq;
+    if (dist < bestDist) {
+      bestDist = dist;
       bestAlong = accumulated + t * segLen;
     }
     accumulated += segLen;
   }
 
   return bestAlong;
-}
-
-function priorFetchCoversM(
-  m: number,
-  fetchedAlong: { startM: number; endM: number }[],
-): boolean {
-  for (const { startM: fs, endM: fe } of fetchedAlong) {
-    const centroid = (fs + fe) / 2;
-    if (Math.abs(m - centroid) <= NAV_AHEAD_METERS) return true;
-    if (m >= fs && m <= fe) return true;
-  }
-  return false;
 }
 
 /** True when preview/navigation already sampled this arc or zones hit the slice. */
@@ -72,10 +72,6 @@ export function isArcCovered(
   if (mergedZones.some((z) => routePassesZone(slice, z))) return true;
 
   if (endM <= startM) return true;
-
-  if (priorFetchCoversM(startM, fetchedAlong) && priorFetchCoversM(endM, fetchedAlong)) {
-    return true;
-  }
 
   for (const { startM: fs, endM: fe } of fetchedAlong) {
     const overlap = Math.min(endM, fe) - Math.max(startM, fs);
@@ -91,6 +87,7 @@ export function planNavigationRoll(
   distanceAlong: number,
   fetchedAlong: { startM: number; endM: number }[],
   mergedZones: Zone[],
+  budget: FetchBudget,
 ): SampleRequest[] {
   const pathMeters = pathLengthMeters(path);
   const aheadStart = Math.max(0, distanceAlong);
@@ -123,9 +120,17 @@ export function planNavigationRoll(
     });
   }
 
-  return requests.slice(0, NAV_BUDGET.maxCalls);
+  return requests.slice(0, budget.maxCalls);
 }
 
+let warnedMissingFetchedAlong = false;
+
+/**
+ * Navigation roll: sample ahead of `userLocation` and merge into `priorZones`.
+ * En-route callers MUST pass a stable `fetchedAlong` array ref (Task 7) so
+ * coverage intervals accumulate across rolls; if omitted, rolls still run but
+ * coverage is not tracked.
+ */
 export async function executeNavigationRoll(
   path: Coordinate[],
   options: GetZonesForTripOptions,
@@ -134,20 +139,28 @@ export async function executeNavigationRoll(
   const byId = new Map(prior.map((z) => [z.id, z]));
   const mergedZones = [...byId.values()];
   const fetchedAlong = options.fetchedAlong ?? [];
+  if (options.fetchedAlong === undefined) {
+    if (__DEV__ && !warnedMissingFetchedAlong) {
+      warnedMissingFetchedAlong = true;
+      console.warn(
+        '[corridor] executeNavigationRoll: fetchedAlong omitted; pass a stable array ref from en-route (Task 7)',
+      );
+    }
+  }
 
   const loc = options.userLocation;
   if (!loc || path.length < 2) return mergedZones;
 
   const distanceAlong = projectPointOntoPath(loc, path);
+  const budget = options.budget ?? NAV_BUDGET;
   const requests = planNavigationRoll(
     path,
     distanceAlong,
     fetchedAlong,
     mergedZones,
+    budget,
   );
   if (requests.length === 0) return mergedZones;
-
-  const budget = options.budget ?? NAV_BUDGET;
   const state = { calls: 0, start: Date.now() };
   const pathMeters = pathLengthMeters(path);
   const aheadEnd = Math.min(pathMeters, distanceAlong + NAV_AHEAD_METERS);
