@@ -4,6 +4,22 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat(home): surfacing the safe-zone OFFSET — the third "invisible-half-of-the-math" bug this week
+
+Shipped `ec5ed78`. User flagged a real screenshot: a route labeled "Safest" had 2 community flags while the "Alternate" had only 1. The math was honest (Franklin Ave's many lit-street stretches contributed +2 each, outweighing the -10 from 2 community reports), but ONLY the negative half showed on the chip row. Three takeaways, and the third is the meta-pattern across this whole week:
+
+**When a score sums positives and negatives, you MUST surface both — showing only the negatives turns honest math into dishonest disclosure.** `scoreRoute` sums `safe (+2)` and `avoid (-5)` zones into one net score, and `pickWinner` ranks by that net. The route-preview chips showed hazard counts; the +2 contributions from `lit=yes` and residential landuse zones — often the dominant factor on a major arterial — were invisible. So the visible signal said "Franklin = worse" while the algorithm's verdict said "Franklin = safest," and the user couldn't reconcile them because they couldn't *see* the math. The fix wasn't to retune weights (the math worked); it was to render the offset — a green `RouteSafeChip` row beside the orange hazard chips, with the same `routePassesZone` predicate so chip ⇄ score reasoning agree. General rule: **any UI label that asserts a comparative judgment ("Safest", "Open", "Recommended") owes the user *every input* that judgment was computed from, not just the half that's easiest to display.** When you only show one half, the user's only recourse is to trust you — and trust is a bad substitute for transparency, especially on a safety surface where the thesis is "you can see why."
+
+**Transparency beats reweighting — defend any weights with visibility, defend none without it.** The user's question was implicitly "are the weights wrong?" — a real thesis-level concern (the community signal getting outvoted by city OSM tags is exactly the failure mode the thesis is supposed to prevent). Options were: (1) surface the offset on the chip, (2) cap or floor the OSM contribution, (3) drop OSM safe-weighting entirely. I shipped #1 first. Why: if the user can SEE the math, they can answer "do I agree with this trade?" themselves, which is the thesis-aligned position — community knowledge competing transparently with city data, with the user as the final judge. If they can't see, no weight is defensible (low weights look arbitrary, high weights look paternalistic, the algorithm just looks opinionated). Reweighting moves which-route-wins; transparency moves whether-you-can-evaluate-the-win. The latter is strictly more honest; the former depends on the latter to land at all. Reweighting still might be needed (option #2 is on the table after device-testing), but it should follow the transparency fix, not precede it.
+
+**This is the third instance this week of "invisible component makes the visible signal feel wrong" — name the meta-pattern.** Same shape, three different surfaces:
+- `e8407ad` "All clear" lied because the chip was computed from a DIFFERENT data set than the score (only OSM, never community reports).
+- `c22210b` Felt-unsafe reports failed to demote routes because the route was sampled at sparse waypoints — the COMPUTATION was working on incomplete data, invisibly.
+- `ec5ed78` (this) the chip shows half the inputs to a sum-net judgment, hiding the offset.
+All three trigger the same user reaction ("the app is wrong / arbitrary / unconvincing"), and all three solutions are the same family of fix: **make the actual inputs visible at the point of judgment, computed from the same source the judgment uses.** General rule, sharper than each instance: when a feature presents a SUMMARY ("All clear", a count, "Safest"), the UI must show or accurately preview the FULL INPUT SET the summary was derived from. If displaying everything is too noisy, the answer is to PICK a smaller summary that's honest about its scope ("0 reported hazards" instead of "All clear"), not to hide inputs. The week's repeated bite is real instructive cost — worth catching at design time on every future summary-style UI.
+
+---
+
 ## chore(audit 10): the recurring miss is the modal-header back/close glyph — name the habit, not just the symptom
 
 Shipped `d58d3c2`. Audit #10 surfaced 8 hitSlop-as-compliance violations + 3 inlined `shadows.e1` + a stale cross-surface SOS comment. The single most generalizable lesson:
