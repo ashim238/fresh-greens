@@ -39,6 +39,11 @@ import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useUpcomingDestinations } from '../hooks/useUpcomingDestinations';
 import { type UpcomingEvent } from '../lib/api/calendar';
 import { setResolution, type ResolvedPlace } from '../lib/api/calendar-resolutions';
+import {
+  enrichPlacesWithFuelPrices,
+  fuelPriceLabel,
+  shouldShowDemoPriceFootnote,
+} from '../lib/api/fuel-prices';
 import { searchPlaces, type Place } from '../lib/api/places';
 import { type RegularDestination } from '../lib/api/regular-destinations';
 import { type SavedPlace } from '../lib/api/saved-places';
@@ -195,6 +200,12 @@ function formatResultDistance(miles: number): string {
   return `${Math.round(miles)} mi`;
 }
 
+function formatGasResultMeta(place: Place): string {
+  const price = fuelPriceLabel(place.fuelPrice);
+  const dist = formatResultDistance(place.distanceMiles);
+  return price ? `${price} · ${dist}` : dist;
+}
+
 export default function Search() {
   const router = useRouter();
   // `from=enroute` opts the result-tap into a mid-trip destination
@@ -326,8 +337,7 @@ export default function Search() {
       runSearch(query, false);
     }, 300);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, userLocation]);
+  }, [query, userLocation, selectedToolId]);
 
   async function runSearch(searchQuery: string, isExplicit: boolean) {
     const trimmed = searchQuery.trim();
@@ -354,9 +364,14 @@ export default function Search() {
     lastQueryRef.current = trimmed;
 
     try {
-      const places = await searchPlaces(trimmed, userLocation);
+      const raw = await searchPlaces(trimmed, userLocation);
       // Stale-response guard — drop if the user has typed past this query.
       if (lastQueryRef.current !== trimmed) return;
+
+      const places =
+        selectedToolId === 'gas'
+          ? await enrichPlacesWithFuelPrices(raw)
+          : raw;
 
       if (!places.length) {
         if (isExplicit) {
@@ -944,7 +959,14 @@ export default function Search() {
               landing screen's section breaks.
             */}
             <View style={styles.resultsInsetDivider} />
-            {results.map((place, idx) => (
+            {shouldShowDemoPriceFootnote(results) ? (
+              <Text style={styles.demoPriceFootnote}>
+                Sample fuel prices for demo — not live pump data.
+              </Text>
+            ) : null}
+            {results.map((place, idx) => {
+              const isGasRow = selectedToolId === 'gas';
+              return (
               <Pressable
                 key={place.id}
                 style={({ pressed }) => [
@@ -953,7 +975,11 @@ export default function Search() {
                 ]}
                 onPress={() => handleSelectPlace(place)}
                 accessibilityRole="button"
-                accessibilityLabel={`${place.name}, ${place.address}, ${formatResultDistance(place.distanceMiles)} away`}
+                accessibilityLabel={
+                  isGasRow
+                    ? `${place.name}, ${place.address ? `${place.address}, ` : ''}${formatGasResultMeta(place)} away${isPreferredStation(place) ? ', trusted by you' : ''}`
+                    : `${place.name}, ${place.address}, ${formatResultDistance(place.distanceMiles)} away`
+                }
               >
                 <View style={styles.resultText}>
                   <Text style={styles.resultName} numberOfLines={1}>
@@ -973,10 +999,17 @@ export default function Search() {
                       {place.address}
                     </Text>
                   ) : null}
+                  {isGasRow ? (
+                    <Text style={styles.resultMeta} numberOfLines={1}>
+                      {formatGasResultMeta(place)}
+                    </Text>
+                  ) : null}
                 </View>
-                <Text style={styles.resultDistance} numberOfLines={1}>
-                  {formatResultDistance(place.distanceMiles)}
-                </Text>
+                {!isGasRow ? (
+                  <Text style={styles.resultDistance} numberOfLines={1}>
+                    {formatResultDistance(place.distanceMiles)}
+                  </Text>
+                ) : null}
                 {/*
                   Trust-star — Gas tool only. PreferredStar is its own
                   Pressable, so tapping it wins RN's responder system and
@@ -984,10 +1017,6 @@ export default function Search() {
                   star toggles trust without navigating). Sits at the row's
                   trailing edge after the distance; the resultRow gap: 24
                   spaces it from the distance label.
-                  Per-gallon prices intentionally omitted: Mapbox Search Box
-                  (lib/api/places.ts) returns name/address/distance only —
-                  a price column would need a fuel-price API and would crowd
-                  the row beside distance + star.
                 */}
                 {selectedToolId === 'gas' && (
                   <PreferredStar
@@ -999,7 +1028,8 @@ export default function Search() {
                   <View style={styles.resultSeparator} />
                 )}
               </Pressable>
-            ))}
+            );
+            })}
           </ScrollView>
         )}
       </SafeAreaView>
@@ -1161,6 +1191,16 @@ const styles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     flex: 1,
+  },
+  demoPriceFootnote: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelTertiary,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  resultMeta: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.labelTertiary,
   },
   resultRow: {
     flexDirection: 'row',
