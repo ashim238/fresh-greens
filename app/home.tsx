@@ -177,14 +177,6 @@ export default function Home() {
     latitude: number;
     longitude: number;
   } | null>(null);
-  // Recenter tick — bumped on every handleRecenter call. Passed as the
-  // `key` on UserLocationMarker so it remounts on each recenter and
-  // gets a fresh 50pt-tracking → snapshot cycle. Without this,
-  // animateToRegion's mid-animation re-rasterization can leave
-  // MapKit's cached-but-stale marker bitmap visually empty (the
-  // tracksViewChanges={false} gotcha that EnRouteCarMarker addresses
-  // via heading-in-key). User-flagged 2026-06-01.
-  const [recenterTick, setRecenterTick] = useState(0);
   // Bottom-sheet camera offset. The route-preview sheet covers ~40% of
   // the screen, so a camera centered on the user's coord puts the GPS
   // pin geometrically dead-center — which is UNDER the sheet, invisible.
@@ -368,35 +360,6 @@ export default function Home() {
     recommended;
   const isRecommendedSelected = selectedRoute?.id === recommended?.id;
 
-  // Marker snapshot epoch — the single source for the marker-refresh
-  // pattern (see docs/learnings.md). Our custom markers run
-  // tracksViewChanges={false} for perf, which lets MapKit evict their
-  // cached bitmap on ANY map reflow and then render empty until the
-  // marker re-snapshots. We've seen three distinct reflow triggers bite
-  // (zoom, recenter, route-switch); rather than bolt each onto every
-  // marker separately (whack-a-mole), this folds the shared reflow causes
-  // into ONE derived epoch passed to every affected marker. New reflow
-  // triggers get added HERE, once.
-  //   - latitudeDelta bin (*100): zoom changes. mapRegion is settled via
-  //     onRegionChangeComplete, so this updates discretely, not per frame.
-  //   - selectedRoute.id: switching routes re-renders the Polyline
-  //     children, which reflows the overlay layer and evicts marker
-  //     bitmaps even though the markers themselves didn't change.
-  // (recenterTick stays user-pin-specific — it's about a fresh GPS
-  // snapshot, not just reflow — so it's appended to that marker's epoch,
-  // not here.)
-  //
-  // Markers consume this as a `snapshotEpoch` PROP (not a `key`): on
-  // change they re-track in place (flip tracksViewChanges true→false for
-  // 50ms) rather than remounting. A key-driven remount re-inserts the
-  // annotation into MapKit and on iOS loses the marker's zIndex relative
-  // to co-located, non-remounted markers — the user dot fell under a
-  // trusted-friend heart pin on route-switch (user-flagged 2026-06-03).
-  // Re-snapshot-in-place fixes the eviction without the z-order regression.
-  const markerSnapshotEpoch = `${
-    mapRegion ? Math.round(mapRegion.latitudeDelta * 100) : 'init'
-  }-${selectedRoute?.id ?? 'none'}`;
-
   // Route cycling via the chevron pair in routeTopRow. `routes` is
   // recommended-first; right chevron → next (dir: 1), left → previous
   // (dir: -1). Clamped (no wrap) so the chevrons can hint the ends by
@@ -493,48 +456,47 @@ export default function Home() {
   // the map without the border.
   const routePolylines = useMemo(
     () => {
-      // Paint order matters: react-native-maps' `Polyline` overlays
-      // render in document order, so later children sit *over* earlier
-      // ones. `pickWinner` returns recommended at index 0; iterating
-      // routes as-is means the gray alternate polylines would paint
-      // over the colored gradient where the two share streets — the
-      // gradient gets visibly "cut" by gray segments. Render alternates
-      // first, recommended last, so the colored stroke stays on top.
-      // The SELECTED route carries the daylight gradient (painted last so
-      // it sits on top); every other route renders gray, regardless of
-      // its recommended/alternate type — the colored stroke marks "the
-      // one you're taking", which the user can now switch.
+      // EVERY route renders as the SAME daylight-segmented polyline set,
+      // keyed stably by `route.id` + segment index. Selection only flips
+      // each segment's COLOR/width/dash (selected = daylight gradient;
+      // others = flat thin gray) — never the polyline structure. This is
+      // load-bearing: react-native-maps on iOS LEAKS unmounted Polyline
+      // overlays, so the earlier "selected = N segments, others = 1 gray
+      // line" shape churned the child set on every switch (A's seg-keys
+      // unmount, B's mount) and the orphaned colored overlay lingered —
+      // the "selected route overlaps into the alternate" bug
+      // (user-flagged 2026-06-03). A structurally constant, stably-keyed
+      // set means switching recolors in place with zero mount/unmount.
+      //
+      // Paint order still matters for shared segments near origin/dest:
+      // react-native-maps paints overlays in document order, so the
+      // selected route is emitted LAST (its colored stroke wins where it
+      // overlaps a gray alternate). Reordering stable-keyed children
+      // doesn't remove any key, so it doesn't trigger the leak.
       const ordered = [
         ...routes.filter((r) => r.id !== selectedRoute?.id),
         ...routes.filter((r) => r.id === selectedRoute?.id),
       ];
       return ordered.flatMap((route) => {
-        if (route.id === selectedRoute?.id) {
-          return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
-            <Polyline
-              key={`${route.id}-seg-${idx}`}
-              coordinates={segment.coordinates}
-              strokeColor={segment.color}
-              strokeWidth={routeColors.recommended.width}
-              // WCAG 1.4.1 non-color cue: pair the daylight color
-              // gradient with a dash pattern so day/twilight/night
-              // reads through deuteranopia/tritanopia/monochromacy.
-              // Solid = day, medium dashes = twilight, short dashes
-              // = night. The bottom-sheet daylight legend has the
-              // same color anchors so the polyline + legend tell
-              // the same story two ways.
-              lineDashPattern={DAYLIGHT_DASH_PATTERN[segment.band]}
-            />
-          ));
-        }
-        return [
+        const isSelected = route.id === selectedRoute?.id;
+        return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
           <Polyline
-            key={route.id}
-            coordinates={route.coordinates}
-            strokeColor={routeColors.alternate.stroke}
-            strokeWidth={routeColors.alternate.width}
-          />,
-        ];
+            key={`${route.id}-seg-${idx}`}
+            coordinates={segment.coordinates}
+            strokeColor={isSelected ? segment.color : routeColors.alternate.stroke}
+            strokeWidth={
+              isSelected ? routeColors.recommended.width : routeColors.alternate.width
+            }
+            // WCAG 1.4.1 non-color cue on the selected route: pair the
+            // daylight color gradient with a dash pattern so day/twilight/
+            // night reads through deuteranopia/tritanopia/monochromacy.
+            // Solid = day, medium dashes = twilight, short dashes = night.
+            // The bottom-sheet daylight legend uses the same color anchors
+            // so the polyline + legend tell the same story two ways. Gray
+            // alternates render solid (no band semantics to convey).
+            lineDashPattern={isSelected ? DAYLIGHT_DASH_PATTERN[segment.band] : undefined}
+          />
+        ));
       });
     },
     [routes, cloudCoverPct, selectedRoute?.id],
@@ -763,11 +725,9 @@ export default function Home() {
       },
       400,
     );
-    // Bump the tick → UserLocationMarker remounts → fresh tracking
-    // window → MapKit takes a clean snapshot at the new coord/zoom.
-    // Without this, the marker's stale cached bitmap (from before
-    // tracksViewChanges flipped to false) can vanish mid-animation.
-    setRecenterTick((t) => t + 1);
+    // No marker-refresh bump needed — UserLocationMarker now runs
+    // tracksViewChanges permanently, so it survives animateToRegion
+    // without a remount.
   }
 
   function handleReportButtonPress() {
@@ -1572,14 +1532,6 @@ export default function Home() {
         */}
         {params.destLat && params.destLng && (
           <DestinationMarker
-            // snapshotEpoch (zoom bin + selected route) re-snapshots the
-            // finish pin in place on both zoom changes AND route switches
-            // — both reflow the overlay layer and would otherwise evict
-            // its cached bitmap (tracksViewChanges={false}). User-flagged
-            // 2026-06-03: "disappears if I readjust zoom", then
-            // "disappears if I switch between routes". See the epoch's
-            // derive comment for why this is a prop, not a remount key.
-            snapshotEpoch={markerSnapshotEpoch}
             latitude={parseFloat(params.destLat)}
             longitude={parseFloat(params.destLng)}
             name={params.destName}
@@ -1610,15 +1562,6 @@ export default function Home() {
         */}
         {userLocation && (
           <UserLocationMarker
-            // snapshotEpoch: recenterTick (a fresh-GPS-snapshot request,
-            // user-pin-specific) plus the shared markerSnapshotEpoch (zoom
-            // bin + selected route). Re-snapshots in place on each — which,
-            // unlike a remount, preserves the dot's zIndex={1000} so it
-            // stays ABOVE a co-located trusted-friend/felt-welcome heart
-            // pin. User-flagged 2026-06-03 across three reports: "disappears
-            // on zoom, reappears on recenter", "disappears if I switch
-            // routes", then the heart pin drawing over the dot on switch.
-            snapshotEpoch={`${recenterTick}-${markerSnapshotEpoch}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
           />

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
@@ -31,22 +30,22 @@ export type DestinationVariant = 'home' | 'enroute';
  * the pole base (≈ 22%, 85% of the 48×48 frame) so the pole "stands" on
  * the coordinate the way navigation flags conventionally do.
  *
- * **`tracksViewChanges` lifecycle.** Mounts with `true` so MapKit's
- * snapshot captures the SVG subtree once it paints, then flips to
- * `false` after a 50ms settle so subsequent zoom/pan transitions
- * don't pay the re-render cost. Same pattern as `EnRouteCarMarker`.
- * With `false` from t=0 (or even setTimeout(0)), MapKit can snapshot
- * before native paint resolves and the marker renders empty —
- * visible as "destination marker lags in" or "disappears when I
- * zoom" because the cached empty bitmap is what gets drawn. 50ms
- * ≈ 3 frames covers layout + paint + style commit reliably.
+ * **`tracksViewChanges` stays TRUE permanently.** The finish pin must
+ * never vanish. Every `tracksViewChanges={false}` perf variant we tried
+ * regressed something on iOS: snapshot-once-on-mount and re-track-in-place
+ * both let MapKit re-rasterize a cached-but-empty bitmap on zoom /
+ * route-switch reflows (the pin disappears), and the state-in-key remount
+ * that fixed visibility lost the marker's zIndex on re-insertion (a
+ * co-located community-report pin drew over the flag). Keeping it live is
+ * the only option that stays visible AND honors zIndex in every state.
+ * It's one static SVG marker — the re-render cost is negligible. See
+ * docs/learnings.md — "the must-never-vanish markers always track."
  */
 export function DestinationMarker({
   latitude,
   longitude,
   name,
   variant = 'home',
-  snapshotEpoch,
 }: {
   latitude: number;
   longitude: number;
@@ -54,13 +53,6 @@ export function DestinationMarker({
   name?: string;
   /** Visual register — pin for pre-departure, flag for mid-trip. */
   variant?: DestinationVariant;
-  /**
-   * Changing this re-snapshots the marker in place (see the tracking
-   * effect). The parent bumps it on map reflows that can evict the
-   * cached bitmap — zoom, route-switch. Optional: when omitted, the
-   * marker just snapshots once on mount.
-   */
-  snapshotEpoch?: string | number;
 }) {
   const Svg = variant === 'home' ? DestinationHomeSvg : DestinationEnrouteSvg;
 
@@ -78,29 +70,13 @@ export function DestinationMarker({
       ? { x: 0.5, y: 92 / 96 }
       : { x: 10.5 / 48, y: 41 / 48 };
 
-  // Track-then-settle, re-fired whenever `snapshotEpoch` changes — see
-  // header note for the why. 50ms gives the SVG subtree time to paint and
-  // the View tree time to commit before MapKit caches the bitmap.
-  //
-  // Re-tracking IN PLACE on epoch change (rather than remounting via a
-  // changing `key`) refreshes the cached bitmap on zoom / route-switch
-  // reflows without re-inserting the annotation into MapKit, so the
-  // marker's zIndex={500} stays honored — matters when the destination
-  // coincides with a community-reported place (a co-located LandmarkMarker
-  // would otherwise draw over the flag after a remount). Same pattern as
-  // UserLocationMarker.
-  const [tracking, setTracking] = useState(true);
-  useEffect(() => {
-    setTracking(true);
-    const id = setTimeout(() => setTracking(false), 50);
-    return () => clearTimeout(id);
-  }, [snapshotEpoch]);
-
   return (
     <Marker
       coordinate={{ latitude, longitude }}
       anchor={anchor}
-      tracksViewChanges={tracking}
+      // Always live — see the header note. Never remounts, so zIndex={500}
+      // stays honored against a co-located community-report pin.
+      tracksViewChanges
       zIndex={500}
       accessibilityRole="image"
       accessibilityLabel={name ? `Destination: ${name}` : 'Destination'}
