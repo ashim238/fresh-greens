@@ -1,6 +1,6 @@
-import type { Coordinate, Zone, ZoneBounds } from '../api/zones';
+import type { Coordinate, Zone, ZoneBounds, ZoneSourceId } from '../api/zones';
 
-export type ZoneSourceId = 'osm-overpass';
+export type { ZoneSourceId };
 
 export type SampleRequest =
   | {

@@ -5,11 +5,16 @@ import {
   type Zone,
 } from '../api/zones';
 import { PREVIEW_BUDGET, TRIP_MOCK_ON_EMPTY } from './constants';
+import { collapseHazardZones } from './merge-hazards';
 import { planCorridor, planGapFills, planHotLegTighten } from './planner';
 import type { FetchBudget, GetZonesForTripOptions, SampleRequest } from './types';
 
 function mergeZones(into: Map<string, Zone>, batch: Zone[]): void {
   for (const z of batch) into.set(z.id, z);
+}
+
+function zonesFromMap(map: Map<string, Zone>): Zone[] {
+  return collapseHazardZones([...map.values()]);
 }
 
 export async function runCorridorBatch(
@@ -57,13 +62,13 @@ export async function executeCorridorTrip(
 
   const w1 = await runCorridorBatch(plan.wave1, budget, state, budget.maxParallel);
   mergeZones(all, [...w1.merged.values()]);
-  options.onPartial?.([...all.values()], {
+  options.onPartial?.(zonesFromMap(all), {
     wave: 1,
     requestsDone: state.calls,
     done: false,
   });
 
-  const gapReqs = planGapFills(path, [...all.values()], plan.pathMeters);
+  const gapReqs = planGapFills(path, zonesFromMap(all), plan.pathMeters);
   const hotReqs = planHotLegTighten(w1.results, plan.pathMeters);
   const wave2 = [...gapReqs, ...hotReqs, ...plan.wave2];
 
@@ -76,11 +81,11 @@ export async function executeCorridorTrip(
     for (const z of mock) all.set(z.id, z);
   }
 
-  options.onPartial?.([...all.values()], {
+  options.onPartial?.(zonesFromMap(all), {
     wave: 2,
     requestsDone: state.calls,
     done: true,
   });
 
-  return [...all.values()];
+  return zonesFromMap(all);
 }

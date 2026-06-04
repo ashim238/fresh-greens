@@ -459,6 +459,8 @@ sequenceDiagram
 
 Same `SampleRequest.sources`; executor fan-out.
 
+**Implementation plan:** [2026-06-04-corridor-data-richness.md](../plans/2026-06-04-corridor-data-richness.md) (B0→B1→B4→B5 tasks). Cross-source merge: **Part B½** below.
+
 
 | Phase  | Deliverable                                                      | Sampling interaction                               |
 | ------ | ---------------------------------------------------------------- | -------------------------------------------------- |
@@ -487,6 +489,205 @@ Planner adds `'dot-511'` to `sources` when leg’s dominant state is in
 **Community (B1):** Replace AsyncStorage read in trip path with sync’d
 adapter; local offline queue still writes to device, syncs up — out of
 scope for B2 PR, but types reserved.
+
+## Part B½ — Hazard identity & cross-source merge
+
+**Status:** Draft (2026-06-04) — implement with **B4** (first non-OSM corridor
+source). B0–B1 may ship without this; vendor-prefixed `id` strings are
+required from day one so later merge logic has stable keys.
+
+### Problem
+
+The corridor executor already dedupes by `zone.id` (`Map<string, Zone>`,
+last write wins). That collapses **the same OSM element** returned from
+overlapping `around` samples (`osm-way-12345`). It does **not** collapse:
+
+- The same real-world incident from **511 + OSM construction** on one mile.
+- **Mapbox incident + 511** closure on the same interchange.
+- **Two OSM features** on one road (e.g. `lit=no` polyline + `surface=gravel`
+  polyline) — usually intentional (different chip buckets).
+- **Community report + OSM police** at the same block — different semantics
+  (human observation vs infrastructure tag); not auto-merged.
+
+Without a cross-source rule, B4/B5 inflate **chip counts**, **scoreRoute**
+inputs, and map geometry for one hazard.
+
+### Three merge layers (do not conflate)
+
+| Layer | When | Key | Today |
+| ----- | ---- | --- | ----- |
+| **L1 — Vendor identity** | Every adapter output | `zone.id` (namespaced) | `osm-way-${osmId}`, `osm-node-${osmId}` |
+| **L2 — Sample overlap** | Corridor / nav merge | Same as L1 | `mergeZones` in `executor.ts` |
+| **L3 — Hazard equivalence** | After L2, before UI count / optional score dedup | `canonicalHazardKey` | **Not implemented** (B4 PR) |
+
+L1/L2 stay as-is. L3 is new and scoped to **same chip bucket + same place +
+same time window** — not “merge all police” globally.
+
+### `Zone` shape (additive)
+
+```typescript
+export type ZoneSourceId =
+  | 'osm-overpass'
+  | 'dot-511'
+  | 'mapbox-incidents'
+  | 'community-report'   // screen path only; not in corridor cache
+  // future: 'crash-corridor'
+
+export type Zone = {
+  id: string;                    // L1 — unique per vendor record
+  source: ZoneSourceId;          // NEW — who produced this zone
+  canonicalHazardKey?: string;   // NEW — L3; adapter MAY set; merge fills if absent
+  // ... existing type, label, geometry, coordinates, category, report* fields
+};
+```
+
+**`id` namespace (required for every adapter):**
+
+| Source | `id` pattern | Example |
+| ------ | ------------ | ------- |
+| OSM | `osm-way-${id}` / `osm-node-${id}` | unchanged |
+| 511 | `511-${state}-${vendorId}` | `511-al-closure-88421` |
+| Mapbox | `mapbox-inc-${incidentId}` | `mapbox-inc-abc123` |
+| Community | `report-${reportId}` | unchanged |
+
+Never reuse a bare numeric id across vendors.
+
+### `canonicalHazardKey` (L3)
+
+Stable string for “one hazard the user should count once.” Adapters **may**
+set it; `lib/corridor/merge-hazards.ts` (new) **computes** it when missing
+before zones reach chips/score.
+
+**Default key material** (v1 — conservative, tunable in constants):
+
+```text
+canonicalHazardKey =
+  `${hazardBucket}:${gridLat}:${gridLng}`
+```
+
+Where:
+
+- `hazardBucket` — derived from `category` + `type` (see table below).
+- `gridLat` / `gridLng` — anchor coordinate snapped to
+  `HAZARD_GRID_METERS` (default **250 m**), same spirit as
+  `ZONE_CACHE_GRID_METERS` but coarser (highway-scale, not destination key).
+
+**Anchor coordinate by geometry:**
+
+| Geometry | Anchor |
+| -------- | ------ |
+| `point` | The point |
+| `polyline` | Midpoint of path (or first coord if 2-point) |
+| `polygon` | Centroid of bbox (cheap; not survey-grade) |
+
+**`hazardBucket` mapping (chip-aligned):**
+
+| `category` | `type` | `hazardBucket` |
+| ---------- | ------ | -------------- |
+| `lighting` | `avoid` / `caution` | `low-light` |
+| `police` | `caution` | `police` |
+| `wildlife` | `caution` | `wildlife` |
+| `road-condition` | `caution` / `avoid` | `road` |
+| `community-report` | (any non-safe) | `community` |
+| `landuse` / `park` | — | **no key** (score-only; not route-preview chips) |
+| `safe` | `safe` | **no key** (excluded from hazard dedup) |
+
+Zones with no `hazardBucket` skip L3 — they still merge on L1 only.
+
+**Optional v2:** append time bucket for live feeds (`:${YYYYMMDD}` from
+511/Mapbox `startsAt`) so stale closure doesn’t suppress a new one. v1
+omits time — acceptable for thesis demo if feeds refresh per trip fetch.
+
+### Equivalence predicate
+
+Two zones are **the same hazard** iff:
+
+1. Both resolve to the same `canonicalHazardKey` (after computation), **and**
+2. Both have the same `hazardBucket`.
+
+Community reports use bucket `community` only — they never equivalence-merge
+with `police` / `road` / `low-light` (orange eye vs yellow teardrop stays).
+
+### Merge precedence (when L3 collides)
+
+When multiple zones share a `canonicalHazardKey`, **one survivor** enters
+`enabledZones` for chip **counts** and `scoreRoute`. Map overlay may still
+show all geometries in v2; **v1: single survivor everywhere** (simpler).
+
+| Priority (high wins) | Source | Rationale |
+| -------------------- | ------ | --------- |
+| 1 | `community-report` | Human flag is never silently dropped by infra |
+| 2 | `dot-511` | Live authority for closures/incidents on demo corridor |
+| 3 | `mapbox-incidents` | Live traffic layer when routing is Mapbox |
+| 4 | `osm-overpass` | Static/tag baseline |
+
+**Field merge on collision:** keep winner’s `id`, `source`, `geometry`,
+`coordinates`, `type`; set `label` to winner’s label; optional
+`alsoReportedBy: ZoneSourceId[]` in dev logs only (not UI v1).
+
+### Where L3 runs
+
+```text
+fetchSample(sources[]) → per-source Zone[]
+  → mergeZones (L1/L2 by id)           // executor.ts — unchanged
+  → collapseByCanonicalKey (L3)      // NEW — after each wave batch + final return
+  → onPartial / cache / screens
+```
+
+**Community:** still merged **once per trip** outside corridor samples
+(`appendCommunityZones` / `reportZones` on screen). L3 runs on
+`[...osmMerged, ...communityZones]` only at the **home/en-route enabledZones**
+boundary — not inside OSM-only `zone-cache` (cache stays OSM-only per
+`COMMUNITY_IN_CORRIDOR_CACHE`).
+
+### UI & scoring contract
+
+| Consumer | Rule |
+| -------- | ---- |
+| **`routeHazardChips` (/home)** | Count **distinct `canonicalHazardKey`** per `RouteHazardType`, not raw zone rows. Fallback: if key absent, count by `id` (B0–B3 behavior). |
+| **`routeConditions` (compare sheet)** | Unchanged — presence per condition type (already deduped). |
+| **`scoreRoute`** | v1: score against **post-L3** zone list (no double penalty for 511+OSM). Document in learnings if weights shift on demo route. |
+| **Yellow hazard markers** | v1: one marker per distinct key (same cap-6 policy); snap still via `nearestPointOnPolyline`. |
+| **Community eye pins** | Never collapsed with OSM; separate layer. |
+
+### Constants (add with B4)
+
+| Knob | Default | Notes |
+| ---- | ------- | ----- |
+| `HAZARD_GRID_METERS` | `250` | Equivalence grid; tune on NYC→Birmingham QA |
+| `HAZARD_MERGE_ENABLED` | `true` | Kill-switch for L3 without removing adapters |
+| `HAZARD_MERGE_LOG_COLLISIONS` | `__DEV__` only | Log winner/loser source pairs |
+
+### Phasing
+
+| Phase | L3 work |
+| ----- | ------- |
+| **B0** | OSM ids only; no L3 |
+| **B1** | Cloud community ids; **no** auto-merge with OSM |
+| **B4** | Ship `merge-hazards.ts` + `source` field + 511 ids; enable L3 for `road` bucket first |
+| **B5** | Extend precedence table; Mapbox ids |
+| **B6** | Optional offline keys; likely separate bucket |
+
+### Non-goals (v1)
+
+- Merging **different** chip buckets at the same grid cell (lit=no + police
+  station) — user should see both signals.
+- Sub-250 m precision for duplicate detection (would need segment overlap
+  math — deferred).
+- Deduplicating **recommendations** (`samePlace`) — separate module; do not
+  reuse name+proximity for hazards without a spec change.
+- Hiding community because OSM has `amenity=police` nearby.
+
+### Test plan (add to corridor QA when B4 ships)
+
+1. Mock 511 closure + OSM `highway=construction` on same bbox → **one**
+   `road` chip count, survivor `dot-511`.
+2. OSM speed camera + OSM `amenity=police` 300 m apart → **two** `police`
+   counts (different keys).
+3. Community report + OSM police at same coords → **community chip + police
+   chip** (or community + eye pin), not collapsed.
+4. Overlapping corridor samples returning same `osm-way-id` → still one zone
+   (L1 unchanged).
 
 ## Approaches considered
 
@@ -689,6 +890,7 @@ Optional v2 (not v1): show planner meta under footnote —
 | ---------------------------- | ------------------------------------------------------------------- |
 | `lib/corridor/planner.ts`    | Trip shape, classify, gap/hot thresholds, `corridorRadius`          |
 | `lib/corridor/executor.ts`   | `PREVIEW_BUDGET`, Overpass transport, gap-fill execution, wave caps |
+| `lib/corridor/merge-hazards.ts` | L3 collapse (B4+); `HAZARD_*` knobs |
 | `lib/corridor/navigation.ts` | Navigation table + `NAV_ROLL_WHEN_BACKGROUNDED`                     |
 | `lib/api/zones.ts`           | Thin wrapper; default `PREVIEW_BUDGET` only                         |
 | `lib/api/zone-cache.ts`      | Cache table                                                         |
@@ -716,6 +918,7 @@ Optional v2 (not v1): show planner meta under footnote —
 | Overpass rate limit                    | `maxCalls`, `maxParallel`, 8s timeout                  |
 | Chips churn on partial                 | Acceptable; or debounce partial UI 300ms               |
 | 511 fragmentation                      | State registry; unsupported → OSM only                 |
+| Cross-source duplicate hazards (B4+)   | L3 `canonicalHazardKey` + merge precedence (Part B½)   |
 | Scoring shift mid-partial              | Document; alternates may re-rank — desired             |
 | Cache miss at Go                       | One preview plan on /en-route mount; then save         |
 | Stale cache (24h)                      | Full preview refresh on mount; warn in dev             |

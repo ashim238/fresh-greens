@@ -2,7 +2,7 @@ import type { FetchBudget } from './types';
 
 export const PREVIEW_BUDGET: FetchBudget = {
   maxMs: 10_000,
-  maxCalls: 16,
+  maxCalls: 20,
   maxParallel: 8,
 };
 
@@ -46,6 +46,11 @@ export const ZONE_CACHE_GRID_METERS = 50;
 export const ZONE_CACHE_KEY_INCLUDES_ROUTE_ID = false;
 
 export const LONG_TRIP_COPY_METERS = 250_000;
+
+/** Path length above which wave-1 uses a higher around-anchor cap (megatrip). */
+export const MEGA_TRIP_PATH_METERS = LONG_TRIP_COPY_METERS;
+export const MEGA_TRIP_WAVE1_ANCHOR_CAP = 14;
+
 export const LONG_TRIP_FOOTNOTE_COPY =
   'Hazards checked along sampled stretches of this route.';
 export const ALL_CLEAR_A11Y_LONG_TRIP =
@@ -55,3 +60,7 @@ export const PARTIAL_DEBOUNCE_MS = 0;
 export const CLASSIFY_USE_DENSIFIED_POLYLINE = false;
 export const COMMUNITY_MERGE_AFTER_WAVE = 1;
 export const COMMUNITY_IN_CORRIDOR_CACHE = false;
+
+/** Part B½ — cross-source hazard equivalence (enabled in B4). */
+export const HAZARD_GRID_METERS = 250;
+export const HAZARD_MERGE_ENABLED = false;

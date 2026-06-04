@@ -1107,7 +1107,7 @@ git commit -m "docs: corridor sampling learnings"
 | Community not in cache | 4, 6 (reportZones unchanged) |
 | routePassesZone densification | already in scoring — used by gap-fill |
 
-**Deferred (separate PRs):** B0/B1/B4 adapters, `CLASSIFY_USE_DENSIFIED_POLYLINE` enablement after QA, `ZONE_CACHE_KEY_INCLUDES_ROUTE_ID`, partial meta line v2.
+**Deferred (separate PRs):** Part B richness — see [2026-06-04-corridor-data-richness.md](./2026-06-04-corridor-data-richness.md) (B0→B1→B4→B5); `CLASSIFY_USE_DENSIFIED_POLYLINE` enablement after QA; `ZONE_CACHE_KEY_INCLUDES_ROUTE_ID`; partial meta line v2.
 
 ---
 

@@ -14,6 +14,8 @@ import {
   MAX_BEARING_DELTA_DEG,
   MAX_GAP_FILLS,
   MAX_SEGMENT_ANCHORS,
+  MEGA_TRIP_PATH_METERS,
+  MEGA_TRIP_WAVE1_ANCHOR_CAP,
   MIN_STRAIGHT_METERS,
   SEGMENT_MAX_RADIUS_M,
   SEGMENT_MIN_RADIUS_M,
@@ -166,10 +168,17 @@ export function corridorRadius(pathMeters: number): number {
   );
 }
 
+function wave1AnchorCap(pathMeters: number): number {
+  return pathMeters > MEGA_TRIP_PATH_METERS
+    ? MEGA_TRIP_WAVE1_ANCHOR_CAP
+    : WAVE1_ANCHOR_CAP;
+}
+
 function wave1Anchors(path: Coordinate[], pathMeters: number): Coordinate[] {
   const anchorCount = Math.min(
-    WAVE1_ANCHOR_CAP,
+    wave1AnchorCap(pathMeters),
     Math.max(8, Math.ceil(pathMeters / SEGMENT_TARGET_SPACING_M)),
+    MAX_SEGMENT_ANCHORS,
   );
   const spacing = pathMeters / Math.max(1, anchorCount - 1);
   return sampleAlongPath(path, spacing, anchorCount);
@@ -229,7 +238,7 @@ export function planCorridor(path: Coordinate[]): CorridorPlan {
 
   const cappedWave1 = wave1.slice(
     0,
-    WAVE1_ANCHOR_CAP + legs.filter((l) => l.kind === 'straight').length,
+    wave1AnchorCap(pathMeters) + legs.filter((l) => l.kind === 'straight').length,
   );
   return { wave1: cappedWave1, wave2: [], pathMeters };
 }
