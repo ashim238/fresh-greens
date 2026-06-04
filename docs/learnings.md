@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/on-route-hazard-markers (2026-06-04)
+
+The hazard feature shipped on `main` in `9555bda` before the feature branch landed; the follow-up commit only wired **spec lifecycle § snapshot epoch** — `key={hazard-${id}-${markerSnapshotEpoch}}` from `mapRegion.latitudeDelta` bin, not `selectedRoute.id` (two-layer polylines made route-switch reflow-safe for user/dest pins; EnRouteZone still needs zoom remounts). Worth keeping: when a design spec names a lifecycle key the first PR skipped, grep the spec's "Lifecycle" section at branch time — don't assume the feature commit closed every acceptance line.
+
+---
+
 ## feat/fuel-stop-reroute (2026-06-04)
 
 Mid-trip destination changes on /en-route should use `router.setParams({ destLat, destLng, destName })`, not `router.replace('/en-route', …)` — same URL contract as `/search?from=enroute`, but `setParams` avoids remounting the screen. The existing `useEffect` on `params.destLat/destLng` already refetches routes; fuel-sheet tap only needs to close the sheet and write params (no `animateToRegion` — that was display-only v1).
@@ -823,7 +829,6 @@ Added a destination marker at the route endpoint on `/home` and `/en-route`. Two
 
 ---
 
-<<<<<<< HEAD
 ## chore/pulled-over-chrome-polish (2026-05-12)
 
 Focused chrome pass on `/pulled-over` — paired with `chore/pulled-over-bulk-svg-swap` (#101) which had handled the audio-control register. This pass scoped narrower: a single tap-target promotion on the review-phase "Back" link, and a documented punch list for the remaining Ionicons stand-ins (Call/Text/chevrons + four 120pt review hero illustrations). No copy changes, no state-machine changes — the firearm guidance, gun-laws variants, and What-to-Say content are legally sensitive and stayed untouched.
