@@ -262,15 +262,15 @@ Branch: `audit/app-wide-fidelity`. Synthesis of 14 per-surface reports. Last gat
 **Verdict:** Voice strong. JSX is a meaningful subset of canonical markdown; back-arrow uses Ionicons while terms.md claims Phosphor. Both honesty failures by the surface's own standard.
 
 ### /safety
-**Context:** Entry-point modal to four safety sub-flows + navy Emergency CTA. v2 deltas docblock + ax5 minHeight pattern + navy reserved-color carve-out + cross-tile guard.
+**Context:** Entry-point modal to four safety sub-flows + grouped Emergency entry row (2026-06 polish). v2 deltas docblock + ax5 minHeight pattern + navy icon-only on emergency row + cross-tile guard.
 
-- **F1 | Minor | Polish.** Raw spacing literals in SOSBar (self-acknowledged tech debt, documented backlog). Lines 322-347.
-- **F2 | Minor | Polish.** `header.gap: 16` and `titleBlock.gap: 8` are raw literals. Lines 255, 266.
-- **F3 | Minor | A11y.** SOS Pressable lacks `accessibilityHint`. Lines 204-217.
+- **F1 | Minor | Polish.** ~~Raw spacing literals in SOSBar~~ — largely tokenized (`spacing.*`, `radii.sm`); residual raw literals may remain in comments-only blocks.
+- **F2 | Minor | Polish.** ~~`header` / `titleBlock` raw gaps~~ — migrated to `spacing.md` / `spacing.sm` (2026-06 polish).
+- **F3 | Minor | A11y.** ~~SOS Pressable lacks `accessibilityHint`~~ — fixed (2026-06 polish).
 - **F4 | Note | A11y.** Positive: `tabLabel` wraps `dynamicType()`; `tabIcon` uses `minHeight: 96`.
 - **F5 | Note | Reliability.** Positive: cross-tile guard correctly distinguishes same-tile re-entry.
 - **F6 | Note | Honesty.** Positive: No-contact gate copy honest given v1 simulation.
-- **F7 | Note | Concept.** Positive: SOS subtitle `fadedgreen` on navy reads as brand voice.
+- **F7 | Note | Concept.** ~~`fadedgreen` on navy SOS bar~~ — superseded: emergency row uses grouped surface + `labelTertiary` subtitle; navy scopes to shield icon only.
 
 **Verdict:** One of the most-disciplined surfaces. Nothing rises above Minor.
 

@@ -17,7 +17,7 @@ import { searchPlaces, type Place } from '../lib/api/places';
 import { type ResolvedPlace } from '../lib/api/calendar-resolutions';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -90,7 +90,7 @@ export function CalendarPickSheet({
             accessibilityRole="button"
             accessibilityLabel="Close"
             hitSlop={8}
-            style={({ pressed }) => [styles.closeBtn, pressed && pressedDim]}
+            style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
           >
             <X size={20} color={colors.labelSecondary} weight="bold" />
           </Pressable>
@@ -169,12 +169,6 @@ const styles = StyleSheet.create({
   title: {
     ...dynamicType(typography.title2Emphasized),
     color: colors.black,
-  },
-  closeBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   searchRow: {
     flexDirection: 'row',

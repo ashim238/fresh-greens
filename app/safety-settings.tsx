@@ -4,8 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
-// Red asterisk glyph — the shared SOS/"get help" mark, identical to
-// /en-route's SOS side-button and /emergency's main button. Replaced
+// Red asterisk glyph — matches /emergency's header mark. /en-route SOS
+// uses sidebtn-sos.svg (32pt burst); settings uses this 24pt row icon.
+// Replaced
 // the prior red medical-cross SVG (user-flagged 2026-06-01) because
 // the cross shape conflicted with the protected Red Cross emblem.
 // See app/emergency.tsx for the full rationale.

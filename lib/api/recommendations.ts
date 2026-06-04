@@ -31,9 +31,9 @@
 //      load-bearing rather than corporate-API-mediated. Long-term
 //      direction is EatOkra-style partnership, not Google.
 //
-// The adapter dedups across sources by lat/lng proximity (~50m) so
-// a curated entry that someone has also community-reported doesn't
-// show twice.
+// Cross-source matching uses `samePlace` (googlePlaceId when both
+// sides have it, else normalized name + ~50m). `mergeBySamePlace`
+// fills missing fields instead of dropping the second twin.
 
 import type { ImageSourcePropType } from 'react-native';
 
@@ -159,8 +159,8 @@ export type RecommendationQuery = {
  *      (catastrophic offline / API down) — the curated catalog is
  *      Mobile-only seed content, not a primary source.
  *
- * Dedup by ~50m proximity so a community submission that's also in
- * Google's index doesn't show twice. When `userLocation` is set,
+ * Merges community + external twins via `samePlace` / `mergeBySamePlace`
+ * (id-first when both carry `googlePlaceId`). When `userLocation` is set,
  * `distanceMiles` is computed for every entry so the card can
  * render its "0.7 mi away" pill (Figma 1133:13614).
  */
@@ -229,27 +229,19 @@ function samePlace(a: PlaceIdentity, b: PlaceIdentity): boolean {
  * rating, hours, etc. from the incoming twin.
  */
 function mergeRecFields(keeper: Recommendation, incoming: Recommendation): Recommendation {
-  const withRating =
-    keeper.rating != null
-      ? keeper
-      : incoming.rating != null
-        ? incoming
-        : keeper;
+  const ratingSource =
+    keeper.rating != null ? keeper : incoming.rating != null ? incoming : keeper;
+  const fallbackNames = Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[];
+  const keeperHasFallbackName = fallbackNames.includes(keeper.name);
+  const name =
+    incoming.name && keeperHasFallbackName ? incoming.name : keeper.name;
   return {
     ...keeper,
     googlePlaceId: keeper.googlePlaceId ?? incoming.googlePlaceId,
-    // Prefer resolved business name when keeper still carries a
-    // category fallback string and incoming has a real name.
-    name:
-      incoming.name &&
-      (Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[]).includes(
-        keeper.name,
-      )
-        ? incoming.name
-        : keeper.name,
+    name,
     photoName: keeper.photoName ?? incoming.photoName,
     rating: keeper.rating ?? incoming.rating,
-    reviewCount: withRating.reviewCount ?? incoming.reviewCount,
+    reviewCount: ratingSource.reviewCount ?? incoming.reviewCount,
     isOpen: keeper.isOpen ?? incoming.isOpen,
     hoursLabel: keeper.hoursLabel ?? incoming.hoursLabel,
     priceTier: keeper.priceTier ?? incoming.priceTier,
@@ -564,7 +556,7 @@ export async function getTrustedByCommunity(
     }
     if (candidates.length === 0) return [];
 
-    // Step 2: group by samePlace (normalized name AND ~50m), not
+    // Step 2: group by samePlace (googlePlaceId when present, else name + ~50m), not
     // proximity alone — so different-name neighbors start their own
     // group instead of merging, while the same place reported under
     // multiple categories collapses into one and accumulates its
@@ -807,32 +799,28 @@ function communityRecFromReport(
  * place never appears in the category text-search feed.
  */
 async function hydrateCommunityRecs(recs: Recommendation[]): Promise<Recommendation[]> {
-  const ids = [
-    ...new Set(
-      recs
-        .filter((r) => r.source === 'community' && r.googlePlaceId)
-        .map((r) => r.googlePlaceId as string),
-    ),
-  ];
+  const ids = new Set<string>();
+  for (const r of recs) {
+    if (r.source === 'community' && r.googlePlaceId) ids.add(r.googlePlaceId);
+  }
   const detailsById = new Map(
-    await Promise.all(ids.map(async (id) => [id, await fetchPlaceDetails(id)] as const)),
+    await Promise.all([...ids].map(async (id) => [id, await fetchPlaceDetails(id)] as const)),
   );
 
+  const fallbackNames = Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[];
   return recs.map((rec) => {
     if (rec.source !== 'community' || !rec.googlePlaceId) return rec;
     const details = detailsById.get(rec.googlePlaceId);
     if (!details) return rec;
-    const withRating = rec.rating != null ? rec : details;
-    const isGenericName = (
-      Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[]
-    ).includes(rec.name);
+    const ratingSource = rec.rating != null ? rec : details;
+    const hasFallbackName = fallbackNames.includes(rec.name);
     return {
       ...rec,
-      name: isGenericName && details.name ? details.name : rec.name,
+      name: hasFallbackName && details.name ? details.name : rec.name,
       address: rec.address || details.address || '',
       photoName: rec.photoName ?? details.photoName,
       rating: rec.rating ?? details.rating,
-      reviewCount: withRating.reviewCount ?? details.reviewCount,
+      reviewCount: ratingSource.reviewCount ?? details.reviewCount,
       isOpen: rec.isOpen ?? details.isOpen,
       hoursLabel: rec.hoursLabel ?? details.hoursLabel,
       priceTier: rec.priceTier ?? details.priceTier,

@@ -83,6 +83,7 @@ export const colors = {
   // doesn't get re-derived as raw rgba per screen.
   modalScrim: 'rgba(0, 0, 0, 0.2)',          // dim layer behind /report popup
   modalScrimStrong: 'rgba(0, 0, 0, 0.4)',    // heavier dim for safety-sheet overlays (LiveSafetySheet expand, LifelineModal)
+  photoDismissChip: 'rgba(0, 0, 0, 0.6)',    // /report photo remove control on image preview
   cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',    // input/card outlines
   separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers on light bg
   separatorOnFlat: 'rgba(0, 0, 0, 0.08)',    // search bar outline on tap-state

@@ -102,7 +102,7 @@ import {
   type HazardCategory,
 } from '../lib/scoring';
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
 import { shadows } from '../theme/shadows';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
@@ -2180,7 +2180,7 @@ export default function Home() {
                   accessibilityLabel="Previous route"
                   accessibilityState={{ disabled: !canPrevRoute }}
                   style={({ pressed }) => [
-                    styles.routeCycleBtn,
+                    tapTarget44,
                     !canPrevRoute && styles.routeCycleBtnDisabled,
                     pressed && canPrevRoute && pressedDim,
                   ]}
@@ -2194,7 +2194,7 @@ export default function Home() {
                   accessibilityLabel="Next route"
                   accessibilityState={{ disabled: !canNextRoute }}
                   style={({ pressed }) => [
-                    styles.routeCycleBtn,
+                    tapTarget44,
                     !canNextRoute && styles.routeCycleBtnDisabled,
                     pressed && canNextRoute && pressedDim,
                   ]}
@@ -3074,16 +3074,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 24,
   },
-  // Route-cycle chevron button — 44pt HIG-compliant tap target (painted,
-  // not hitSlop, per .cursorrules), bare bg so it doesn't compete with
-  // the X's filled-circle treatment beside it.
-  routeCycleBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Disabled state — chevron stays visible but the whole control dims
+  // Disabled state — route-cycle chevrons use shared tapTarget44. — chevron stays visible but the whole control dims
   // so users see "you've reached the end of the list, this direction is
   // unavailable" rather than the affordance vanishing. Earlier rev
   // rendered the caret transparent at the ends; user-flagged 2026-06-03

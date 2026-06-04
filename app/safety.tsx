@@ -69,6 +69,11 @@ type SafetyTab = {
   href: string;
 };
 
+const SHARE_FLOW_LABEL = {
+  unfamiliar: 'Unfamiliar area',
+  'share-location': 'Share location',
+} as const;
+
 const TABS: SafetyTab[] = [
   {
     id: 'pulled-over',
@@ -138,15 +143,12 @@ export default function SafetyModal() {
     // is active. Re-tapping the SAME tile is fine — its route handles
     // active-state on its own (renders the ActiveView).
     if (session && isShareFlow) {
-      const sameTile =
-        (tab.id === 'unfamiliar' && session.type === 'unfamiliar') ||
-        (tab.id === 'share-location' && session.type === 'share-location');
+      const sameTile = tab.id === session.type;
 
       if (!sameTile) {
-        const otherLabel =
-          session.type === 'unfamiliar' ? 'Unfamiliar area' : 'Share location';
+        const otherLabel = SHARE_FLOW_LABEL[session.type];
         const desiredLabel =
-          tab.id === 'unfamiliar' ? 'Unfamiliar area' : 'Share location';
+          SHARE_FLOW_LABEL[tab.id as keyof typeof SHARE_FLOW_LABEL];
         Alert.alert(
           `You're in a ${otherLabel} session.`,
           `End it first to enter ${desiredLabel}.`,
@@ -295,7 +297,7 @@ const styles = StyleSheet.create({
     // EmptyState/Content from Figma: column stack, gap-16. Left-
     // aligned like /report's picker + detail titleBlock (icon → title
     // → subtitle) so the safety/report modals share one placement register.
-    gap: 16,
+    gap: spacing.md,
     alignItems: 'flex-start',
     alignSelf: 'stretch',
   },
@@ -304,11 +306,9 @@ const styles = StyleSheet.create({
     // so the stack reads as one left edge with the title block below.
     width: 56,
     height: 56,
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
   },
   titleBlock: {
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'flex-start',
     alignSelf: 'stretch',
   },
@@ -322,7 +322,6 @@ const styles = StyleSheet.create({
     // but placement matches: left-aligned icon + title + subtitle stack.
     ...typography.title1Regular,
     color: colors.black,
-    textAlign: 'left',
     alignSelf: 'stretch',
   },
   subtitle: {
@@ -330,7 +329,6 @@ const styles = StyleSheet.create({
     // match /report's picker + detail subtitle placement.
     ...typography.bodyRegular,
     color: colors.labelTertiary,
-    textAlign: 'left',
     alignSelf: 'stretch',
   },
   body: {
@@ -355,7 +353,6 @@ const styles = StyleSheet.create({
   emergencySectionLabel: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-    textAlign: 'left',
   },
   gridRow: {
     flexDirection: 'row',

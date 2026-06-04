@@ -47,6 +47,7 @@ import type { Coordinate } from '../lib/api/zones';
 import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { spacing } from '../theme/spacing';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
@@ -860,7 +861,7 @@ const styles = StyleSheet.create({
     // anonymous note). Shared placement register with /safety header.
     alignItems: 'flex-start',
     alignSelf: 'stretch',
-    gap: 8,
+    gap: spacing.sm,
   },
   identityIcon: {
     // 56x56 dedicated space for the 32pt report identity glyph.
@@ -883,7 +884,6 @@ const styles = StyleSheet.create({
   titleEmphasized: {
     ...typography.title1Emphasized,
     color: colors.black,
-    textAlign: 'left',
     alignSelf: 'stretch',
   },
   subtitle: {
@@ -893,14 +893,12 @@ const styles = StyleSheet.create({
     // Title1 Regular," the *supporting* body line should match in tone.
     ...typography.bodyRegular,
     color: colors.labelTertiary,
-    textAlign: 'left',
     alignSelf: 'stretch',
   },
   anonymousNote: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
-    marginTop: 4,
-    textAlign: 'left',
+    marginTop: spacing.xs,
     alignSelf: 'stretch',
   },
 
@@ -993,7 +991,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.photoDismissChip,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1005,7 +1003,7 @@ const styles = StyleSheet.create({
   // margin + gap, which made the last group's trailing space
   // collide with the photo dropzone below).
   subTagGroup: {
-    gap: 12,
+    gap: spacing.sm,
   },
   // Wraps so the 6-item chip set lays out across two rows on a
   // narrow 351pt popup. 8pt gap matches the field-label-to-control

@@ -25,7 +25,7 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -166,11 +166,7 @@ export default function Recordings() {
             onPress={handleBack}
             accessibilityRole="button"
             accessibilityLabel="Back"
-            hitSlop={12}
-            style={({ pressed }) => [
-              styles.headerBackBtn,
-              pressed && pressedDim,
-            ]}
+            style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
           >
             <CaretLeft size={28} color={colors.black} weight="regular" />
           </Pressable>
@@ -284,6 +280,7 @@ export default function Recordings() {
               // WITHOUT growing the gray circle to a weight that
               // competes with the title.
               style={({ pressed }) => [
+                tapTarget44,
                 styles.confirmCloseHit,
                 pressed && pressedDim,
               ]}
@@ -371,7 +368,7 @@ function RecordingCard({
 
       <Pressable
         onPress={onDelete}
-        style={({ pressed }) => [styles.deleteButton, pressed && pressedDim]}
+        style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel={`Delete recording from ${formatTimestamp(recording.createdAt)}`}
       >
@@ -429,12 +426,6 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-  },
-  headerBackBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scroll: {
     flex: 1,
@@ -517,12 +508,6 @@ const styles = StyleSheet.create({
   // the touch-area floor but violated the cursorrules "visual on the
   // painted surface, not just hit area" rule — sub-44pt visuals
   // train users to tap "near" rather than "on" the affordance.
-  deleteButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   // Delete-all bar pinned at the bottom of the SafeArea — outside the
   // ScrollView so the button stays reachable regardless of list length.
   deleteAllWrap: {
@@ -568,10 +553,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // The visible affordance — a 32pt circle, unchanged in weight from
   // before R7. Subtle iOS-style fill so the X reads as tappable

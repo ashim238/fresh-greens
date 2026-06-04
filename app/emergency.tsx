@@ -17,7 +17,7 @@ import {
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -274,8 +274,7 @@ function IdleView({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          hitSlop={12}
-          style={({ pressed }) => [styles.closeBtn, pressed && pressedDim]}
+          style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
         >
           <X size={20} color={colors.labelSecondary} weight="bold" />
         </Pressable>
@@ -471,13 +470,6 @@ const styles = StyleSheet.create({
   // 44pt visual per .cursorrules tap-target rule ("on the visual, not
   // just the hit area"). The X glyph inside stays 20pt; the chrome
   // grows to meet the iOS HIG floor without leaning on hitSlop.
-  closeBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   // Idle title — title1Emphasized (28pt bold) matches /pulled-over's
   // armed-picker precedent the safety-flow titles converged on this
   // session. The card asks a question ("Need help?"), so it gets the

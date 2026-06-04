@@ -4,16 +4,7 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 
 ## Audit-10 follow-up — `tapTarget44` migration sweep (2026-06-04)
 
-The `theme/interaction.ts` `tapTarget44` token was extracted during audit #10 review and used at the 3 sites the audit added (report.tsx headerIconBtn callers, FuelStopsSheet closeBtn, roadside-setup backBtn). **9 pre-existing bare-form duplicates remain** — each is byte-identical to `tapTarget44` and can be migrated with a 1-line swap (replace `style={styles.<localName>}` with `style={tapTarget44}` and delete the local 4-line style decl):
-
-- `app/emergency.tsx:475` (the modal `closeBtn`, not the decorated `stopChrome` at 598)
-- `app/home.tsx:2990` (`routeCycleBtn` — chevron taps; the routeClearBtn at 3009 is decorated, skip)
-- `app/pulled-over.tsx:1928`
-- `app/recordings.tsx:434, 521, 571` (three sites)
-- `app/saved-places.tsx:205` (`removeBtn`)
-- `app/trusted-contact-setup.tsx:329` (`backBtn`)
-- `components/CalendarPickSheet.tsx:174` (`closeBtn`)
-- `components/settings/SettingsHeader.tsx:113`
+~~**9 pre-existing bare-form duplicates remain**~~ — ✅ **Done** (`chore/polish-app-wide` / impeccable polish pass 2026-06): emergency close, home route-cycle chevrons, pulled-over review chevrons, recordings back/delete/confirm-close, saved-places remove, trusted-contact back, CalendarPickSheet close, SettingsHeader controls. Removed redundant `hitSlop` where the painted target is now 44pt.
 
 **Decorated variants to LEAVE local** (have `borderRadius` / `backgroundColor` beyond the bare shape): `app/emergency.tsx:598` `stopChrome`, `app/home.tsx:3009` `routeClearBtn`, `app/trip-summary.tsx:410`. If a second token like `tapTarget44Circle` (44pt + `borderRadius:22` + neutral fill) ever gets extracted, these three are its consumers — but not yet (rule-of-three on the circular variant isn't hit).
 
@@ -52,7 +43,7 @@ Shipped `51549ed`. Final-review minors not blocking merge:
 
 Minor findings from the focused static audit of the surfaces this session touched (the blocker + 4 importants were fixed in `99fe915`). All low-severity:
 
-- **Quick a11y nits** — `/search` Saved-row `accessibilityLabel` uses a mid-string period ("Route to X. X.") → VoiceOver reads two sentences; use a comma. Saved rows + `/en-route` Shield FAB lack `accessibilityHint` (parity with the SOS FAB / query tiles). `/safety-settings` Emergency-SOS row label omits the "Tap to open…" action prompt its sibling rows include. `/home` daylight-strip wrapper could add `accessibilityRole="none"` (Android belt-and-suspenders).
+- **Quick a11y nits** — ~~Saved-row period label~~ (fixed `57055bf`). ~~Shield FAB hint~~ / ~~safety-settings SOS hint~~ / ~~daylight strip hidden from AX tree~~ — verified present in code (2026-06 polish grep). Re-open only if device testing finds a gap.
 - **`/en-route` SOS haptic** — `selectionAsync`, identical to the Report tap; consider `notificationAsync(Warning)` so the emergency trigger feels distinct.
 - **`/menu` "What we flag" hierarchy** — sub-header vs toggle-label distinction rests on font-weight alone (`labelSecondary` #3C3C43 ≈ `labelTertiary` #3D3D3D). Approved for now; if it ever reads ambiguous, drop to `caption1Regular` or a genuinely lighter gray.
 - **Spacing-token discipline (pervasive, pre-existing)** — raw `gap: 16/24` instead of `spacing.*` across several screens. Codebase-wide convention drift, not a session regression; worth a sweep someday.

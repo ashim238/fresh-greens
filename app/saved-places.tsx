@@ -14,7 +14,7 @@ import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import type { SavedPlace } from '../lib/api/saved-places';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -139,8 +139,7 @@ function SavedPlaceRow({
         onPress={onRemove}
         accessibilityRole="button"
         accessibilityLabel={`Remove ${place.name}`}
-        hitSlop={12}
-        style={({ pressed }) => [styles.removeBtn, pressed && pressedDim]}
+        style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
       >
         <Trash size={20} color={colors.labelSecondary} weight="regular" />
       </Pressable>
@@ -198,13 +197,5 @@ const styles = StyleSheet.create({
   rowMeta: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
-  },
-  // Trash button — 44pt visual via the surrounding tap area; the
-  // 20pt glyph sits inside per the .cursorrules tap-target floor.
-  removeBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

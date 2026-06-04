@@ -59,7 +59,7 @@ import {
 } from '../lib/api/gun-laws';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { safetyCardHeight, spacing } from '../theme/spacing';
@@ -1096,7 +1096,7 @@ function ReviewView({
               accessibilityLabel="Previous"
               hitSlop={12}
               style={({ pressed }) => [
-                reviewStyles.chevronBtn,
+                tapTarget44,
                 pressed && pressedDim,
               ]}
             >
@@ -1107,7 +1107,7 @@ function ReviewView({
               />
             </Pressable>
           ) : (
-            <View style={reviewStyles.chevronBtn} />
+            <View style={tapTarget44} />
           )}
           {index < REVIEW_VIEW_COUNT - 1 ? (
             <Pressable
@@ -1116,7 +1116,7 @@ function ReviewView({
               accessibilityLabel="Next"
               hitSlop={12}
               style={({ pressed }) => [
-                reviewStyles.chevronBtn,
+                tapTarget44,
                 pressed && pressedDim,
               ]}
             >
@@ -1127,7 +1127,7 @@ function ReviewView({
               />
             </Pressable>
           ) : (
-            <View style={reviewStyles.chevronBtn} />
+            <View style={tapTarget44} />
           )}
         </View>
       </View>
@@ -1923,12 +1923,6 @@ const reviewStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 32,
     alignItems: 'center',
-  },
-  chevronBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

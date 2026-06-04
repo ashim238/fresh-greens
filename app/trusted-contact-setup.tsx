@@ -14,7 +14,7 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -171,7 +171,7 @@ export default function TrustedContactSetup() {
               accessibilityLabel="Back"
               hitSlop={12}
               style={({ pressed }) => [
-                styles.backBtn,
+                tapTarget44,
                 pressed && pressedDim,
               ]}
             >
@@ -324,12 +324,6 @@ const styles = StyleSheet.create({
     // double-indent the caret relative to the title block below).
     marginLeft: -16,
     marginBottom: 8,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     flex: 1,

@@ -7,7 +7,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 
 import { colors } from '../../theme/colors';
 import { dynamicType } from '../../theme/dynamic-type';
-import { pressedDim } from '../../theme/interaction';
+import { pressedDim, tapTarget44 } from '../../theme/interaction';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
@@ -58,7 +58,7 @@ export function SettingsHeader({
           accessibilityRole="button"
           accessibilityLabel="Close"
           hitSlop={8}
-          style={({ pressed }) => [styles.control, pressed && pressedDim]}
+          style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
         >
           <X size={24} color={colors.black} weight="regular" />
         </Pressable>
@@ -74,12 +74,12 @@ export function SettingsHeader({
           accessibilityRole="button"
           accessibilityLabel="Back"
           hitSlop={8}
-          style={({ pressed }) => [styles.control, pressed && pressedDim]}
+          style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
         >
           <CaretLeft size={28} color={colors.black} weight="regular" />
         </Pressable>
       ) : (
-        <View style={styles.control} />
+        <View style={tapTarget44} />
       )}
 
       <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
@@ -91,7 +91,7 @@ export function SettingsHeader({
         accessibilityRole="button"
         accessibilityLabel="Close"
         hitSlop={8}
-        style={({ pressed }) => [styles.control, pressed && pressedDim]}
+        style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
       >
         <X size={24} color={colors.black} weight="regular" />
       </Pressable>
@@ -106,14 +106,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-  },
-  // 44pt visual tap target on both controls; the spacer matches so the
-  // centered title stays optically centered whether or not onBack is set.
-  control: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   title: {
     ...dynamicType(typography.bodyEmphasized),
