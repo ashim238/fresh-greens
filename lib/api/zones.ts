@@ -226,6 +226,11 @@ export async function getZonesForTrip(
       ? routeCoordinates
       : [origin, destination];
 
+  if (options?.mode === 'navigation') {
+    const { executeNavigationRoll } = await import('../corridor/navigation');
+    return executeNavigationRoll(path, options);
+  }
+
   const { executeCorridorTrip } = await import('../corridor/executor');
   return executeCorridorTrip(path, { ...options, mode: 'preview' });
 }

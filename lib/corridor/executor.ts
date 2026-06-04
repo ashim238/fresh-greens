@@ -12,7 +12,7 @@ function mergeZones(into: Map<string, Zone>, batch: Zone[]): void {
   for (const z of batch) into.set(z.id, z);
 }
 
-async function runBatch(
+export async function runCorridorBatch(
   requests: SampleRequest[],
   budget: FetchBudget,
   state: { calls: number; start: number },
@@ -55,7 +55,7 @@ export async function executeCorridorTrip(
   const state = { calls: 0, start: Date.now() };
   const all = new Map<string, Zone>();
 
-  const w1 = await runBatch(plan.wave1, budget, state, budget.maxParallel);
+  const w1 = await runCorridorBatch(plan.wave1, budget, state, budget.maxParallel);
   mergeZones(all, [...w1.merged.values()]);
   options.onPartial?.([...all.values()], {
     wave: 1,
@@ -67,7 +67,7 @@ export async function executeCorridorTrip(
   const hotReqs = planHotLegTighten(w1.results, plan.pathMeters);
   const wave2 = [...gapReqs, ...hotReqs, ...plan.wave2];
 
-  const w2 = await runBatch(wave2, budget, state, budget.maxParallel);
+  const w2 = await runCorridorBatch(wave2, budget, state, budget.maxParallel);
   mergeZones(all, [...w2.merged.values()]);
 
   if (all.size === 0 && TRIP_MOCK_ON_EMPTY) {
