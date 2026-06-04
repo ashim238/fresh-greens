@@ -1,7 +1,7 @@
 # Gas Search Prices — Design Spec
 
 **Date:** 2026-06-04  
-**Status:** Draft — ready for review (brainstorm complete; implementation plan not started)  
+**Status:** Approved → plan at `docs/superpowers/plans/2026-06-04-gas-search-prices.md`  
 **Register:** product (app UI + adapter)  
 **Supersedes (partially):** `2026-05-30-refuel-reminders-design.md` §Out of scope — "Fuel price / brand data" (that slice deferred refuel v1; this spec scopes a **narrow** price display for Gas search + on-route fuel rows only).
 
@@ -221,7 +221,7 @@ Same enrichment step inside `useRouteFuelStops` after on-route filter.
 - [x] Rejects misleading Google `priceLevel` for gas.
 - [x] Clutter bounded (one optional caption line).
 - [x] Electric explicitly deferred.
-- [ ] User approval — **pending**
+- [x] User approval
 
 ---
 
