@@ -27,6 +27,7 @@ import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 
 import { CalendarPickSheet } from '../components/CalendarPickSheet';
 import { PreferredStar } from '../components/PreferredStar';
+import { SavedPlaceBookmark } from '../components/SavedPlaceBookmark';
 import { SearchBar } from '../components/SearchBar';
 import { ErrorState, LoadingState } from '../components/StateCard';
 import { useCalendarConnection } from '../hooks/useCalendarConnection';
@@ -643,7 +644,14 @@ export default function Search() {
                             : 'Show your saved places'
                         }
                       >
-                        <tool.Icon width={24} height={24} />
+                        {tool.id === 'saved' ? (
+                          <SavedPlaceBookmark
+                            size={24}
+                            variant={isSelected ? 'selected' : 'default'}
+                          />
+                        ) : (
+                          <tool.Icon width={24} height={24} />
+                        )}
                         <View style={styles.quickToolLabelWrap}>
                           <Text style={styles.quickToolLabel}>{tool.label}</Text>
                         </View>
@@ -681,11 +689,7 @@ export default function Search() {
                           accessibilityLabel={`Route to ${row.name}, ${row.subtitle}`}
                           accessibilityHint="Routes to this saved place"
                         >
-                          <MapPin
-                            size={24}
-                            color={colors.labelTertiary}
-                            weight="duotone"
-                          />
+                          <SavedPlaceBookmark size={18} variant="selected" />
                           <View style={styles.recentTextColumn}>
                             <Text style={styles.recentText} numberOfLines={1}>
                               {row.name}

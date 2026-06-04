@@ -39,6 +39,7 @@ import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { ZoneDetailCard } from '../components/ZoneDetailCard';
 import { LoadingState } from '../components/StateCard';
+import { SavedPlaceBookmark } from '../components/SavedPlaceBookmark';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { useFuelProfile } from '../hooks/useFuelProfile';
@@ -309,8 +310,9 @@ export default function Home() {
     destLng?: string;
     destName?: string;
   }>();
-  // Whether to underline the destination text in the bottom sheet.
-  // The underline is the visual invitation to "save this as home/work"
+  // Whether the destination is a saved regular (bookmark on the card).
+  // Tapping the title toggles save-as-regular; the bookmark is the
+  // visual invitation to "save this as home/work"
   // for recurring trips — not for one-off journeys to somewhere the
   // user has never been. C12c: now a real signal — true when the
   // current destination is within ~200m of a destination the user
@@ -2274,7 +2276,7 @@ export default function Home() {
           <View style={styles.routeSummaryBlock}>
           {/*
             Destination title — card title + tappable save-as-regular
-            toggle. freshgreen underline (styles.destination) = saved regular.
+            toggle. Saved regulars show the bookmark glyph (not underline).
           */}
           <Pressable
             onPress={handleToggleRegular}
@@ -2284,12 +2286,14 @@ export default function Home() {
             }.`}
             style={({ pressed }) => [styles.routeDestTitleHit, pressed && pressedDim]}
           >
-            <Text
-              style={[styles.routeDestTitle, isRegularDestination && styles.destination]}
-              numberOfLines={1}
-            >
-              {params.destName ?? 'your destination'}
-            </Text>
+            <View style={styles.routeDestTitleRow}>
+              {isRegularDestination ? (
+                <SavedPlaceBookmark size={14} variant="selected" />
+              ) : null}
+              <Text style={styles.routeDestTitle} numberOfLines={1}>
+                {params.destName ?? 'your destination'}
+              </Text>
+            </View>
           </Pressable>
 
           {/*
@@ -2345,18 +2349,10 @@ export default function Home() {
             only when the route source returned no named geometry
             (mock / step-less routes).
 
-            Destination underline renders ONLY in that no-road fallback
-            — i.e. only when the line genuinely shows the destination.
-            A road name is never underlined.
+            Via never carries the saved-regular marker — the title owns it.
           */}
           <View style={styles.routeViaRow}>
-            <Text
-              style={[
-                styles.routeViaLabel,
-                isRegularDestination && !viaRoad && styles.destination,
-              ]}
-              numberOfLines={1}
-            >
+            <Text style={styles.routeViaLabel} numberOfLines={1}>
               Via {viaRoad ?? params.destName ?? 'your destination'}
             </Text>
             {/*
@@ -2961,11 +2957,17 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
+  routeDestTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 24,
+  },
   // Destination title — card title + tappable save-as-regular toggle.
   routeDestTitle: {
     ...typography.title3Emphasized,
     color: colors.black,
-    paddingHorizontal: 24,
+    flex: 1,
   },
   // Hero row: headline + arrival time on the same baseline.
   // Owns the 24pt gutter; the old routeHeadlineRow wrapper is gone.
@@ -3143,12 +3145,6 @@ const styles = StyleSheet.create({
   daylightIcons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  destination: {
-    // freshgreen — underlined in-flow link, cursorrules explicitly names
-    // freshgreen for this role ("primary CTA, in-flow links").
-    color: colors.freshgreen,
-    textDecorationLine: 'underline',
   },
   tradeoffRow: {
     // H13: 16 → 24 to match the route card's canonical gutter
