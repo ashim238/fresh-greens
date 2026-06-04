@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix(routes): the marker-vanish was the POLYLINE REORDER all along — "color-only updates" is the rule for react-native-maps overlays
+
+Shipped `c3b9d12`. The marker-disappears saga (five+ fixes) finally closed when the user pinpointed the trigger: **tapping the route chevrons** — a route switch with NO camera change. Three takeaways, including a correction:
+
+**The user naming the exact trigger is worth more than any amount of my reasoning about the native layer.** I'd been treating "markers vanish" as a property of zoom / route-switch / co-location and throwing marker-side fixes at it (snapshot-once → state-in-key → re-track-in-place → always-track). Every one was a guess about WHY MapKit dropped the bitmap. The actual cause wasn't on the marker side at all — it was the **Polyline reorder**: `routePolylines` emitted the selected route last for paint order, so each switch reordered the keyed children, and react-native-maps reorders overlays on iOS by removing + re-adding them to MapKit — a reflow that evicts marker bitmaps. The moment the user said "the CHEVRONS do it," the space collapsed: chevron = route switch with no camera move = the one path where always-track can't heal (nothing re-renders the markers). Lesson: when a bug resists N fixes, the highest-value move is to get the user to name the precise repro action, then work backward from what THAT action uniquely changes — not to keep theorizing about the failing subsystem. I burned ~4 commits on the wrong subsystem (markers) because I never pinned the trigger to the polylines.
+
+**For react-native-maps overlays, a state change must be COLOR-ONLY to be reflow-free — anything that changes the child set's order, count, keys, OR coordinates recreates/re-adds overlays and reflows the map.** The reliable rule, learned the hard way across the leak fix AND this one: render a STABLE set of overlays (fixed keys, fixed order, fixed coordinates) and vary only paint props (strokeColor/width/dash, which update the renderer in place). To get paint-order (selected on top) WITHOUT reordering, use two stacked layers — a base (alternates) and a highlight (selected) — each containing every route always; selection flips strokeColor to/from `'transparent'`. Layer order gives z-order; nothing ever moves. The transparent halves are free (MapKit skips them). This generalizes to any RN-Maps overlay that needs to change appearance on interaction: never reorder/remount to restyle — restyle in place and use layered transparency for z-order.
+
+**Correction to the `57b99d8` / always-track entry below: always-track did NOT fully fix the route-switch eviction — it only fixed the cases where the camera moves.** always-track keeps a marker visible through reflows that ALSO re-render the marker (zoom, recenter — the camera change propagates a re-render that re-snapshots). It does nothing for a reflow that does NOT re-render the marker (a chevron switch: camera still, only polylines changed). I wrote that entry as if always-track closed the whole class; it closed the camera-moving subset. The complete fix is always-track (for camera reflows) PLUS reflow-free overlay updates (for camera-less reflows like route-switch). Meta-lesson, AGAIN (this is the second time this session): don't write a `learnings.md` entry declaring a class of bug "solved" until you've device-confirmed the specific sub-case you didn't test. Reasoning that a fix "should" cover a case is not the same as the case being covered.
+
+---
+
 ## code-review fixes: when two fixes conflict, split the computation; accumulate KEYS not display strings; and "no change" is a valid review resolution
 
 Working through the max-effort /code-review findings (`993af1b` en-route leak, the `#2+#5` facet refactor, the `#4` segmentation-memo split). Three takeaways:
@@ -41,6 +53,8 @@ Shipped across `e8423c9` (samePlace dedup), `359748f` (vouch facets), `e38d486` 
 ---
 
 ## fix(markers): the must-never-vanish markers should just always-track — and react-native-maps leaks unmounted Polyline overlays
+
+> **INCOMPLETE (corrected by the `c3b9d12` entry up top):** always-track only fixed the marker-vanish cases where the CAMERA moves (zoom/recenter re-render the marker → re-snapshot). It did NOT fix the route-switch (chevron) case — a camera-less reflow caused by the Polyline REORDER — which kept evicting the markers. The complete fix needed reflow-free (color-only) polyline updates too. Read that entry before trusting "always-track closed the class."
 
 Shipped `57b99d8`. This is the FOURTH marker fix in two days and it corrects the previous two — read this before trusting the `bc3673d` / `df8cc65` entries below, both of which I now believe were wrong. Three takeaways, including eating my own words:
 
