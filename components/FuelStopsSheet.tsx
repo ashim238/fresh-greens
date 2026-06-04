@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'phosphor-react-native/src/icons/X';
 
 import { type Place } from '../lib/api/places';
+import { fuelPriceLabel } from '../lib/api/fuel-prices';
 import { type FuelType } from '../lib/api/fuel';
 import { ROUTE_PROXIMITY_MILES } from '../hooks/useRouteFuelStops';
 import { colors } from '../theme/colors';
@@ -186,6 +187,10 @@ export function FuelStopsSheet({
                 }}
                 renderItem={({ item }) => {
                   const highlighted = item.id === highlightStopId;
+                  const pricePart = fuelPriceLabel(item.fuelPrice);
+                  const meta = pricePart
+                    ? `${pricePart} · ${item.distanceMiles} mi from you · along your route`
+                    : `${item.distanceMiles} mi from you · along your route`;
                   return (
                     <View style={styles.rowOuter}>
                       <Pressable
@@ -196,7 +201,7 @@ export function FuelStopsSheet({
                         ]}
                         onPress={() => onSelectStop(item)}
                         accessibilityRole="button"
-                        accessibilityLabel={`${item.name}, ${item.distanceMiles} miles from you along your route${isPreferred(item) ? ', trusted by you' : ''}`}
+                        accessibilityLabel={`${item.name}, ${pricePart ? `${pricePart}, ` : ''}${item.distanceMiles} miles from you along your route${isPreferred(item) ? ', trusted by you' : ''}`}
                         accessibilityHint="Centers this stop on the map"
                       >
                         <View style={styles.rowText}>
@@ -214,9 +219,7 @@ export function FuelStopsSheet({
                               {item.address}
                             </Text>
                           )}
-                          <Text style={styles.rowMeta}>
-                            {item.distanceMiles} mi from you · along your route
-                          </Text>
+                          <Text style={styles.rowMeta}>{meta}</Text>
                         </View>
                         <PreferredStar
                           preferred={isPreferred(item)}
