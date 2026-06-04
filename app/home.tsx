@@ -454,6 +454,18 @@ export default function Home() {
   // same reason; the colored stroke alone reads fine against street
   // geometry. Bumped strokeWidth slightly so the route still claims
   // the map without the border.
+  // Daylight segmentation is the EXPENSIVE part (SunCalc per segment) and
+  // is selection-INDEPENDENT, so it's memoized on [routes, cloudCoverPct]
+  // alone — switching routes must not recompute it. Every route is
+  // segmented identically regardless of which is selected; selection only
+  // changes color downstream (see routePolylines). This is what reconciles
+  // the leak fix (every route fully segmented, stable keys) with not
+  // re-running SunCalc on every chevron tap.
+  const routeSegments = useMemo(
+    () => routes.map((route) => ({ route, segments: gradientSegments(route, undefined, cloudCoverPct) })),
+    [routes, cloudCoverPct],
+  );
+
   const routePolylines = useMemo(
     () => {
       // EVERY route renders as the SAME daylight-segmented polyline set,
@@ -472,14 +484,16 @@ export default function Home() {
       // react-native-maps paints overlays in document order, so the
       // selected route is emitted LAST (its colored stroke wins where it
       // overlaps a gray alternate). Reordering stable-keyed children
-      // doesn't remove any key, so it doesn't trigger the leak.
+      // doesn't remove any key, so it doesn't trigger the leak. Segments
+      // come precomputed from routeSegments — this memo only maps them to
+      // elements + selection colors, so a switch is cheap (no SunCalc).
       const ordered = [
-        ...routes.filter((r) => r.id !== selectedRoute?.id),
-        ...routes.filter((r) => r.id === selectedRoute?.id),
+        ...routeSegments.filter((rs) => rs.route.id !== selectedRoute?.id),
+        ...routeSegments.filter((rs) => rs.route.id === selectedRoute?.id),
       ];
-      return ordered.flatMap((route) => {
+      return ordered.flatMap(({ route, segments }) => {
         const isSelected = route.id === selectedRoute?.id;
-        return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
+        return segments.map((segment, idx) => (
           <Polyline
             key={`${route.id}-seg-${idx}`}
             coordinates={segment.coordinates}
@@ -499,7 +513,7 @@ export default function Home() {
         ));
       });
     },
-    [routes, cloudCoverPct, selectedRoute?.id],
+    [routeSegments, selectedRoute?.id],
   );
 
   // PanResponder for the bottom-sheet drag handle in browse mode.

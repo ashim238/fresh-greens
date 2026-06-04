@@ -818,6 +818,14 @@ export default function EnRoute() {
   // /home; RN-Maps Polyline lacks zIndex and iOS paint-order can't be
   // controlled reliably across re-renders, so the colored stroke
   // alone is the v1 design.
+  // Daylight segmentation (SunCalc per segment) is the expensive, selection-
+  // independent part — memoized on [routes, cloudCoverPct] so switching the
+  // active route via "Compare routes" doesn't re-run it. Mirrors /home.
+  const routeSegments = useMemo(
+    () => routes.map((route) => ({ route, segments: gradientSegments(route, undefined, cloudCoverPct) })),
+    [routes, cloudCoverPct],
+  );
+
   const routePolylines = useMemo(
     () => {
       // EVERY route renders as the SAME daylight-segmented set with stable
@@ -829,13 +837,15 @@ export default function EnRoute() {
       // overlay lingered on the alternate. Mirrors the /home fix (commit
       // 57b99d8). Active route emitted LAST so its colored stroke wins at
       // shared segments; reordering stable keys removes nothing, so no leak.
+      // Segments come precomputed from routeSegments — this memo only maps
+      // them to elements + colors, so a switch is cheap (no SunCalc).
       const ordered = [
-        ...routes.filter((r) => r.id !== activeRoute?.id),
-        ...routes.filter((r) => r.id === activeRoute?.id),
+        ...routeSegments.filter((rs) => rs.route.id !== activeRoute?.id),
+        ...routeSegments.filter((rs) => rs.route.id === activeRoute?.id),
       ];
-      return ordered.flatMap((route) => {
+      return ordered.flatMap(({ route, segments }) => {
         const isActive = route.id === activeRoute?.id;
-        return gradientSegments(route, undefined, cloudCoverPct).map((segment, idx) => (
+        return segments.map((segment, idx) => (
           <Polyline
             key={`${route.id}-seg-${idx}`}
             coordinates={segment.coordinates}
@@ -853,7 +863,7 @@ export default function EnRoute() {
         ));
       });
     },
-    [routes, activeRoute?.id, cloudCoverPct],
+    [routeSegments, activeRoute?.id],
   );
 
   // Arrival clock time (now + remaining minutes), formatted as "8:30".
