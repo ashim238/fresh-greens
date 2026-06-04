@@ -207,7 +207,9 @@ export default function SafetyModal() {
                   <View style={styles.tabIcon}>
                     <tab.Icon width={48} height={48} />
                   </View>
-                  <Text style={styles.tabLabel}>{tab.label}</Text>
+                  <Text style={styles.tabLabel} numberOfLines={2}>
+                    {tab.label}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -271,9 +273,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    // EmptyState/Content from Figma: column stack, gap-16. iconBox is
-    // 56pt fixed; title + subtitle stack below.
+    // EmptyState/Content from Figma: column stack, gap-16. Center-
+    // aligned like /report's picker titleBlock (icon → title →
+    // subtitle) so the two modals share one placement register.
     gap: 16,
+    alignItems: 'center',
   },
   iconBox: {
     // 56x56 dedicated space for the shield. The icon (32pt) is smaller
@@ -285,6 +289,8 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     gap: 8,
+    alignItems: 'center',
+    alignSelf: 'stretch',
   },
   title: {
     // SAF1: Title1 Regular (not Emphasized). /safety ASKS the user a
@@ -292,23 +298,18 @@ const styles = StyleSheet.create({
     // in-modal-prompt register is regular weight — a held question, not
     // a directive (bold read as a command on a stress-state screen).
     //
-    // This is DELIBERATELY a different register from /report, whose
-    // "Report" + per-category titles are an action/instruction heading
-    // → Title1 Emphasized (the .cursorrules guidance-screen rule). So
-    // the two safety-column surfaces don't match by design: a question
-    // is regular, an instruction heading is bold. (An earlier version
-    // of this comment wrongly claimed /report was also regular.)
+    // Weight differs from /report's Title1 Emphasized picker title,
+    // but placement matches: centered icon + title + subtitle stack.
     ...typography.title1Regular,
     color: colors.black,
+    textAlign: 'center',
   },
   subtitle: {
-    // The title above carries the Title1 Regular prompt register (the
-    // .cursorrules "in-modal user prompts" rule). This supporting line
-    // sits one step down at Body/Regular (17pt) in labelTertiary — v1
-    // used bodyEmphasized, but a softer weight reads less imperative
-    // beneath a held question.
+    // Supporting line under the Title1 Regular prompt — centered to
+    // match /report's picker subtitle placement.
     ...typography.bodyRegular,
     color: colors.labelTertiary,
+    textAlign: 'center',
   },
   grid: {
     // Matches /report picker: 24pt between rows (popup gap-24).

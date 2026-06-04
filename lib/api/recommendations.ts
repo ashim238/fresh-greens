@@ -238,6 +238,15 @@ function mergeRecFields(keeper: Recommendation, incoming: Recommendation): Recom
   return {
     ...keeper,
     googlePlaceId: keeper.googlePlaceId ?? incoming.googlePlaceId,
+    // Prefer resolved business name when keeper still carries a
+    // category fallback string and incoming has a real name.
+    name:
+      incoming.name &&
+      (Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[]).includes(
+        keeper.name,
+      )
+        ? incoming.name
+        : keeper.name,
     photoName: keeper.photoName ?? incoming.photoName,
     rating: keeper.rating ?? incoming.rating,
     reviewCount: withRating.reviewCount ?? incoming.reviewCount,
@@ -798,28 +807,37 @@ function communityRecFromReport(
  * place never appears in the category text-search feed.
  */
 async function hydrateCommunityRecs(recs: Recommendation[]): Promise<Recommendation[]> {
-  return Promise.all(
-    recs.map(async (rec) => {
-      if (rec.source !== 'community' || !rec.googlePlaceId) return rec;
-      const details = await fetchPlaceDetails(rec.googlePlaceId);
-      if (!details) return rec;
-      const withRating = rec.rating != null ? rec : details;
-      const isGenericName = (
-        Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[]
-      ).includes(rec.name);
-      return {
-        ...rec,
-        name: isGenericName && details.name ? details.name : rec.name,
-        address: rec.address || details.address || '',
-        photoName: rec.photoName ?? details.photoName,
-        rating: rec.rating ?? details.rating,
-        reviewCount: withRating.reviewCount ?? details.reviewCount,
-        isOpen: rec.isOpen ?? details.isOpen,
-        hoursLabel: rec.hoursLabel ?? details.hoursLabel,
-        priceTier: rec.priceTier ?? details.priceTier,
-      };
-    }),
+  const ids = [
+    ...new Set(
+      recs
+        .filter((r) => r.source === 'community' && r.googlePlaceId)
+        .map((r) => r.googlePlaceId as string),
+    ),
+  ];
+  const detailsById = new Map(
+    await Promise.all(ids.map(async (id) => [id, await fetchPlaceDetails(id)] as const)),
   );
+
+  return recs.map((rec) => {
+    if (rec.source !== 'community' || !rec.googlePlaceId) return rec;
+    const details = detailsById.get(rec.googlePlaceId);
+    if (!details) return rec;
+    const withRating = rec.rating != null ? rec : details;
+    const isGenericName = (
+      Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[]
+    ).includes(rec.name);
+    return {
+      ...rec,
+      name: isGenericName && details.name ? details.name : rec.name,
+      address: rec.address || details.address || '',
+      photoName: rec.photoName ?? details.photoName,
+      rating: rec.rating ?? details.rating,
+      reviewCount: withRating.reviewCount ?? details.reviewCount,
+      isOpen: rec.isOpen ?? details.isOpen,
+      hoursLabel: rec.hoursLabel ?? details.hoursLabel,
+      priceTier: rec.priceTier ?? details.priceTier,
+    };
+  });
 }
 
 /**
@@ -869,6 +887,7 @@ export function enrichAcrossRows(
     const members = group.map((e) => e.rec);
     const withRating = members.find((m) => m.rating != null);
     const pool = {
+      googlePlaceId: members.find((m) => m.googlePlaceId != null)?.googlePlaceId,
       photoName: members.find((m) => m.photoName != null)?.photoName,
       rating: withRating?.rating,
       reviewCount: withRating?.reviewCount,
@@ -883,6 +902,7 @@ export function enrichAcrossRows(
     for (const { rowKey, idx, rec } of group) {
       out[rowKey][idx] = {
         ...rec,
+        googlePlaceId: rec.googlePlaceId ?? pool.googlePlaceId,
         photoName: rec.photoName ?? pool.photoName,
         rating: rec.rating ?? pool.rating,
         reviewCount: rec.reviewCount ?? pool.reviewCount,
