@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat(recommendations): name+proximity identity is now a 3× pattern, and "dedup" that drops data should accumulate it
+
+Shipped across `e8423c9` (samePlace dedup), `359748f` (vouch facets), `e38d486` (combined card label). Two durable takeaways:
+
+**Name + proximity is now the codebase's identity primitive for real-world places — name it as a rule, not a one-off.** Third independent place this exact shape has appeared: `stationsMatch` (preferred-stations, fixing "tap one star, two light up"), and now `samePlace` in recommendations (fixing "two storefronts within 50m collapse to one") used in BOTH `dedupBySamePlace` and the Trusted-row grouping. The invariant: **a proximity radius alone is never identity for dense POIs — pair it with a normalized-name check.** Coordinates have jitter (geocoder disagreement, GPS drift) and neighbors are close (a Shell and a Wawa across the street, two suites in one building). Proximity-only fails BOTH directions: it merges distinct neighbors (false positive) and — if you tighten the radius to avoid that — splits the same place across geocoder jitter (false negative). Name + a moderate radius beats either extreme. This has earned a standing convention: any new "is this the same place?" check gets name+proximity by default. (The two normalizeName copies — preferred-stations + recommendations — are still under rule-of-three; a third consumer is the trigger to extract a shared `lib/places` normalize, not before.)
+
+**A first-occurrence-wins "dedup" silently DESTROYS the loser's data — when the loser carries unique info, accumulate instead of discard.** The original `dedupByProximity` kept the first rec and dropped colliding ones entirely (`if (!collision) kept.push(rec)`). That's correct when collisions are true duplicates (same place, same info) — you genuinely want one. But the moment a "collision" carries information the keeper lacks — here, a *different vouch category* for the same place — dropping it is data loss masquerading as cleanup. The Trusted row was discarding "this place is also black-owned" every time it merged a felt-welcome report on the same spot. The fix wasn't to stop merging (you still want one card) — it was to merge the ROWS but UNION the distinguishing field (the vouch set → `facets`). General lesson: before writing a dedup that keeps-one-drops-rest, ask "do the losers carry anything the keeper doesn't?" If yes, the operation isn't dedup, it's a GROUP-BY with an aggregate — keep one representative for display, but fold the distinguishing fields into a set/list rather than throwing them away. The proximity-only version hid this because it never looked at what it was discarding.
+
+**Tradeoff logged honestly (the inverse cost of name-awareness):** a community report whose `placeName` didn't resolve (generic fallback name) and the external listing of the same place will now both show, where proximity-only merged them. Accepted: a generic-named visible duplicate is strictly less bad than two distinct places collapsing to one with the second's data gone. And it shrinks as `/api/nearby` name resolution improves. The merge in (b) likewise only fires when both reports resolved to the same real name — conservative by design (don't claim two reports are the same place unless the names agree).
+
+---
+
 ## fix(markers): re-track-in-place beats state-in-key when the marker has a zIndex worth keeping
 
 Shipped `bc3673d`. The fourth marker-platform-quirk this session, and it's a direct correction to the state-in-key pattern documented below. Worth its own entry because the earlier pattern's hidden cost only shows up under a specific overlap.
