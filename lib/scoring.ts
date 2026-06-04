@@ -31,6 +31,7 @@ import {
   POLYLINE_PROXIMITY_METERS,
 } from './api/zones';
 import type { Route, RouteType } from './api/routes';
+import { pathLengthMeters, sampleAlongPath } from './geo';
 
 /**
  * Per-zone-type score contribution per waypoint that hits that zone.
@@ -186,26 +187,49 @@ export function isPointInZone(point: Coordinate, zone: Zone): boolean {
  * reported spot's distance to the route LINE: `isPointNearPolyline` is
  * point-to-segment, so it follows the route's true geometry and is immune
  * to how sparse the Mapbox/OSRM waypoints are — a report sitting on a
- * straight block between two distant waypoints is still caught. For
- * AREA/STREET zones it tests the route's waypoints against the zone (large
- * targets the route reliably samples). Shared so the comparison chips and
- * the safety score agree on what a route passes.
+ * straight block between two distant waypoints is still caught.
+ *
+ * For AREA/STREET zones, /home's preview polyline can be very sparse on
+ * long trips, so we also sample the route line every ~300m (capped) before
+ * testing `isPointInZone` — otherwise lit=no segments and polygons between
+ * waypoints never light up the orange chips.
  */
+const ROUTE_ZONE_TEST_MAX_SAMPLES = 400;
+const ROUTE_ZONE_TEST_SPACING_METERS = 300;
+
+export function routePointsForZoneTest(routeCoordinates: Coordinate[]): Coordinate[] {
+  if (routeCoordinates.length === 0) return routeCoordinates;
+  const len = pathLengthMeters(routeCoordinates);
+  if (len === 0) return routeCoordinates;
+  const spacing = Math.max(
+    ROUTE_ZONE_TEST_SPACING_METERS,
+    len / ROUTE_ZONE_TEST_MAX_SAMPLES,
+  );
+  const dense = sampleAlongPath(
+    routeCoordinates,
+    spacing,
+    ROUTE_ZONE_TEST_MAX_SAMPLES,
+  );
+  return dense.length > 0 ? dense : routeCoordinates;
+}
+
 export function routePassesZone(
   routeCoordinates: Coordinate[],
   zone: Zone,
 ): boolean {
   if (zone.geometry === 'point') {
+    const line = routePointsForZoneTest(routeCoordinates);
     return (
       zone.coordinates.length > 0 &&
       isPointNearPolyline(
         zone.coordinates[0],
-        routeCoordinates,
+        line,
         POINT_PROXIMITY_METERS,
       )
     );
   }
-  return routeCoordinates.some((point) => isPointInZone(point, zone));
+  const samples = routePointsForZoneTest(routeCoordinates);
+  return samples.some((point) => isPointInZone(point, zone));
 }
 
 /** Safety-condition categories surfaced as chips in the route comparison. */

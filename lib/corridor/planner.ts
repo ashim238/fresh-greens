@@ -1,6 +1,6 @@
 import type { Coordinate, Zone, ZoneBounds } from '../api/zones';
 import { pathLengthMeters, sampleAlongPath } from '../geo';
-import { routePassesZone } from '../scoring';
+import { routePassesZone, routePointsForZoneTest } from '../scoring';
 import {
   BBOX_PAD_METERS,
   CARDINAL_TOLERANCE_DEG,
@@ -78,24 +78,12 @@ export type ClassifiedLeg =
   | { kind: 'straight'; points: Coordinate[]; bounds: ZoneBounds; legId: string }
   | { kind: 'curved'; points: Coordinate[]; legId: string };
 
-/** Matches scoring `routePointsForZoneTest` caps (400 / 300m) for classify-only densify. */
-const CLASSIFY_DENSIFY_MAX_SAMPLES = 400;
-const CLASSIFY_DENSIFY_SPACING_METERS = 300;
-
-function densifyPathForClassify(path: Coordinate[]): Coordinate[] {
-  if (path.length === 0) return path;
-  const len = pathLengthMeters(path);
-  if (len === 0) return path;
-  const spacing = Math.max(
-    CLASSIFY_DENSIFY_SPACING_METERS,
-    len / CLASSIFY_DENSIFY_MAX_SAMPLES,
-  );
-  const dense = sampleAlongPath(path, spacing, CLASSIFY_DENSIFY_MAX_SAMPLES);
-  return dense.length > 0 ? dense : path;
+function pathForClassify(path: Coordinate[]): Coordinate[] {
+  return CLASSIFY_USE_DENSIFIED_POLYLINE ? routePointsForZoneTest(path) : path;
 }
 
-function pathForClassify(path: Coordinate[]): Coordinate[] {
-  return CLASSIFY_USE_DENSIFIED_POLYLINE ? densifyPathForClassify(path) : path;
+function circularMeanBearingDeg(sinSum: number, cosSum: number): number {
+  return ((Math.atan2(sinSum, cosSum) * 180) / Math.PI + 360) % 360;
 }
 
 export function classifyLegs(path: Coordinate[]): ClassifiedLeg[] {
@@ -107,8 +95,8 @@ function classifyLegsOnPath(path: Coordinate[]): ClassifiedLeg[] {
   const legs: ClassifiedLeg[] = [];
   let runStart = 0;
   let runLen = 0;
-  let bearingSum = 0;
-  let bearingCount = 0;
+  let bearingSinSum = 0;
+  let bearingCosSum = 0;
   let prevBearing = bearingDeg(path[0], path[1]);
 
   for (let i = 1; i < path.length; i++) {
@@ -118,20 +106,22 @@ function classifyLegsOnPath(path: Coordinate[]): ClassifiedLeg[] {
 
     if (i === 1 || delta <= MAX_BEARING_DELTA_DEG) {
       runLen += segLen;
-      bearingSum += segBearing;
-      bearingCount += 1;
+      const rad = (segBearing * Math.PI) / 180;
+      bearingSinSum += Math.sin(rad);
+      bearingCosSum += Math.cos(rad);
       prevBearing = segBearing;
       continue;
     }
 
-    pushLeg(path, runStart, i, runLen, bearingSum, bearingCount, legs);
+    pushLeg(path, runStart, i, runLen, bearingSinSum, bearingCosSum, legs);
     runStart = i - 1;
     runLen = segLen;
-    bearingSum = segBearing;
-    bearingCount = 1;
+    const rad = (segBearing * Math.PI) / 180;
+    bearingSinSum = Math.sin(rad);
+    bearingCosSum = Math.cos(rad);
     prevBearing = segBearing;
   }
-  pushLeg(path, runStart, path.length, runLen, bearingSum, bearingCount, legs);
+  pushLeg(path, runStart, path.length, runLen, bearingSinSum, bearingCosSum, legs);
   return legs;
 }
 
@@ -140,14 +130,14 @@ function pushLeg(
   startIdx: number,
   endIdx: number,
   runLen: number,
-  bearingSum: number,
-  bearingCount: number,
+  bearingSinSum: number,
+  bearingCosSum: number,
   legs: ClassifiedLeg[],
 ): void {
   const points = path.slice(startIdx, endIdx);
   if (points.length < 2) return;
   const legId = `leg-${legs.length}`;
-  const meanBearing = bearingSum / Math.max(1, bearingCount);
+  const meanBearing = circularMeanBearingDeg(bearingSinSum, bearingCosSum);
   if (
     runLen >= MIN_STRAIGHT_METERS &&
     isCardinal(meanBearing, CARDINAL_TOLERANCE_DEG)
