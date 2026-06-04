@@ -856,38 +856,35 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   titleBlock: {
-    // Center-aligned title stack (icon + title + subtitle + optional
-    // anonymous note). Text in this modal is short enough that centered
-    // reads more deliberate than left-aligned, and the icon was already
-    // a centered visual anchor — user-flagged 2026-06-01.
-    alignItems: 'center',
+    // Left-aligned title stack (icon + title + subtitle + optional
+    // anonymous note). Shared placement register with /safety header.
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
     gap: 8,
   },
   identityIcon: {
-    // 56x56 dedicated space, internal padding centers the 32pt icon.
-    // Same shape as the safety modal's iconBox. Used by the picker's
-    // alert-circle identity glyph.
+    // 56x56 dedicated space for the 32pt report identity glyph.
+    // Same shape as the safety modal's iconBox — top-leading anchor.
     width: 56,
     height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -16, // pulls the icon to align with the popup's left edge
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
   detailIdentityIcon: {
     // Detail-view variant — v2 Figma (1112:8900) renders the category
     // glyph at a larger 48pt inside the 56pt container, giving the
     // category its own visual weight separate from the picker's
-    // smaller alert-circle. No negative margin since the detail glyph
-    // is wider and reads better aligned with the title text edge.
+    // smaller alert-circle.
     width: 56,
     height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
   titleEmphasized: {
     ...typography.title1Emphasized,
     color: colors.black,
-    textAlign: 'center',
+    textAlign: 'left',
+    alignSelf: 'stretch',
   },
   subtitle: {
     // bodyRegular per v2 Figma (1112:8319 / 1112:8900). Softer than the
@@ -896,13 +893,15 @@ const styles = StyleSheet.create({
     // Title1 Regular," the *supporting* body line should match in tone.
     ...typography.bodyRegular,
     color: colors.labelTertiary,
-    textAlign: 'center',
+    textAlign: 'left',
+    alignSelf: 'stretch',
   },
   anonymousNote: {
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: 'left',
+    alignSelf: 'stretch',
   },
 
   // --- Picker grid ---

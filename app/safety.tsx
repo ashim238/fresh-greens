@@ -273,23 +273,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    // EmptyState/Content from Figma: column stack, gap-16. Center-
-    // aligned like /report's picker titleBlock (icon → title →
-    // subtitle) so the two modals share one placement register.
+    // EmptyState/Content from Figma: column stack, gap-16. Left-
+    // aligned like /report's picker + detail titleBlock (icon → title
+    // → subtitle) so the safety/report modals share one placement register.
     gap: 16,
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
   },
   iconBox: {
-    // 56x56 dedicated space for the shield. The icon (32pt) is smaller
-    // than the box and centers via alignItems + justifyContent.
+    // 56x56 dedicated space for the shield. Icon anchors top-leading
+    // so the stack reads as one left edge with the title block below.
     width: 56,
     height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
   titleBlock: {
     gap: 8,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     alignSelf: 'stretch',
   },
   title: {
@@ -299,17 +300,19 @@ const styles = StyleSheet.create({
     // a directive (bold read as a command on a stress-state screen).
     //
     // Weight differs from /report's Title1 Emphasized picker title,
-    // but placement matches: centered icon + title + subtitle stack.
+    // but placement matches: left-aligned icon + title + subtitle stack.
     ...typography.title1Regular,
     color: colors.black,
-    textAlign: 'center',
+    textAlign: 'left',
+    alignSelf: 'stretch',
   },
   subtitle: {
-    // Supporting line under the Title1 Regular prompt — centered to
-    // match /report's picker subtitle placement.
+    // Supporting line under the Title1 Regular prompt — left-aligned to
+    // match /report's picker + detail subtitle placement.
     ...typography.bodyRegular,
     color: colors.labelTertiary,
-    textAlign: 'center',
+    textAlign: 'left',
+    alignSelf: 'stretch',
   },
   grid: {
     // Matches /report picker: 24pt between rows (popup gap-24).
