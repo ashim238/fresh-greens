@@ -6,7 +6,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import { type Place } from '../lib/api/places';
 import { type FuelType } from '../lib/api/fuel';
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { PreferredStar } from './PreferredStar';
@@ -53,7 +53,16 @@ export function FuelStopsSheet({
           <SafeAreaView edges={['bottom']}>
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
-              <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={12}>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                // 44pt painted floor (audit #10) — naked Pressable +
+                // hitSlop is the carve-out violation .cursorrules forbids
+                // (hitSlop is forgiveness padding on top of compliance,
+                // not the compliance mechanism itself).
+                style={tapTarget44}
+              >
                 <X size={24} color={colors.labelSecondary} weight="regular" />
               </Pressable>
             </View>
@@ -125,6 +134,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: spacing.sm,
   },
+  // (closeBtn replaced by the shared `tapTarget44` token in audit #10
+  //  review — applied directly at the close Pressable.)
   title: { ...typography.title3Emphasized, color: colors.black },
   message: { ...typography.bodyRegular, color: colors.labelSecondary, paddingVertical: spacing.lg },
   list: { marginTop: spacing.xs },

@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore(audit 10): the recurring miss is the modal-header back/close glyph — name the habit, not just the symptom
+
+Shipped `d58d3c2`. Audit #10 surfaced 8 hitSlop-as-compliance violations + 3 inlined `shadows.e1` + a stale cross-surface SOS comment. The single most generalizable lesson:
+
+**Every modal/sheet header in this codebase ends up reaching for "naked `<Pressable>` + `hitSlop={12}` + 20–28pt glyph" — and that pattern has been wrong since the .cursorrules carve-out shipped.** I found it in report.tsx ×5, roadside-setup, roadside, FuelStopsSheet — same shape every time: a back caret OR a close X dropped into a horizontal `headerRow`, naked Pressable, hitSlop to "reach" 44pt. Each was authored under the implicit assumption that hitSlop counts as compliance — it doesn't. The rule is one sentence: "iOS HIG 44×44 pt minimum on both axes — **on the visual**, not just the hit area." The reason I kept missing this isn't laziness, it's a habit: the modal-header pattern is small, the glyphs look "right" at 20-24pt, and hitSlop quietly papers over the tap miss in QA. The fix is identical every time — a `{width:44, height:44, alignItems:'center', justifyContent:'center'}` style wrapping the glyph — but the *recognition* has to happen at write time, not at audit time, or it just accumulates again. So the actionable rule, sharper than the carve-out's prose: **a modal-header glyph button has exactly one correct shape — a 44×44 painted container with the glyph centered. Any naked Pressable around a sub-44pt glyph is wrong on sight, no matter what hitSlop is on it.** And the corollary: if the pattern is recurring, extract it. The `headerIconBtn` style I added in report.tsx, `closeBtn` in CalendarPickSheet, `backBtn` in trusted-contact-setup, and now `closeBtn` in FuelStopsSheet are all the SAME 4-line style — that's rule-of-three (-five, really) territory for a shared `theme/interaction.ts` `iconButton` helper, queued for next audit if it bites again.
+
+**Token-inlined-byte-for-byte vs token-imported is invisible in review.** The three `shadows.e1` bypasses (Button.tsx ×2, en-route's speedLimitSign) were *correct values* — just hardcoded instead of spread. Code-review and tsc both let them through. The only way to catch this class is the grep the audit script runs (`shadowOpacity: 0.15` is a fingerprint for inlined e1). General rule: when a token's values are simple enough that hand-writing them feels natural (a 5-key shadow object, a single `{padding: 16}`), assume the next author will hand-write them too — and make a habit of grep-sweeping for the token's fingerprint as part of the audit. Catching three byte-for-byte e1 inlines suggests this is worth a `check:tokens` script alongside `check:specimen`.
+
+**A stale cross-surface comment is worse than no comment.** `/emergency`'s header said "the asterisk is the same glyph used everywhere SOS appears" — which was true before the en-route SOS swap (`54bfbba`) and false after. The fix wasn't to swap two more surfaces to bespoke; it was to *update the comment* to describe the deliberate variant split (Phosphor at 24pt row/header scale, bespoke burst at 32pt emphasis scale). Lesson, third time this session: when you swap one consumer of a "shared visual," grep for comments that claim cross-surface consistency and update them. Otherwise the next reader trusts the comment, not the code.
+
+---
+
 ## feat(routes): on-route hazard markers — reuse the canonical marker across surfaces, and let tsc enforce the design-token contract
 
 Shipped `9555bda`. The "yellow zone icon roughly where it falls on the route" ask turned out to be a *reuse* job, not a build. Three takeaways:

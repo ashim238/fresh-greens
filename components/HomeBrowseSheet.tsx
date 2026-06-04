@@ -1580,6 +1580,12 @@ const styles = StyleSheet.create({
     // hoursLabel) per the CSS font-variant-numeric spec.
     fontVariant: ['tabular-nums'],
   },
+  // Affirmative-green pill — TWO consumers, both in the safety-green
+  // register: (1) "Open" hours badge below the rating row; (2) the
+  // "Community pick" badge in the rating row (cross-row enrichment,
+  // 44202e0). One visual token, two affirmative semantics — if a
+  // future change needs them to diverge, fork into separate styles
+  // first.
   openPill: {
     backgroundColor: colors.fadedgreen,
     borderRadius: 4,

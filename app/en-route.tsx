@@ -2227,12 +2227,9 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     alignItems: 'center',
     // M3 Elevation 1 — subtle drop shadow so the sign reads as a
-    // physical object on the map.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // physical object on the map. Was inlined byte-for-byte (audit #10
+    // token-drift fix).
+    ...shadows.e1,
   },
   // Caution-zone fill flip — yellow background only inside a caution
   // zone. Mirrors real-world US warning speed-limit signs.

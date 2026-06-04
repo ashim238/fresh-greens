@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, type ViewStyle, View } 
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
 /**
@@ -171,19 +172,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.freshgreen,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    // M3 Elevation/1 — was inlined byte-for-byte (audit #10 token-drift fix).
+    ...shadows.e1,
   },
   secondaryFill: {
     backgroundColor: colors.wiltedgreen,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    ...shadows.e1,
   },
   primaryOutline: {
     borderWidth: 1,

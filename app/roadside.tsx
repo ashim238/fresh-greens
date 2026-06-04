@@ -264,7 +264,7 @@ function ProblemPicker({
           onPress={onWrongSpot}
           accessibilityRole="link"
           accessibilityLabel="Change location"
-          hitSlop={8}
+          style={styles.wrongSpotBtn}
         >
           <Text style={styles.wrongSpot}>Wrong spot?</Text>
         </Pressable>
@@ -351,7 +351,6 @@ function ActionMenu({
         style={({ pressed }) => [styles.backChevron, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel="Back"
-        hitSlop={12}
       >
         <CaretLeft size={28} color={colors.black} weight="regular" />
       </Pressable>
@@ -742,6 +741,15 @@ const styles = StyleSheet.create({
     color: colors.labelSecondary,
     textDecorationLine: 'underline',
   },
+  // Pressable wrapper around the "Wrong spot?" text link — painted 44pt
+  // floor so the link clears HIG without leaning on hitSlop (audit #10).
+  // The standalone Pressable is alone on its row (not inline within a
+  // paragraph), so the HIG 44pt rule applies — text-link inline carve-outs
+  // don't.
+  wrongSpotBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   // Wrong-spot Modal
   scrim: {
     flex: 1,
@@ -790,8 +798,13 @@ const styles = StyleSheet.create({
   // Step 2 — action menu
   backChevron: {
     marginTop: spacing.sm,
-    width: 32,
-    height: 32,
+    // Bumped 32→44 (audit #10) — 32pt + hitSlop=12 brought touch to 56 but
+    // painted target was below the HIG 44pt floor (and .cursorrules
+    // forbids hitSlop as the compliance mechanism). alignItems flex-start
+    // keeps the caret left-anchored so the visual placement on the row
+    // doesn't shift; the 28pt CaretLeft now centers vertically inside.
+    width: 44,
+    height: 44,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },

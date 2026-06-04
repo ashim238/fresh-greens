@@ -2,6 +2,21 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Audit-10 follow-up — `tapTarget44` migration sweep (2026-06-04)
+
+The `theme/interaction.ts` `tapTarget44` token was extracted during audit #10 review and used at the 3 sites the audit added (report.tsx headerIconBtn callers, FuelStopsSheet closeBtn, roadside-setup backBtn). **9 pre-existing bare-form duplicates remain** — each is byte-identical to `tapTarget44` and can be migrated with a 1-line swap (replace `style={styles.<localName>}` with `style={tapTarget44}` and delete the local 4-line style decl):
+
+- `app/emergency.tsx:475` (the modal `closeBtn`, not the decorated `stopChrome` at 598)
+- `app/home.tsx:2990` (`routeCycleBtn` — chevron taps; the routeClearBtn at 3009 is decorated, skip)
+- `app/pulled-over.tsx:1928`
+- `app/recordings.tsx:434, 521, 571` (three sites)
+- `app/saved-places.tsx:205` (`removeBtn`)
+- `app/trusted-contact-setup.tsx:329` (`backBtn`)
+- `components/CalendarPickSheet.tsx:174` (`closeBtn`)
+- `components/settings/SettingsHeader.tsx:113`
+
+**Decorated variants to LEAVE local** (have `borderRadius` / `backgroundColor` beyond the bare shape): `app/emergency.tsx:598` `stopChrome`, `app/home.tsx:3009` `routeClearBtn`, `app/trip-summary.tsx:410`. If a second token like `tapTarget44Circle` (44pt + `borderRadius:22` + neutral fill) ever gets extracted, these three are its consumers — but not yet (rule-of-three on the circular variant isn't hit).
+
 ## Connect-calendar (Plan 2) — deferred minors + verification gate (2026-06-01)
 
 Shipped via subagent-driven development. Final-review minors, non-blocking (the one Important — /menu tile cold-load flash — was fixed in `4e19ec4`):

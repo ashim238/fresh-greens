@@ -259,10 +259,15 @@ function IdleView({
 }) {
   return (
     <>
-      {/* Header — small SOS asterisk + close X. The asterisk is the
-          same glyph used everywhere SOS appears (/en-route side-button,
-          /safety-settings SOS row) so the visual anchor stays
-          consistent across surfaces. */}
+      {/* Header — small SOS asterisk + close X. Phosphor Asterisk is
+          the SOS glyph at ROW/HEADER scale (24pt) — also used on
+          /safety-settings's SOS row, where it sits next to other 24pt
+          Phosphor row icons. The /en-route side-button SOS swaps to the
+          bespoke red-burst SVG (sidebtn-sos.svg) at 32pt because that
+          control is meant to read as the loudest emergency affordance on
+          the column; the burst's outline detail is designed for that
+          larger size and would degrade in a 24pt row context. Two
+          intentional variants, same semantic — not drift. */}
       <View style={styles.header}>
         <Asterisk size={24} color={colors.red} weight="bold" />
         <Pressable
@@ -377,15 +382,16 @@ function CountdownView({
           2026-06-01 that the prior version felt congested partly
           because every element sat at the same 16pt rhythm. */}
       <View style={styles.exitCluster}>
-        {/* Stop affordance — X glyph in a neutral circle + "Stop"
-            label. The Pressable's hit area extends past the visible
-            chrome via hitSlop so the user can interrupt mid-countdown
-            reliably. */}
+        {/* Stop affordance — X glyph in a 44pt neutral circle (stopChrome)
+            + "Stop" label. The painted 44pt floor on stopChrome IS the tap
+            target — the earlier hitSlop was redundant forgiveness padding
+            now that the chrome is 44pt (audit #10 cleanup; the stale
+            "hitSlop extends past the visible chrome" comment was leftover
+            from when chrome was 40pt). */}
         <Pressable
           onPress={onStop}
           accessibilityRole="button"
           accessibilityLabel="Stop the call"
-          hitSlop={12}
           style={({ pressed }) => [styles.stopBtn, pressed && pressedDim]}
         >
           <View style={styles.stopChrome}>

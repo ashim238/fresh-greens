@@ -46,7 +46,7 @@ import {
 import type { Coordinate } from '../lib/api/zones';
 import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
@@ -336,9 +336,12 @@ export default function Report() {
           <View style={styles.inputAccessory}>
             <Pressable
               onPress={Keyboard.dismiss}
-              hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Dismiss keyboard"
+              // Painted 44pt tap target (HIG floor) instead of hitSlop —
+              // .cursorrules forbids hitSlop as the compliance mechanism;
+              // it's only for forgiveness on an already-compliant visual.
+              style={styles.inputAccessoryDoneBtn}
             >
               <Text style={styles.inputAccessoryDone}>Done</Text>
             </Pressable>
@@ -404,7 +407,10 @@ function PickerView({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          hitSlop={12}
+          // 44pt painted floor per .cursorrules — the 20pt X glyph
+          // centers inside an invisible 44×44 hit area; replaces the
+          // earlier hitSlop-as-compliance pattern (audit #10).
+          style={tapTarget44}
         >
           <X size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
@@ -494,7 +500,9 @@ function DetailView({
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          hitSlop={12}
+          // 44pt painted floor — same pattern as the close X below
+          // (audit #10 fix; was hitSlop={12} on a 24pt caret).
+          style={tapTarget44}
         >
           <CaretLeft size={24} color={colors.labelTertiary} weight="regular" />
         </Pressable>
@@ -503,7 +511,7 @@ function DetailView({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          hitSlop={12}
+          style={tapTarget44}
         >
           <X size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
@@ -671,6 +679,16 @@ function DetailView({
                   onPress={onClearPhoto}
                   accessibilityRole="button"
                   accessibilityLabel="Remove photo"
+                  // Small "x" badge in the photo corner — .cursorrules
+                  // carve-out case: a child target inside an already-
+                  // compliant larger container (the 200pt photo-preview
+                  // Pressable around it carries the primary retake
+                  // action; this corner badge clears the photo).
+                  // hitSlop=8 keeps the touch zone (24+8+8=40) inside
+                  // the badge's painted area and clear of the photo
+                  // Pressable underneath — bumping it to 12 would push
+                  // touch into the photo's tap area and steal retakes
+                  // (audit #10 review).
                   hitSlop={8}
                 >
                   <X size={14} color={colors.white} weight="bold" />
@@ -735,7 +753,9 @@ function ThankYouView({
           onPress={onUndo}
           accessibilityRole="button"
           accessibilityLabel="Undo submission and go back"
-          hitSlop={12}
+          // 44pt painted floor (audit #10) — replaces the
+          // hitSlop-as-compliance pattern.
+          style={tapTarget44}
         >
           <CaretLeft size={24} color={colors.labelTertiary} weight="regular" />
         </Pressable>
@@ -744,7 +764,7 @@ function ThankYouView({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          hitSlop={12}
+          style={tapTarget44}
         >
           <X size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
@@ -817,6 +837,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // (headerIconBtn replaced by the shared `tapTarget44` token from
+  //  theme/interaction.ts in audit #10 review — applied directly at each
+  //  back/close Pressable.)
   // Scrollable middle of the detail view (title + form). flexShrink:1
   // lets it cede space inside the height-capped popup so headerRow
   // and the Submit Button stay pinned, while the form content scrolls
@@ -1056,7 +1079,10 @@ const styles = StyleSheet.create({
   inputAccessory: {
     backgroundColor: colors.systemGroupedBackground,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    // No vertical padding — the Done button's minHeight: 44 sizes the bar
+    // to ~44pt total, matching the native iOS keyboard toolbar. Earlier
+    // had paddingVertical: 8 which stacked with the new 44pt button to
+    // ~60pt — visibly taller than native, audit #10 review caught it.
     flexDirection: 'row',
     justifyContent: 'flex-end',
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -1066,5 +1092,16 @@ const styles = StyleSheet.create({
     ...typography.bodyEmphasized,
     color: colors.freshgreen,
     paddingVertical: 4,
+  },
+  // 44pt painted tap floor for the Done button — the bodyEmphasized
+  // Text alone is ~22pt and needs a compliant hit area. minWidth gives
+  // it horizontal slack matching the bar's right edge; centering the
+  // text inside keeps the visual the same.
+  inputAccessoryDoneBtn: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

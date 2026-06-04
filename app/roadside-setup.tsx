@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -87,7 +87,10 @@ export default function RoadsideSetup() {
               onPress={() => router.back()}
               accessibilityRole="button"
               accessibilityLabel="Back"
-              hitSlop={12}
+              // 44pt painted floor instead of hitSlop — .cursorrules
+              // forbids hitSlop as the compliance mechanism on a sub-44pt
+              // visual. The 28pt CaretLeft centers inside (audit #10 fix).
+              style={tapTarget44}
             >
               <CaretLeft size={28} color={colors.black} weight="regular" />
             </Pressable>
@@ -151,6 +154,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.sm,
   },
+  // (backBtn replaced by the shared `tapTarget44` token in audit #10
+  //  review — applied directly at the back Pressable.)
   // Title sits on its own line below the back chevron (matches /fuel +
   // /recordings + /safety-settings) — chevron and title on one row read
   // congested.
