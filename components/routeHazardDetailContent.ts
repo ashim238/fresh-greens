@@ -60,6 +60,9 @@ export function routeHazardDetailContent(
 }
 
 export function formatRouteHazardLength(miles: number): string {
+  if (miles < 0.05) {
+    return 'At this point along your route';
+  }
   if (miles < 10) return `${miles.toFixed(1)} mi. along your route`;
   return `${Math.round(miles)} mi. along your route`;
 }

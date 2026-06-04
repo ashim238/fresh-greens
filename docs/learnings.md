@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/passive-zone-tiles (2026-06-04)
+
+- **Metro tile cache.** `zone-tile-cache.ts` stores OSM zones in ~12 km grid cells (LRU 16, 24h TTL). `fetchCorridorSample` reads tiles before Overpass; writes after network. `maybeWarmZoneTile` on /home GPS + browse (45s throttle, one in flight).
+- **Home stale-while-revalidate.** `loadCorridorZones` on destination → chips ready immediately; corridor still refreshes in background. Passive tiles speed the refresh when the metro grid is already warm.
+- **Hazard sheet pager** moved to bottom footer (`RouteHazardDetailCard`) — prev / “n of m” / next below copy.
+
+---
+
 ## feat/corridor-b4-b5 (2026-06-04)
 
 - **B5 = Directions incidents, not a corridor source.** `legs[].incidents` on the existing `driving-traffic` response → `Route.mapboxIncidentZones` in `parseMapboxRoute`; merged with corridor OSM/511 via `collapseHazardZones` on home/en-route. `pickWinner` scores each route with its own incident zones. Corridor planner no longer lists `mapbox-incidents` on bbox legs.

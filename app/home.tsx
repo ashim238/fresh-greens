@@ -87,7 +87,7 @@ import {
   type RouteSource,
   routeColors,
 } from '../lib/api/routes';
-import { saveCorridorZones } from '../lib/api/zone-cache';
+import { loadCorridorZones, saveCorridorZones } from '../lib/api/zone-cache';
 import {
   getZonesForRegion,
   getZonesForTrip,
@@ -102,6 +102,7 @@ import {
   LONG_TRIP_FOOTNOTE_COPY,
   PARTIAL_DEBOUNCE_MS,
 } from '../lib/corridor/constants';
+import { maybeWarmZoneTile } from '../lib/corridor/passive-zone-tiles';
 import { pathLengthMeters } from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
 import {
@@ -124,6 +125,7 @@ import { collapseHazardZones } from '../lib/corridor/merge-hazards';
 import {
   isPointInZone,
   isPointNearPolyline,
+  distanceAlongRouteMeters,
   nearestPointOnPolyline,
   pickWinner,
   routePassesZone,
@@ -209,24 +211,43 @@ function routeSafeType(zone: Zone): RouteSafeType | null {
  * AVOID variants (felt-unsafe/incident; lit=no) — a caution-level lighting
  * report isn't a low-light warning.
  */
-/** First zone on the route matching a hazard chip type — map focus target. */
-function firstRouteHazardOnPath(
+type RouteHazardOnPath = {
+  zone: Zone;
+  focus: Coordinate;
+  distanceAlongM: number;
+};
+
+/** All distinct hazards of a chip type on the route, ordered from start → end. */
+function routeHazardsOnPath(
   hazardType: RouteHazardType,
   routeCoordinates: Coordinate[],
   zones: Zone[],
-): { zone: Zone; focus: Coordinate } | null {
+): RouteHazardOnPath[] {
+  const seen = new Set<string>();
+  const hits: RouteHazardOnPath[] = [];
+
   for (const zone of zones) {
     if (routeHazardType(zone) !== hazardType) continue;
     if (!routePassesZone(routeCoordinates, zone)) continue;
     const anchor = zoneAnchor(zone);
     if (!anchor) continue;
+    const dedupeKey = zone.canonicalHazardKey ?? zone.id;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
     const focus =
       zone.category === 'community-report'
         ? anchor
         : nearestPointOnPolyline(anchor, routeCoordinates);
-    return { zone, focus };
+    hits.push({
+      zone,
+      focus,
+      distanceAlongM: distanceAlongRouteMeters(focus, routeCoordinates),
+    });
   }
-  return null;
+
+  hits.sort((a, b) => a.distanceAlongM - b.distanceAlongM);
+  return hits;
 }
 
 /** First zone on the route matching a safe chip type — map focus target. */
@@ -520,8 +541,10 @@ export default function Home() {
   // docs/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
 
+  /** Active hazard chip session — index into `routeHazardsOnPath` for that type. */
   const [selectedRouteHazard, setSelectedRouteHazard] = useState<{
-    zoneId: string;
+    hazardType: RouteHazardType;
+    index: number;
   } | null>(null);
 
   const [showFuelStops, setShowFuelStops] = useState(false);
@@ -582,6 +605,22 @@ export default function Home() {
     (selectedRouteId != null && routes.find((r) => r.id === selectedRouteId)) ||
     recommended;
   const isRecommendedSelected = selectedRoute?.id === recommended?.id;
+
+  const routeHazardSession = useMemo(() => {
+    if (!selectedRoute || !selectedRouteHazard) return null;
+    const list = routeHazardsOnPath(
+      selectedRouteHazard.hazardType,
+      selectedRoute.coordinates,
+      enabledZones,
+    );
+    const index = Math.min(
+      Math.max(0, selectedRouteHazard.index),
+      Math.max(0, list.length - 1),
+    );
+    const entry = list[index];
+    if (!entry) return null;
+    return { list, entry, index };
+  }, [selectedRoute, selectedRouteHazard, enabledZones]);
 
   // EnRouteZone on the route preview runs tracksViewChanges={false}; MapKit
   // can evict the cached bitmap on zoom reflow. State-in-key remounts refresh
@@ -931,7 +970,7 @@ export default function Home() {
         zoneId: zone.id,
         coord: nearestPointOnPolyline(anchor, selectedRoute.coordinates),
         category,
-        lengthMiles: zoneLengthMiles(zone),
+        lengthMiles: zoneLengthMiles(zone, selectedRoute.coordinates),
         orderIdx: ROUTE_HAZARD_ORDER.indexOf(hazardType),
       });
     }
@@ -1007,37 +1046,45 @@ export default function Home() {
     );
   }, []);
 
-  const handleRouteHazardChipPress = useCallback(
-    (hazardType: RouteHazardType) => {
+  const focusRouteHazardAtIndex = useCallback(
+    (hazardType: RouteHazardType, index: number) => {
       if (!selectedRoute) return;
-      const hit = firstRouteHazardOnPath(
+      const list = routeHazardsOnPath(
         hazardType,
         selectedRoute.coordinates,
         enabledZones,
       );
-      if (!hit) return;
+      const entry = list[index];
+      if (!entry) return;
       Haptics.selectionAsync().catch(() => {});
       setSelectedZone(null);
       setHighlightFuelStopId(null);
       setShowFuelStops(false);
-      focusMapOnCoordinate(hit.focus);
-      if (hit.zone.category === 'community-report') {
+      focusMapOnCoordinate(entry.focus);
+      if (entry.zone.category === 'community-report') {
         setSelectedRouteHazard(null);
         setSelectedReport({
-          zoneId: hit.zone.id,
-          categoryId: hit.zone.reportCategoryId as ReportCategoryId,
-          detail: hit.zone.reportDetail,
-          subTag: hit.zone.reportSubTag,
-          placeName: hit.zone.reportPlaceName,
-          photoUri: hit.zone.reportPhotoUri,
-          timestamp: hit.zone.reportTimestamp ?? Date.now(),
+          zoneId: entry.zone.id,
+          categoryId: entry.zone.reportCategoryId as ReportCategoryId,
+          detail: entry.zone.reportDetail,
+          subTag: entry.zone.reportSubTag,
+          placeName: entry.zone.reportPlaceName,
+          photoUri: entry.zone.reportPhotoUri,
+          timestamp: entry.zone.reportTimestamp ?? Date.now(),
         });
         return;
       }
       setSelectedReport(null);
-      setSelectedRouteHazard({ zoneId: hit.zone.id });
+      setSelectedRouteHazard({ hazardType, index });
     },
     [selectedRoute, enabledZones, focusMapOnCoordinate],
+  );
+
+  const handleRouteHazardChipPress = useCallback(
+    (hazardType: RouteHazardType) => {
+      focusRouteHazardAtIndex(hazardType, 0);
+    },
+    [focusRouteHazardAtIndex],
   );
 
   const handleRouteSafeChipPress = useCallback(
@@ -1390,6 +1437,8 @@ export default function Home() {
         longitude: location.coords.longitude,
       };
 
+      void maybeWarmZoneTile(center);
+
       // Only animate the camera when a destination is set — re-running
       // this effect on destination CLEAR (X tap) shouldn't yank the
       // user's map back to their location. That 1000ms re-center was
@@ -1420,7 +1469,10 @@ export default function Home() {
         : Promise.resolve({ routes: [] as Route[], source: 'mapbox' as const });
       const browseZonePromise = destination
         ? null
-        : getZonesForRegion(center);
+        : (async () => {
+            await maybeWarmZoneTile(center);
+            return getZonesForRegion(center);
+          })();
 
       const fetchedResult = await routePromise;
       if (cancelled) return;
@@ -1456,6 +1508,16 @@ export default function Home() {
       }
 
       if (destination) {
+        // Stale-while-revalidate: show last corridor cache immediately, then refresh.
+        const corridorCached = await loadCorridorZones(destination);
+        if (corridorCached && !cancelled) {
+          setOsmZones(corridorCached.zones);
+          setTripZonesFetchFailed(false);
+          setTripZonesCorridorComplete(true);
+          setTripZonesStatus('ready');
+          corridorFetchCompleted = true;
+        }
+
         // Corridor preview: partial OSM updates while waves run; cache on ready.
         try {
           const flushPartial = (zones: Zone[]) => {
@@ -1469,6 +1531,10 @@ export default function Home() {
               PARTIAL_DEBOUNCE_MS,
             );
           };
+
+          if (!corridorCached) {
+            setTripZonesStatus('loading');
+          }
 
           const tripZones = await getZonesForTrip(
             center,
@@ -2086,7 +2152,23 @@ export default function Home() {
                     suppressNextMapPressRef.current = true;
                     setSelectedReport(null);
                     setSelectedZone(null);
-                    setSelectedRouteHazard({ zoneId: m.zoneId });
+                    if (!selectedRoute) return;
+                    const zone = enabledOsmZones.find((z) => z.id === m.zoneId);
+                    const hazardType = zone ? routeHazardType(zone) : null;
+                    if (
+                      !hazardType ||
+                      hazardType === 'community' ||
+                      !zone
+                    ) {
+                      return;
+                    }
+                    const list = routeHazardsOnPath(
+                      hazardType,
+                      selectedRoute.coordinates,
+                      enabledZones,
+                    );
+                    const index = list.findIndex((h) => h.zone.id === m.zoneId);
+                    focusRouteHazardAtIndex(hazardType, index >= 0 ? index : 0);
                   }
             }
           />
@@ -3189,16 +3271,37 @@ export default function Home() {
           onDismiss={() => setSelectedZone(null)}
         />
       )}
-      {selectedRouteHazard && !placingReport && (() => {
-        const zone = enabledOsmZones.find(
-          (z) => z.id === selectedRouteHazard.zoneId,
-        );
-        const category = zone ? zoneToHazardCategory(zone) : null;
-        if (!zone || !category || category === 'community-alert') return null;
+      {routeHazardSession && !placingReport && (() => {
+        const { entry, list, index } = routeHazardSession;
+        const category = zoneToHazardCategory(entry.zone);
+        if (!category || category === 'community-alert') return null;
         return (
           <RouteHazardDetailCard
             category={category}
-            lengthMiles={zoneLengthMiles(zone)}
+            lengthMiles={zoneLengthMiles(
+              entry.zone,
+              selectedRoute?.coordinates,
+            )}
+            hazardIndex={index}
+            hazardCount={list.length}
+            onPrevious={
+              index > 0
+                ? () =>
+                    focusRouteHazardAtIndex(
+                      selectedRouteHazard!.hazardType,
+                      index - 1,
+                    )
+                : undefined
+            }
+            onNext={
+              index < list.length - 1
+                ? () =>
+                    focusRouteHazardAtIndex(
+                      selectedRouteHazard!.hazardType,
+                      index + 1,
+                    )
+                : undefined
+            }
             onDismiss={() => setSelectedRouteHazard(null)}
           />
         );

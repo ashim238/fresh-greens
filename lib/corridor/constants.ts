@@ -85,3 +85,11 @@ export const SUPPORTED_511_STATES = [
 ] as const;
 
 export const SUPPORTED_511_STATE_SET = new Set<string>(SUPPORTED_511_STATES);
+
+/** Passive metro tile cache — ~12 km cells, warmed on /home browse. */
+export const ZONE_TILE_LAT_DEG = 0.12;
+export const ZONE_TILE_LNG_DEG = 0.12;
+export const ZONE_TILE_RADIUS_M = 8_000;
+export const ZONE_TILE_MAX_ENTRIES = 16;
+export const ZONE_TILE_TTL_MS = 24 * 60 * 60 * 1000;
+export const PASSIVE_TILE_MIN_INTERVAL_MS = 45_000;

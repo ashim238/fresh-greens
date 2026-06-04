@@ -294,20 +294,7 @@ export function routeConditions(route: Route, zones: Zone[]): RouteCondition[] {
   return order.filter((c) => present.has(c));
 }
 
-/**
- * Approximate the on-the-ground length of a zone, in miles. Used by
- * the En-Route Zone extended-pill to surface "For X mi." copy.
- *
- *   polyline → sum of segment distances (true polyline length).
- *   polygon  → bounding-box diagonal. A rough proxy — a long thin
- *              polygon over-estimates, a square under-estimates —
- *              but the pill's purpose is order-of-magnitude
- *              reassurance ("this is a long zone vs. a short one"),
- *              not survey-grade measurement.
- *   point    → 0. Single-point zones don't have a length; callers
- *              should not render them as En-Route Zone markers.
- */
-export function zoneLengthMiles(zone: Zone): number {
+function zoneIntrinsicLengthMeters(zone: Zone): number {
   switch (zone.geometry) {
     case 'polyline': {
       let totalMeters = 0;
@@ -317,7 +304,7 @@ export function zoneLengthMiles(zone: Zone): number {
           zone.coordinates[i],
         );
       }
-      return totalMeters / 1609.344;
+      return totalMeters;
     }
     case 'polygon': {
       if (zone.coordinates.length === 0) return 0;
@@ -331,15 +318,69 @@ export function zoneLengthMiles(zone: Zone): number {
         minLng = Math.min(minLng, p.longitude);
         maxLng = Math.max(maxLng, p.longitude);
       }
-      const diagonalMeters = pointToPointDistanceMeters(
+      return pointToPointDistanceMeters(
         { latitude: minLat, longitude: minLng },
         { latitude: maxLat, longitude: maxLng },
       );
-      return diagonalMeters / 1609.344;
     }
     case 'point':
       return 0;
   }
+}
+
+/**
+ * Longest contiguous stretch of the route that lies in/near the zone.
+ * Used when intrinsic zone length is ~0 (Mapbox point incidents, etc.).
+ */
+function zoneLengthAlongRouteMeters(
+  zone: Zone,
+  routeCoordinates: Coordinate[],
+): number {
+  const samples = routePointsForZoneTest(routeCoordinates);
+  if (samples.length === 0) return 0;
+
+  const hits = samples.map((point) => isPointInZone(point, zone));
+  let bestMeters = 0;
+  let runStart = -1;
+
+  for (let i = 0; i <= hits.length; i++) {
+    const inZone = i < hits.length && hits[i];
+    if (inZone && runStart < 0) {
+      runStart = i;
+    }
+    if ((!inZone || i === hits.length) && runStart >= 0) {
+      const runEnd = i - 1;
+      const runSlice = samples.slice(runStart, runEnd + 1);
+      bestMeters = Math.max(bestMeters, pathLengthMeters(runSlice));
+      runStart = -1;
+    }
+  }
+
+  return bestMeters;
+}
+
+/**
+ * Approximate the on-the-ground length of a zone, in miles. Used by
+ * the En-Route Zone extended-pill and route-hazard detail to surface
+ * "For X mi." / "X mi. along your route" copy.
+ *
+ *   polyline → sum of segment distances (true polyline length).
+ *   polygon  → bounding-box diagonal (order-of-magnitude proxy).
+ *   point    → 0 intrinsic; pass `routeCoordinates` to measure overlap
+ *              along the driven path (Mapbox incidents, pin hazards).
+ */
+export function zoneLengthMiles(
+  zone: Zone,
+  routeCoordinates?: Coordinate[],
+): number {
+  const intrinsicMeters = zoneIntrinsicLengthMeters(zone);
+  let meters = intrinsicMeters;
+
+  if (meters < 80 && routeCoordinates && routeCoordinates.length >= 2) {
+    meters = Math.max(meters, zoneLengthAlongRouteMeters(zone, routeCoordinates));
+  }
+
+  return meters / 1609.344;
 }
 
 /**
@@ -642,6 +683,54 @@ export function nearestPointOnPolyline(
     }
   }
   return best;
+}
+
+/**
+ * Meters from the route start to the nearest point on the polyline to
+ * `point`. Used to order hazard chips along the driven path.
+ */
+export function distanceAlongRouteMeters(
+  point: Coordinate,
+  routeCoordinates: Coordinate[],
+): number {
+  if (routeCoordinates.length === 0) return 0;
+  if (routeCoordinates.length === 1) {
+    return pointToPointDistanceMeters(point, routeCoordinates[0]);
+  }
+
+  const latToMeters = 111000;
+  const lngToMeters = 111000 * Math.cos((point.latitude * Math.PI) / 180);
+
+  let bestDistSq = Infinity;
+  let bestAlong = 0;
+  let cumulative = 0;
+
+  for (let i = 0; i < routeCoordinates.length - 1; i++) {
+    const a = routeCoordinates[i];
+    const b = routeCoordinates[i + 1];
+
+    const px = (point.longitude - a.longitude) * lngToMeters;
+    const py = (point.latitude - a.latitude) * latToMeters;
+    const sx = (b.longitude - a.longitude) * lngToMeters;
+    const sy = (b.latitude - a.latitude) * latToMeters;
+
+    const segLenSq = sx * sx + sy * sy;
+    const segLen = Math.sqrt(segLenSq);
+    const t = segLenSq === 0 ? 0 : Math.max(0, Math.min(1, (px * sx + py * sy) / segLenSq));
+    const cx = sx * t;
+    const cy = sy * t;
+    const dx = px - cx;
+    const dy = py - cy;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      bestAlong = cumulative + segLen * t;
+    }
+    cumulative += segLen;
+  }
+
+  return bestAlong;
 }
 
 function pointToSegmentDistanceMeters(

@@ -219,10 +219,27 @@ const OVERPASS_AROUND_RADIUS_METERS = 1500;
  * Browse mode on /home — no destination yet.
  */
 export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
-  return fetchZonesWithFailover(
+  const zones = await fetchZonesWithFailover(
     buildOverpassQueryAround(center),
     () => getZonesForRegionMock(center),
   );
+  const { storeZonesForAroundTile } = await import('./zone-tile-cache');
+  await storeZonesForAroundTile(center, zones);
+  return zones;
+}
+
+/** Passive tile warm — 8 km `around` sample (metro grid). */
+export async function fetchZonesForTileWarm(center: Coordinate): Promise<Zone[]> {
+  const { ZONE_TILE_RADIUS_M } = await import('../corridor/constants');
+  const {
+    getZonesForAroundFromTiles,
+    storeZonesForAroundTile,
+  } = await import('./zone-tile-cache');
+  const cached = await getZonesForAroundFromTiles(center, ZONE_TILE_RADIUS_M);
+  if (cached) return cached;
+  const zones = await fetchZonesAroundCenter(center, ZONE_TILE_RADIUS_M);
+  await storeZonesForAroundTile(center, zones);
+  return zones;
 }
 
 /**
@@ -270,17 +287,37 @@ async function fetchCorridorSourceSample(
   switch (source) {
     case 'osm-overpass':
       if (request.kind === 'around') {
-        return fetchZonesAroundCenter(request.center, request.radiusMeters);
+        const {
+          getZonesForAroundFromTiles,
+          storeZonesForAroundTile,
+        } = await import('./zone-tile-cache');
+        const cached = await getZonesForAroundFromTiles(
+          request.center,
+          request.radiusMeters,
+        );
+        if (cached) return cached;
+        const zones = await fetchZonesAroundCenter(
+          request.center,
+          request.radiusMeters,
+        );
+        await storeZonesForAroundTile(request.center, zones);
+        return zones;
       }
       {
+        const { getZonesForBboxFromTiles, storeZonesForBboxTiles } =
+          await import('./zone-tile-cache');
+        const cachedBbox = await getZonesForBboxFromTiles(request.bounds);
+        if (cachedBbox) return cachedBbox;
         const query = buildOverpassQueryBbox(request.bounds);
         for (let i = 0; i < OVERPASS_MIRROR_COUNT; i++) {
           try {
-            return await fetchOverpassZones(
+            const zones = await fetchOverpassZones(
               OVERPASS_ENDPOINTS[i],
               query,
               SEGMENT_TIMEOUT_MS,
             );
+            await storeZonesForBboxTiles(request.bounds, zones);
+            return zones;
           } catch {
             // next mirror
           }

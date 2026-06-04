@@ -4,7 +4,11 @@
 // we already fetch in lib/api/routes.ts (same EXPO_PUBLIC_MAPBOX_TOKEN,
 // driving-traffic profile). No second HTTP call.
 
+import { pathLengthMeters } from '../../geo';
 import type { Coordinate, Zone, ZoneType } from '../zones';
+
+/** Minimum span along the route polyline so incident length reads on the pill. */
+const MIN_INCIDENT_SPAN_METERS = 160;
 
 type MapboxLegIncident = {
   id?: string;
@@ -41,15 +45,38 @@ function impactToZoneType(impact?: string, incidentType?: string): ZoneType {
   }
 }
 
+/**
+ * Slice the route polyline for a Mapbox incident span. When start === end
+ * (common), grow the slice along the route until it has a readable length.
+ */
 function sliceRouteCoordinates(
   coordinates: Coordinate[],
   startIdx: number,
   endIdx: number,
 ): Coordinate[] {
   if (coordinates.length === 0) return [];
-  const start = Math.max(0, Math.min(startIdx, coordinates.length - 1));
-  const end = Math.max(start, Math.min(endIdx, coordinates.length - 1));
-  const slice = coordinates.slice(start, end + 1);
+  let start = Math.max(0, Math.min(startIdx, coordinates.length - 1));
+  let end = Math.max(start, Math.min(endIdx, coordinates.length - 1));
+  let slice = coordinates.slice(start, end + 1);
+
+  while (
+    pathLengthMeters(slice) < MIN_INCIDENT_SPAN_METERS &&
+    (start > 0 || end < coordinates.length - 1)
+  ) {
+    if (end < coordinates.length - 1) {
+      end += 1;
+    } else if (start > 0) {
+      start -= 1;
+    } else {
+      break;
+    }
+    slice = coordinates.slice(start, end + 1);
+  }
+
+  if (slice.length < 2 && coordinates.length >= 2) {
+    start = Math.min(start, coordinates.length - 2);
+    return coordinates.slice(start, start + 2);
+  }
   return slice.length > 0 ? slice : [coordinates[start]];
 }
 

@@ -2,12 +2,14 @@ import { useEffect } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 import { X } from 'phosphor-react-native/src/icons/X';
 
 import type { HazardCategory } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -26,20 +28,38 @@ import {
 export function RouteHazardDetailCard({
   category,
   lengthMiles,
+  hazardIndex,
+  hazardCount,
+  onPrevious,
+  onNext,
   onDismiss,
 }: {
   category: HazardCategory;
   lengthMiles: number;
+  hazardIndex: number;
+  hazardCount: number;
+  onPrevious?: () => void;
+  onNext?: () => void;
   onDismiss: () => void;
 }) {
   const router = useRouter();
   const content = routeHazardDetailContent(category);
+  const showPager = hazardCount > 1;
 
   useEffect(() => {
+    const position =
+      showPager ? ` Hazard ${hazardIndex + 1} of ${hazardCount}.` : '';
     AccessibilityInfo.announceForAccessibility(
-      `${content.title}. ${formatRouteHazardLength(lengthMiles)}`,
+      `${content.title}.${position} ${formatRouteHazardLength(lengthMiles)}`,
     );
-  }, [category, content.title, lengthMiles]);
+  }, [
+    category,
+    content.title,
+    hazardCount,
+    hazardIndex,
+    lengthMiles,
+    showPager,
+  ]);
 
   function handleManagePress() {
     onDismiss();
@@ -91,6 +111,60 @@ export function RouteHazardDetailCard({
             </Pressable>
           )}
         </View>
+
+        {showPager && (
+          <View
+            style={styles.pagerRow}
+            accessibilityRole="toolbar"
+            accessibilityLabel={`Navigate hazards on route, ${hazardIndex + 1} of ${hazardCount}`}
+          >
+            <Pressable
+              onPress={onPrevious}
+              disabled={!onPrevious}
+              style={({ pressed }) => [
+                tapTarget44,
+                styles.pagerBtn,
+                pressed && onPrevious ? pressedDim : null,
+                !onPrevious && styles.pagerBtnDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Previous hazard on route"
+              accessibilityState={{ disabled: !onPrevious }}
+            >
+              <CaretLeft
+                size={24}
+                color={onPrevious ? colors.black : colors.labelTertiary}
+                weight="regular"
+              />
+            </Pressable>
+            <Text
+              style={styles.pagerLabel}
+              accessibilityRole="text"
+              accessibilityLabel={`Hazard ${hazardIndex + 1} of ${hazardCount}`}
+            >
+              {hazardIndex + 1} of {hazardCount}
+            </Text>
+            <Pressable
+              onPress={onNext}
+              disabled={!onNext}
+              style={({ pressed }) => [
+                tapTarget44,
+                styles.pagerBtn,
+                pressed && onNext ? pressedDim : null,
+                !onNext && styles.pagerBtnDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Next hazard on route"
+              accessibilityState={{ disabled: !onNext }}
+            >
+              <CaretRight
+                size={24}
+                color={onNext ? colors.black : colors.labelTertiary}
+                weight="regular"
+              />
+            </Pressable>
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -117,6 +191,29 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     flex: 1,
+  },
+  pagerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separatorSubtle,
+    paddingTop: spacing.md,
+  },
+  pagerBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pagerBtnDisabled: {
+    opacity: 0.35,
+  },
+  pagerLabel: {
+    ...dynamicType(typography.subheadlineEmphasized),
+    color: colors.labelSecondary,
+    minWidth: 72,
+    textAlign: 'center',
   },
   bodyWrap: {
     paddingHorizontal: spacing.lg,

@@ -570,9 +570,16 @@ export default function EnRoute() {
       if (!category) return []; // police/landuse/park don't get hazard glyphs
       const anchor = zoneAnchor(zone);
       if (!anchor) return [];
-      return [{ zone, anchor, category, lengthMiles: zoneLengthMiles(zone) }];
+      return [
+        {
+          zone,
+          anchor,
+          category,
+          lengthMiles: zoneLengthMiles(zone, activeRoute?.coordinates),
+        },
+      ];
     });
-  }, [enabledOsmZones]);
+  }, [enabledOsmZones, activeRoute?.coordinates]);
 
   // Which en-route zones the user is currently inside. Used to flip
   // each marker to its Extended pill state. Recomputed on every
