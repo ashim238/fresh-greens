@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
+  enrichAcrossRows,
   getOpenNow,
   getRecommendations,
   getTrustedByCommunity,
@@ -101,7 +102,27 @@ export function useRecommendationsBatch(opts: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowsSig, gridLat, gridLng, refreshKey]);
 
-  return { byKey };
+  // Cross-row enrichment is a DERIVED transform over the raw per-row
+  // results — not stored state — so it re-runs as each row lands
+  // progressively (the fetch loop above sets rows independently as they
+  // resolve; there is no all-rows barrier). A place that's both a
+  // community report and an external listing gets each of its cards
+  // filled from the other across rows. See `enrichAcrossRows`.
+  const enrichedByKey = useMemo(() => {
+    const recsOnly: Record<string, Recommendation[]> = {};
+    for (const [k, v] of Object.entries(byKey)) recsOnly[k] = v.recommendations;
+    const enriched = enrichAcrossRows(recsOnly);
+    const out: Record<string, BrowseRowResult> = {};
+    for (const k of Object.keys(byKey)) {
+      out[k] = {
+        ...byKey[k],
+        recommendations: enriched[k] ?? byKey[k].recommendations,
+      };
+    }
+    return out;
+  }, [byKey]);
+
+  return { byKey: enrichedByKey };
 }
 
 function initialState(rows: BrowseRowSpec[]): Record<string, BrowseRowResult> {

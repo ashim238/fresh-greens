@@ -116,6 +116,14 @@ export type Recommendation = {
    * Undefined everywhere else — the card's default pill is unchanged.
    */
   facets?: string[];
+  /**
+   * Set by cross-row enrichment (`enrichAcrossRows`) on a NON-community
+   * card whose place also appears as a community report in another browse
+   * row — drives the small "Community pick" badge. Undefined on community
+   * cards (already in a community context) and on places with no community
+   * twin.
+   */
+  communityTrusted?: boolean;
 };
 
 // --- Public surface ------------------------------------------------------
@@ -687,6 +695,85 @@ function dedupBySamePlace(recs: Recommendation[]): Recommendation[] {
     if (!kept.some((k) => samePlace(k, rec))) kept.push(rec);
   }
   return kept;
+}
+
+/**
+ * Cross-row enrichment. The browse sheet fetches each row from a separate
+ * adapter (trusted-community / open-now / per-category), so the SAME place
+ * can appear in several rows with each card missing what its twin has — a
+ * community card with no photo/rating, an external card with no community
+ * vouch. This recognizes same-place cards ACROSS rows (via `samePlace`,
+ * the same matcher used within a row) and FILLS each card's missing
+ * optional fields from its twins, WITHOUT removing any card (a place keeps
+ * appearing in every row it qualifies for).
+ *
+ * Fill-if-missing only (`??`, never overwrite) so each card keeps its own
+ * name/categoryLabel and a real `isOpen === false` / `rating === 0` is not
+ * clobbered. `rating` and `reviewCount` are taken from the SAME donor so a
+ * place's star + review counts stay paired. `communityTrusted` is set on
+ * non-community twins of a group that has a community member — it drives
+ * the "Community pick" badge.
+ *
+ * Pure + total: single-member groups pass through untouched; a row absent
+ * from the output never happens (every input row key is reconstructed).
+ */
+export function enrichAcrossRows(
+  byKey: Record<string, Recommendation[]>,
+): Record<string, Recommendation[]> {
+  // 1. Flatten with provenance so we can write enriched recs back in place.
+  type Entry = { rowKey: string; idx: number; rec: Recommendation };
+  const entries: Entry[] = [];
+  for (const [rowKey, recs] of Object.entries(byKey)) {
+    recs.forEach((rec, idx) => entries.push({ rowKey, idx, rec }));
+  }
+
+  // 2. Group by samePlace against each group's fixed first member.
+  const groups: Entry[][] = [];
+  for (const entry of entries) {
+    const group = groups.find((g) => samePlace(g[0].rec, entry.rec));
+    if (group) group.push(entry);
+    else groups.push([entry]);
+  }
+
+  // 3+4. Build a donor pool per multi-member group and fill each member.
+  const out: Record<string, Recommendation[]> = {};
+  for (const rowKey of Object.keys(byKey)) out[rowKey] = byKey[rowKey].slice();
+
+  for (const group of groups) {
+    if (group.length < 2) continue;
+    const members = group.map((e) => e.rec);
+    const withRating = members.find((m) => m.rating != null);
+    const pool = {
+      photoName: members.find((m) => m.photoName != null)?.photoName,
+      rating: withRating?.rating,
+      reviewCount: withRating?.reviewCount,
+      isOpen: members.find((m) => m.isOpen != null)?.isOpen,
+      hoursLabel: members.find((m) => m.hoursLabel != null)?.hoursLabel,
+      priceTier: members.find((m) => m.priceTier != null)?.priceTier,
+      reportDetail: members.find(
+        (m) => m.source === 'community' && m.reportDetail != null,
+      )?.reportDetail,
+      hasCommunity: members.some((m) => m.source === 'community'),
+    };
+    for (const { rowKey, idx, rec } of group) {
+      out[rowKey][idx] = {
+        ...rec,
+        photoName: rec.photoName ?? pool.photoName,
+        rating: rec.rating ?? pool.rating,
+        reviewCount: rec.reviewCount ?? pool.reviewCount,
+        isOpen: rec.isOpen ?? pool.isOpen,
+        hoursLabel: rec.hoursLabel ?? pool.hoursLabel,
+        priceTier: rec.priceTier ?? pool.priceTier,
+        reportDetail: rec.reportDetail ?? pool.reportDetail,
+        communityTrusted:
+          rec.source !== 'community' && pool.hasCommunity
+            ? true
+            : rec.communityTrusted,
+      };
+    }
+  }
+
+  return out;
 }
 
 // --- Curated seed --------------------------------------------------------

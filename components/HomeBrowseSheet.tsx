@@ -972,6 +972,7 @@ function RecommendationCard({
     r.rating != null
       ? `${r.rating.toFixed(1)} stars${r.reviewCount != null ? `, ${r.reviewCount} reviews` : ''}`
       : null,
+    r.communityTrusted ? 'Community pick' : null,
     r.isOpen === true ? 'Open now' : r.isOpen === false ? 'Closed' : null,
     r.hoursLabel,
     r.distanceMiles != null ? formatDistanceAway(r.distanceMiles) : null,
@@ -1072,6 +1073,15 @@ function RecommendationCard({
           <View style={styles.tag}>
             <Text style={styles.tagText} numberOfLines={1}>{categoryPillText}</Text>
           </View>
+          {/* Cross-row enrichment badge: this non-community card's place
+              is also a community report in another browse row. Reuses the
+              openPill's affirmative-green pill (fadedgreen / burntgreen) —
+              same visual token, no parallel style. Set by enrichAcrossRows. */}
+          {r.communityTrusted ? (
+            <View style={styles.openPill}>
+              <Text style={styles.openText}>Community pick</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.tagRow}>
