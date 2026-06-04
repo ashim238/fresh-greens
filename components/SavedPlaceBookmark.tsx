@@ -1,26 +1,20 @@
 import { StyleSheet, View } from 'react-native';
+import { Bookmark } from 'phosphor-react-native/src/icons/Bookmark';
 
-import QuickToolSaved from '../assets/illustrations/quick-tools-saved.svg';
 import { colors } from '../theme/colors';
-
-/** Figma bookmark aspect (14×19). */
-const ASPECT = 19 / 14;
 
 /** Icon box for /search quick tools — matches 24×24 category tiles. */
 export const SAVED_QUICK_TOOL_BOX = 24;
 
 /** Glyph size inside the quick-tool box (not the box itself). */
-const SAVED_QUICK_TOOL_GLYPH = 17;
+const SAVED_QUICK_TOOL_GLYPH = 22;
 
 /**
- * Canonical saved-place bookmark — same glyph as /search's Saved quick
- * tool. Use beside saved destination titles and in saved-place lists
- * instead of freshgreen underline (underline reads as a link, not
- * "saved").
+ * Canonical saved-place bookmark. Phosphor `Bookmark` (not the Figma SVG)
+ * so `fill` weight stays inside the glyph — the exported SVG compound
+ * path bleeds wiltedgreen outside the bookmark silhouette.
  *
- * `selected` fills the bookmark wiltedgreen (brand register, not a
- * reserved safety signal). Decorative quick-tool exception documents
- * the Saved tile's system-color family; this variant stays on-brand.
+ * `selected` → fill weight + wiltedgreen. `default` → outline + black.
  */
 export function SavedPlaceBookmark({
   size = 14,
@@ -32,17 +26,15 @@ export function SavedPlaceBookmark({
   variant?: 'default' | 'selected';
   inQuickToolBox?: boolean;
 }) {
-  const glyphSize = inQuickToolBox ? SAVED_QUICK_TOOL_GLYPH : size;
-  const height = glyphSize * ASPECT;
-  const tint = variant === 'selected' ? colors.wiltedgreen : colors.black;
+  const iconSize = inQuickToolBox ? SAVED_QUICK_TOOL_GLYPH : size;
+  const selected = variant === 'selected';
+  const tint = selected ? colors.wiltedgreen : colors.black;
 
   const glyph = (
-    <QuickToolSaved
-      width={glyphSize}
-      height={height}
+    <Bookmark
+      size={iconSize}
+      weight={selected ? 'fill' : 'regular'}
       color={tint}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
     />
   );
 
@@ -50,16 +42,7 @@ export function SavedPlaceBookmark({
     return glyph;
   }
 
-  return (
-    <View
-      style={[
-        styles.quickToolBox,
-        variant === 'selected' && styles.quickToolBoxSelected,
-      ]}
-    >
-      {glyph}
-    </View>
-  );
+  return <View style={styles.quickToolBox}>{glyph}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -68,9 +51,5 @@ const styles = StyleSheet.create({
     height: SAVED_QUICK_TOOL_BOX,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  quickToolBoxSelected: {
-    backgroundColor: colors.fadedgreen,
-    borderRadius: 8,
   },
 });

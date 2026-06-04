@@ -984,6 +984,10 @@ export default function Search() {
                   star toggles trust without navigating). Sits at the row's
                   trailing edge after the distance; the resultRow gap: 24
                   spaces it from the distance label.
+                  Per-gallon prices intentionally omitted: Mapbox Search Box
+                  (lib/api/places.ts) returns name/address/distance only —
+                  a price column would need a fuel-price API and would crowd
+                  the row beside distance + star.
                 */}
                 {selectedToolId === 'gas' && (
                   <PreferredStar
