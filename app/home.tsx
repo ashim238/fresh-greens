@@ -8,7 +8,21 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, Animated, Dimensions, Easing, LayoutAnimation, Linking, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Easing,
+  LayoutAnimation,
+  Linking,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -73,13 +87,22 @@ import {
   type RouteSource,
   routeColors,
 } from '../lib/api/routes';
+import { saveCorridorZones } from '../lib/api/zone-cache';
 import {
   getZonesForRegion,
+  getZonesForTrip,
   type Coordinate,
   type Zone,
   zoneColors,
   zoneDashPattern,
 } from '../lib/api/zones';
+import {
+  ALL_CLEAR_A11Y_LONG_TRIP,
+  LONG_TRIP_COPY_METERS,
+  LONG_TRIP_FOOTNOTE_COPY,
+  PARTIAL_DEBOUNCE_MS,
+} from '../lib/corridor/constants';
+import { pathLengthMeters } from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
 import {
   arrivalLightLabel,
@@ -370,9 +393,14 @@ export default function Home() {
   // map when fetched. Empty arrays initially → nothing renders → map shows
   // clean until data arrives a moment later. This is the "loading state"
   // without explicit UI.
-  // OSM zones (lit streets, landuse, parks). Refreshed when destination
+  // OSM zones along the trip corridor (origin→destination bbox, refined
+  // to the routed polyline when it lands). Refreshed when destination
   // changes. Hidden by default — they drive scoring invisibly.
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
+  /** OSM fetch along the active trip — gates All-clear vs loading chip. */
+  const [tripZonesStatus, setTripZonesStatus] = useState<
+    'idle' | 'loading' | 'ready'
+  >('idle');
   // Community-submitted point reports. Refreshed every time /home gains
   // focus, so a freshly-submitted report from /report appears
   // immediately when the user closes the modal. Rendered as LandmarkMarkers
@@ -1184,6 +1212,7 @@ export default function Home() {
       setRawRoutes([]);
       setRouteFetchSource(null);
       setIsCalculatingRoute(false);
+      setTripZonesStatus('idle');
     } else {
       // Mark calculating BEFORE awaiting permission/GPS so the route-
       // preview bottom sheet shows LoadingState immediately on
@@ -1191,6 +1220,10 @@ export default function Home() {
       // for the ~1s permission + GPS resolution window). Cleared in
       // the fetch resolve below.
       setIsCalculatingRoute(true);
+      // Drop stale OSM from the prior trip so chips don't read "All
+      // clear" against old geometry while the new corridor loads.
+      setOsmZones([]);
+      setTripZonesStatus('loading');
     }
 
     let cancelled = false;
@@ -1245,9 +1278,9 @@ export default function Home() {
       // immediately when flipped on.
       //
       // Net effect: route polyline appears immediately after OSRM
-      // (often <1s) when a destination IS set; daylight gradient +
-      // scoring refines a beat later when Overpass finishes. Browse
-      // mode shows zero polylines on the map.
+      // (often <1s) when a destination IS set; the gray "Checking
+      // route…" chip runs one corridor Overpass pass (with the
+      // polyline when available). Browse mode shows zero polylines.
       const routePromise = destination
         ? // 'preview' detail (A20): /home only renders a route-preview
           // line + ETA, never turn-by-turn. On long routes this drops
@@ -1255,7 +1288,9 @@ export default function Home() {
           // freeze the JS thread parsing + scoring thousands of points.
           getRoutesBetween(center, destination, { detail: 'preview' })
         : Promise.resolve({ routes: [] as Route[], source: 'mapbox' as const });
-      const zonePromise = getZonesForRegion(center);
+      const browseZonePromise = destination
+        ? null
+        : getZonesForRegion(center);
 
       const fetchedResult = await routePromise;
       if (cancelled) return;
@@ -1290,9 +1325,53 @@ export default function Home() {
         );
       }
 
-      const fetchedZones = await zonePromise;
-      if (cancelled) return;
-      setOsmZones(fetchedZones);
+      if (destination) {
+        // Corridor preview: partial OSM updates while waves run; cache on ready.
+        try {
+          let partialTimer: ReturnType<typeof setTimeout> | null = null;
+          const flushPartial = (zones: Zone[]) => {
+            if (PARTIAL_DEBOUNCE_MS <= 0) {
+              setOsmZones(zones);
+              return;
+            }
+            if (partialTimer) clearTimeout(partialTimer);
+            partialTimer = setTimeout(
+              () => setOsmZones(zones),
+              PARTIAL_DEBOUNCE_MS,
+            );
+          };
+
+          const tripZones = await getZonesForTrip(
+            center,
+            destination,
+            fetchedResult.routes[0]?.coordinates,
+            {
+              mode: 'preview',
+              onPartial: (zones) => flushPartial(zones),
+            },
+          );
+          if (!cancelled) {
+            setOsmZones(tripZones);
+            setTripZonesStatus('ready');
+            const coords = fetchedResult.routes[0]?.coordinates;
+            if (coords && coords.length >= 2) {
+              await saveCorridorZones(tripZones, destination, {
+                pathMeters: pathLengthMeters(coords),
+                routeId: fetchedResult.routes[0]?.id,
+              });
+            }
+          }
+        } catch {
+          if (!cancelled) {
+            setOsmZones([]);
+            setTripZonesStatus('ready');
+          }
+        }
+      } else if (browseZonePromise) {
+        const fetchedZones = await browseZonePromise;
+        if (cancelled) return;
+        setOsmZones(fetchedZones);
+      }
       } catch (err) {
         console.warn('[home] fetchAndCenterOnUser failed:', err);
       } finally {
@@ -2591,21 +2670,25 @@ export default function Home() {
             </View>
           )}
 
-          {recommended && enabledZones.length > 0 && (
+          {recommended && tripZonesStatus !== 'idle' && (
+            <>
             <View style={styles.routeChipsBlock}>
               {/*
-                Two render paths:
-                  - Warnings present → "Along this route:" header
-                    + chips (orange WarningDiamond, briefing register).
-                  - Warnings absent → All-clear chip alone, no header
-                    ("Along this route: All clear" reads bureaucratic
-                    for what should feel like a light exhale).
-                The outer block is gated on enabledZones.length > 0 —
-                without it the All-clear chip flashes during the OSM
-                zone-fetch race, giving false reassurance before the
-                zones have actually arrived.
+                Three render paths:
+                  - OSM corridor still loading → gray "Checking route…"
+                    chip (never All-clear while data is in flight).
+                  - Warnings present → "Along this route:" + orange chips.
+                  - Checks complete, no hazards → All-clear chip alone.
               */}
-              {routeHazardChips.length > 0 ? (
+              {tripZonesStatus === 'loading' ? (
+                <View
+                  style={styles.routeChipsRow}
+                  accessibilityLabel="Checking route for hazards along this path."
+                  accessibilityLiveRegion="polite"
+                >
+                  <RouteZonesLoadingChip />
+                </View>
+              ) : routeHazardChips.length > 0 ? (
                 <>
                   <Text style={styles.routeChipsHeader}>Along this route:</Text>
                   <View
@@ -2633,15 +2716,36 @@ export default function Home() {
                     ))}
                   </View>
                 </>
-              ) : (
+              ) : tripZonesStatus === 'ready' ? (
                 <View
                   style={styles.routeChipsRow}
-                  accessibilityLabel="No reported hazards or flagged zones along this route."
+                  accessibilityLabel={
+                    selectedRoute &&
+                    pathLengthMeters(selectedRoute.coordinates) >
+                      LONG_TRIP_COPY_METERS
+                      ? ALL_CLEAR_A11Y_LONG_TRIP
+                      : 'No reported hazards or flagged zones along this route.'
+                  }
                 >
                   <RouteAllClearChip />
                 </View>
-              )}
+              ) : null}
             </View>
+            {selectedRoute &&
+              pathLengthMeters(selectedRoute.coordinates) >
+                LONG_TRIP_COPY_METERS &&
+              tripZonesStatus === 'ready' && (
+                <Text
+                  style={[
+                    styles.routeChipsFootnote,
+                    dynamicType(typography.footnoteRegular),
+                  ]}
+                  accessibilityRole="text"
+                >
+                  {LONG_TRIP_FOOTNOTE_COPY}
+                </Text>
+              )}
+            </>
           )}
 
           {suggestedDeparture && (
@@ -2996,6 +3100,20 @@ function RouteAllClearChip() {
   );
 }
 
+/** Gray chip while OSM zones for this trip are still loading / refining. */
+function RouteZonesLoadingChip() {
+  return (
+    <View
+      style={styles.routeZonesLoadingChip}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <ActivityIndicator size="small" color={colors.labelSecondary} />
+      <Text style={styles.routeZonesLoadingText}>Checking route…</Text>
+    </View>
+  );
+}
+
 /**
  * Safe-zone chip — renders alongside the orange RouteWarningChips in the
  * "Along this route:" row to surface what's OFFSETTING the visible
@@ -3270,6 +3388,11 @@ const styles = StyleSheet.create({
     // if a new chip type was added without copying the value.
     paddingHorizontal: 24,
   },
+  routeChipsFootnote: {
+    color: colors.labelTertiary,
+    marginTop: 6,
+    paddingHorizontal: 24,
+  },
   routeChipsHeader: {
     // Briefing-framing header above the chips ("Along this route:")
     // — reframes the orange WarningDiamond chips from alarm to
@@ -3357,6 +3480,19 @@ const styles = StyleSheet.create({
     // different palette for the binary watch/clear semantic.
     ...typography.caption1Emphasized,
     color: colors.burntgreen,
+  },
+  routeZonesLoadingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
+    backgroundColor: colors.fillsTertiary,
+  },
+  routeZonesLoadingText: {
+    ...typography.caption1Emphasized,
+    color: colors.labelSecondary,
   },
   daylightBar: {
     height: 4,
