@@ -125,6 +125,22 @@ Audits don't ship features but they reset the baseline — every subsequent feat
 
 Five Claude subagents are installed at `~/.claude/agents/` (user-level, available across all projects). Use them as a review layer woven into the PR rhythm, not a one-off. **Note:** subagent types load at session start — a freshly-installed agent only becomes invokable in the next conversation.
 
+### Subagent-driven implementation (multi-task plans)
+
+When executing a written plan from `docs/superpowers/plans/*.md` (after `writing-plans`), use the **subagent-driven-development** skill in the same session:
+
+1. **Branch** — `feat/<feature>` off `main` before Task 1 (see plan header).
+2. **One implementer subagent per task** — sequential, not parallel implementers (avoids merge conflicts on the same branch).
+3. **Two-stage review after each task** (before starting the next):
+   - **Spec compliance** — diff matches the task + linked spec section; no missing requirements, no unrequested scope.
+   - **`code-reviewer`** — cross-file consistency, dead code, boundaries, a11y on touched UI; use the brief template under `code-reviewer` below and `graphify affected "<symbol>"` for blast radius.
+4. **Fix loops** — if either review finds issues, re-dispatch the implementer (or fix in-session), then re-run the failed review until ✅. Do not start Task N+1 with open review findings.
+5. **Final pass** — after all tasks: one more `code-reviewer` on the full branch diff (plus `mobile-ux-optimizer` if the plan touched screens), then Step 9–10 merge rhythm.
+
+Cursor equivalents: `subagent_type: "generalPurpose"` for implementation tasks; `subagent_type: "code-reviewer"` for per-task and final review. The plan file is the source of truth — paste the full task text into each implementer prompt; do not ask the subagent to read the plan from disk.
+
+**Verification gates from the plan** (e.g. `npx tsc --noEmit`, `node scripts/verify-corridor-planner.mjs`) are part of spec compliance — the implementer runs them before reporting DONE.
+
 ### Cadence
 
 | Trigger | Agent(s) | Run in parallel? |

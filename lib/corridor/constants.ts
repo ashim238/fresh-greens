@@ -54,3 +54,4 @@ export const PARTIAL_DEBOUNCE_MS = 0;
 
 export const CLASSIFY_USE_DENSIFIED_POLYLINE = false;
 export const COMMUNITY_MERGE_AFTER_WAVE = 1;
+export const COMMUNITY_IN_CORRIDOR_CACHE = false;
