@@ -1592,14 +1592,22 @@ export default function Home() {
       {mapRegion && mapSize && (() => {
         // Chrome-aware insets: edge markers shouldn't land under the
         // search bar / menu button stack (top), the Report/Recenter
-        // FAB stack (right), or the bottom sheet. Bottom uses the
-        // measured sheet height + a buffer that clears the FAB
-        // stack above it.
+        // FAB stack (right), or the bottom sheet.
+        //
+        // The EdgeIndicator is a 72×72 box centered on its (x, y), so its
+        // body reaches 36pt past its center toward each edge. Each inset
+        // therefore clears the chrome's reach PLUS that 36pt half —
+        // earlier they cleared only the chrome, so the indicator's CENTER
+        // sat at the chrome edge and its body bled ~36pt into the right
+        // FAB column and ~4pt off the left screen edge (user-flagged
+        // 2026-06-03). The direction math (edgePositionForPoint) already
+        // points the arrow at the POI relative to map center; this only
+        // moves where on the inset rectangle it lands.
         const chromeInsets = {
-          top: 220,          // search bar (~70+56) + menu button (~56+12 gap) + buffer
-          right: 88,         // FAB column right:16 + 56pt width + buffer
-          bottom: (bottomSheetHeight || 0) + 64,
-          left: 32,
+          top: 232,          // search + menu stack (~196) + 36 indicator half
+          right: 112,        // FAB column (to 72 from right) + 36 half + buffer
+          bottom: (bottomSheetHeight || 0) + 64, // sheet + 64 (already > 36 half)
+          left: 44,          // 8 minimal chrome + 36 half — keeps it on-screen
         };
         return (
         <View style={styles.edgeOverlay} pointerEvents="box-none">

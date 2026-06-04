@@ -293,8 +293,15 @@ export function LandmarkMarker({
 
 // Layout per Figma 1133:13418. The frame is **always 96×96** (the
 // selected size) — content renders at native 96-scale by default
-// and unselected state scales the whole frame down to 0.75× (visual
-// 72) from the bottom edge.
+// and unselected state scales the whole frame down to 0.65× (visual
+// ~62; pin ~39×51) from the bottom edge.
+//
+// Why 0.65 and not the Figma-spec 0.75: the destination/finish pin
+// renders its 60×78 teardrop at ~45×58.5, and at 0.75 these report
+// pins matched it exactly — no hierarchy. 0.65 makes the report pins
+// a notch smaller so the finish pin reads as the more important
+// marker (user-flagged 2026-06-03). Selection still pops to native
+// 96-scale, so a tapped pin is emphasized above everything as before.
 //
 // Why the frame doesn't grow on selection: React Native's
 // `transform: scale(...)` scales the rendered pixels but does NOT
@@ -325,7 +332,7 @@ const styles = StyleSheet.create({
   },
   frameUnselected: {
     transformOrigin: 'bottom',
-    transform: [{ scale: 0.75 }],
+    transform: [{ scale: 0.65 }],
   },
   pin: {
     position: 'absolute',
