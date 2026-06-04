@@ -46,3 +46,62 @@ export function distanceToPolylineMeters(
   }
   return min;
 }
+
+/** Total path length along a polyline (sum of segment haversines). */
+export function pathLengthMeters(path: LatLng[]): number {
+  if (path.length < 2) return 0;
+  let total = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    total += haversineMeters(path[i], path[i + 1]);
+  }
+  return total;
+}
+
+/**
+ * Sample points along `path` every `spacingMeters` (plus start/end).
+ * Spacing widens automatically when `maxPoints` would be exceeded — keeps
+ * long-trip zone intersection tests and Overpass anchor sampling bounded.
+ */
+export function sampleAlongPath(
+  path: LatLng[],
+  spacingMeters: number,
+  maxPoints = 16,
+): LatLng[] {
+  if (path.length === 0) return [];
+  if (path.length === 1) return [path[0]];
+
+  const total = pathLengthMeters(path);
+  if (total === 0) return [path[0]];
+
+  const spacing = Math.max(spacingMeters, total / Math.max(1, maxPoints - 1));
+  const samples: LatLng[] = [path[0]];
+  let distanceAlong = 0;
+  let nextSampleAt = spacing;
+
+  for (let i = 0; i < path.length - 1 && samples.length < maxPoints; i++) {
+    const a = path[i];
+    const b = path[i + 1];
+    const segLen = haversineMeters(a, b);
+
+    while (distanceAlong + segLen >= nextSampleAt && samples.length < maxPoints) {
+      const intoSeg = nextSampleAt - distanceAlong;
+      const t = segLen === 0 ? 0 : intoSeg / segLen;
+      samples.push({
+        latitude: a.latitude + t * (b.latitude - a.latitude),
+        longitude: a.longitude + t * (b.longitude - a.longitude),
+      });
+      nextSampleAt += spacing;
+    }
+    distanceAlong += segLen;
+  }
+
+  const end = path[path.length - 1];
+  const last = samples[samples.length - 1];
+  if (
+    last.latitude !== end.latitude ||
+    last.longitude !== end.longitude
+  ) {
+    if (samples.length < maxPoints) samples.push(end);
+  }
+  return samples;
+}
