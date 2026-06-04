@@ -192,19 +192,25 @@ export default function SafetyModal() {
         </View>
 
         <View style={styles.grid}>
-          {TABS.map((tab) => (
-            <Pressable
-              key={tab.id}
-              style={({ pressed }) => [styles.tab, pressed && pressedDim]}
-              onPress={() => handleTabPress(tab)}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-            >
-              <View style={styles.tabIcon}>
-                <tab.Icon width={48} height={48} />
-              </View>
-              <Text style={styles.tabLabel}>{tab.label}</Text>
-            </Pressable>
+          {/* Two tiles per row, flex-stretched — same grid contract as
+              /report's category picker (gridRow + flex:1 tiles). */}
+          {[0, 2].map((rowStart) => (
+            <View style={styles.gridRow} key={rowStart}>
+              {TABS.slice(rowStart, rowStart + 2).map((tab) => (
+                <Pressable
+                  key={tab.id}
+                  style={({ pressed }) => [styles.tab, pressed && pressedDim]}
+                  onPress={() => handleTabPress(tab)}
+                  accessibilityRole="button"
+                  accessibilityLabel={tab.label}
+                >
+                  <View style={styles.tabIcon}>
+                    <tab.Icon width={48} height={48} />
+                  </View>
+                  <Text style={styles.tabLabel}>{tab.label}</Text>
+                </Pressable>
+              ))}
+            </View>
           ))}
         </View>
 
@@ -305,16 +311,18 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
   },
   grid: {
+    // Matches /report picker: 24pt between rows (popup gap-24).
+    gap: spacing.lg,
+  },
+  gridRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 32,
-    justifyContent: 'center',
+    gap: spacing.lg,
   },
   tab: {
-    // v2 spec: 139.5pt fixed width. Two tiles per row + 32pt gap fits
-    // an iPhone with the 24pt outer gutter (24 + 139.5 + 32 + 139.5 +
-    // 24 = 359, under 390 baseline width — slight extra breathing room).
-    width: 140,
+    // flex:1 fills the row between the 24pt side gutters — same as
+    // report.tsx `styles.tile` (max width per column, not fixed 140pt).
+    flex: 1,
+    minWidth: 0,
     gap: 8,
     alignItems: 'center',
   },
