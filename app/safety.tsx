@@ -173,10 +173,14 @@ export default function SafetyModal() {
             vertical stack with gap-16.
 
             Uses the canonical navy duotone shield from
-            `sidebtn-safety.svg` — the same glyph that lives on
-            /en-route's safety FAB and the /menu Safety row. Same
-            iconography across surfaces signals "safety affordance"
-            consistently per `.cursorrules` reserved-color rule #6.
+            `sidebtn-safety.svg` (Figma 825:3754) — the SAME SVG the
+            /en-route safety FAB renders, so the button and the modal it
+            opens match. (The /menu Safety row uses the Phosphor `Shield`
+            in black — the monochrome settings-row register, a deliberately
+            different treatment, not this colored safety-affordance glyph.)
+            Same iconography across the safety-affordance surfaces signals
+            "safety affordance" consistently per `.cursorrules` reserved-
+            color rule #6.
           */}
           <View style={styles.iconBox}>
             <SidebtnSafety width={32} height={32} accessible={false} />

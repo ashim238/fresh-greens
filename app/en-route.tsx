@@ -22,7 +22,6 @@ import { ArrowsMerge } from 'phosphor-react-native/src/icons/ArrowsMerge';
 import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
-import { Shield } from 'phosphor-react-native/src/icons/Shield';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
 import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
@@ -35,6 +34,13 @@ import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
 // fitting the acute emergency control.
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
+// Canonical navy duotone shield (Figma 825:3754, .cursorrules carve-out
+// #6). This is THE safety-affordance glyph — the same SVG the /safety
+// modal header renders — so the side button and the modal it opens match.
+// Earlier this slot used the Phosphor `Shield` (different shield shape +
+// a navy-tint duotone fill, not the canonical light-blue), which drifted
+// from the modal; realigned 2026-06-03.
+import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
 import SidebtnSos from '../assets/illustrations/sidebtn-sos.svg';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
@@ -1646,10 +1652,11 @@ export default function EnRoute() {
             Volume sits at the top of the column — set-once auxiliary,
             so it goes furthest from the thumb-resting Center button at
             the bottom. Same 56pt pill as the other four so the column
-            reads as a uniform stack. All glyphs are canonical Figma
-            SVGs from `assets/illustrations/sidebtn-*.svg`. Shield is
-            still Phosphor — the documented canonical safety-affordance
-            (navy duotone) and matches /menu's Safety row register.
+            reads as a uniform stack. All glyphs are canonical Figma SVGs
+            from `assets/illustrations/sidebtn-*.svg` — including the
+            Safety shield (sidebtn-safety.svg), which now matches the
+            glyph in the /safety modal it opens (was Phosphor Shield,
+            realigned 2026-06-03).
           */}
           {/*
             SOS — the direct, one-tap path to the /emergency surface
@@ -1682,7 +1689,7 @@ export default function EnRoute() {
             accessibilityLabel="Open safety menu"
             accessibilityHint="Opens the safety menu — pulled-over, roadside, unfamiliar area, share location"
           >
-            <Shield size={32} color={colors.navy} weight="duotone" />
+            <SidebtnSafety width={32} height={32} />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"
