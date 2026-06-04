@@ -7,7 +7,15 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Alert,
+  AppState,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BatteryCharging } from 'phosphor-react-native/src/icons/BatteryCharging';
@@ -88,14 +96,25 @@ import {
   routeColors,
 } from '../lib/api/routes';
 import { clearActiveRoute } from '../lib/api/route-cache';
-import { clearCorridorZones } from '../lib/api/zone-cache';
+import {
+  clearCorridorZones,
+  loadCorridorZones,
+  saveCorridorZones,
+} from '../lib/api/zone-cache';
 import { type Place } from '../lib/api/places';
 import {
-  getZonesForRegion,
+  getZonesForTrip,
+  type Coordinate,
   type Zone,
   zoneColors,
   zoneDashPattern,
 } from '../lib/api/zones';
+import {
+  NAV_MIN_MOVE_METERS,
+  NAV_ROLL_INTERVAL_MS,
+  NAV_ROLL_WHEN_BACKGROUNDED,
+} from '../lib/corridor/constants';
+import { haversineMeters, pathLengthMeters } from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
 import { DAYLIGHT_DASH_PATTERN, gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
@@ -303,6 +322,15 @@ export default function EnRoute() {
   const showZones = preferences?.showZones ?? false;
 
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
+  const osmZonesRef = useRef<Zone[]>([]);
+  const fetchedAlongRef = useRef<{ startM: number; endM: number }[]>([]);
+  const lastRollAtRef = useRef(0);
+  const lastRollLocRef = useRef<Coordinate | null>(null);
+  const navRollInFlightRef = useRef(false);
+
+  useEffect(() => {
+    osmZonesRef.current = osmZones;
+  }, [osmZones]);
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
   // Provenance of the rendered routes — drives the "Offline route" /
@@ -1013,38 +1041,56 @@ export default function EnRoute() {
               longitude: center.longitude + 0.01,
             };
 
-      // Independent fetches — route resolves in ~1–2s, zones can
-      // take up to 12s on Overpass timeout. Earlier version awaited
-      // both atomically (Promise.allSettled) to avoid a mid-trip
-      // flicker when zones landed and MapKit re-evaluated every
-      // overlay; the trade-off was a worst-case 12-second blank
-      // route, which a thesis-defense reviewer would catch
-      // immediately and assume the navigation is broken.
-      //
-      // Now: route renders the moment it resolves. Zones land
-      // when they're ready (or never, if Overpass times out). The
-      // marker flicker on zone-arrival is the lesser evil — it's
-      // a sub-second visual blip; the 12s blank route was a sign
-      // of complete failure.
+      // Corridor handoff: hydrate /home preview cache first so Go
+      // doesn't replay a full preview Overpass pass. Routes still
+      // resolve independently (~1–2s); preview only runs on cache miss
+      // once route geometry exists.
+      fetchedAlongRef.current = [];
+      lastRollAtRef.current = 0;
+      lastRollLocRef.current = null;
+
+      const cached = await loadCorridorZones(destination);
+      if (cached && !cancelled) {
+        setOsmZones(cached.zones);
+      }
+      const needsPreview = !cached;
+
       getRoutesBetween(center, destination)
-        .then(({ routes, source, cacheAgeMs: ageMs }) => {
+        .then(async ({ routes, source, cacheAgeMs: ageMs }) => {
           if (cancelled) return;
           setRawRoutes(routes);
           setRouteSource(source);
           setCacheAgeMs(ageMs ?? null);
+
+          const coords = routes[0]?.coordinates;
+          if (
+            !needsPreview ||
+            !coords ||
+            coords.length < 2
+          ) {
+            return;
+          }
+          try {
+            const zones = await getZonesForTrip(
+              center,
+              destination,
+              coords,
+              { mode: 'preview' },
+            );
+            if (cancelled) return;
+            setOsmZones(zones);
+            await saveCorridorZones(zones, destination, {
+              pathMeters: pathLengthMeters(coords),
+              routeId: routes[0]?.id,
+            });
+          } catch {
+            // Overpass timeout / network fail → keep cache or empty.
+          }
         })
         .catch(() => {
           // Silent failure → route polyline stays empty; the
           // destination marker + car marker still render. /home
           // already filters this branch out before navigating.
-        });
-      getZonesForRegion(center)
-        .then((zones) => {
-          if (!cancelled) setOsmZones(zones);
-        })
-        .catch(() => {
-          // Overpass timeout / network fail → no scoring overlays.
-          // Scoring still works against an empty zones array.
         });
     }
 
@@ -1053,6 +1099,71 @@ export default function EnRoute() {
       cancelled = true;
     };
   }, [params.destLat, params.destLng]);
+
+  // Throttled navigation corridor rolls — extend OSM ahead of GPS
+  // without replaying the full preview budget each tick.
+  useEffect(() => {
+    if (!userLocation) return;
+    const route = activeRoute;
+    if (!route?.coordinates || route.coordinates.length < 2) return;
+    if (!params.destLat || !params.destLng) return;
+
+    const destination: Coordinate = {
+      latitude: parseFloat(params.destLat),
+      longitude: parseFloat(params.destLng),
+    };
+    if (Number.isNaN(destination.latitude) || Number.isNaN(destination.longitude)) {
+      return;
+    }
+
+    if (!NAV_ROLL_WHEN_BACKGROUNDED && AppState.currentState !== 'active') return;
+
+    const now = Date.now();
+    if (now - lastRollAtRef.current < NAV_ROLL_INTERVAL_MS) return;
+    if (
+      lastRollLocRef.current &&
+      haversineMeters(lastRollLocRef.current, userLocation) < NAV_MIN_MOVE_METERS
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      if (navRollInFlightRef.current) return;
+      navRollInFlightRef.current = true;
+      try {
+        const merged = await getZonesForTrip(
+          userLocation,
+          destination,
+          route.coordinates,
+          {
+            mode: 'navigation',
+            userLocation,
+            priorZones: osmZonesRef.current,
+            fetchedAlong: fetchedAlongRef.current,
+          },
+        );
+        if (cancelled) return;
+        setOsmZones(merged);
+        lastRollAtRef.current = now;
+        lastRollLocRef.current = userLocation;
+      } catch {
+        // Keep prior zones on roll failure.
+      } finally {
+        navRollInFlightRef.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    userLocation,
+    activeRoute?.id,
+    activeRoute?.coordinates,
+    params.destLat,
+    params.destLng,
+  ]);
 
   // Silent background refresh — when running on the OSRM fallback,
   // cached data, or the mock catastrophe-fallback, poll the routing
