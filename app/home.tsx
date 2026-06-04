@@ -136,6 +136,41 @@ const ROUTE_HAZARD_LABEL: Record<RouteHazardType, readonly [string, string]> = {
   road: ['road condition', 'road conditions'],
 };
 
+// Safe-zone chips charted ALONGSIDE hazards on the route-preview card,
+// in display order. These surface the *offset* against the visible
+// hazards — the algorithm sums hazards (negative) and safe zones
+// (positive) into one net score, but only the negatives showed on the
+// chip row, making the recommendation feel wrong when a hazard-heavier
+// route won via more safe-tagged streets (user-flagged 2026-06-04:
+// "why is the route with 2 community flags the safest"). The two safe
+// signals are deliberately distinct: 'lit street' is an OSM lighting
+// signal (lit=yes / 24-7 / automatic); 'residential' is Jane Jacobs'
+// eyes-on-street theory rendered as the OSM landuse=residential tag.
+// Only renders when hazards are present (the All-clear chip alone
+// holds for genuinely-clear routes).
+const ROUTE_SAFE_ORDER = ['litStreet', 'residential'] as const;
+type RouteSafeType = (typeof ROUTE_SAFE_ORDER)[number];
+
+const ROUTE_SAFE_LABEL: Record<RouteSafeType, readonly [string, string]> = {
+  litStreet: ['lit street', 'lit streets'],
+  residential: ['residential block', 'residential blocks'],
+};
+
+/**
+ * Which safe chip a zone contributes to, or null if the zone isn't a
+ * charted safe signal. The two we surface are the same `safe`-typed
+ * zones that contribute the +2 to scoreRoute — lit streets (lighting
+ * + safe) and residential landuse (landuse + safe). Felt-welcome /
+ * black-owned community-report safes aren't charted here: those land
+ * as the orange eye / heart pins on the map, not as route-level chips.
+ */
+function routeSafeType(zone: Zone): RouteSafeType | null {
+  if (zone.type !== 'safe') return null;
+  if (zone.category === 'lighting') return 'litStreet';
+  if (zone.category === 'landuse') return 'residential';
+  return null;
+}
+
 /**
  * Which hazard chip a zone contributes to, or null if it's not a charted
  * hazard. Safe-typed zones (lit=yes, felt-welcome, black-owned, residential
@@ -669,6 +704,29 @@ export default function Home() {
     return ROUTE_HAZARD_ORDER.filter((t) => (counts[t] ?? 0) > 0).map((t) => {
       const count = counts[t];
       return { type: t, count, label: count === 1 ? ROUTE_HAZARD_LABEL[t][0] : ROUTE_HAZARD_LABEL[t][1] };
+    });
+  }, [selectedRoute, enabledZones]);
+
+  // Safe-zone chips — the OFFSET that the hazards score against. Same
+  // routePassesZone predicate as the chips + score, counted ONCE per
+  // distinct safe zone (NOT per waypoint — "Franklin passes 27 waypoints
+  // in lit zones" is meaningless; "Franklin passes 3 lit-street
+  // stretches" is intelligible). Only computed when hazards are present
+  // (the caller skips rendering otherwise — All-clear alone is the
+  // clean state for a truly-clear route, and showing safe counts there
+  // would clutter without serving the "why" question this surfaces).
+  const routeSafeChips = useMemo(() => {
+    if (!selectedRoute) return [] as { type: RouteSafeType; count: number; label: string }[];
+    const counts = {} as Record<RouteSafeType, number>;
+    for (const zone of enabledZones) {
+      const type = routeSafeType(zone);
+      if (!type) continue;
+      if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    return ROUTE_SAFE_ORDER.filter((t) => (counts[t] ?? 0) > 0).map((t) => {
+      const count = counts[t];
+      return { type: t, count, label: count === 1 ? ROUTE_SAFE_LABEL[t][0] : ROUTE_SAFE_LABEL[t][1] };
     });
   }, [selectedRoute, enabledZones]);
 
@@ -2370,13 +2428,26 @@ export default function Home() {
                   <Text style={styles.routeChipsHeader}>Along this route:</Text>
                   <View
                     style={styles.routeChipsRow}
-                    accessibilityLabel={routeHazardChips
-                      .map((c) => `${c.count} ${c.label}`)
+                    // Hazards then safes in one sentence — VoiceOver gets
+                    // the full picture instead of just the negative half.
+                    accessibilityLabel={[
+                      ...routeHazardChips.map((c) => `${c.count} ${c.label}`),
+                      ...routeSafeChips.map((c) => `${c.count} ${c.label}`),
+                    ]
                       .join(', ')
                       .concat(' along this route.')}
                   >
                     {routeHazardChips.map((c) => (
                       <RouteWarningChip key={c.type} count={c.count} label={c.label} />
+                    ))}
+                    {/* Safe-zone chips render AFTER the hazards — they're
+                        the offset that lets a hazard-heavier route win on
+                        net score (e.g. Franklin Ave's many lit-street
+                        stretches outweigh its 2 community flags). Showing
+                        the negative half alone made the recommendation
+                        feel wrong (user-flagged 2026-06-04). */}
+                    {routeSafeChips.map((c) => (
+                      <RouteSafeChip key={c.type} count={c.count} label={c.label} />
                     ))}
                   </View>
                 </>
@@ -2705,6 +2776,26 @@ function RouteAllClearChip() {
       {/* H4: 24pt → 16pt to match RouteWarningChip icon sizing. */}
       <Check size={16} color={colors.burntgreen} weight="bold" />
       <Text style={styles.routeAllClearText}>All clear</Text>
+    </View>
+  );
+}
+
+/**
+ * Safe-zone chip — renders alongside the orange RouteWarningChips in the
+ * "Along this route:" row to surface what's OFFSETTING the visible
+ * hazards (lit streets the route passes, residential blocks, etc.).
+ * Same fadedgreen/burntgreen safety-affirmative register as
+ * RouteAllClearChip, distinguished from the warning chips by color (not
+ * shape) and by a smaller Check glyph matching the family's 16pt icon
+ * scale. Visually says "this counts FOR the route's safety."
+ */
+function RouteSafeChip({ count, label }: { count: number; label: string }) {
+  return (
+    <View style={styles.routeAllClearChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Check size={16} color={colors.burntgreen} weight="bold" />
+      <Text style={styles.routeAllClearText}>
+        {count} {label}
+      </Text>
     </View>
   );
 }
