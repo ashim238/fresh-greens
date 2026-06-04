@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // note on why we bypass the package's barrel index.
@@ -44,9 +44,7 @@ import { type Variant, variantForCategoryId } from './LandmarkMarker';
  *   - The "8 min / Move" CTA pair is omitted. Community reports are
  *     informational, not navigable destinations — neither CTA maps to
  *     a real action for a report-tap intent.
- *   - The Share FAB is rendered for chrome fidelity but stays a no-op
- *     until a real share path lands (queued under safety/community
- *     follow-ups). The "Coming soon" hint is honest about that.
+ *   - Share FAB opens the system share sheet with a plain-text summary.
  */
 
 const BG_FOR_VARIANT: Record<Variant, typeof BgReport> = {
@@ -136,6 +134,20 @@ export function ReportDetailCard({
       ? `${subTag} · ${relativeTime(timestamp)}`
       : relativeTime(timestamp);
 
+  async function handleShare() {
+    const lines = [
+      `Fresh Greens community report`,
+      title,
+      subline,
+      detail?.trim(),
+    ].filter((line): line is string => Boolean(line && line.length > 0));
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch (err) {
+      console.warn('ReportDetailCard share failed', err);
+    }
+  }
+
   return (
     <Pressable
       style={styles.scrim}
@@ -163,7 +175,11 @@ export function ReportDetailCard({
         <View style={styles.headerRow}>
           <FloatingActionButton
             size="48"
-            accessibilityLabel="Share this report (coming soon)"
+            onPress={() => {
+              void handleShare();
+            }}
+            accessibilityLabel="Share this report"
+            accessibilityHint="Opens the system share sheet"
           >
             <Export size={24} color={colors.labelSecondary} weight="regular" />
           </FloatingActionButton>
