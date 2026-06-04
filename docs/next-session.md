@@ -8,6 +8,15 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 
 **Decorated variants to LEAVE local** (have `borderRadius` / `backgroundColor` beyond the bare shape): `app/emergency.tsx:598` `stopChrome`, `app/home.tsx:3009` `routeClearBtn`, `app/trip-summary.tsx:410`. If a second token like `tapTarget44Circle` (44pt + `borderRadius:22` + neutral fill) ever gets extracted, these three are its consumers — but not yet (rule-of-three on the circular variant isn't hit).
 
+## Session arc closures (2026-06-04)
+
+Shipped on `main` from the map-sheet / gas-prices / hazard-marker session. Strike-through for grep; supersede any overlapping open bullets elsewhere.
+
+- ~~**Gas search demo prices**~~ — ✅ shipped on `main` (`f26d3bd` adapter, `ad314e2` /search, `bae0b11` fuel sheet, `51cbea6` docs). `enrichPlacesWithFuelPrices` after Mapbox search; demo footnote when `source === 'demo'`.
+- ~~**On-route hazard markers on /home route-preview + zoom remount**~~ — ✅ shipped (`9555bda` / `f770a15` yellow `EnRouteZone` pins + `RouteHazardDetailCard`; `2b8f537` + `e4968c3` `markerSnapshotEpoch` from `latitudeDelta` so markers re-render on zoom).
+- ~~**Fuel sheet tap → mid-trip reroute**~~ — ✅ shipped `70a57e7`. Tap stop uses `router.setParams({ destLat, destLng, destName })`; existing route refetch effect; sheet closes.
+- ~~**Map-sheet gray area**~~ — ✅ shipped `f770a15` (± `c68ab0f` bookmark tint). Report/hazard/fuel pin taps + detail cards on `/home` and `/en-route`; ReportDetailCard "Why this route" link; `FuelStopMarker` on map.
+
 ## Connect-calendar (Plan 2) — deferred minors + verification gate (2026-06-01)
 
 Shipped via subagent-driven development. Final-review minors, non-blocking (the one Important — /menu tile cold-load flash — was fixed in `4e19ec4`):
@@ -26,7 +35,7 @@ Final-review minors, non-blocking (the one Important — SettingsRow value/label
 - **`/menu` onClose uses `router.back()` vs children's `router.replace('/home')`.** Works today (menu is always entered via push from /home), but for symmetry + resilience-against-a-second-entry-point, consider aligning menu's onClose to `router.replace('/home')`.
 - **RowGroup Fragment index keys.** Rows keyed by array index inside RowGroup; fine for static groups, and `/saved-places`' dynamic rows are mitigated by `SavedPlaceRow`'s own `key={place.id}`. Revisit only if RowGroup ever hosts stateful dynamic children directly.
 - **RowGroup separator inset assumes icon-bearing rows.** Icon-less groups (e.g. `/zone-preferences` toggles, `/fuel` Reminder group) get a separator inset past where the label starts. Accepted per the primitive's comment; revisit if it reads off in the simulator.
-- **Settings register = Plan 1 of 2.** Plan 2 (Connect-calendar feature: expo-calendar dep, 2 adapters, 2 hooks, /search Upcoming section, pick-sheet, carousel 2nd tile) is specced in `docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md` — write its plan + execute after this lands + simulator-verifies.
+- ~~**Settings register = Plan 1 of 2.** Plan 2 (Connect-calendar feature: expo-calendar dep, 2 adapters, 2 hooks, /search Upcoming section, pick-sheet, carousel 2nd tile) is specced in `docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md` — write its plan + execute after this lands + simulator-verifies.~~ — ✅ **Done (2026-06-04).** Plan 2 shipped in the Connect-calendar arc (section above); core path verified on-device 2026-06-02. Remaining work is deferred minors only, not "write plan + execute."
 
 ## Zone-overlay tap-info — post-merge follow-ups (2026-06-01)
 
@@ -102,7 +111,7 @@ Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): 
 
 ## New features
 
-- **Connect-calendar Quick Tile (cut at v1)** — `/menu`'s Quick Tiles carousel originally had a second tile per Figma 1120:7079 — "Connect calendar / Get to events safely and on time" — that linked to a not-yet-built integration. Cut from `QUICK_TILES` in `feat/phase-1-wrapup` because the underlying feature doesn't exist; restore the tile when the calendar-connect feature actually ships.
+- ~~**Connect-calendar Quick Tile (cut at v1)**~~ — **stale (2026-06-04).** Calendar connect shipped (Plan 2 above); the v1 cut is outdated. Restore the Figma `1120:7079` tile in `/menu`'s progressive setup carousel when next touching menu — integration exists, tile was never re-added after phase-1 wrapup.
 - **En-route search** — currently the search bar is /home-only; /en-route has no search affordance. Add a way to change destination mid-trip without backing out to /home.
 - **Turn card "Then" arrow uses the actual next-next maneuver** — `app/en-route.tsx:1462` currently hardcodes `ArrowBendUpRight` because we weren't using the OSRM step N+1 kind. The data is available (`rawSteps[currentStepIdx + 1]?.kind`); a one-line `maneuverIcon(nextNext?.kind, 20, colors.fadedgreen)` swap would make the footer accurately preview the next-next turn. Out of scope for the polish pass (turn-card audit was AX5-focused); ship as a small follow-up when next touching turn-step logic.
 - ~~**Trip summary screen**~~ — shipped (C12: `app/trip-summary.tsx` — arrival inference-validation + "set as default" regular-destination flow).
