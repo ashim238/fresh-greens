@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat(cross-row-enrichment) + fix(en-route polylines): "dedup" is one of three answers, and a fix that doesn't reach sibling screens is an altitude miss
+
+Shipped `44202e0` (cross-row enrichment) + `993af1b` (en-route leak fix, caught by the /code-review pass). Three takeaways:
+
+**When the same entity shows up in multiple views, "should we dedup?" has THREE answers, not two.** The bug report was "the app shows Sisters twice and doesn't recognize it's the same place." The instinct is binary: dedup (show once) or leave (show twice). But the right answer here was the third option — **keep-in-both + cross-fill**: the place stays in every row it qualifies for (each row answers a different question — "your community trusts it" vs "it's open now"), but the rows recognize each other and each card borrows what its twin has (the community card gains the Google photo/rating; the external card gains the community quote + a "Community pick" badge). Removing the duplicate would have destroyed information (which rows it qualifies for); merging blindly would have clobbered each card's reason for existing. The general lesson: before reaching for dedup when an entity appears N times, ask whether the duplicates are *redundant* (dedup) or *each meaningful in their own context* (enrich-keep-both). The samePlace identity primitive is now used a FOURTH time (within-row dedup, trusted-row grouping, AND cross-row enrichment) — it's firmly the codebase's place-identity primitive.
+
+**Cross-cutting enrichment belongs as a derived transform over raw state, not a new fetch/barrier — that's what preserves progressive loading.** The browse rows load progressively (each row's adapter resolves independently and sets its slice of state as it lands). The naive way to add cross-row enrichment is "wait for all rows, then enrich, then show" — which would have collapsed progressive loading into one slow all-at-once render. Instead, enrichment is a `useMemo` that derives the enriched view from the raw per-row state and re-runs as each row lands. Raw fetch results stay the source of truth; enrichment is a pure projection. General rule: when you add an aggregation that spans independently-loading pieces, make it a derived projection over their union, not a synchronization point — you keep the incremental UX and the aggregation self-heals as more data arrives.
+
+**A fix applied to one screen but not its siblings is an altitude miss — and exactly what the review caught.** I fixed the react-native-maps Polyline-overlay-leak in /home (stable-keyed all-segments recolor) but left /en-route on the old shape-shifting structure — and en-route has its own "Compare routes" switcher, so the SAME leak was live there. The max-effort /code-review's altitude angle flagged it (the one finding that was a real user-facing bug, not a nit). The lesson reinforces the marker-fix learnings below: when you fix a *pattern* (not a one-off), grep for the pattern across sibling screens in the SAME change — /home and /en-route share the route-polyline rendering shape, so they should share the fix. The review is the backstop, but "grep the sibling screens" should have been the reflex at write-time.
+
+---
+
 ## feat(recommendations): name+proximity identity is now a 3× pattern, and "dedup" that drops data should accumulate it
 
 Shipped across `e8423c9` (samePlace dedup), `359748f` (vouch facets), `e38d486` (combined card label). Two durable takeaways:
