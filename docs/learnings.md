@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## code-review fixes: when two fixes conflict, split the computation; accumulate KEYS not display strings; and "no change" is a valid review resolution
+
+Working through the max-effort /code-review findings (`993af1b` en-route leak, the `#2+#5` facet refactor, the `#4` segmentation-memo split). Three takeaways:
+
+**When two review fixes pull in opposite directions, the answer is usually to SEPARATE the shared computation — not to revert either.** The leak fix (#1) required every route to be structurally segmented with stable keys (so a switch recolors in place instead of churning overlays). The perf fix (#4) wanted to NOT run gradientSegments (SunCalc) for non-selected routes. These look mutually exclusive — you can't both "segment every route" and "don't segment alternates." The resolution wasn't a compromise on either: it was to notice that the EXPENSIVE part (daylight segmentation) is selection-INDEPENDENT, and pull it into its own memo keyed on `[routes, cloudCoverPct]`. The selection-DEPENDENT part (coloring) stays in a second memo keyed on the selection. Now every route is always segmented (leak-safe) AND a switch never re-runs SunCalc (perf-safe). General pattern: when a "structure must be stable" constraint fights a "don't recompute" constraint, factor the work into a stable selection-independent layer + a cheap selection-dependent projection. The conflict was an illusion created by doing both in one memo.
+
+**Accumulate identity KEYS, not display strings, when the aggregate needs to be sorted or drive other decisions.** The facet bug (#5 ordering, #2 glyph mismatch) traced to one root cause: the Trusted card accumulated vouch LABEL strings ("Black-owned") in a Set. Strings can't be canonically ordered without a parallel lookup, and they can't tell you which CATEGORY to pick for the glyph. Switching the accumulation to a `VouchKey` (the category enum + a 'felt-welcome' sentinel) fixed BOTH at once: sort the keys by a canonical `VOUCH_ORDER` (deterministic label), and derive the glyph category from the leading key (glyph matches facets[0]). Lesson: when you're collecting things that will later be sorted, deduped, or mapped to other representations, collect the KEY/ID, not the already-rendered display string — derive the display at the edge. Display strings are a one-way street.
+
+**"Reviewed, no change, here's why" is a legitimate resolution — not every finding is a code change.** Two of the six findings resolved without edits: the "three parallel category→label maps" (#6) are intentionally different registers — same keys, deliberately different VALUES (fallback names / vouch pills / chip titles) — so merging would be semantically wrong, and TypeScript already binds the keys (`Record<RecommendationCategory, …>`), so a rename can't drift. And the always-track-on-en-route perf concern (#3) was kept on purpose: a static SVG marker's always-track cost is near-zero at steady state, and snapshot-once would reintroduce the eviction-vanish bug on manual zoom mid-trip. The discipline: a review finding earns either a fix OR a documented reason it's correct as-is — but the reason has to be real (semantic distinctness, a worse failure mode avoided), not "I don't feel like it."
+
+---
+
 ## feat(cross-row-enrichment) + fix(en-route polylines): "dedup" is one of three answers, and a fix that doesn't reach sibling screens is an altitude miss
 
 Shipped `44202e0` (cross-row enrichment) + `993af1b` (en-route leak fix, caught by the /code-review pass). Three takeaways:
