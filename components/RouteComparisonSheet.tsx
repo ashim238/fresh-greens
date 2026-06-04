@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ComponentType } from 'react';
 
 import { CheckCircle } from 'phosphor-react-native/src/icons/CheckCircle';
+import { Flag } from 'phosphor-react-native/src/icons/Flag';
 import { Moon } from 'phosphor-react-native/src/icons/Moon';
 import { PawPrint } from 'phosphor-react-native/src/icons/PawPrint';
 import { ShieldStar } from 'phosphor-react-native/src/icons/ShieldStar';
@@ -29,6 +30,7 @@ export type ComparisonRow = {
 type PhosphorIcon = ComponentType<{ size?: number; color?: string; weight?: 'regular' | 'bold' | 'fill' | 'duotone' | 'thin' | 'light' }>;
 
 const CONDITION_META: Record<RouteCondition, { label: string; Icon: PhosphorIcon }> = {
+  community: { label: 'Community flag', Icon: Flag },
   'low-light': { label: 'Low light', Icon: Moon },
   wildlife: { label: 'Wildlife', Icon: PawPrint },
   police: { label: 'Police', Icon: ShieldStar },

@@ -104,6 +104,53 @@ import { typography } from '../theme/typography';
 // user flips it in Settings; the zone data still drives scoring even
 // when overlays are hidden.
 
+// Hazard chip types charted on the route-preview card, in display order.
+// `community` leads — a community "someone felt unsafe HERE" is the most
+// directly relevant signal (the thesis claim), then the OSM-derived ones.
+// "All clear" shows only when a route passes NONE of these.
+const ROUTE_HAZARD_ORDER = [
+  'community',
+  'police',
+  'lowLight',
+  'wildlife',
+  'road',
+] as const;
+type RouteHazardType = (typeof ROUTE_HAZARD_ORDER)[number];
+
+// [singular, plural] chip labels per hazard type.
+const ROUTE_HAZARD_LABEL: Record<RouteHazardType, readonly [string, string]> = {
+  community: ['community flag', 'community flags'],
+  police: ['police zone', 'police zones'],
+  lowLight: ['low light zone', 'low light zones'],
+  wildlife: ['wildlife zone', 'wildlife zones'],
+  road: ['road condition', 'road conditions'],
+};
+
+/**
+ * Which hazard chip a zone contributes to, or null if it's not a charted
+ * hazard. Safe-typed zones (lit=yes, felt-welcome, black-owned, residential
+ * landuse) never warn. community-report and lighting only chart their
+ * AVOID variants (felt-unsafe/incident; lit=no) — a caution-level lighting
+ * report isn't a low-light warning.
+ */
+function routeHazardType(zone: Zone): RouteHazardType | null {
+  if (zone.type === 'safe') return null;
+  switch (zone.category) {
+    case 'community-report':
+      return zone.type === 'avoid' ? 'community' : null;
+    case 'police':
+      return 'police';
+    case 'lighting':
+      return zone.type === 'avoid' ? 'lowLight' : null;
+    case 'wildlife':
+      return 'wildlife';
+    case 'road-condition':
+      return 'road';
+    default:
+      return null;
+  }
+}
+
 /**
  * Home — the main map screen.
  * Route: /home
@@ -592,29 +639,27 @@ export default function Home() {
   // routeConditions) so the chip COUNTS match the chip presence and the
   // score — including the line-based detection that catches a police
   // POINT zone the per-waypoint test would miss between sparse waypoints.
-  const routeZoneCounts = useMemo(() => {
-    if (!selectedRoute) return { police: 0, lowLight: 0, community: 0 };
-    let police = 0;
-    let lowLight = 0;
-    let community = 0;
+  // Comprehensive hazard chips for the route-preview card: counts of every
+  // charted hazard type (community flags, police, low-light, wildlife, road)
+  // the SELECTED route passes — via routePassesZone, the same route-level
+  // line-based test the score uses, so chip presence + counts + score all
+  // agree. Earlier this only counted OSM police + low-light, so community
+  // reports (and wildlife/road) couldn't turn off "All clear" — a route
+  // with felt-unsafe pins on it still read "All clear" (user-flagged
+  // 2026-06-03). Returns chips in ROUTE_HAZARD_ORDER; empty → truly clear.
+  const routeHazardChips = useMemo(() => {
+    if (!selectedRoute) return [] as { type: RouteHazardType; count: number; label: string }[];
+    const counts = {} as Record<RouteHazardType, number>;
     for (const zone of enabledZones) {
-      // Bucket the zone, or skip it. community-report AVOID zones
-      // (felt-unsafe + incident) are charted too — without this the
-      // "All clear" chip ignored community reports entirely (it only
-      // looked at OSM police + low-light), so a route with felt-unsafe
-      // pins dead on it still read "All clear" while the SCORE was
-      // penalizing it. Chip + score now agree (user-flagged 2026-06-03).
-      let bucket: 'police' | 'lowLight' | 'community' | null = null;
-      if (zone.category === 'police') bucket = 'police';
-      else if (zone.category === 'lighting' && zone.type === 'avoid') bucket = 'lowLight';
-      else if (zone.category === 'community-report' && zone.type === 'avoid') bucket = 'community';
-      if (!bucket) continue;
+      const type = routeHazardType(zone);
+      if (!type) continue;
       if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
-      if (bucket === 'police') police += 1;
-      else if (bucket === 'lowLight') lowLight += 1;
-      else community += 1;
+      counts[type] = (counts[type] ?? 0) + 1;
     }
-    return { police, lowLight, community };
+    return ROUTE_HAZARD_ORDER.filter((t) => (counts[t] ?? 0) > 0).map((t) => {
+      const count = counts[t];
+      return { type: t, count, label: count === 1 ? ROUTE_HAZARD_LABEL[t][0] : ROUTE_HAZARD_LABEL[t][1] };
+    });
   }, [selectedRoute, enabledZones]);
 
   const { profile: fuelProfile } = useFuelProfile();
@@ -2233,48 +2278,19 @@ export default function Home() {
                 zone-fetch race, giving false reassurance before the
                 zones have actually arrived.
               */}
-              {routeZoneCounts.community > 0 ||
-              routeZoneCounts.police > 0 ||
-              routeZoneCounts.lowLight > 0 ? (
+              {routeHazardChips.length > 0 ? (
                 <>
                   <Text style={styles.routeChipsHeader}>Along this route:</Text>
                   <View
                     style={styles.routeChipsRow}
-                    accessibilityLabel={[
-                      // Community flags lead — community knowledge is the
-                      // most directly relevant "someone felt unsafe HERE".
-                      routeZoneCounts.community > 0
-                        ? `${routeZoneCounts.community} community ${routeZoneCounts.community === 1 ? 'flag' : 'flags'}`
-                        : null,
-                      routeZoneCounts.police > 0
-                        ? `${routeZoneCounts.police} police ${routeZoneCounts.police === 1 ? 'zone' : 'zones'}`
-                        : null,
-                      routeZoneCounts.lowLight > 0
-                        ? `${routeZoneCounts.lowLight} low-light ${routeZoneCounts.lowLight === 1 ? 'zone' : 'zones'}`
-                        : null,
-                    ]
-                      .filter(Boolean)
+                    accessibilityLabel={routeHazardChips
+                      .map((c) => `${c.count} ${c.label}`)
                       .join(', ')
                       .concat(' along this route.')}
                   >
-                    {routeZoneCounts.community > 0 && (
-                      <RouteWarningChip
-                        count={routeZoneCounts.community}
-                        label={routeZoneCounts.community === 1 ? 'community flag' : 'community flags'}
-                      />
-                    )}
-                    {routeZoneCounts.police > 0 && (
-                      <RouteWarningChip
-                        count={routeZoneCounts.police}
-                        label={routeZoneCounts.police === 1 ? 'police zone' : 'police zones'}
-                      />
-                    )}
-                    {routeZoneCounts.lowLight > 0 && (
-                      <RouteWarningChip
-                        count={routeZoneCounts.lowLight}
-                        label={routeZoneCounts.lowLight === 1 ? 'low light zone' : 'low light zones'}
-                      />
-                    )}
+                    {routeHazardChips.map((c) => (
+                      <RouteWarningChip key={c.type} count={c.count} label={c.label} />
+                    ))}
                   </View>
                 </>
               ) : (

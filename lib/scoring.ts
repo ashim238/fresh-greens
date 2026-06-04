@@ -209,14 +209,24 @@ export function routePassesZone(
 }
 
 /** Safety-condition categories surfaced as chips in the route comparison. */
-export type RouteCondition = 'low-light' | 'wildlife' | 'police' | 'road';
+export type RouteCondition =
+  | 'community'
+  | 'low-light'
+  | 'wildlife'
+  | 'police'
+  | 'road';
 
-/** Maps a Zone category to a comparison condition (only the four safety
-    factors the thesis names; landuse/park/community-report are not charted). */
+/** Maps a Zone category to a comparison condition. `community-report`
+    charts as 'community' (felt-unsafe / incident — the thesis's
+    most directly relevant signal); landuse/park don't chart. Safe-typed
+    zones are excluded by the caller, so a lit=yes street or a felt-WELCOME
+    report never shows as a warning. */
 function conditionForCategory(
   category: Zone['category'],
 ): RouteCondition | null {
   switch (category) {
+    case 'community-report':
+      return 'community';
     case 'lighting':
       return 'low-light';
     case 'wildlife':
@@ -235,19 +245,28 @@ function conditionForCategory(
  * comparison-sheet chips. Reuses `routePassesZone` (the same route-level
  * test `scoreRoute` uses), so chips and score stay consistent — including
  * the line-based detection that catches a point report on a straight block
- * the per-waypoint test would miss. Pure. Order is stable: low-light,
- * wildlife, police, road.
+ * the per-waypoint test would miss. Safe-typed zones are skipped, so a
+ * well-lit (lit=yes) street or a felt-welcome / black-owned report never
+ * charts as a warning. Pure. Order is stable: community, low-light,
+ * wildlife, police, road (community-flagged leads — see RouteCondition).
  */
 export function routeConditions(route: Route, zones: Zone[]): RouteCondition[] {
   const present = new Set<RouteCondition>();
   for (const zone of zones) {
+    if (zone.type === 'safe') continue;
     const condition = conditionForCategory(zone.category);
     if (!condition || present.has(condition)) continue;
     if (routePassesZone(route.coordinates, zone)) {
       present.add(condition);
     }
   }
-  const order: RouteCondition[] = ['low-light', 'wildlife', 'police', 'road'];
+  const order: RouteCondition[] = [
+    'community',
+    'low-light',
+    'wildlife',
+    'police',
+    'road',
+  ];
   return order.filter((c) => present.has(c));
 }
 
