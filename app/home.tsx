@@ -1585,7 +1585,17 @@ export default function Home() {
         */}
         {userLocation && (
           <UserLocationMarker
-            key={`user-loc-${recenterTick}`}
+            // State-in-key: bumps on recenter (existing tick) AND on
+            // each meaningful zoom change (binned latitudeDelta), so
+            // the marker remounts and MapKit re-snapshots cleanly.
+            // Earlier rev keyed on recenterTick only — user-flagged
+            // 2026-06-03 "current disappears on zoom, reappears if i
+            // click recenter": zoom alone didn't bump the key, so the
+            // tracksViewChanges={false} cached bitmap got evicted on
+            // pinch-zoom reflow and the marker stayed empty until the
+            // next recenter forced a remount. Mirrors the binning
+            // applied to DestinationMarker (`f0d6a4d`).
+            key={`user-loc-${recenterTick}-${mapRegion ? Math.round(mapRegion.latitudeDelta * 100) : 'init'}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
           />
@@ -1975,14 +1985,11 @@ export default function Home() {
                   accessibilityState={{ disabled: !canPrevRoute }}
                   style={({ pressed }) => [
                     styles.routeCycleBtn,
+                    !canPrevRoute && styles.routeCycleBtnDisabled,
                     pressed && canPrevRoute && pressedDim,
                   ]}
                 >
-                  <CaretLeft
-                    size={22}
-                    weight="bold"
-                    color={canPrevRoute ? colors.labelSecondary : 'transparent'}
-                  />
+                  <CaretLeft size={22} weight="bold" color={colors.labelSecondary} />
                 </Pressable>
                 <Pressable
                   onPress={() => cycleRoute(1)}
@@ -1992,14 +1999,11 @@ export default function Home() {
                   accessibilityState={{ disabled: !canNextRoute }}
                   style={({ pressed }) => [
                     styles.routeCycleBtn,
+                    !canNextRoute && styles.routeCycleBtnDisabled,
                     pressed && canNextRoute && pressedDim,
                   ]}
                 >
-                  <CaretRight
-                    size={22}
-                    weight="bold"
-                    color={canNextRoute ? colors.labelSecondary : 'transparent'}
-                  />
+                  <CaretRight size={22} weight="bold" color={colors.labelSecondary} />
                 </Pressable>
               </>
             )}
@@ -2859,14 +2863,22 @@ const styles = StyleSheet.create({
   },
   // Route-cycle chevron button — 44pt HIG-compliant tap target (painted,
   // not hitSlop, per .cursorrules), bare bg so it doesn't compete with
-  // the X's filled-circle treatment beside it. Caret renders transparent
-  // when the direction is unavailable (clamped to first/last route) so
-  // the layout doesn't jump as you reach the ends.
+  // the X's filled-circle treatment beside it.
   routeCycleBtn: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Disabled state — chevron stays visible but the whole control dims
+  // so users see "you've reached the end of the list, this direction is
+  // unavailable" rather than the affordance vanishing. Earlier rev
+  // rendered the caret transparent at the ends; user-flagged 2026-06-03
+  // — disappearing chevrons look broken, dimmed chevrons read as
+  // "off." Opacity on the wrapper is the iOS-standard disabled-button
+  // treatment (the Pressable's `disabled` prop already cuts taps).
+  routeCycleBtnDisabled: {
+    opacity: 0.25,
   },
   // 44pt painted tap target per HIG, same fillsTertiary circular
   // treatment as the recordings delete-confirm modal X for visual

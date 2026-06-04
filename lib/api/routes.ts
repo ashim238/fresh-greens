@@ -396,14 +396,24 @@ export async function getRoutesBetween(
 /**
  * Display style per route type.
  * - Recommended: bold freshgreen — visually claims "this is the choice."
- * - Alternate: muted gray — present but de-emphasized.
+ * - Alternate: thin muted gray — present but unmistakably secondary.
+ *
+ * The width and opacity gap between recommended (5pt, 0.9α) and
+ * alternate (2pt, 0.4α) is the load-bearing hierarchy: where two
+ * routes share streets near origin/destination, the recommended's
+ * wider gradient stroke fully covers the slim gray underneath and
+ * reads as a single colored line; where alternates share streets
+ * with each other, gray-40α stacking stays in the gray family
+ * rather than compounding to dark. Earlier values (3pt + 0.6α)
+ * left enough visual weight on the alternates that overlap segments
+ * read as "messy parallel lines" — user-flagged 2026-06-03.
  */
 export const routeColors: Record<
   RouteType,
   { stroke: string; width: number }
 > = {
   recommended: { stroke: 'rgba(65, 173, 73, 0.9)', width: 5 },
-  alternate: { stroke: 'rgba(128, 128, 128, 0.6)', width: 3 },
+  alternate: { stroke: 'rgba(128, 128, 128, 0.4)', width: 2 },
 };
 
 // --- Network adapters (OSRM + Mapbox) -------------------------------------
