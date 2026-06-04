@@ -155,7 +155,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 - ~~**Weather card is mocked at "66° / Moderate"**~~ — shipped: real Open-Meteo via `lib/api/weather.ts` (now incl. `cloud_cover`); driving label relabeled Easy/Moderate/Tough → Good/Fair/Poor.
 - ~~**/safety modal has 3 of 4 tiles inert**~~ — **stale (verified 2026-06-02).** All four tiles in `app/safety.tsx` are wired: "I was pulled over" → `/pulled-over`, "Roadside assistance" → `/roadside`, "Unfamiliar area" → `/unfamiliar`, "Share my location" → `/share-location`. The `href: null` no-op state no longer exists.
 - ~~**/menu has inert rows + Quick Tiles**~~ — **stale, shipped (verified 2026-06-02).** Plan 1's settings-register refresh (`7fc4cff`) rebuilt /menu entirely. The claimed inert rows ("Settings," "Schedule a drive," "Theme") and the decorative Quick Tiles carousel are gone; /menu now renders six real wired rows (Refuel reminders, Zone Preferences, Safety, Saved places, Privacy & Terms, Sign out) plus the progressive setup carousel.
-- ~~**Reports submit as `'mock-user'`**~~ — **stale (verified 2026-06-02).** `app/report.tsx:231` stamps `submittedBy: category.anonymous ? undefined : user?.id` — the real signed-in Apple user id, not a mock. What's genuinely still true (and the real v2 item): AsyncStorage is **device-local**, so reports don't sync across devices — "the community" is functionally per-phone until a backend (Supabase/Firebase) lands behind the adapter. `/report` photo capture is also real now (`expo-image-picker` camera capture), not the stub the old entry implied.
+- ~~**Reports submit as `'mock-user'`**~~ — **stale (verified 2026-06-02).** `app/report.tsx:231` stamps `submittedBy: category.anonymous ? undefined : user?.id` — the real signed-in Apple user id, not a mock. `/report` photo capture is also real (`expo-image-picker`). Cross-device sync is **optional** — see **Supabase (B1)** below; without env vars, behavior is still device-local only.
 
 ## Accessibility gaps
 
@@ -178,7 +178,45 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 
 ## Architecture / data v2
 
-- **User auth + report sync** — currently device-local AsyncStorage. v2 needs Supabase / Firebase / similar so community reports persist across phones. Unlocks real `submittedBy` IDs (the hold-to-delete and Round-4 weighted-recency work would benefit).
+- ~~**User auth + report sync (backend TBD)**~~ — **adapter seam shipped (B1, `feat/community-cloud-b1`).** `lib/api/sources/community-cloud.ts` + merged reads in `community-reports.ts`. **No Supabase account required for thesis** — unset env = local-only (unchanged). Cross-phone demo needs setup in **Supabase (B1)** below. `submittedBy` already uses real Apple ids locally; cloud unlocks *other* phones seeing your reports.
+
+### Supabase (B1) — optional community-report cloud
+
+**You don't need an account to build or demo on one device.** The app ignores cloud when `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` are missing from `.env.local`.
+
+**When you want two-phone community sync (or thesis "shared community" story):**
+
+1. **Create a free Supabase project** — [supabase.com](https://supabase.com) → New project → note **Project URL** + **anon public** key (Settings → API).
+2. **Add to `.env.local`** (gitignored; template in `.env.example`):
+   - `EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co`
+   - `EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...`
+3. **Create table** `community_reports` in SQL editor (column names must match adapter — snake_case):
+
+   ```sql
+   create table public.community_reports (
+     id text primary key,
+     category_id text not null,
+     location jsonb not null,
+     detail text,
+     sub_tag text,
+     place_name text,
+     google_place_id text,
+     submitted_by text,
+     photo_uri text,
+     timestamp bigint not null
+   );
+   ```
+
+4. **RLS (thesis-minimal)** — tighten later for production:
+   - Enable RLS on the table.
+   - Policy: allow **anon SELECT** (read all reports for demo).
+   - Policy: allow **anon INSERT** (submit from app) and **anon DELETE** (Undo / hold-to-delete) — or restrict INSERT/DELETE to authenticated users once auth is wired to Supabase.
+5. **Restart Expo** so env vars load.
+6. **QA** — same keys on two simulators/devices: submit on A → focus `/home` on B → orange eye pin should appear. Photos stay **local-only** in v1 (`photo_uri` in cloud is usually null until an upload PR exists).
+
+**Code map:** `lib/api/sources/community-cloud.ts` (fetch / push / queue), `docs/superpowers/plans/2026-06-04-corridor-data-richness.md` Task B1, `docs/learnings.md` → `feat/community-cloud-b1`.
+
+**Don't want Supabase at all?** Stay local-only for the thesis; corridor B0/B4/B5 are unrelated. Alternative later: `/api/reports` on the existing Vercel proxy (no second vendor) — not specced yet.
 - ~~**Real photo capture in /report**~~ — **stale, shipped (verified 2026-06-02).** `app/report.tsx` uses `expo-image-picker` — `requestCameraPermissionsAsync` + `launchCameraAsync` (camera capture only, copied out of the picker's cache), with a `photoUri` state. Real, not a stub.
 - ~~**Schedule CTA → expo-notifications**~~ — shipped: `scheduleDepartureNotification` fires a real local notification (inline permission request) at the suggested departure.
 - **Curated catalog as catastrophic fallback feels invisible** — only fires when external + community both empty. With Google Places returning worldwide results, curated rarely runs. Consider letting curated participate when it's category-appropriate AND user is near the curated entry's region.
