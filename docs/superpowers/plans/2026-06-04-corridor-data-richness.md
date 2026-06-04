@@ -41,7 +41,7 @@
 
 **Branch:** `feat/corridor-b0-megatrip`
 
-**Status:** Implementation largely done; verify checklist before PR.
+**Status:** Shipped (`b60c1dd` on `feat/corridor-b0-megatrip`).
 
 **Files:**
 - Create: `lib/api/sources/osm-overpass.ts`
@@ -49,19 +49,7 @@
 - Modify: `lib/api/zones.ts` + `lib/corridor/types.ts` — `ZoneSourceId`, optional `source` on `Zone`
 - Create: `lib/corridor/merge-hazards.ts` (passthrough until B4)
 
-- [ ] **Step 1: OSM module** — selectors (tunnel/bridge unlit, enforcement, traffic_calming, level_crossing, uncontrolled crossing); parsers; `out geom` 72/140; `buildOverpassQueryAround` / `buildOverpassQueryBbox` / `parseOverpassElements`.
-
-- [ ] **Step 2: Wire zones.ts** — browse + `fetchCorridorSample` use OSM module; delete inlined Overpass parsers.
-
-- [ ] **Step 3: Megatrip knobs** — `PREVIEW_BUDGET.maxCalls = 20`; `MEGA_TRIP_PATH_METERS` (= `LONG_TRIP_COPY_METERS`); `MEGA_TRIP_WAVE1_ANCHOR_CAP = 14`; `wave1AnchorCap()` in planner.
-
-- [ ] **Step 4: Forward-compat types** — `export type ZoneSourceId` on `Zone`; every OSM adapter zone sets `source: 'osm-overpass'`. Add `merge-hazards.ts` with `collapseHazardZones(zones)` no-op when `HAZARD_MERGE_ENABLED === false`.
-
-- [ ] **Step 5: Verify** — `npx tsc --noEmit`; `node --experimental-strip-types scripts/verify-corridor-planner.mjs`.
-
-- [ ] **Step 6: Manual QA** — NYC→Birmingham or 960 mi demo: more OSM chips than pre-B0; footnote still shows >250 km; no stuck loading.
-
-- [ ] **Step 7: Docs** — Spec B0 row satisfied; optional one-line in `docs/learnings.md` if megatrip chip density surprised you.
+- [x] **Step 1–7** — OSM module, megatrip knobs, `source` + merge-hazards stub, spec B½ + richness plan.
 
 **Commit message (when asked):** `feat(zones): B0 extended Overpass selectors and megatrip corridor knobs`
 
@@ -79,17 +67,10 @@
 - Modify: `app/home.tsx` / `app/en-route.tsx` if adapter surface changes
 - Env: `.env.local` keys via `expo-constants` (no inline secrets)
 
-- [ ] **Step 1: Choose backend** — Supabase vs Firebase (document decision in learnings). Table: reports with geo, category, `submittedBy`, timestamps, optional photo URL.
-
-- [ ] **Step 2: Adapter** — `fetchCommunityReportsForBounds` or `fetchAllReports()` with mock fallback when offline / no keys (same pattern as Overpass mirrors).
-
-- [ ] **Step 3: Sync contract** — Local submit → AsyncStorage + enqueue upload; on trip fetch, `getCommunityReportsAsZones()` prefers cloud + merges device-only pending rows.
-
-- [ ] **Step 4: Zone ids** — `report-${id}`; `source: 'community-report'`; category `community-report` unchanged.
-
-- [ ] **Step 5: Verify** — Two simulators / devices see same report after sync; hold-to-delete still author-gated.
-
-- [ ] **Step 6: Docs** — Strike `next-session.md` device-local item; learnings entry for sync gotchas.
+- [x] **Step 1** — Supabase (PostgREST, no SDK); see learnings.
+- [x] **Step 2–4** — `community-cloud.ts`; merge on read; sync queue on write; `source: 'community-report'` on zones.
+- [ ] **Step 5: Verify** — Two devices with same `.env.local` Supabase keys; submit on A → appears on B after refresh/focus.
+- [x] **Step 6: Docs** — `.env.example` + `docs/learnings.md`.
 
 **Commit:** `feat(community): cloud adapter for cross-device reports`
 

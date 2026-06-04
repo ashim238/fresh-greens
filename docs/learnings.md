@@ -4,6 +4,17 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/community-cloud-b1 (2026-06-04)
+
+- **Supabase without SDK.** B1 uses PostgREST + `EXPO_PUBLIC_SUPABASE_URL` / `ANON_KEY` — no `@supabase/supabase-js` install. Read path merges cloud then overlays local by `id` (device wins collisions). Write path: local-first, `sync-queue` AsyncStorage key, `flush` on every merged read and after submit.
+- **Dynamic import breaks the cycle.** `community-cloud.ts` types import from `community-reports.ts`; loading cloud via `import('./sources/community-cloud')` inside read/sync helpers avoids a runtime circular dependency at app boot.
+- **Photos stay local in v1.** `photoUri` is documentDirectory — queue still pushes the row but cloud column is often null until a storage upload PR exists. Thesis demo can sync text/geo/category across phones without image CDN.
+- **Backend choice:** Supabase over Firebase — matches `user.ts` / file-header seams, SQL table doc in adapter header, anon RLS is a dashboard concern.
+
+Worth keeping: **optional cloud = empty remote + unchanged local behavior** when env vars are unset — same pattern as Overpass mirrors failing open to mock/local.
+
+---
+
 ## feat/corridor-sampling (2026-06-04)
 
 - **Planner → executor split.** `planCorridor` classifies legs (straight bbox vs curved segment anchors), emits wave-1 anchors + wave-2 remainder; `executeCorridorTrip` runs wave 1, `onPartial`, then gap-fill + hot-leg tighten + wave 2 under `PREVIEW_BUDGET` (`maxMs` 10s / `maxCalls` 16). Knobs live in `lib/corridor/constants.ts` — segment spacing, gap arc, hot-leg zone count, long-trip copy thresholds.
