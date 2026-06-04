@@ -1,11 +1,11 @@
 // Fresh Greens — community reports adapter.
 //
 // Persistent local store for user-submitted reports. Mock-first: backed
-// by AsyncStorage so reports survive app restarts within a device. A real
-// backend (Firestore, Supabase, custom API) would slot in by replacing
-// the read/write internals here — `getCommunityReportsAsZones` and
-// `addCommunityReport` are the public surface, and they keep the same
-// signatures regardless of where the data actually lives.
+// by AsyncStorage so reports survive app restarts within a device. When
+// `EXPO_PUBLIC_SUPABASE_*` is set (B1), reads merge cloud + local and
+// submits enqueue to `lib/api/sources/community-cloud.ts` for upload.
+// Public surface (`getCommunityReportsAsZones`, `addCommunityReport`) is
+// unchanged for consumers.
 //
 // Reports are surfaced to the rest of the app as `Zone[]` with point
 // geometry — same Zone type the OSM adapter returns, so they flow
@@ -290,9 +290,10 @@ export async function addCommunityReport(
     id: `report-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     timestamp: Date.now(),
   };
-  const all = await readAll();
+  const all = await readLocalOnly();
   all.push(report);
-  await writeAll(all);
+  await writeLocalOnly(all);
+  void scheduleCommunityCloudSync(report);
   return report;
 }
 
@@ -301,9 +302,10 @@ export async function addCommunityReport(
  * Silent if the id isn't found (already-removed; nothing to do).
  */
 export async function removeCommunityReport(id: string): Promise<void> {
-  const all = await readAll();
+  const all = await readLocalOnly();
   const filtered = all.filter((r) => r.id !== id);
-  await writeAll(filtered);
+  await writeLocalOnly(filtered);
+  void scheduleCommunityCloudDelete(id);
 }
 
 /**
@@ -323,13 +325,13 @@ export async function clearAllCommunityReports(): Promise<void> {
  * zone whose ZoneType is determined by its category (CATEGORIES table).
  */
 export async function getCommunityReportsAsZones(): Promise<Zone[]> {
-  const reports = await readAll();
+  const reports = await readMergedReports();
   return reports.map(reportToZone);
 }
 
 /** For UI display (e.g., "you have N reports nearby"). */
 export async function getCommunityReports(): Promise<CommunityReport[]> {
-  return readAll();
+  return readMergedReports();
 }
 
 // --- Internals ------------------------------------------------------------
@@ -338,6 +340,7 @@ function reportToZone(report: CommunityReport): Zone {
   const category = getCategory(report.categoryId);
   return {
     id: report.id,
+    source: 'community-report',
     type: category.zoneType,
     // Marker accessibilityLabel — leads with the resolved business
     // name when we have it ("Wintzell's Oyster House: felt welcome")
@@ -359,7 +362,7 @@ function reportToZone(report: CommunityReport): Zone {
   };
 }
 
-async function readAll(): Promise<CommunityReport[]> {
+async function readLocalOnly(): Promise<CommunityReport[]> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -373,6 +376,54 @@ async function readAll(): Promise<CommunityReport[]> {
   }
 }
 
-async function writeAll(reports: CommunityReport[]): Promise<void> {
+async function writeLocalOnly(reports: CommunityReport[]): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+}
+
+/** Device store wins on id collision; cloud fills in other devices' reports. */
+function mergeReportsById(
+  cloud: CommunityReport[],
+  local: CommunityReport[],
+): CommunityReport[] {
+  const byId = new Map<string, CommunityReport>();
+  for (const r of cloud) byId.set(r.id, r);
+  for (const r of local) byId.set(r.id, r);
+  return [...byId.values()].sort((a, b) => b.timestamp - a.timestamp);
+}
+
+async function readMergedReports(): Promise<CommunityReport[]> {
+  const local = await readLocalOnly();
+  try {
+    const cloud = await import('./sources/community-cloud');
+    if (!cloud.isCommunityCloudConfigured()) return local;
+    await cloud.flushCommunityReportSyncQueue();
+    const remote = await cloud.fetchCloudCommunityReports();
+    return mergeReportsById(remote, local);
+  } catch (error) {
+    console.warn('[community-reports] cloud merge failed, local only:', error);
+    return local;
+  }
+}
+
+async function scheduleCommunityCloudSync(report: CommunityReport): Promise<void> {
+  try {
+    const cloud = await import('./sources/community-cloud');
+    if (!cloud.isCommunityCloudConfigured()) return;
+    await cloud.enqueueCommunityReportSync(report);
+    await cloud.flushCommunityReportSyncQueue();
+  } catch (error) {
+    console.warn('[community-reports] sync schedule failed:', error);
+  }
+}
+
+async function scheduleCommunityCloudDelete(id: string): Promise<void> {
+  try {
+    const cloud = await import('./sources/community-cloud');
+    if (!cloud.isCommunityCloudConfigured()) return;
+    const queue = await cloud.readSyncQueue();
+    await cloud.writeSyncQueue(queue.filter((r) => r.id !== id));
+    await cloud.deleteCommunityReportFromCloud(id);
+  } catch (error) {
+    console.warn('[community-reports] cloud delete failed:', error);
+  }
 }
