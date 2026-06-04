@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## fix(markers): re-track-in-place beats state-in-key when the marker has a zIndex worth keeping
+
+Shipped `bc3673d`. The fourth marker-platform-quirk this session, and it's a direct correction to the state-in-key pattern documented below. Worth its own entry because the earlier pattern's hidden cost only shows up under a specific overlap.
+
+**State-in-key (remount on change) refreshes the bitmap but silently destroys the marker's zIndex on iOS.** The chain: a prior fix (`df8cc65`) remounted `UserLocationMarker` + `DestinationMarker` on route-switch (a changing `key`) to refresh their `tracksViewChanges={false}` cached bitmaps after the polyline reflow. That fixed the eviction — but a remount *re-inserts the annotation into MapKit*, and iOS does NOT re-apply the marker's `zIndex` relative to annotations that DIDN'T remount. The user-location dot (zIndex 1000, built specifically to sit above co-located pins) dropped UNDER a trusted-friend heart pin (zIndex 0) after a route-switch — visible only because the trusted friend's address sat right on the user's GPS. So state-in-key has a cost the original entry never named: **it's only safe for a marker that has no z-order relationship to preserve.** EnRouteCarMarker / EnRouteZone / route-badges are all fine (nothing co-locates with them that they must out-rank); the user dot and the destination flag are NOT, because both are explicitly designed to win an overlap.
+
+**The better tool when zIndex matters: re-track IN PLACE.** Instead of `key={epoch}` (remount), pass `snapshotEpoch={epoch}` as a prop and, inside the marker, flip `tracksViewChanges` true→false for 50ms whenever it changes: `useEffect(() => { setTracking(true); const id = setTimeout(() => setTracking(false), 50); return () => clearTimeout(id); }, [snapshotEpoch])`. This re-captures the View into MapKit's annotation image (fixes the eviction, same as the remount did) WITHOUT re-inserting the annotation (so its zIndex stays honored). The marker keeps its native identity; only its bitmap refreshes. Strictly dominates state-in-key for these two markers: same eviction fix, no z-order regression, no remount flicker. The mount-time `tracksViewChanges` settle this codebase already used is the same mechanism — re-track-in-place just re-fires it on a dependency instead of only `[]`.
+
+**Decision rule for the next `tracksViewChanges={false}` marker.** Does anything ever co-locate with this marker that it must draw above (or below) via zIndex? If NO → state-in-key (`key={epoch}`) is fine and simplest. If YES → re-track-in-place (`snapshotEpoch` prop + re-fire the tracking effect), because a remount will silently break the z-order the moment a neighbor shares its coordinate. The symptom when you get it wrong is nasty precisely because it's conditional: it only manifests when two markers overlap AND one of them remounted, so it hides from every test where the markers happen to be apart.
+
+---
+
 ## fix(destination-marker): in-SVG drop-shadow filters under-render on react-native-svg; RN shadow on the wrapper is the source of truth
 
 Shipped `02dbb9e`. User-flagged "finish pin shadow looks faint." Root cause was a tooling assumption breaking silently. Two patterns worth keeping:
@@ -101,6 +113,8 @@ Shipped `7fc4cff` (Plan 1 of 2; Plan 2 = Connect-calendar, specced + pending). R
 ---
 
 ## State-in-key on `tracksViewChanges={false}` markers — pattern hit three times now, name it
+
+> **Correction (2026-06-03, see the `bc3673d` entry up top):** state-in-key has a cost not named below — a remount destroys the marker's `zIndex` on iOS relative to non-remounted neighbors. It's only safe when the marker has no z-order relationship to preserve. When it DOES (the user dot, the destination flag — markers built to win an overlap), use **re-track-in-place** (`snapshotEpoch` prop + re-fire the tracking effect) instead. The decision rule lives in that entry.
 
 Three independent fixes this session all turned out to be the same pattern. Worth pulling out so the next person (me, next week) doesn't re-derive it.
 
