@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { enrichPlacesWithFuelPrices } from '../lib/api/fuel-prices';
 import { searchPlaces, type Place } from '../lib/api/places';
 import type { FuelType } from '../lib/api/fuel';
 import type { LatLng } from '../lib/edge-indicators';
@@ -65,7 +66,11 @@ export function useRouteFuelStops(params: {
               routeCoords,
             ) <= ROUTE_PROXIMITY_METERS,
         );
-        if (!cancelled) setState({ stops: onRoute, loading: false, error: false });
+        const priced =
+          fuelType === 'electric'
+            ? onRoute
+            : await enrichPlacesWithFuelPrices(onRoute);
+        if (!cancelled) setState({ stops: priced, loading: false, error: false });
       } catch (err) {
         console.warn('[fuel-stops] search failed:', err);
         if (!cancelled) setState({ stops: [], loading: false, error: true });
