@@ -325,6 +325,16 @@ function recCategoryForReport(
 }
 
 /**
+ * A community vouch is keyed by RecommendationCategory plus a
+ * 'felt-welcome' sentinel for a general felt-welcome report (no identity
+ * subTag, so it routes to no category). Keying the accumulation by this
+ * (rather than by display label) lets the Trusted card both SORT its
+ * facets canonically and pick a glyph category that matches the primary
+ * facet — see getTrustedByCommunity.
+ */
+type VouchKey = RecommendationCategory | 'felt-welcome';
+
+/**
  * Display labels for the "vouch" register surfaced on the Trusted-by-
  * community card. Distinct from HomeBrowseSheet's CATEGORY_LABELS (which
  * is keyed by RecommendationCategory and uses title-case "Black-Owned"):
@@ -332,30 +342,47 @@ function recCategoryForReport(
  * "Felt welcome", which has no RecommendationCategory (general felt-
  * welcome routes to none).
  */
-const VOUCH_LABEL: Record<RecommendationCategory, string> = {
+const VOUCH_LABEL: Record<VouchKey, string> = {
   'black-owned': 'Black-owned',
   'women-owned': 'Women-owned',
   'lgbtq-welcoming': 'LGBTQ+ welcoming',
   restroom: 'Open restroom',
   'late-night-warm-welcome': 'Late-night welcome',
+  'felt-welcome': 'Felt welcome',
 };
 
 /**
- * The vouch label for a single report. Routes via recCategoryForReport
- * (black-owned, or felt-welcome + identity subTag); a felt-welcome report
- * with a place-type or no subTag falls through to "Felt welcome" — the
- * most fundamental vouch. The final "Trusted" is defensive and should be
- * unreachable (the trusted-row candidate filter already excludes non-
- * routing, non-felt-welcome reports).
+ * Canonical display order for vouch facets, so the combined label
+ * ("Black-owned · Felt welcome") is deterministic regardless of which
+ * report was stored first. The most identity-specific vouch leads;
+ * general 'felt-welcome' is last (it's the weakest claim, and keeping it
+ * last guarantees facets[0] is a real category whenever ≥2 vouches exist
+ * — which is what lets the card's glyph match the leading facet).
  */
-function vouchLabelForReport(
+const VOUCH_ORDER: VouchKey[] = [
+  'black-owned',
+  'women-owned',
+  'lgbtq-welcoming',
+  'restroom',
+  'late-night-warm-welcome',
+  'felt-welcome',
+];
+
+/**
+ * The vouch key for a single report. Routes via recCategoryForReport
+ * (black-owned, or felt-welcome + identity subTag); a felt-welcome report
+ * with a place-type or no subTag falls through to the 'felt-welcome'
+ * sentinel — the most fundamental vouch. Returns null only for a report
+ * the trusted-row candidate filter already excludes (defensive).
+ */
+function vouchKeyForReport(
   categoryId: string,
   subTag: string | undefined,
-): string {
+): VouchKey | null {
   const routed = recCategoryForReport(categoryId, subTag);
-  if (routed) return VOUCH_LABEL[routed];
-  if (categoryId === 'felt-welcome') return 'Felt welcome';
-  return 'Trusted';
+  if (routed) return routed;
+  if (categoryId === 'felt-welcome') return 'felt-welcome';
+  return null;
 }
 
 const COMMUNITY_PROXIMITY_RADIUS_MILES = 10;
@@ -471,7 +498,7 @@ export async function getTrustedByCommunity(
     //
     // Black-owned reports always route via `recCategoryForReport`'s
     // first branch, so they don't need a defensive fallback here.
-    type Candidate = { rec: Recommendation; timestamp: number; vouch: string };
+    type Candidate = { rec: Recommendation; timestamp: number; vouch: VouchKey };
     const candidates: Candidate[] = [];
     for (const r of reports) {
       const routedCategory = recCategoryForReport(r.categoryId, r.subTag);
@@ -483,6 +510,10 @@ export async function getTrustedByCommunity(
         if (miles > COMMUNITY_PROXIMITY_RADIUS_MILES) continue;
       }
       const displayCategory = routedCategory ?? 'lgbtq-welcoming';
+      // Non-null here: the filter above admitted only reports that route
+      // to a category or are general felt-welcome — exactly the two cases
+      // vouchKeyForReport returns non-null for.
+      const vouch = vouchKeyForReport(r.categoryId, r.subTag) ?? 'felt-welcome';
       candidates.push({
         rec: {
           id: `community-${r.id}`,
@@ -497,7 +528,7 @@ export async function getTrustedByCommunity(
           reportDetail: r.detail,
         },
         timestamp: r.timestamp,
-        vouch: vouchLabelForReport(r.categoryId, r.subTag),
+        vouch,
       });
     }
     if (candidates.length === 0) return [];
@@ -519,7 +550,7 @@ export async function getTrustedByCommunity(
       rec: Recommendation;
       count: number;
       mostRecentTs: number;
-      vouches: Set<string>;
+      vouches: Set<VouchKey>;
     };
     const groups: Group[] = [];
     for (const { rec, timestamp, vouch } of candidates) {
@@ -550,10 +581,27 @@ export async function getTrustedByCommunity(
       const recency = 1 / (1 + daysSince / TRUSTED_RECENCY_HALF_LIFE_DAYS);
       const count = Math.min(1, Math.log10(g.count + 1) / countNorm);
       const score = TRUSTED_RECENCY_WEIGHT * recency + TRUSTED_COUNT_WEIGHT * count;
-      // Surface multiple distinct vouches as facets; single-vouch
-      // groups leave facets undefined (unchanged card behavior).
-      const rec =
-        g.vouches.size >= 2 ? { ...g.rec, facets: [...g.vouches] } : g.rec;
+      // Surface multiple distinct vouches as facets; single-vouch groups
+      // leave facets undefined (unchanged card behavior). Keys are sorted
+      // by VOUCH_ORDER so the combined label is deterministic regardless
+      // of report-storage order, and so facets[0] is the leading (real-
+      // category) vouch — which we also use as the rec's `category` so the
+      // card's placeholder glyph MATCHES the leading facet instead of
+      // reflecting whichever report happened to be freshest.
+      let rec = g.rec;
+      if (g.vouches.size >= 2) {
+        const sortedKeys = [...g.vouches].sort(
+          (a, b) => VOUCH_ORDER.indexOf(a) - VOUCH_ORDER.indexOf(b),
+        );
+        const primaryCategory = sortedKeys.find(
+          (k): k is RecommendationCategory => k !== 'felt-welcome',
+        );
+        rec = {
+          ...g.rec,
+          facets: sortedKeys.map((k) => VOUCH_LABEL[k]),
+          category: primaryCategory ?? g.rec.category,
+        };
+      }
       return { rec, score };
     });
     scored.sort((a, b) => b.score - a.score);
