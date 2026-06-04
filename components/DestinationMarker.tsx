@@ -46,6 +46,7 @@ export function DestinationMarker({
   longitude,
   name,
   variant = 'home',
+  snapshotEpoch,
 }: {
   latitude: number;
   longitude: number;
@@ -53,6 +54,13 @@ export function DestinationMarker({
   name?: string;
   /** Visual register — pin for pre-departure, flag for mid-trip. */
   variant?: DestinationVariant;
+  /**
+   * Changing this re-snapshots the marker in place (see the tracking
+   * effect). The parent bumps it on map reflows that can evict the
+   * cached bitmap — zoom, route-switch. Optional: when omitted, the
+   * marker just snapshots once on mount.
+   */
+  snapshotEpoch?: string | number;
 }) {
   const Svg = variant === 'home' ? DestinationHomeSvg : DestinationEnrouteSvg;
 
@@ -70,14 +78,23 @@ export function DestinationMarker({
       ? { x: 0.5, y: 92 / 96 }
       : { x: 10.5 / 48, y: 41 / 48 };
 
-  // Track-until-first-paint — see header note for the why. 50ms gives
-  // the SVG subtree time to paint and the View tree time to commit
-  // before MapKit caches the bitmap.
+  // Track-then-settle, re-fired whenever `snapshotEpoch` changes — see
+  // header note for the why. 50ms gives the SVG subtree time to paint and
+  // the View tree time to commit before MapKit caches the bitmap.
+  //
+  // Re-tracking IN PLACE on epoch change (rather than remounting via a
+  // changing `key`) refreshes the cached bitmap on zoom / route-switch
+  // reflows without re-inserting the annotation into MapKit, so the
+  // marker's zIndex={500} stays honored — matters when the destination
+  // coincides with a community-reported place (a co-located LandmarkMarker
+  // would otherwise draw over the flag after a remount). Same pattern as
+  // UserLocationMarker.
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
+    setTracking(true);
     const id = setTimeout(() => setTracking(false), 50);
     return () => clearTimeout(id);
-  }, []);
+  }, [snapshotEpoch]);
 
   return (
     <Marker

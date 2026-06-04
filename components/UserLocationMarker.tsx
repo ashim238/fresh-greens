@@ -28,9 +28,17 @@ import { shadows } from '../theme/shadows';
 export function UserLocationMarker({
   latitude,
   longitude,
+  snapshotEpoch,
 }: {
   latitude: number;
   longitude: number;
+  /**
+   * Changing this re-snapshots the marker in place (see the tracking
+   * effect). The parent bumps it on map reflows that can evict the
+   * cached bitmap — zoom, recenter, route-switch. Optional: when
+   * omitted, the marker just snapshots once on mount.
+   */
+  snapshotEpoch?: string | number;
 }) {
   // Pulse on the outer accuracy ring — gentle "this is live" cue
   // without overwhelming the dot. Scale 1 → 1.4, opacity 0.35 → 0,
@@ -69,20 +77,30 @@ export function UserLocationMarker({
     outputRange: [0.35, 0],
   });
 
-  // Track-until-first-paint. With `tracksViewChanges={false}` from
-  // t=0, MapKit's marker snapshot was racing the View tree's paint;
-  // on zoom re-evaluations the marker could disappear when MapKit
-  // re-rasterized a cached-but-empty bitmap. 50ms ≈ 3 frames gives
-  // the View tree time to paint and commit before MapKit caches the
-  // bitmap — setTimeout(0) fires before native paint and isn't
-  // enough. (The pulse stops animating once we stop tracking —
-  // acceptable trade for a marker that actually renders. The pulse
-  // is decorative; the dot is the load-bearing affordance.)
+  // Track-then-settle, re-fired whenever `snapshotEpoch` changes.
+  // With `tracksViewChanges={false}` from t=0, MapKit's marker snapshot
+  // races the View tree's paint, and on later map reflows MapKit can
+  // re-rasterize a cached-but-empty bitmap (the marker vanishes). 50ms
+  // ≈ 3 frames gives the View tree time to paint + commit before MapKit
+  // caches the bitmap; setTimeout(0) fires before native paint.
+  //
+  // Re-tracking IN PLACE (flip true→false on the same mounted marker)
+  // rather than remounting via a changing `key` is deliberate: a remount
+  // re-inserts the annotation into MapKit, which on iOS drops its
+  // `zIndex={1000}` relative to a co-located, NON-remounted LandmarkMarker
+  // — the blue dot fell under a trusted-friend/felt-welcome heart pin on
+  // route-switch (user-flagged 2026-06-03). Re-snapshotting in place
+  // refreshes the bitmap (fixes the eviction) while keeping the marker's
+  // native identity, so its zIndex stays honored and the dot stays on top.
+  // (The pulse stops animating once we stop tracking — acceptable trade
+  // for a marker that actually renders. The pulse is decorative; the dot
+  // is the load-bearing affordance.)
   const [tracking, setTracking] = useState(true);
   useEffect(() => {
+    setTracking(true);
     const id = setTimeout(() => setTracking(false), 50);
     return () => clearTimeout(id);
-  }, []);
+  }, [snapshotEpoch]);
 
   return (
     <Marker
