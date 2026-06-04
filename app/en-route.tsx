@@ -23,16 +23,19 @@ import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
-import { Asterisk } from 'phosphor-react-native/src/icons/Asterisk';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
 import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
-// Note: the SOS side-button glyph is now Phosphor Asterisk (bold+red),
-// not the prior sidebtn-help.svg red-cross — see /emergency for the
-// Red-Cross-conflict rationale (user-flagged 2026-06-01). Asterisk is
-// imported alongside Shield up top.
+// SOS side-button glyph — bespoke red burst (sidebtn-sos.svg), swapped
+// from the Phosphor Asterisk 2026-06-03. Still an 8-point burst (NOT a
+// cross), so it keeps clear of the protected Red Cross mark that retired
+// the original sidebtn-help.svg medical cross — see /emergency for that
+// rationale. Red fill (#FF3B30 = colors.red, reserved alert) + dark-red
+// outline; reads as the loudest, most emphatic button in the column,
+// fitting the acute emergency control.
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
+import SidebtnSos from '../assets/illustrations/sidebtn-sos.svg';
 
 // Daylight glyphs — same SVGs Figma uses on /home's gradient key
 // (node 825:3647) so the symbol means the same thing on both
@@ -1653,10 +1656,10 @@ export default function EnRoute() {
             (trusted-contact + guarded-911). Previously this slot was a
             disabled "support chat coming soon" stub, which buried the
             crisis surface two taps deep behind Shield → /safety. The
-            red asterisk glyph (Phosphor Asterisk bold+red, swapped from
-            the prior red medical-cross 2026-06-01 to avoid the protected
-            Red Cross conflict — see /emergency for the full note)
-            reads as "emergency / escalation" — wiring it live realizes
+            red burst glyph (bespoke sidebtn-sos.svg, swapped from the
+            Phosphor Asterisk 2026-06-03; both 8-point bursts, NOT a cross,
+            to avoid the protected Red Cross conflict — see /emergency for
+            the full note) reads as "emergency / escalation" — wiring it live realizes
             the documented three-role column (.cursorrules exception 6:
             Shield = safety menu, Report = observation, this =
             emergency). Distinct from Shield: Shield opens the full
@@ -1671,7 +1674,7 @@ export default function EnRoute() {
             accessibilityLabel="Emergency SOS"
             accessibilityHint="Opens trusted-contact and 911 options"
           >
-            <Asterisk size={32} color={colors.red} weight="bold" />
+            <SidebtnSos width={32} height={32} />
           </FloatingActionButton>
           <FloatingActionButton
             size="56"
