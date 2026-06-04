@@ -108,6 +108,14 @@ export type Recommendation = {
    * category-glyph placeholder.
    */
   photoName?: string;
+  /**
+   * Distinct human-readable vouch labels when this card represents a
+   * same-place group trusted in more than one way (e.g.
+   * ['Black-owned', 'Felt welcome']). Populated ONLY by
+   * getTrustedByCommunity, ONLY when a group has >= 2 distinct vouches.
+   * Undefined everywhere else — the card's default pill is unchanged.
+   */
+  facets?: string[];
 };
 
 // --- Public surface ------------------------------------------------------
@@ -308,6 +316,40 @@ function recCategoryForReport(
   return null;
 }
 
+/**
+ * Display labels for the "vouch" register surfaced on the Trusted-by-
+ * community card. Distinct from HomeBrowseSheet's CATEGORY_LABELS (which
+ * is keyed by RecommendationCategory and uses title-case "Black-Owned"):
+ * this register reads as a community vouch and intentionally adds
+ * "Felt welcome", which has no RecommendationCategory (general felt-
+ * welcome routes to none).
+ */
+const VOUCH_LABEL: Record<RecommendationCategory, string> = {
+  'black-owned': 'Black-owned',
+  'women-owned': 'Women-owned',
+  'lgbtq-welcoming': 'LGBTQ+ welcoming',
+  restroom: 'Open restroom',
+  'late-night-warm-welcome': 'Late-night welcome',
+};
+
+/**
+ * The vouch label for a single report. Routes via recCategoryForReport
+ * (black-owned, or felt-welcome + identity subTag); a felt-welcome report
+ * with a place-type or no subTag falls through to "Felt welcome" — the
+ * most fundamental vouch. The final "Trusted" is defensive and should be
+ * unreachable (the trusted-row candidate filter already excludes non-
+ * routing, non-felt-welcome reports).
+ */
+function vouchLabelForReport(
+  categoryId: string,
+  subTag: string | undefined,
+): string {
+  const routed = recCategoryForReport(categoryId, subTag);
+  if (routed) return VOUCH_LABEL[routed];
+  if (categoryId === 'felt-welcome') return 'Felt welcome';
+  return 'Trusted';
+}
+
 const COMMUNITY_PROXIMITY_RADIUS_MILES = 10;
 
 async function getCommunityRecommendations(
@@ -381,10 +423,11 @@ async function getCommunityRecommendations(
  *     `curatorBoost?: number` field to CommunityReport and fold a
  *     third weighted term in here.
  *
- * Reports are grouped by ~50m proximity (matching the existing
- * dedupByProximity radius) so two reports on the same storefront
- * compound their count instead of competing as separate entries.
- * The most-recent report's metadata wins the group's display
+ * Reports are grouped by `samePlace` (normalized name AND ~50m) so two
+ * reports on the same storefront compound their count — and accumulate
+ * their distinct vouches into `facets` — instead of competing as
+ * separate entries, while different-name neighbors within 50m stay
+ * distinct. The most-recent report's metadata wins the group's display
  * (freshest placeName / subTag / detail).
  *
  * Returns up to 7 entries, distance-annotated. Empty when no reports
@@ -394,7 +437,6 @@ const TRUSTED_RECENCY_WEIGHT = 0.7;
 const TRUSTED_COUNT_WEIGHT = 0.3;
 const TRUSTED_RECENCY_HALF_LIFE_DAYS = 7;
 const TRUSTED_COUNT_SATURATION = 10;
-const TRUSTED_GROUP_PROXIMITY_MILES = 50 / 1609.34; // ~50m
 const TRUSTED_RESULT_LIMIT = 7;
 
 export async function getTrustedByCommunity(
@@ -421,7 +463,7 @@ export async function getTrustedByCommunity(
     //
     // Black-owned reports always route via `recCategoryForReport`'s
     // first branch, so they don't need a defensive fallback here.
-    type Candidate = { rec: Recommendation; timestamp: number };
+    type Candidate = { rec: Recommendation; timestamp: number; vouch: string };
     const candidates: Candidate[] = [];
     for (const r of reports) {
       const routedCategory = recCategoryForReport(r.categoryId, r.subTag);
@@ -447,43 +489,47 @@ export async function getTrustedByCommunity(
           reportDetail: r.detail,
         },
         timestamp: r.timestamp,
+        vouch: vouchLabelForReport(r.categoryId, r.subTag),
       });
     }
     if (candidates.length === 0) return [];
 
-    // Step 2: group by ~50m proximity. The `anchor` (first report's
-    // location) is the fixed reference for distance checks; the `rec`
-    // is the freshest report's display metadata. Decoupling these
-    // fixes an order-dependent merging bug — if we re-anchored on
-    // every "freshest metadata wins" update, three reports A↔B↔C
-    // where A↔C exceeds 50m but A↔B and B↔C don't could end up in
-    // one group OR two depending on insertion order. With a fixed
-    // anchor, C either lands in A's group (if A is the anchor and
-    // A↔C>50m → no) or starts its own — deterministic regardless
-    // of arrival order.
+    // Step 2: group by samePlace (normalized name AND ~50m), not
+    // proximity alone — so different-name neighbors start their own
+    // group instead of merging, while the same place reported under
+    // multiple categories collapses into one and accumulates its
+    // distinct vouches. The `anchor` (first report's name + location)
+    // is the fixed reference; the `rec` is the freshest report's
+    // display metadata. Decoupling these fixes an order-dependent
+    // merging bug — if we re-anchored on every "freshest metadata
+    // wins" update, three reports A↔B↔C where A↔C exceeds the match
+    // window but A↔B and B↔C don't could end up in one group OR two
+    // depending on insertion order. With a fixed anchor, membership is
+    // deterministic regardless of arrival order.
     type Group = {
-      anchor: { latitude: number; longitude: number };
+      anchor: { name: string; latitude: number; longitude: number };
       rec: Recommendation;
       count: number;
       mostRecentTs: number;
+      vouches: Set<string>;
     };
     const groups: Group[] = [];
-    for (const { rec, timestamp } of candidates) {
-      const existing = groups.find(
-        (g) => distanceMilesBetween(g.anchor, rec) <= TRUSTED_GROUP_PROXIMITY_MILES,
-      );
+    for (const { rec, timestamp, vouch } of candidates) {
+      const existing = groups.find((g) => samePlace(g.anchor, rec));
       if (existing) {
         existing.count += 1;
+        existing.vouches.add(vouch);
         if (timestamp > existing.mostRecentTs) {
           existing.mostRecentTs = timestamp;
           existing.rec = rec; // freshest metadata wins the display
         }
       } else {
         groups.push({
-          anchor: { latitude: rec.latitude, longitude: rec.longitude },
+          anchor: { name: rec.name, latitude: rec.latitude, longitude: rec.longitude },
           rec,
           count: 1,
           mostRecentTs: timestamp,
+          vouches: new Set([vouch]),
         });
       }
     }
@@ -496,7 +542,11 @@ export async function getTrustedByCommunity(
       const recency = 1 / (1 + daysSince / TRUSTED_RECENCY_HALF_LIFE_DAYS);
       const count = Math.min(1, Math.log10(g.count + 1) / countNorm);
       const score = TRUSTED_RECENCY_WEIGHT * recency + TRUSTED_COUNT_WEIGHT * count;
-      return { rec: g.rec, score };
+      // Surface multiple distinct vouches as facets; single-vouch
+      // groups leave facets undefined (unchanged card behavior).
+      const rec =
+        g.vouches.size >= 2 ? { ...g.rec, facets: [...g.vouches] } : g.rec;
+      return { rec, score };
     });
     scored.sort((a, b) => b.score - a.score);
 
