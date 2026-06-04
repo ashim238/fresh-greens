@@ -43,4 +43,9 @@ export type Recommendation = {
    * entries — OSM nodes don't carry images).
    */
   photoName?: string;
+  /**
+   * Google Places stable id (e.g. `ChIJ…`) — used to match community
+   * reports to external listings without relying on display-name equality.
+   */
+  googlePlaceId?: string;
 };

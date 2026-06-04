@@ -255,6 +255,11 @@ export type CommunityReport = {
    * call failed — display path falls back to subTag-based naming.
    */
   placeName?: string;
+  /**
+   * Google Places id from submit-time `/api/nearby` (stable identity
+   * for matching external listings and hydrating card fields).
+   */
+  googlePlaceId?: string;
   /** Anonymous-category reports never set this. */
   submittedBy?: string;
   /**

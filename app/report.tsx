@@ -229,6 +229,7 @@ export default function Report() {
         detail: detailText.trim() || undefined,
         subTag: selectedSubTag,
         placeName: nearest?.name,
+        googlePlaceId: nearest?.googlePlaceId,
         submittedBy: category.anonymous ? undefined : user?.id,
         photoUri,
       });

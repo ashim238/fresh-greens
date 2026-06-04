@@ -25,6 +25,7 @@
 // vars. Never log the key. If unset, returns an empty array so the
 // proxy can still scaffold without breaking the demo path.
 
+import { compactHoursLabel, priceTierFor } from './google-places-format.js';
 import type { Recommendation, RecommendationCategory } from './recommendation';
 
 const PLACES_BASE = 'https://places.googleapis.com/v1';
@@ -69,59 +70,6 @@ type GooglePlace = {
 type SearchNearbyResponse = {
   places?: GooglePlace[];
 };
-
-/**
- * Compact "Closes 4 PM" / "Open until 1 AM" / "Closed today"
- * derived from Google's `weekdayDescriptions[0]` (which reads like
- * "Monday: 8:00 AM – 4:00 PM"). The verbose form was overflowing
- * the recommendation card's hours pill — at ~180pt wide the tag
- * row wrapped to two lines and stacked into the card overflow.
- *
- * Parse heuristics — Google's strings come in a few flavors:
- *   "Monday: 8:00 AM – 4:00 PM"       → "Closes 4 PM"
- *   "Monday: Open 24 hours"           → "Open 24/7"
- *   "Monday: Closed"                  → "Closed today"
- *   "Monday: 5:00 PM – 1:00 AM"       → "Open until 1 AM"
- *
- * Falls back to the raw string when we can't parse, so the card
- * still surfaces something rather than blank.
- */
-function compactHoursLabel(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  if (/closed/i.test(raw)) return 'Closed today';
-  if (/24 hours|all day/i.test(raw)) return 'Open 24/7';
-  // Strip the day-of-week prefix ("Monday: ").
-  const afterColon = raw.includes(':') ? raw.split(':').slice(1).join(':').trim() : raw;
-  // Match the close time on either side of the en-dash.
-  const m = afterColon.match(/–\s*(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
-  if (!m) return raw;
-  const closeHour = m[1];
-  const closeMins = m[2] && m[2] !== '00' ? `:${m[2]}` : '';
-  const ampm = m[3].toUpperCase();
-  // "Open until X" reads better for late-night spots (1 AM / 2 AM).
-  // "Closes X" reads better for daytime spots (4 PM / 9 PM).
-  const isLateNight = ampm === 'AM' || (ampm === 'PM' && parseInt(closeHour, 10) >= 9);
-  const prefix = isLateNight ? 'Open until' : 'Closes';
-  return `${prefix} ${closeHour}${closeMins} ${ampm}`;
-}
-
-/**
- * Map Google's priceLevel enum to the app's display string.
- */
-function priceTierFor(level?: GooglePlace['priceLevel']): string | undefined {
-  switch (level) {
-    case 'PRICE_LEVEL_INEXPENSIVE':
-      return '$';
-    case 'PRICE_LEVEL_MODERATE':
-      return '$$';
-    case 'PRICE_LEVEL_EXPENSIVE':
-      return '$$$';
-    case 'PRICE_LEVEL_VERY_EXPENSIVE':
-      return '$$$$';
-    default:
-      return undefined;
-  }
-}
 
 /**
  * Per-category text query for `places:searchText`. The text query +
@@ -232,6 +180,7 @@ export async function fetchGooglePlaces(
           isOpen: p.regularOpeningHours?.openNow,
           region: 'external',
           photoName: p.photos?.[0]?.name,
+          googlePlaceId: p.id,
         };
       })
       .filter((r): r is Recommendation => r !== null);

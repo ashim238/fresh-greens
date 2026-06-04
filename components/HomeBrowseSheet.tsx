@@ -62,8 +62,8 @@ import { typography } from '../theme/typography';
  * in `lib/api/recommendations.ts` for the full taxonomy and the
  * three-source hybrid data flow (curated + community + external).
  *
- * Weather (66° + Moderate) is still mocked — `lib/api/weather.ts`
- * is the documented future swap-in.
+ * Weather loads from `lib/api/weather.ts` (Open-Meteo); the card
+ * shows em-dashes until the first GPS fix + fetch land.
  */
 export function HomeBrowseSheet({
   firstName,

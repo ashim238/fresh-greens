@@ -37,8 +37,8 @@
 
 import type { ImageSourcePropType } from 'react-native';
 
-import { PROXY_RECS_URL } from '../proxy';
-import { getCommunityReports } from './community-reports';
+import { fetchPlaceDetails, PROXY_RECS_URL } from '../proxy';
+import { getCommunityReports, type CommunityReport } from './community-reports';
 
 // --- Types ---------------------------------------------------------------
 
@@ -124,6 +124,12 @@ export type Recommendation = {
    * twin.
    */
   communityTrusted?: boolean;
+  /**
+   * Google Places stable id — from submit-time nearby lookup (community)
+   * or external adapter. When present, `samePlace` matches on id before
+   * name+proximity so display-name drift doesn't break enrichment.
+   */
+  googlePlaceId?: string;
 };
 
 // --- Public surface ------------------------------------------------------
@@ -175,7 +181,10 @@ export async function getRecommendations(
     ? primary
     : await getCuratedRecommendations(query);
 
-  return annotateDistance(dedupBySamePlace(merged), query.userLocation);
+  const mergedRecs = await hydrateCommunityRecs(
+    mergeBySamePlace(merged),
+  );
+  return annotateDistance(mergedRecs, query.userLocation);
 }
 
 /**
@@ -191,21 +200,54 @@ function normalizeName(name: string): string {
 /** ~50m, expressed as squared lat/lng degrees (cheap, no trig). */
 const SAME_PLACE_DEG_SQ = (50 / 111000) ** 2;
 
+type PlaceIdentity = {
+  name: string;
+  latitude: number;
+  longitude: number;
+  googlePlaceId?: string;
+};
+
 /**
- * Two recs/points refer to the SAME place when their normalized names
- * match AND they sit within ~50m. Name is the disambiguator — proximity
- * alone collapses distinct neighbors (two storefronts within 50m read as
- * one, and the second is silently dropped). Same fix shape as
- * preferred-stations' `stationsMatch`.
+ * Two recs refer to the SAME place when they share a Google place id,
+ * OR when normalized names match AND they sit within ~50m. Id-first
+ * fixes cross-row enrichment when display names differ; name+proximity
+ * remains the fallback for legacy reports without `googlePlaceId`.
  */
-function samePlace(
-  a: { name: string; latitude: number; longitude: number },
-  b: { name: string; latitude: number; longitude: number },
-): boolean {
+function samePlace(a: PlaceIdentity, b: PlaceIdentity): boolean {
+  if (a.googlePlaceId && b.googlePlaceId && a.googlePlaceId === b.googlePlaceId) {
+    return true;
+  }
   if (normalizeName(a.name) !== normalizeName(b.name)) return false;
   const dLat = a.latitude - b.latitude;
   const dLng = a.longitude - b.longitude;
   return dLat * dLat + dLng * dLng < SAME_PLACE_DEG_SQ;
+}
+
+/**
+ * Fill-if-missing union of card fields when two recs are the same place.
+ * Keeps the keeper's name/source/category voice; borrows external photo,
+ * rating, hours, etc. from the incoming twin.
+ */
+function mergeRecFields(keeper: Recommendation, incoming: Recommendation): Recommendation {
+  const withRating =
+    keeper.rating != null
+      ? keeper
+      : incoming.rating != null
+        ? incoming
+        : keeper;
+  return {
+    ...keeper,
+    googlePlaceId: keeper.googlePlaceId ?? incoming.googlePlaceId,
+    photoName: keeper.photoName ?? incoming.photoName,
+    rating: keeper.rating ?? incoming.rating,
+    reviewCount: withRating.reviewCount ?? incoming.reviewCount,
+    isOpen: keeper.isOpen ?? incoming.isOpen,
+    hoursLabel: keeper.hoursLabel ?? incoming.hoursLabel,
+    priceTier: keeper.priceTier ?? incoming.priceTier,
+    reportDetail: keeper.reportDetail ?? incoming.reportDetail,
+    address: keeper.address || incoming.address,
+    communityTrusted: keeper.communityTrusted || incoming.communityTrusted,
+  };
 }
 
 /** Haversine miles between two lat/lng pairs. */
@@ -413,19 +455,7 @@ async function getCommunityRecommendations(
         // recognizable when present — closes the
         // "community-reported X" → "<real business>" gap that made
         // community recs look like fillers.
-        const rec: Recommendation = {
-          id: `community-${r.id}`,
-          source: 'community',
-          category: recCategory,
-          name: r.placeName ?? r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[recCategory],
-          address: '',
-          latitude: r.location.latitude,
-          longitude: r.location.longitude,
-          categoryLabel: r.subTag ?? 'Place',
-          region: 'detected', // v1 doesn't reverse-geocode reports
-          reportDetail: r.detail,
-        };
-        return rec;
+        return communityRecFromReport(r, recCategory);
       })
       .filter((r): r is Recommendation => r !== null);
   } catch {
@@ -516,16 +546,8 @@ export async function getTrustedByCommunity(
       const vouch = vouchKeyForReport(r.categoryId, r.subTag) ?? 'felt-welcome';
       candidates.push({
         rec: {
-          id: `community-${r.id}`,
-          source: 'community',
-          category: displayCategory,
-          name: r.placeName ?? r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[displayCategory],
-          address: '',
-          latitude: r.location.latitude,
-          longitude: r.location.longitude,
+          ...communityRecFromReport(r, displayCategory),
           categoryLabel: r.subTag ?? 'Felt welcome',
-          region: 'detected',
-          reportDetail: r.detail,
         },
         timestamp: r.timestamp,
         vouch,
@@ -546,7 +568,7 @@ export async function getTrustedByCommunity(
     // depending on insertion order. With a fixed anchor, membership is
     // deterministic regardless of arrival order.
     type Group = {
-      anchor: { name: string; latitude: number; longitude: number };
+      anchor: PlaceIdentity;
       rec: Recommendation;
       count: number;
       mostRecentTs: number;
@@ -564,7 +586,12 @@ export async function getTrustedByCommunity(
         }
       } else {
         groups.push({
-          anchor: { name: rec.name, latitude: rec.latitude, longitude: rec.longitude },
+          anchor: {
+            name: rec.name,
+            latitude: rec.latitude,
+            longitude: rec.longitude,
+            googlePlaceId: rec.googlePlaceId,
+          },
           rec,
           count: 1,
           mostRecentTs: timestamp,
@@ -607,7 +634,8 @@ export async function getTrustedByCommunity(
     scored.sort((a, b) => b.score - a.score);
 
     const top = scored.slice(0, TRUSTED_RESULT_LIMIT).map((s) => s.rec);
-    return annotateDistance(top, query.userLocation);
+    const hydrated = await hydrateCommunityRecs(top);
+    return annotateDistance(hydrated, query.userLocation);
   } catch {
     return [];
   }
@@ -725,24 +753,73 @@ async function getExternalRecommendations(
 // --- Dedup ---------------------------------------------------------------
 
 /**
- * Removes same-place duplicates across sources — same NORMALIZED NAME
- * within ~50m (see `samePlace`). Name-aware so two genuinely different
- * businesses within 50m both survive; proximity-only collapsed them and
- * dropped the second. Preserves the first occurrence (curated wins over
- * community wins over external) so the curator's editorial copy always
- * trumps a peer report or external listing of the same place.
- *
- * Tradeoff: a community report whose placeName didn't resolve (generic
- * fallback name) and the external listing of the same place will now
- * BOTH show, where proximity-only merged them. A generic-named duplicate
- * is strictly less bad than two distinct places collapsing to one.
+ * Collapses same-place entries within one row's list by merging card
+ * fields (fill-if-missing) instead of dropping the second occurrence.
+ * First occurrence wins for name/source/category; external photo/rating
+ * flow into a community keeper when ids match or names+proximity match.
  */
-function dedupBySamePlace(recs: Recommendation[]): Recommendation[] {
+function mergeBySamePlace(recs: Recommendation[]): Recommendation[] {
   const kept: Recommendation[] = [];
   for (const rec of recs) {
-    if (!kept.some((k) => samePlace(k, rec))) kept.push(rec);
+    const idx = kept.findIndex((k) => samePlace(k, rec));
+    if (idx === -1) kept.push(rec);
+    else kept[idx] = mergeRecFields(kept[idx], rec);
   }
   return kept;
+}
+
+/** @deprecated alias — Open Now row still calls this name. */
+function dedupBySamePlace(recs: Recommendation[]): Recommendation[] {
+  return mergeBySamePlace(recs);
+}
+
+function communityRecFromReport(
+  r: CommunityReport,
+  recCategory: RecommendationCategory,
+): Recommendation {
+  return {
+    id: `community-${r.id}`,
+    source: 'community',
+    category: recCategory,
+    name: r.placeName ?? r.subTag ?? FALLBACK_NAME_BY_REC_CATEGORY[recCategory],
+    address: '',
+    latitude: r.location.latitude,
+    longitude: r.location.longitude,
+    categoryLabel: r.subTag ?? 'Place',
+    region: 'detected',
+    reportDetail: r.detail,
+    googlePlaceId: r.googlePlaceId,
+  };
+}
+
+/**
+ * Hydrates community recs that carry a `googlePlaceId` via the proxy's
+ * Place Details endpoint — gives photo/rating/hours even when the
+ * place never appears in the category text-search feed.
+ */
+async function hydrateCommunityRecs(recs: Recommendation[]): Promise<Recommendation[]> {
+  return Promise.all(
+    recs.map(async (rec) => {
+      if (rec.source !== 'community' || !rec.googlePlaceId) return rec;
+      const details = await fetchPlaceDetails(rec.googlePlaceId);
+      if (!details) return rec;
+      const withRating = rec.rating != null ? rec : details;
+      const isGenericName = (
+        Object.values(FALLBACK_NAME_BY_REC_CATEGORY) as string[]
+      ).includes(rec.name);
+      return {
+        ...rec,
+        name: isGenericName && details.name ? details.name : rec.name,
+        address: rec.address || details.address || '',
+        photoName: rec.photoName ?? details.photoName,
+        rating: rec.rating ?? details.rating,
+        reviewCount: withRating.reviewCount ?? details.reviewCount,
+        isOpen: rec.isOpen ?? details.isOpen,
+        hoursLabel: rec.hoursLabel ?? details.hoursLabel,
+        priceTier: rec.priceTier ?? details.priceTier,
+      };
+    }),
+  );
 }
 
 /**
