@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat(routes): on-route hazard markers — reuse the canonical marker across surfaces, and let tsc enforce the design-token contract
+
+Shipped `9555bda`. The "yellow zone icon roughly where it falls on the route" ask turned out to be a *reuse* job, not a build. Three takeaways:
+
+**When extending a design token to a new surface, search for the canonical component first — your "we'll need to build it" is often a "we'll need to wire it up."** I went into this thinking I'd be building a new `RouteHazardMarker` (white disc + orange WarningDiamond). The user dropped two Figma URLs and the second one (`1133:13297`) turned out to be the canonical `EnRouteZone` — *already in the codebase, already on /en-route, already with low-light/wildlife/road glyphs at the exact 62×50 dimensions I wanted.* The right move was: reuse the component, add the one missing glyph (police), and surface it on the new screen. Net: one new SVG, one render branch, no new color decision, no parallel component to maintain. General rule for design-system feature requests: before drafting a new component, search for the canonical Figma node AND the codebase symbol — *especially* if the visual register (yellow caution, "for X mi." pill) feels like it should already exist. The cross-surface consistency you get for free is also a thesis win — the same hazard reads identically in preview and mid-drive.
+
+**`Record<UnionType, …>` and exhaustive `switch (union)` are the cheapest correctness mechanism the type system gives you — when you add a union member, tsc spells out every site that needs the new branch.** Adding `'police'` to `HazardCategory` immediately failed with exactly three errors — `humanReadableHazard` × 2 + `hazardFullCopy` — naming the three switches that were missing the new case. Plus the implicit one (`DefaultMarker`'s `&&` chain in `EnRouteZone`) that *wasn't* tsc-enforced because it's a series of `&&` not a switch — and that's the one I had to remember to handle manually. Lesson: prefer exhaustive `switch (union): T` + `Record<Union, T>` to chained `&&` expressions when dispatching on a closed union. The chained-`&&` form ships fine TODAY but goes silently wrong on the next union extension. Six update sites, three tsc-enforced, one quietly not — and the un-enforced one is exactly the kind of thing that would have hidden in review.
+
+**The "forward-looking framing in the docstring" pattern keeps a design choice readable as we get more data.** Police was previously *excluded* from `HazardCategory` ("stationary, not a hazard"). The original reasoning was correct *for the data we had*. The right way to revise the call wasn't to delete the old rationale — it was to capture both in the new docstring: "today static OSM precincts within 200m of a turn; when live police-location data lands, the SURFACE is the same, the definition of a 'police zone' just widens." A future reader (me, or a contributor) sees not just what we do but what would justify changing it. Apply broadly: when a v1 implementation gates on data availability rather than design intent, name that in the comment — so the gate isn't read as the design.
+
+---
+
 ## fix(scoring): "dropped reports don't change the route" was TWO bugs — sample the line not the vertices, and never let the reassurance diverge from the decision
 
 Shipped `c22210b` (line-based point scoring) + `e8407ad` + `78a689c` (chip honesty). The user dropped felt-unsafe reports on a route and nothing changed; chasing it surfaced two distinct, generalizable bugs:
