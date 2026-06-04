@@ -7,6 +7,7 @@ import type { SvgProps } from 'react-native-svg';
 
 // Phosphor deep-import — see trusted-contact-setup.tsx for the note on
 // bypassing the barrel index.
+import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 import { ShieldWarning } from 'phosphor-react-native/src/icons/ShieldWarning';
 
 import SafetyCarTroubles from '../assets/illustrations/safety-car-troubles.svg';
@@ -21,6 +22,7 @@ import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -191,53 +193,70 @@ export default function SafetyModal() {
           </View>
         </View>
 
-        <View style={styles.grid}>
-          {/* Two tiles per row, flex-stretched — same grid contract as
-              /report's category picker (gridRow + flex:1 tiles). */}
-          {[0, 2].map((rowStart) => (
-            <View style={styles.gridRow} key={rowStart}>
-              {TABS.slice(rowStart, rowStart + 2).map((tab) => (
-                <Pressable
-                  key={tab.id}
-                  style={({ pressed }) => [styles.tab, pressed && pressedDim]}
-                  onPress={() => handleTabPress(tab)}
-                  accessibilityRole="button"
-                  accessibilityLabel={tab.label}
-                >
-                  <View style={styles.tabIcon}>
-                    <tab.Icon width={48} height={48} />
-                  </View>
-                  <Text style={styles.tabLabel} numberOfLines={2}>
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          ))}
-        </View>
-
-        {/*
-          Emergency / SOS (thesis claim C8) — the most consequential
-          safety affordance, so it gets its own prominent control below
-          the tile grid rather than a same-weight tile. navy (reserved
-          safety-affordance register, .cursorrules #6) matches the
-          /emergency surface; the red 911 escalation lives INSIDE the
-          flow, not on this calm entry button.
-        */}
-        <Pressable
-          onPress={() => router.push('/emergency')}
-          accessibilityRole="button"
-          accessibilityLabel="Emergency. Reach a trusted contact or 911."
-          style={({ pressed }) => [styles.sosBar, pressed && pressedDim]}
-        >
-          <ShieldWarning size={28} color={colors.white} weight="duotone" />
-          <View style={styles.sosBarText}>
-            <Text style={styles.sosBarTitle}>Emergency</Text>
-            <Text style={styles.sosBarSubtitle}>
-              Reach a trusted contact or 911
-            </Text>
+        <View style={styles.body}>
+          <View style={styles.grid}>
+            {/* Two tiles per row, flex-stretched — same grid contract as
+                /report's category picker (gridRow + flex:1 tiles). */}
+            {[0, 2].map((rowStart) => (
+              <View style={styles.gridRow} key={rowStart}>
+                {TABS.slice(rowStart, rowStart + 2).map((tab) => (
+                  <Pressable
+                    key={tab.id}
+                    style={({ pressed }) => [styles.tab, pressed && pressedDim]}
+                    onPress={() => handleTabPress(tab)}
+                    accessibilityRole="button"
+                    accessibilityLabel={tab.label}
+                  >
+                    <View style={styles.tabIcon}>
+                      <tab.Icon width={48} height={48} />
+                    </View>
+                    <Text style={styles.tabLabel} numberOfLines={2}>
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
           </View>
-        </Pressable>
+
+          {/*
+            Emergency / SOS (thesis claim C8) — separate lane below the
+            situational toolkit. Grouped-surface row (same register as the
+            tiles) keeps the modal in the green/gray family; navy scopes to
+            the shield icon only (.cursorrules #6 — control-scoped, not
+            full-bleed like the old bar). Red 911 escalation stays inside
+            /emergency.
+          */}
+          <View style={styles.emergencySection}>
+            <Text style={styles.emergencySectionLabel}>Need help now?</Text>
+            <Pressable
+              onPress={() => router.push('/emergency')}
+              accessibilityRole="button"
+              accessibilityLabel="Emergency. Reach a trusted contact or 911."
+              accessibilityHint="Opens emergency options to call your trusted contact or 911."
+              style={({ pressed }) => [styles.sosBar, pressed && pressedDim]}
+            >
+              <View style={styles.sosBarIcon}>
+                <ShieldWarning
+                  size={28}
+                  color={colors.navy}
+                  weight="duotone"
+                />
+              </View>
+              <View style={styles.sosBarText}>
+                <Text style={styles.sosBarTitle}>Emergency</Text>
+                <Text style={styles.sosBarSubtitle}>
+                  Reach a trusted contact or 911
+                </Text>
+              </View>
+              <CaretRight
+                size={20}
+                color={colors.labelTertiary}
+                weight="bold"
+              />
+            </Pressable>
+          </View>
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -314,9 +333,29 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     alignSelf: 'stretch',
   },
+  body: {
+    flex: 1,
+    gap: spacing.lg,
+  },
   grid: {
     // Matches /report picker: 24pt between rows (popup gap-24).
     gap: spacing.lg,
+  },
+  emergencySection: {
+    // Hairline + label separate "escape hatch" from the 2×2 toolkit.
+    // marginTop: 'auto' uses body flex space to pin this lane to the
+    // modal foot on tall devices instead of crowding the grid.
+    alignSelf: 'stretch',
+    marginTop: 'auto',
+    paddingTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separatorSubtle,
+    gap: spacing.sm,
+  },
+  emergencySectionLabel: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    textAlign: 'left',
   },
   gridRow: {
     flexDirection: 'row',
@@ -351,34 +390,37 @@ const styles = StyleSheet.create({
     color: colors.black,
     textAlign: 'center',
   },
-  // C8 — Emergency/SOS entry control. Raw spacing values match this
-  // file's existing convention (a spacing-token sweep can migrate the
-  // whole file later); all land on the 4pt grid.
+  // C8 — Emergency/SOS entry row. Same grouped surface + e1 lift as the
+  // toolkit tiles; navy only on the shield (matches /roadside's navy
+  // Siren row pattern and /emergency's control-scoped navy register).
   sosBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: colors.navy,
-    marginTop: 8,
-    ...shadows.e2,
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radii.sm,
+    backgroundColor: colors.systemGroupedBackground,
+    ...shadows.e1,
+  },
+  sosBarIcon: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sosBarText: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
+    minWidth: 0,
   },
   sosBarTitle: {
     ...typography.bodyEmphasized,
-    color: colors.white,
+    color: colors.black,
   },
   sosBarSubtitle: {
     // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
-    // Sits beneath the SOS bar title on a high-stakes affordance —
-    // 13pt left the supporting copy reading as fine print on a
-    // crisis surface, which is exactly where it shouldn't.
     ...typography.subheadlineRegular,
-    color: colors.fadedgreen,
+    color: colors.labelTertiary,
   },
 });
