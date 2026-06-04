@@ -209,6 +209,45 @@ function routeSafeType(zone: Zone): RouteSafeType | null {
  * AVOID variants (felt-unsafe/incident; lit=no) — a caution-level lighting
  * report isn't a low-light warning.
  */
+/** First zone on the route matching a hazard chip type — map focus target. */
+function firstRouteHazardOnPath(
+  hazardType: RouteHazardType,
+  routeCoordinates: Coordinate[],
+  zones: Zone[],
+): { zone: Zone; focus: Coordinate } | null {
+  for (const zone of zones) {
+    if (routeHazardType(zone) !== hazardType) continue;
+    if (!routePassesZone(routeCoordinates, zone)) continue;
+    const anchor = zoneAnchor(zone);
+    if (!anchor) continue;
+    const focus =
+      zone.category === 'community-report'
+        ? anchor
+        : nearestPointOnPolyline(anchor, routeCoordinates);
+    return { zone, focus };
+  }
+  return null;
+}
+
+/** First zone on the route matching a safe chip type — map focus target. */
+function firstRouteSafeOnPath(
+  safeType: RouteSafeType,
+  routeCoordinates: Coordinate[],
+  zones: Zone[],
+): { zone: Zone; focus: Coordinate } | null {
+  for (const zone of zones) {
+    if (routeSafeType(zone) !== safeType) continue;
+    if (!routePassesZone(routeCoordinates, zone)) continue;
+    const anchor = zoneAnchor(zone);
+    if (!anchor) continue;
+    return {
+      zone,
+      focus: nearestPointOnPolyline(anchor, routeCoordinates),
+    };
+  }
+  return null;
+}
+
 function routeHazardType(zone: Zone): RouteHazardType | null {
   if (zone.type === 'safe') return null;
   switch (zone.category) {
@@ -954,6 +993,72 @@ export default function Home() {
     setHighlightFuelStopId(stopId);
     setShowFuelStops(true);
   }, []);
+
+  const focusMapOnCoordinate = useCallback((coord: Coordinate) => {
+    const latitudeDelta = 0.01;
+    mapRef.current?.animateToRegion(
+      {
+        latitude: coord.latitude - SHEET_CAMERA_OFFSET_RATIO * latitudeDelta,
+        longitude: coord.longitude,
+        latitudeDelta,
+        longitudeDelta: latitudeDelta,
+      },
+      400,
+    );
+  }, []);
+
+  const handleRouteHazardChipPress = useCallback(
+    (hazardType: RouteHazardType) => {
+      if (!selectedRoute) return;
+      const hit = firstRouteHazardOnPath(
+        hazardType,
+        selectedRoute.coordinates,
+        enabledZones,
+      );
+      if (!hit) return;
+      Haptics.selectionAsync().catch(() => {});
+      setSelectedZone(null);
+      setHighlightFuelStopId(null);
+      setShowFuelStops(false);
+      focusMapOnCoordinate(hit.focus);
+      if (hit.zone.category === 'community-report') {
+        setSelectedRouteHazard(null);
+        setSelectedReport({
+          zoneId: hit.zone.id,
+          categoryId: hit.zone.reportCategoryId as ReportCategoryId,
+          detail: hit.zone.reportDetail,
+          subTag: hit.zone.reportSubTag,
+          placeName: hit.zone.reportPlaceName,
+          photoUri: hit.zone.reportPhotoUri,
+          timestamp: hit.zone.reportTimestamp ?? Date.now(),
+        });
+        return;
+      }
+      setSelectedReport(null);
+      setSelectedRouteHazard({ zoneId: hit.zone.id });
+    },
+    [selectedRoute, enabledZones, focusMapOnCoordinate],
+  );
+
+  const handleRouteSafeChipPress = useCallback(
+    (safeType: RouteSafeType) => {
+      if (!selectedRoute) return;
+      const hit = firstRouteSafeOnPath(
+        safeType,
+        selectedRoute.coordinates,
+        enabledZones,
+      );
+      if (!hit) return;
+      Haptics.selectionAsync().catch(() => {});
+      setSelectedReport(null);
+      setSelectedRouteHazard(null);
+      setSelectedZone(hit.zone);
+      setHighlightFuelStopId(null);
+      setShowFuelStops(false);
+      focusMapOnCoordinate(hit.focus);
+    },
+    [selectedRoute, enabledZones, focusMapOnCoordinate],
+  );
 
   const handleSelectFuelStopOnMap = useCallback((stop: Place) => {
     setHighlightFuelStopId(stop.id);
@@ -2752,7 +2857,12 @@ export default function Home() {
                       .concat(' along this route.')}
                   >
                     {routeHazardChips.map((c) => (
-                      <RouteWarningChip key={c.type} count={c.count} label={c.label} />
+                      <RouteWarningChip
+                        key={c.type}
+                        count={c.count}
+                        label={c.label}
+                        onPress={() => handleRouteHazardChipPress(c.type)}
+                      />
                     ))}
                     {/* Safe-zone chips render AFTER the hazards — they're
                         the offset that lets a hazard-heavier route win on
@@ -2761,7 +2871,12 @@ export default function Home() {
                         the negative half alone made the recommendation
                         feel wrong (user-flagged 2026-06-04). */}
                     {routeSafeChips.map((c) => (
-                      <RouteSafeChip key={c.type} count={c.count} label={c.label} />
+                      <RouteSafeChip
+                        key={c.type}
+                        count={c.count}
+                        label={c.label}
+                        onPress={() => handleRouteSafeChipPress(c.type)}
+                      />
                     ))}
                   </View>
                 </>
@@ -3119,9 +3234,26 @@ export default function Home() {
  * VoiceOver reads "1 police zone and 1 low-light zone along this
  * route" once, not per-chip).
  */
-function RouteWarningChip({ count, label }: { count: number; label: string }) {
+function RouteWarningChip({
+  count,
+  label,
+  onPress,
+}: {
+  count: number;
+  label: string;
+  onPress: () => void;
+}) {
   return (
-    <View style={styles.routeChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.routeChip,
+        styles.routeChipPressable,
+        pressed && pressedDim,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Show ${count} ${label} on map`}
+    >
       {/* H4: 24pt → 16pt. Chip is ~40pt tall; a 24pt glyph filled 60%
           of the pill height and dominated the chip's tag-row register.
           16pt matches the topline-callout chip family's icon weight. */}
@@ -3129,7 +3261,7 @@ function RouteWarningChip({ count, label }: { count: number; label: string }) {
       <Text style={styles.routeChipText}>
         {count} {label}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -3187,14 +3319,31 @@ function RouteZonesFetchFailedChip() {
  * shape) and by a smaller Check glyph matching the family's 16pt icon
  * scale. Visually says "this counts FOR the route's safety."
  */
-function RouteSafeChip({ count, label }: { count: number; label: string }) {
+function RouteSafeChip({
+  count,
+  label,
+  onPress,
+}: {
+  count: number;
+  label: string;
+  onPress: () => void;
+}) {
   return (
-    <View style={styles.routeAllClearChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.routeAllClearChip,
+        styles.routeChipPressable,
+        pressed && pressedDim,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Show ${count} ${label} on map`}
+    >
       <Check size={16} color={colors.burntgreen} weight="bold" />
       <Text style={styles.routeAllClearText}>
         {count} {label}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -3514,6 +3663,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.orange,
     backgroundColor: colors.white,
+  },
+  routeChipPressable: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   routeChipText: {
     // Caption1/Emphasized per Figma 1109:3264 (12pt Medium 510 →
