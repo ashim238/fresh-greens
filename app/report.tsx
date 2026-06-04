@@ -563,7 +563,7 @@ function DetailView({
       </View>
 
       <View style={styles.formBlock}>
-        <Text style={styles.fieldLabel}>(Optional) Add detail below</Text>
+        <Text style={styles.fieldLabel}>(Optional) Your note</Text>
         <TextInput
           style={styles.textInput}
           value={detailText}

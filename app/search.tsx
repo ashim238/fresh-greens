@@ -646,7 +646,7 @@ export default function Search() {
                       >
                         {tool.id === 'saved' ? (
                           <SavedPlaceBookmark
-                            size={24}
+                            inQuickToolBox
                             variant={isSelected ? 'selected' : 'default'}
                           />
                         ) : (

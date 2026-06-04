@@ -44,6 +44,7 @@ export function ClusterMarker({
     <Marker
       coordinate={{ latitude, longitude }}
       anchor={{ x: 0.5, y: 0.5 }}
+      zIndex={550}
       tracksViewChanges={tracking}
       onPress={onPress}
       accessibilityRole="button"

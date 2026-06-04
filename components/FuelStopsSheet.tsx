@@ -58,6 +58,7 @@ export function FuelStopsSheet({
   onClose,
   isPreferred,
   onTogglePreferred,
+  highlightStopId,
 }: {
   visible: boolean;
   loading: boolean;
@@ -71,6 +72,8 @@ export function FuelStopsSheet({
   onClose: () => void;
   isPreferred: (stop: Place) => boolean;
   onTogglePreferred: (stop: Place) => void;
+  /** Scroll-to and emphasize a row (e.g. from an on-map fuel pin tap). */
+  highlightStopId?: string | null;
 }) {
   const listRef = useRef<FlatList<Place>>(null);
   const title =
@@ -96,8 +99,20 @@ export function FuelStopsSheet({
 
   useEffect(() => {
     if (!visible || loading || stops.length === 0) return;
+    if (highlightStopId) {
+      const index = stops.findIndex((s) => s.id === highlightStopId);
+      if (index < 0) return;
+      const id = setTimeout(() => {
+        listRef.current?.scrollToIndex({
+          index,
+          animated: true,
+          viewPosition: 0.35,
+        });
+      }, 280);
+      return () => clearTimeout(id);
+    }
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [visible, loading, stops.length]);
+  }, [visible, loading, stops, highlightStopId]);
 
   return (
     <Modal
@@ -163,44 +178,54 @@ export function FuelStopsSheet({
                     Tap a stop to center it on the map. Star a stop to trust it on future trips.
                   </Text>
                 }
-                renderItem={({ item }) => (
-                  <View style={styles.rowOuter}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.row,
-                        pressed && pressedDim,
-                      ]}
-                      onPress={() => onSelectStop(item)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${item.name}, ${item.distanceMiles} miles from you along your route${isPreferred(item) ? ', trusted by you' : ''}`}
-                      accessibilityHint="Centers this stop on the map"
-                    >
-                      <View style={styles.rowText}>
-                        <Text style={styles.rowName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        {isPreferred(item) ? (
-                          <View style={styles.trustedBadge}>
-                            <Text style={styles.trustedBadgeText}>
-                              Trusted by you
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.rowAddress} numberOfLines={2}>
-                            {item.address}
+                onScrollToIndexFailed={(info) => {
+                  listRef.current?.scrollToOffset({
+                    offset: Math.max(0, info.averageItemLength * info.index),
+                    animated: true,
+                  });
+                }}
+                renderItem={({ item }) => {
+                  const highlighted = item.id === highlightStopId;
+                  return (
+                    <View style={styles.rowOuter}>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.row,
+                          highlighted && styles.rowHighlighted,
+                          pressed && pressedDim,
+                        ]}
+                        onPress={() => onSelectStop(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.name}, ${item.distanceMiles} miles from you along your route${isPreferred(item) ? ', trusted by you' : ''}`}
+                        accessibilityHint="Centers this stop on the map"
+                      >
+                        <View style={styles.rowText}>
+                          <Text style={styles.rowName} numberOfLines={1}>
+                            {item.name}
                           </Text>
-                        )}
-                        <Text style={styles.rowMeta}>
-                          {item.distanceMiles} mi from you · along your route
-                        </Text>
-                      </View>
-                      <PreferredStar
-                        preferred={isPreferred(item)}
-                        onToggle={() => onTogglePreferred(item)}
-                      />
-                    </Pressable>
-                  </View>
-                )}
+                          {isPreferred(item) ? (
+                            <View style={styles.trustedBadge}>
+                              <Text style={styles.trustedBadgeText}>
+                                Trusted by you
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.rowAddress} numberOfLines={2}>
+                              {item.address}
+                            </Text>
+                          )}
+                          <Text style={styles.rowMeta}>
+                            {item.distanceMiles} mi from you · along your route
+                          </Text>
+                        </View>
+                        <PreferredStar
+                          preferred={isPreferred(item)}
+                          onToggle={() => onTogglePreferred(item)}
+                        />
+                      </Pressable>
+                    </View>
+                  );
+                }}
               />
             )}
           </SafeAreaView>
@@ -284,6 +309,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     borderRadius: 10,
+  },
+  rowHighlighted: {
+    backgroundColor: colors.fadedgreen,
   },
   rowText: { flex: 1, gap: 2 },
   rowName: {

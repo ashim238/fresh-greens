@@ -50,7 +50,7 @@ import { typography } from '../theme/typography';
  * card with photo + quote callout + star-rating row + tag rows).
  *
  * Layout (Full):
- *   - Eyebrow:    "Jordan's Local Recs 💃🏾"
+ *   - Eyebrow:    "Jordan's Local Recs"
  *   - Title row:  neighborhood (left) + weather/driving card (right)
  *   - Chips:      horizontal scroller of recommendation categories
  *   - Section:    "Around Me: {selected category}" with collapse
@@ -239,14 +239,14 @@ export function HomeBrowseSheet({
   }
 
   // Eyebrow copy — when we have the user's first name, render the
-  // possessive ("Jordan's Local Recs 💃🏾"). Without a name (Apple
+  // possessive ("Jordan's Local Recs"). Without a name (Apple
   // sign-in only returns displayName on the first sign-in IF the
   // user grants FULL_NAME — most don't), fall back to "Your" so the
   // possessive structure holds and the eyebrow still reads as
   // personal, not generic.
   const eyebrowCopy = firstName
-    ? `${firstName}'s Local Recs 💃🏾`
-    : 'Your Local Recs 💃🏾';
+    ? `${firstName}'s Local Recs`
+    : 'Your Local Recs';
 
   return (
     // This sheet owns its vertical scroller so the chips can actually

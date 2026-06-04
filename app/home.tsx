@@ -30,6 +30,8 @@ import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 import { ClusterMarker } from '../components/ClusterMarker';
 import { DestinationMarker } from '../components/DestinationMarker';
 import { EnRouteZone } from '../components/EnRouteZone';
+import { FuelStopMarker } from '../components/FuelStopMarker';
+import { FuelStopsSheet } from '../components/FuelStopsSheet';
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
@@ -37,12 +39,14 @@ import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
+import { RouteHazardDetailCard } from '../components/RouteHazardDetailCard';
 import { ZoneDetailCard } from '../components/ZoneDetailCard';
 import { LoadingState } from '../components/StateCard';
 import { SavedPlaceBookmark } from '../components/SavedPlaceBookmark';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { useFuelProfile } from '../hooks/useFuelProfile';
+import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import { usePreferences } from '../hooks/usePreferences';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -92,6 +96,7 @@ import {
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
+import type { Place } from '../lib/api/places';
 import {
   isPointInZone,
   isPointNearPolyline,
@@ -99,6 +104,7 @@ import {
   pickWinner,
   routePassesZone,
   zoneAnchor,
+  zoneLengthMiles,
   zoneToHazardCategory,
   type HazardCategory,
 } from '../lib/scoring';
@@ -197,6 +203,35 @@ function routeHazardType(zone: Zone): RouteHazardType | null {
   }
 }
 
+/** One-line route-preview context for ReportDetailCard when a report zone intersects the selected route. */
+function reportRouteContextLine(
+  zone: Zone | undefined,
+  selectedRoute: { coordinates: Coordinate[] } | null,
+): string | undefined {
+  if (!zone || !selectedRoute) return undefined;
+  if (!routePassesZone(selectedRoute.coordinates, zone)) return undefined;
+  const hazard = routeHazardType(zone);
+  if (hazard === 'community') {
+    return 'On your selected route — it counts toward the community flag in your preview.';
+  }
+  if (hazard === 'police') {
+    return 'On your selected route — it counts toward the police-zone chip in your preview.';
+  }
+  if (hazard === 'lowLight') {
+    return 'On your selected route — it counts toward the low-light chip when that signal is on.';
+  }
+  if (hazard === 'wildlife') {
+    return 'On your selected route — counted toward wildlife along this path.';
+  }
+  if (hazard === 'road') {
+    return 'On your selected route — counted toward road conditions along this path.';
+  }
+  if (zone.category === 'community-report') {
+    return 'Near your selected route — Fresh Greens weighed it when scoring this preview.';
+  }
+  return undefined;
+}
+
 /**
  * Home — the main map screen.
  * Route: /home
@@ -222,7 +257,7 @@ export default function Home() {
   // First name for the browse-mode sheet eyebrow ("Jordan's Local
   // Recs"). Pull off displayName since that's what useUser exposes;
   // fall back to undefined so HomeBrowseSheet drops the possessive
-  // and renders "Local Recs 💃🏾" plain.
+  // and renders "Local Recs" plain.
   const userFirstName = user?.displayName?.split(' ')[0];
   // Browse-mode "Things to Do" section starts COLLAPSED. An earlier
   // default of expanded surfaced the thesis claim immediately
@@ -248,6 +283,10 @@ export default function Home() {
   // overlays just render on the next pass once the value resolves.
   const showZones = preferences?.showZones ?? false;
   const mapRef = useRef<MapView>(null);
+  // iOS Apple Maps (and some Android builds) fire MapView.onPress after
+  // Marker.onPress. Without this, a report-pin tap sets selectedReport then
+  // handleMapPress immediately clears it — the card never appears.
+  const suppressNextMapPressRef = useRef(false);
   // Tracks the current visible region so we can decide whether each POI
   // needs a Marker (in viewport) or an EdgeIndicator (out of viewport).
   // Updated on `onRegionChangeComplete`; null until the user's first
@@ -407,6 +446,15 @@ export default function Home() {
   // map tap. Spec:
   // docs/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
+
+  const [selectedRouteHazard, setSelectedRouteHazard] = useState<{
+    zoneId: string;
+  } | null>(null);
+
+  const [showFuelStops, setShowFuelStops] = useState(false);
+  const [highlightFuelStopId, setHighlightFuelStopId] = useState<string | null>(
+    null,
+  );
 
   // Combined zone set fed to scoring. OSM + community reports flow
   // through the same pipeline — same Zone type, same scorer dispatch.
@@ -748,12 +796,20 @@ export default function Home() {
   // bites the lowest-priority items if it ever triggers.
   const routeHazardMarkers = useMemo(() => {
     if (!selectedRoute) {
-      return [] as { id: string; coord: Coordinate; category: HazardCategory }[];
+      return [] as {
+        id: string;
+        zoneId: string;
+        coord: Coordinate;
+        category: HazardCategory;
+        lengthMiles: number;
+      }[];
     }
     const markers: {
       id: string;
+      zoneId: string;
       coord: Coordinate;
       category: HazardCategory;
+      lengthMiles: number;
       orderIdx: number;
     }[] = [];
     for (const zone of enabledOsmZones) {
@@ -779,17 +835,85 @@ export default function Home() {
       if (!category || category === 'community-alert') continue;
       markers.push({
         id: zone.id,
+        zoneId: zone.id,
         coord: nearestPointOnPolyline(anchor, selectedRoute.coordinates),
         category,
+        lengthMiles: zoneLengthMiles(zone),
         orderIdx: ROUTE_HAZARD_ORDER.indexOf(hazardType),
       });
     }
     markers.sort((a, b) => a.orderIdx - b.orderIdx);
-    return markers.slice(0, 6).map(({ id, coord, category }) => ({ id, coord, category }));
+    return markers
+      .slice(0, 6)
+      .map(({ id, zoneId, coord, category, lengthMiles }) => ({
+        id,
+        zoneId,
+        coord,
+        category,
+        lengthMiles,
+      }));
   }, [selectedRoute, enabledOsmZones]);
 
   const { profile: fuelProfile } = useFuelProfile();
-  const { stations: preferredStations } = usePreferredStations();
+  const {
+    stations: preferredStations,
+    isPreferred: isPreferredFuelStop,
+    add: addPreferredFuelStop,
+    removeNear: removePreferredFuelStopNear,
+  } = usePreferredStations();
+
+  const fuelStopsOnRoute = useRouteFuelStops({
+    active: !!selectedRoute,
+    routeCoords: selectedRoute?.coordinates ?? [],
+    fuelType: fuelProfile?.fuelType ?? 'gas',
+    userLocation,
+  });
+
+  const sortedFuelStopsOnRoute = useMemo(
+    () =>
+      [...fuelStopsOnRoute.stops].sort(
+        (a, b) => Number(isPreferredFuelStop(b)) - Number(isPreferredFuelStop(a)),
+      ),
+    [fuelStopsOnRoute.stops, isPreferredFuelStop],
+  );
+
+  const handleTogglePreferredFuelStop = useCallback((stop: Place) => {
+    if (isPreferredFuelStop(stop)) {
+      void removePreferredFuelStopNear(stop);
+    } else {
+      void addPreferredFuelStop({
+        name: stop.name,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+      });
+    }
+  }, [
+    isPreferredFuelStop,
+    removePreferredFuelStopNear,
+    addPreferredFuelStop,
+  ]);
+
+  const openFuelStopsSheet = useCallback((stopId: string) => {
+    setSelectedReport(null);
+    setSelectedZone(null);
+    setSelectedRouteHazard(null);
+    setHighlightFuelStopId(stopId);
+    setShowFuelStops(true);
+  }, []);
+
+  const handleSelectFuelStopOnMap = useCallback((stop: Place) => {
+    setHighlightFuelStopId(stop.id);
+    Haptics.selectionAsync().catch(() => {});
+    mapRef.current?.animateToRegion(
+      {
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      400,
+    );
+  }, []);
 
   // Read-only over scoring: is a trusted station near the selected route?
   // ~150m tolerance — "near your way", looser than the ~78m station-
@@ -971,6 +1095,7 @@ export default function Home() {
     // markers should fall through to handleMapPress so the placement
     // pin relocates, not open recenter/detail surfaces.
     if (placingReport) return;
+    suppressNextMapPressRef.current = true;
     Haptics.selectionAsync().catch(() => {});
     const latitudeDelta = 0.008;
     mapRef.current?.animateToRegion(
@@ -997,6 +1122,7 @@ export default function Home() {
   function handleTrustedFriendMarkerPress() {
     if (!trustedContact?.phoneNumber) return;
     if (placingReport) return;
+    suppressNextMapPressRef.current = true;
     Haptics.selectionAsync().catch(() => {});
     const name = trustedContact.name ?? 'your trusted contact';
     Alert.alert(
@@ -1401,8 +1527,20 @@ export default function Home() {
    * Outside of placement mode the handler is a no-op — taps in
    * normal browse mode shouldn't accidentally move anything.
    */
-  function handleMapPress(e: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) {
+  function handleMapPress(e: {
+    nativeEvent: {
+      coordinate: { latitude: number; longitude: number };
+      action?: string;
+    };
+  }) {
     const { latitude, longitude } = e.nativeEvent.coordinate;
+    if (
+      suppressNextMapPressRef.current ||
+      e.nativeEvent.action === 'marker-press'
+    ) {
+      suppressNextMapPressRef.current = false;
+      return;
+    }
 
     // Placement mode takes precedence — the user is deliberately
     // placing a report pin, and a tap should move the pin even if it
@@ -1428,6 +1566,7 @@ export default function Home() {
       const hit = enabledOsmZones.find((zone) => isPointInZone(tap, zone));
       if (hit) {
         setSelectedReport(null);
+        setSelectedRouteHazard(null);
         setSelectedZone(hit);
         return;
       }
@@ -1459,6 +1598,7 @@ export default function Home() {
     // both is the safe + cheap default.
     setSelectedReport(null);
     setSelectedZone(null);
+    setSelectedRouteHazard(null);
   }
 
   // Refresh community reports each time /home gains focus. Two paths
@@ -1551,6 +1691,7 @@ export default function Home() {
             // react-native-maps).
             const handleZonePress = () => {
               setSelectedReport(null);
+              setSelectedRouteHazard(null);
               setSelectedZone(zone);
             };
             if (zone.geometry === 'polyline') {
@@ -1584,76 +1725,6 @@ export default function Home() {
             // reports do, and they're rendered separately below.
             return null;
           })}
-        {/*
-          Community-report points — clustered at low zoom, individual
-          LandmarkMarkers at high zoom. Off-viewport reports surface
-          as EdgeIndicators in the overlay below. Tap opens the detail
-          card. Cluster markers show a count badge.
-        */}
-        {clusteredReports.map((item) => {
-          if (item.kind === 'cluster') {
-            const { cluster } = item;
-            if (mapRegion && !isPointInRegion(cluster.center, mapRegion)) {
-              return null;
-            }
-            return (
-              <ClusterMarker
-                key={cluster.id}
-                latitude={cluster.center.latitude}
-                longitude={cluster.center.longitude}
-                count={cluster.count}
-                onPress={() => {
-                  if (placingReport) return;
-                  Haptics.selectionAsync();
-                  const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
-                  const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
-                  const minLat = Math.min(...lats);
-                  const maxLat = Math.max(...lats);
-                  const minLng = Math.min(...lngs);
-                  const maxLng = Math.max(...lngs);
-                  mapRef.current?.animateToRegion(
-                    {
-                      latitude: (minLat + maxLat) / 2,
-                      longitude: (minLng + maxLng) / 2,
-                      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.005),
-                      longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.005),
-                    },
-                    400,
-                  );
-                }}
-              />
-            );
-          }
-          const { zone } = item;
-          const point = zone.coordinates[0];
-          if (mapRegion && !isPointInRegion(point, mapRegion)) {
-            return null;
-          }
-          return (
-            <LandmarkMarker
-              key={zone.id}
-              latitude={point.latitude}
-              longitude={point.longitude}
-              categoryId={zone.reportCategoryId}
-              subTag={zone.reportSubTag}
-              accessibilityLabel={zone.label}
-              selected={selectedReport?.zoneId === zone.id}
-              onPress={() => {
-                if (placingReport) return;
-                setSelectedZone(null);
-                setSelectedReport({
-                  zoneId: zone.id,
-                  categoryId: zone.reportCategoryId as ReportCategoryId,
-                  detail: zone.reportDetail,
-                  subTag: zone.reportSubTag,
-                  placeName: zone.reportPlaceName,
-                  photoUri: zone.reportPhotoUri,
-                  timestamp: zone.reportTimestamp ?? Date.now(),
-                });
-              }}
-            />
-          );
-        })}
         {/*
           Placement pin — purely decorative. `tappable={false}` so a
           tap on the pin glyph itself falls through to the MapView's
@@ -1762,10 +1833,9 @@ export default function Home() {
           on the route line at each OSM hazard the selected route passes
           (police, low-light, wildlife, road). Same component as /en-route's
           on-map zone markers, so the preview and the live drive share the
-          visual language. Rendered AFTER routePolylines (sits on top of the
-          line) but BEFORE the user/destination markers (which keep their
-          higher zIndex). Community-report eye pins continue to mark those
-          spots separately — no double-marking.
+          visual language. Rendered AFTER routePolylines. Community-report
+          pins render later still (zIndex 550) so they win hit-tests when
+          colocated with a hazard teardrop or fuel pin.
         */}
         {routeHazardMarkers.map((m) => (
           <EnRouteZone
@@ -1774,9 +1844,114 @@ export default function Home() {
             longitude={m.coord.longitude}
             category={m.category}
             state="default"
-            lengthMiles={0}
+            lengthMiles={m.lengthMiles}
+            zIndex={350}
+            onPress={
+              placingReport
+                ? undefined
+                : () => {
+                    suppressNextMapPressRef.current = true;
+                    setSelectedReport(null);
+                    setSelectedZone(null);
+                    setSelectedRouteHazard({ zoneId: m.zoneId });
+                  }
+            }
           />
         ))}
+
+        {selectedRoute &&
+          sortedFuelStopsOnRoute.map((stop) => (
+            <FuelStopMarker
+              key={`fuel-${stop.id}`}
+              latitude={stop.latitude}
+              longitude={stop.longitude}
+              name={stop.name}
+              preferred={isPreferredFuelStop(stop)}
+              selected={showFuelStops && highlightFuelStopId === stop.id}
+              onPress={() => {
+                if (placingReport) return;
+                suppressNextMapPressRef.current = true;
+                openFuelStopsSheet(stop.id);
+              }}
+            />
+          ))}
+
+        {/*
+          Community-report points — clustered at low zoom, individual
+          LandmarkMarkers at high zoom. Rendered after hazard/fuel layers
+          so orange felt-unsafe (and other report) pins stay tappable when
+          stacked on a route hazard. Off-viewport reports surface as
+          EdgeIndicators below. Tap opens ReportDetailCard.
+        */}
+        {clusteredReports.map((item) => {
+          if (item.kind === 'cluster') {
+            const { cluster } = item;
+            if (mapRegion && !isPointInRegion(cluster.center, mapRegion)) {
+              return null;
+            }
+            return (
+              <ClusterMarker
+                key={cluster.id}
+                latitude={cluster.center.latitude}
+                longitude={cluster.center.longitude}
+                count={cluster.count}
+                onPress={() => {
+                  if (placingReport) return;
+                  suppressNextMapPressRef.current = true;
+                  setSelectedRouteHazard(null);
+                  Haptics.selectionAsync();
+                  const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
+                  const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
+                  const minLat = Math.min(...lats);
+                  const maxLat = Math.max(...lats);
+                  const minLng = Math.min(...lngs);
+                  const maxLng = Math.max(...lngs);
+                  mapRef.current?.animateToRegion(
+                    {
+                      latitude: (minLat + maxLat) / 2,
+                      longitude: (minLng + maxLng) / 2,
+                      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.005),
+                      longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.005),
+                    },
+                    400,
+                  );
+                }}
+              />
+            );
+          }
+          const { zone } = item;
+          const point = zone.coordinates[0];
+          if (mapRegion && !isPointInRegion(point, mapRegion)) {
+            return null;
+          }
+          return (
+            <LandmarkMarker
+              key={zone.id}
+              latitude={point.latitude}
+              longitude={point.longitude}
+              categoryId={zone.reportCategoryId}
+              subTag={zone.reportSubTag}
+              accessibilityLabel={zone.label}
+              selected={selectedReport?.zoneId === zone.id}
+              onPress={() => {
+                if (placingReport) return;
+                suppressNextMapPressRef.current = true;
+                setSelectedZone(null);
+                setSelectedRouteHazard(null);
+                Haptics.selectionAsync().catch(() => {});
+                setSelectedReport({
+                  zoneId: zone.id,
+                  categoryId: zone.reportCategoryId as ReportCategoryId,
+                  detail: zone.reportDetail,
+                  subTag: zone.reportSubTag,
+                  placeName: zone.reportPlaceName,
+                  photoUri: zone.reportPhotoUri,
+                  timestamp: zone.reportTimestamp ?? Date.now(),
+                });
+              }}
+            />
+          );
+        })}
 
         {/*
           Custom user-location dot — replaces showsUserLocation so it
@@ -2063,7 +2238,10 @@ export default function Home() {
         bottom sheet, also owns the bottom affordance when a zone
         is selected (added 2026-06-01 alongside the zone-tap feature).
       */}
-      {!placingReport && !selectedReport && !selectedZone && <SafeAreaView
+      {!placingReport &&
+        !selectedReport &&
+        !selectedZone &&
+        !selectedRouteHazard && <SafeAreaView
         style={styles.bottomSheet}
         edges={['bottom']}
         onLayout={(e) => {
@@ -2720,6 +2898,10 @@ export default function Home() {
           placeName={selectedReport.placeName}
           photoUri={selectedReport.photoUri}
           timestamp={selectedReport.timestamp}
+          routeContextLine={reportRouteContextLine(
+            enabledReportZones.find((z) => z.id === selectedReport.zoneId),
+            selectedRoute ?? null,
+          )}
           onDismiss={() => setSelectedReport(null)}
         />
       )}
@@ -2729,6 +2911,36 @@ export default function Home() {
           onDismiss={() => setSelectedZone(null)}
         />
       )}
+      {selectedRouteHazard && !placingReport && (() => {
+        const zone = enabledOsmZones.find(
+          (z) => z.id === selectedRouteHazard.zoneId,
+        );
+        const category = zone ? zoneToHazardCategory(zone) : null;
+        if (!zone || !category || category === 'community-alert') return null;
+        return (
+          <RouteHazardDetailCard
+            category={category}
+            lengthMiles={zoneLengthMiles(zone)}
+            onDismiss={() => setSelectedRouteHazard(null)}
+          />
+        );
+      })()}
+
+      <FuelStopsSheet
+        visible={showFuelStops}
+        loading={fuelStopsOnRoute.loading}
+        error={fuelStopsOnRoute.error}
+        stops={sortedFuelStopsOnRoute}
+        fuelType={fuelProfile?.fuelType ?? 'gas'}
+        highlightStopId={highlightFuelStopId}
+        onSelectStop={handleSelectFuelStopOnMap}
+        onClose={() => {
+          setShowFuelStops(false);
+          setHighlightFuelStopId(null);
+        }}
+        isPreferred={isPreferredFuelStop}
+        onTogglePreferred={handleTogglePreferredFuelStop}
+      />
 
       <LiveSafetySheet />
     </View>

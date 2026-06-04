@@ -60,6 +60,7 @@ import { LaneStrip } from '../components/LaneStrip';
 import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
+import { FuelStopMarker } from '../components/FuelStopMarker';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
 import { RouteComparisonSheet, type ComparisonRow } from '../components/RouteComparisonSheet';
 import { usePreferences } from '../hooks/usePreferences';
@@ -476,13 +477,16 @@ export default function EnRoute() {
   // recommended route's polyline.
   const { profile: fuelProfile } = useFuelProfile();
   const [showFuelStops, setShowFuelStops] = useState(false);
+  const [highlightFuelStopId, setHighlightFuelStopId] = useState<string | null>(
+    null,
+  );
   // Reminder is "due" when its next-fire time has passed — drives the badge.
   const refuelDue =
     !!fuelProfile?.remindersEnabled &&
     !!fuelProfile.nextReminderAt &&
     new Date(fuelProfile.nextReminderAt).getTime() <= Date.now();
   const fuelStops = useRouteFuelStops({
-    active: showFuelStops,
+    active: showFuelStops || (activeRoute?.coordinates.length ?? 0) > 0,
     routeCoords: activeRoute?.coordinates ?? [],
     fuelType: fuelProfile?.fuelType ?? 'gas',
     userLocation,
@@ -1215,8 +1219,14 @@ export default function EnRoute() {
   // handler uses. A tight delta (matches the cluster floor) frames the
   // single station at a useful zoom without dropping a marker — display-
   // only recenter is the v1 contract.
+  const openFuelStopsSheet = useCallback((stopId: string) => {
+    setSelectedReport(null);
+    setHighlightFuelStopId(stopId);
+    setShowFuelStops(true);
+  }, []);
+
   const handleSelectFuelStop = useCallback((stop: Place) => {
-    setShowFuelStops(false);
+    setHighlightFuelStopId(stop.id);
     mapRef.current?.animateToRegion(
       {
         latitude: stop.latitude,
@@ -1421,6 +1431,18 @@ export default function EnRoute() {
           are driver-facing hazard notices, not the optional
           overlay.
         */}
+        {sortedFuelStops.map((stop) => (
+          <FuelStopMarker
+            key={`fuel-${stop.id}`}
+            latitude={stop.latitude}
+            longitude={stop.longitude}
+            name={stop.name}
+            preferred={isPreferred(stop)}
+            selected={showFuelStops && highlightFuelStopId === stop.id}
+            onPress={() => openFuelStopsSheet(stop.id)}
+          />
+        ))}
+
         {enRouteZones.map(({ zone, anchor, category, lengthMiles }) => {
           const state = enteredZoneIds.has(zone.id) ? 'extended' : 'default';
           // Embed state in the key so flipping default ↔ extended
@@ -1990,8 +2012,12 @@ export default function EnRoute() {
         fuelType={fuelProfile?.fuelType ?? 'gas'}
         refuelDue={refuelDue}
         carName={fuelProfile?.carName}
+        highlightStopId={highlightFuelStopId}
         onSelectStop={handleSelectFuelStop}
-        onClose={() => setShowFuelStops(false)}
+        onClose={() => {
+          setShowFuelStops(false);
+          setHighlightFuelStopId(null);
+        }}
         isPreferred={isPreferred}
         onTogglePreferred={handleTogglePreferred}
       />

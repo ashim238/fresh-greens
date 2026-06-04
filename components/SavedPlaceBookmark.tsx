@@ -1,8 +1,16 @@
+import { StyleSheet, View } from 'react-native';
+
 import QuickToolSaved from '../assets/illustrations/quick-tools-saved.svg';
 import { colors } from '../theme/colors';
 
 /** Figma bookmark aspect (14×19). */
 const ASPECT = 19 / 14;
+
+/** Icon box for /search quick tools — matches 24×24 category tiles. */
+export const SAVED_QUICK_TOOL_BOX = 24;
+
+/** Glyph size inside the quick-tool box (not the box itself). */
+const SAVED_QUICK_TOOL_GLYPH = 17;
 
 /**
  * Canonical saved-place bookmark — same glyph as /search's Saved quick
@@ -17,20 +25,52 @@ const ASPECT = 19 / 14;
 export function SavedPlaceBookmark({
   size = 14,
   variant = 'default',
+  /** When true, centers the glyph in a 24×24 well (quick-tool tile). */
+  inQuickToolBox = false,
 }: {
   size?: number;
   variant?: 'default' | 'selected';
+  inQuickToolBox?: boolean;
 }) {
-  const height = size * ASPECT;
-  const fill = variant === 'selected' ? colors.wiltedgreen : colors.black;
+  const glyphSize = inQuickToolBox ? SAVED_QUICK_TOOL_GLYPH : size;
+  const height = glyphSize * ASPECT;
+  const tint = variant === 'selected' ? colors.wiltedgreen : colors.black;
 
-  return (
+  const glyph = (
     <QuickToolSaved
-      width={size}
+      width={glyphSize}
       height={height}
-      fill={fill}
+      color={tint}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     />
   );
+
+  if (!inQuickToolBox) {
+    return glyph;
+  }
+
+  return (
+    <View
+      style={[
+        styles.quickToolBox,
+        variant === 'selected' && styles.quickToolBoxSelected,
+      ]}
+    >
+      {glyph}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  quickToolBox: {
+    width: SAVED_QUICK_TOOL_BOX,
+    height: SAVED_QUICK_TOOL_BOX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickToolBoxSelected: {
+    backgroundColor: colors.fadedgreen,
+    borderRadius: 8,
+  },
+});

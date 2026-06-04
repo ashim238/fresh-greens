@@ -19,7 +19,9 @@ import {
   type ReportCategoryId,
 } from '../lib/api/community-reports';
 import { colors } from '../theme/colors';
+import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { shadows } from '../theme/shadows';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 import { DragHandle } from './DragHandle';
@@ -94,6 +96,7 @@ export function ReportDetailCard({
   placeName,
   photoUri,
   timestamp,
+  routeContextLine,
   onDismiss,
 }: {
   categoryId: ReportCategoryId;
@@ -115,6 +118,8 @@ export function ReportDetailCard({
    */
   photoUri?: string;
   timestamp: number;
+  /** One calm line when this report sits on the selected route preview. */
+  routeContextLine?: string;
   onDismiss: () => void;
 }) {
   const category = CATEGORIES.find((c) => c.id === categoryId);
@@ -201,6 +206,12 @@ export function ReportDetailCard({
             <Text style={styles.subline} numberOfLines={1}>
               {subline}
             </Text>
+            {routeContextLine ? (
+              <Text style={styles.routeContext}>{routeContextLine}</Text>
+            ) : null}
+            {detail ? (
+              <Text style={styles.detail}>{detail}</Text>
+            ) : null}
           </View>
 
           <FloatingActionButton
@@ -224,11 +235,6 @@ export function ReportDetailCard({
           </View>
         ) : null}
 
-        {detail ? (
-          <View style={styles.detailWrap}>
-            <Text style={styles.detail}>{detail}</Text>
-          </View>
-        ) : null}
       </View>
     </Pressable>
   );
@@ -248,12 +254,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 16,
+    paddingTop: spacing.md,
     // 32pt bottom padding per .cursorrules static-content-modal rule
     // (16pt = tab/grid modals, 32pt = static content). The card has
     // no grid or tab layout, so it's static content.
-    paddingBottom: 32,
-    gap: 16,
+    paddingBottom: spacing.xl,
+    gap: spacing.md,
     // shadows.sheet bundles the directional upward offset (-4y) used
     // by every bottom-anchored card in the app.
     ...shadows.sheet,
@@ -261,13 +267,13 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   headerCenter: {
     flex: 1,
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   iconWrap: {
     width: 36,
@@ -297,7 +303,7 @@ const styles = StyleSheet.create({
   // panel's landscape rectangle without letterboxing. Border-radius
   // 12pt matches the RecommendationCard photo treatment.
   photoWrap: {
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
   },
   photo: {
     width: '100%',
@@ -305,11 +311,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.fadedgreen, // shows during image load
   },
-  detailWrap: {
-    paddingHorizontal: 24,
-  },
+  // Route-preview context — meta under the centered title stack, not a
+  // left-aligned orphan between centered chrome and body copy.
+  routeContext: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.wiltedgreen,
+    textAlign: 'center',
+  } as const,
+  // Optional note from /report — lives in the centered stack (same
+  // column as title + route context), not a left-aligned orphan below
+  // the photo. Matches the symmetric marker-sheet chrome.
   detail: {
-    ...typography.bodyRegular,
-    color: colors.mutedSecondary,
+    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
+    color: colors.black,
+    textAlign: 'center',
+    alignSelf: 'stretch',
   } as const,
 });

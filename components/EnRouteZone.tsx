@@ -40,6 +40,8 @@ export function EnRouteZone({
   category,
   state,
   lengthMiles,
+  onPress,
+  zIndex,
 }: {
   latitude: number;
   longitude: number;
@@ -51,6 +53,10 @@ export function EnRouteZone({
    * polyline length for streets, bounding-box diagonal for polygons.
    */
   lengthMiles: number;
+  /** Home route-preview only — opens RouteHazardDetailCard. Omitted on /en-route. */
+  onPress?: () => void;
+  /** Keeps hazard teardrops below community-report pins when colocated. */
+  zIndex?: number;
 }) {
   // Default anchor: the tail's tip is at the bottom-left corner of
   // the 62×50 SVG (matches the trusted-friend marker's frame). Anchor
@@ -66,15 +72,15 @@ export function EnRouteZone({
     <Marker
       coordinate={{ latitude, longitude }}
       anchor={anchor}
+      onPress={onPress}
+      zIndex={zIndex}
       // Static within a mount — the caller remounts the Marker (via
       // a state-bearing key) when default↔extended flips. With that
       // pattern, we can leave tracking off in both states and avoid
       // the iOS MapKit per-frame snapshot cost.
       tracksViewChanges={false}
-      // role="none" — passive route-segment annotation, not a tappable
-      // surface and not labelable image content. The label carries
-      // the semantic ("zone N ahead"); no role over-promise.
-      accessibilityRole="none"
+      accessibilityRole={onPress ? 'button' : 'none'}
+      accessibilityHint={onPress ? 'Shows how this hazard affects your route preview' : undefined}
       accessibilityLabel={
         state === 'extended'
           ? `Entering a zone. ${humanReadableHazard(category)} for ${formatMiles(lengthMiles)}.`
