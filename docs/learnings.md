@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/recommendation-place-id-enrichment: place id is identity; within-row "dedup" must merge fields
+
+Shipped cross-row enrichment assumed **name + 50m** was enough to link a community Sisters card to its Google twin. Device debugging showed JSON with `photoName` on *other* recs while Sisters stayed bare — the API had data, but `samePlace` never grouped them because display names diverged (`Sisters` vs `Sister's Soul Food`) and the black-owned text search often never returns the tagged business at all.
+
+**Stable `googlePlaceId` from submit-time `/api/nearby` should be the primary identity primitive; name+proximity is the legacy fallback.** Persist the id on `CommunityReport`, thread it through `Recommendation`, match in `samePlace` id-first, and hydrate community cards via new proxy `GET /api/place` so photo/rating land even without a cross-row twin. Worth keeping: when a human-visible string (name) and a system id (place id) both exist, **accumulate and match on the id** — strings are display, ids are identity.
+
+**Within-row "dedup" that keeps-first-drops-rest is data loss when the loser has unique fields** — same lesson as Trusted `facets`, now applied via `mergeBySamePlace` (fill-if-missing union) so community-first ordering keeps the vouch while external photo/rating merge in. Cross-row enrich stays a derived projection; it only works once upstream identity and within-row merge stop discarding the donor card.
+
+---
+
 ## feat(home): surfacing the safe-zone OFFSET — the third "invisible-half-of-the-math" bug this week
 
 Shipped `ec5ed78`. User flagged a real screenshot: a route labeled "Safest" had 2 community flags while the "Alternate" had only 1. The math was honest (Franklin Ave's many lit-street stretches contributed +2 each, outweighing the -10 from 2 community reports), but ONLY the negative half showed on the chip row. Three takeaways, and the third is the meta-pattern across this whole week:

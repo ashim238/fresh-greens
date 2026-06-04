@@ -18,6 +18,7 @@ export const PROXY_BASE_URL =
 export const PROXY_RECS_URL = `${PROXY_BASE_URL}/api/recs`;
 export const PROXY_PHOTO_URL = `${PROXY_BASE_URL}/api/photo`;
 export const PROXY_NEARBY_URL = `${PROXY_BASE_URL}/api/nearby`;
+export const PROXY_PLACE_URL = `${PROXY_BASE_URL}/api/place`;
 
 /**
  * Nearest-business response from `/api/nearby`. `place` is null
@@ -29,6 +30,24 @@ export type NearbyPlace = {
   latitude: number;
   longitude: number;
   categoryLabel: string | null;
+  /** Google Places id from submit-time /api/nearby — ties recs to listings. */
+  googlePlaceId?: string;
+};
+
+/** Card fields returned by GET /api/place for community hydration. */
+export type PlaceDetails = {
+  googlePlaceId: string;
+  name?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  categoryLabel?: string;
+  photoName?: string;
+  rating?: number;
+  reviewCount?: number;
+  hoursLabel?: string;
+  isOpen?: boolean;
+  priceTier?: string;
 };
 
 /**
@@ -47,6 +66,36 @@ export async function fetchNearestPlace(
     if (!res.ok) return null;
     const data = (await res.json()) as { place: NearbyPlace | null };
     return data.place ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const placeDetailsCache = new Map<string, { ts: number; details: PlaceDetails }>();
+const PLACE_DETAILS_CACHE_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * Fetches Google card fields for a stored place id. Used to hydrate
+ * community recommendation cards when cross-row twins are missing or
+ * display names differ ("Sisters" vs "Sister's Soul Food").
+ */
+export async function fetchPlaceDetails(
+  googlePlaceId: string,
+): Promise<PlaceDetails | null> {
+  const cached = placeDetailsCache.get(googlePlaceId);
+  if (cached && Date.now() - cached.ts < PLACE_DETAILS_CACHE_TTL_MS) {
+    return cached.details;
+  }
+  try {
+    const url = `${PROXY_PLACE_URL}?placeId=${encodeURIComponent(googlePlaceId)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { place: PlaceDetails | null };
+    const details = data.place ?? null;
+    if (details) {
+      placeDetailsCache.set(googlePlaceId, { ts: Date.now(), details });
+    }
+    return details;
   } catch {
     return null;
   }

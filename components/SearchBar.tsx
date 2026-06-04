@@ -102,6 +102,11 @@ export function SearchBar({
         onSubmitEditing={onSubmit}
         autoFocus={autoFocus}
         returnKeyType="search"
+        // Off: kills the green predictive-text/autocorrect underline iOS
+        // draws under in-progress words (it tints to the app's accent),
+        // and place names shouldn't be autocorrected anyway.
+        autoCorrect={false}
+        spellCheck={false}
         accessibilityLabel={placeholder}
       />
       {state === 'typing' ? (

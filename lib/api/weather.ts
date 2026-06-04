@@ -100,10 +100,16 @@ export async function getCurrentWeather(
     const res = await fetch(
       `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (__DEV__) console.warn('[weather] HTTP', res.status);
+      return null;
+    }
     const data = (await res.json()) as OpenMeteoResponse;
     const c = data.current;
-    if (!c || c.temperature_2m == null) return null;
+    if (!c || c.temperature_2m == null) {
+      if (__DEV__) console.warn('[weather] missing current.temperature_2m');
+      return null;
+    }
     const drivingCondition = drivingConditionFor({
       precipMm: c.precipitation ?? 0,
       windMph: c.wind_speed_10m ?? 0,
@@ -115,7 +121,8 @@ export async function getCurrentWeather(
       drivingLabel: labelFor(drivingCondition),
       cloudCoverPct: c.cloud_cover ?? 0,
     };
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn('[weather] getCurrentWeather failed', e);
     return null;
   }
 }

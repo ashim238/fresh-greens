@@ -9,7 +9,7 @@
 // Request: lat/lng query params. No category filter — we want the
 // nearest *anything* the contributor might be standing in front of.
 //
-// Response: `{ place: { name, address, lat, lng, categoryLabel } | null }`.
+// Response: `{ place: { name, address, lat, lng, categoryLabel, googlePlaceId } | null }`.
 // `null` when Google finds nothing within the 50m radius; /report
 // falls back to the existing subTag-based naming.
 //
@@ -112,6 +112,7 @@ export default async function handler(
         latitude: top.location.latitude,
         longitude: top.location.longitude,
         categoryLabel: top.primaryTypeDisplayName?.text ?? null,
+        googlePlaceId: top.id,
       },
     });
   } catch (e) {
