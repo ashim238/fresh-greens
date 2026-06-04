@@ -36,7 +36,10 @@ export type GetZonesForTripOptions = {
   budget?: FetchBudget;
   onPartial?: (zones: Zone[], meta: CorridorFetchMeta) => void;
   userLocation?: Coordinate | null;
+  /** Navigation only — prior rolls + preview coverage. */
   fetchedAlong?: { startM: number; endM: number }[];
+  /** Navigation only — zones accumulated before this roll. */
+  priorZones?: Zone[];
 };
 
 export type CorridorPlan = {

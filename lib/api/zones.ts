@@ -47,10 +47,19 @@
 // lighting tags usually have landuse data. When ALL sources fail or
 // return nothing, falls back to mock zones around the user's center.
 //
+// Long trips use several `around:1500m` queries sampled along the route
+// corridor instead of one huge bbox (Overpass caps elements and times out).
+//
 // All sources flow through the same Zone[] type and the same scoring
 // pipeline. Each source's contribution adds to the route's score, so
 // signals can compound (e.g., a residential street that's also lit=yes
 // stacks safe+safe = strongly preferred).
+
+import {
+  OVERPASS_MIRROR_COUNT,
+  SEGMENT_TIMEOUT_MS,
+} from '../corridor/constants';
+import type { SampleRequest } from '../corridor/types';
 
 // Public Overpass mirrors, tried in order on every call. All three
 // speak the same query API. `overpass-api.de` (Heidelberg / Geofabrik)
@@ -175,32 +184,111 @@ export type Zone = {
   reportPhotoUri?: string;
 };
 
+/** Axis-aligned bounds for an Overpass `(...)` bbox query. */
+export type ZoneBounds = {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+};
+
+/** Default radius for browse-mode `around` and corridor around samples. */
+const OVERPASS_AROUND_RADIUS_METERS = 1500;
+
 /**
- * Fetches safety zones around a given map center.
- *
- * Tries OSM Overpass first; falls back to mock zones on any failure
- * (network error, non-OK response, parse error, no results).
+ * Fetches safety zones around a given map center (1.5 km radius).
+ * Browse mode on /home — no destination yet.
  */
 export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
-  const query = buildOverpassQuery(center);
+  return fetchZonesWithFailover(
+    buildOverpassQueryAround(center),
+    () => getZonesForRegionMock(center),
+  );
+}
 
-  // Try each mirror in order. The first one that returns usable zones
-  // wins; on abort/HTTP-error/empty-response we move on to the next.
-  // Only after every mirror has failed do we fall back to mock zones.
+/**
+ * Fetches OSM zones covering a trip corridor so route-preview chips and
+ * scoring can see police / lighting / wildlife / road zones the polyline
+ * actually crosses — not just a circle around the user's GPS.
+ *
+ * Pass `routeCoordinates` whenever the polyline is known — callers
+ * should not pre-fetch on origin→destination alone and then refine;
+ * one call with the route avoids doubling Overpass work on long trips.
+ */
+export async function getZonesForTrip(
+  origin: Coordinate,
+  destination: Coordinate,
+  routeCoordinates?: Coordinate[],
+  options?: import('../corridor/types').GetZonesForTripOptions,
+): Promise<Zone[]> {
+  const path: Coordinate[] =
+    routeCoordinates && routeCoordinates.length >= 2
+      ? routeCoordinates
+      : [origin, destination];
+
+  const { executeCorridorTrip } = await import('../corridor/executor');
+  return executeCorridorTrip(path, { ...options, mode: 'preview' });
+}
+
+export async function fetchCorridorSample(
+  request: SampleRequest,
+): Promise<Zone[]> {
+  if (!request.sources.includes('osm-overpass')) return [];
+  if (request.kind === 'around') {
+    return fetchZonesAroundCenter(
+      request.center,
+      request.radiusMeters,
+    );
+  }
+  const query = buildOverpassQueryBbox(request.bounds);
+  for (let i = 0; i < OVERPASS_MIRROR_COUNT; i++) {
+    try {
+      return await fetchOverpassZones(
+        OVERPASS_ENDPOINTS[i],
+        query,
+        SEGMENT_TIMEOUT_MS,
+      );
+    } catch {
+      // next mirror
+    }
+  }
+  return [];
+}
+
+/**
+ * One corridor sample: try Overpass mirrors in order.
+ * No per-segment mock fallback — empty segments merge away; the planner
+ * covers the full trip.
+ */
+async function fetchZonesAroundCenter(
+  center: Coordinate,
+  radiusMeters: number = OVERPASS_AROUND_RADIUS_METERS,
+): Promise<Zone[]> {
+  const query = buildOverpassQueryAround(center, radiusMeters);
+  for (let i = 0; i < OVERPASS_MIRROR_COUNT; i++) {
+    try {
+      return await fetchOverpassZones(
+        OVERPASS_ENDPOINTS[i],
+        query,
+        SEGMENT_TIMEOUT_MS,
+      );
+    } catch {
+      // try next mirror
+    }
+  }
+  return [];
+}
+
+async function fetchZonesWithFailover(
+  query: string,
+  mockFallback: () => Promise<Zone[]>,
+): Promise<Zone[]> {
   for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
     const endpoint = OVERPASS_ENDPOINTS[i];
     try {
-      const zones = await fetchOverpassZones(endpoint, query);
-      return zones;
+      return await fetchOverpassZones(endpoint, query);
     } catch (error) {
       const isLast = i === OVERPASS_ENDPOINTS.length - 1;
-      // Mid-chain failures are expected behavior (the whole point of
-      // the failover is to skip a slow mirror), so they log at info
-      // level — visible in dev tools if you go looking, not a "WARN"
-      // banner suggesting something's broken. Only the terminal
-      // mock-fallback case warns: that one IS a degraded state worth
-      // attention because it means none of the public mirrors
-      // responded and the app is now running on synthetic zones.
       if (isLast) {
         console.warn(
           `[zones] Overpass ${endpoint} failed, falling back to mock:`,
@@ -214,7 +302,7 @@ export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
     }
   }
 
-  return getZonesForRegionMock(center);
+  return mockFallback();
 }
 
 /**
@@ -225,15 +313,12 @@ export async function getZonesForRegion(center: Coordinate): Promise<Zone[]> {
 async function fetchOverpassZones(
   endpoint: string,
   query: string,
+  timeoutMs: number = OVERPASS_TIMEOUT_MS,
 ): Promise<Zone[]> {
   // AbortController + setTimeout: fetch has no built-in timeout, so a
-  // hanging server would otherwise block forever. We give each
-  // endpoint OVERPASS_TIMEOUT_MS, then abort.
+  // hanging server would otherwise block forever.
   const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    OVERPASS_TIMEOUT_MS,
-  );
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(endpoint, {
@@ -348,27 +433,49 @@ type OverpassElement = OverpassWay | OverpassNode;
  * limit and parse cost on dense urban areas — plenty for scoring (each
  * route waypoint just needs *some* zones to test against).
  */
-function buildOverpassQuery(center: Coordinate): string {
-  const radius = 1500; // meters
+/** Shared selectors; `spatial` is `(around:R,lat,lng)` or `(south,west,north,east)`. */
+function overpassZoneSelectors(spatial: string): string {
+  return `
+      way["highway"]["lit"]${spatial};
+      way["landuse"~"^(residential|commercial|industrial)$"]${spatial};
+      way["leisure"="park"]${spatial};
+      way["amenity"="police"]${spatial};
+      node["amenity"="police"]${spatial};
+      node["highway"="speed_camera"]${spatial};
+      node["hazard"="wildlife_crossing"]${spatial};
+      way["landuse"="forest"]${spatial};
+      way["natural"="wood"]${spatial};
+      way["highway"]["surface"~"^(unpaved|gravel|dirt|sand|ground)$"]${spatial};
+      way["highway"]["smoothness"~"^(bad|very_bad|horrible|impassable)$"]${spatial};
+      way["highway"="construction"]${spatial};
+  `.trim();
+}
+
+function buildOverpassQueryAround(
+  center: Coordinate,
+  radius: number = OVERPASS_AROUND_RADIUS_METERS,
+): string {
   const lat = center.latitude;
   const lng = center.longitude;
+  const spatial = `(around:${radius},${lat},${lng})`;
   return `
     [out:json][timeout:25];
     (
-      way["highway"]["lit"](around:${radius},${lat},${lng});
-      way["landuse"~"^(residential|commercial|industrial)$"](around:${radius},${lat},${lng});
-      way["leisure"="park"](around:${radius},${lat},${lng});
-      way["amenity"="police"](around:${radius},${lat},${lng});
-      node["amenity"="police"](around:${radius},${lat},${lng});
-      node["highway"="speed_camera"](around:${radius},${lat},${lng});
-      node["hazard"="wildlife_crossing"](around:${radius},${lat},${lng});
-      way["landuse"="forest"](around:${radius},${lat},${lng});
-      way["natural"="wood"](around:${radius},${lat},${lng});
-      way["highway"]["surface"~"^(unpaved|gravel|dirt|sand|ground)$"](around:${radius},${lat},${lng});
-      way["highway"]["smoothness"~"^(bad|very_bad|horrible|impassable)$"](around:${radius},${lat},${lng});
-      way["highway"="construction"](around:${radius},${lat},${lng});
+      ${overpassZoneSelectors(spatial)}
     );
     out geom 60;
+  `.trim();
+}
+
+function buildOverpassQueryBbox(bounds: ZoneBounds): string {
+  const { south, west, north, east } = bounds;
+  const spatial = `(${south},${west},${north},${east})`;
+  return `
+    [out:json][timeout:25];
+    (
+      ${overpassZoneSelectors(spatial)}
+    );
+    out geom 120;
   `.trim();
 }
 
@@ -645,7 +752,7 @@ function isPoorSurface(surface: string | undefined): boolean {
  * category so SHOW_ZONES=true still demonstrates the data layer
  * meaningfully even without network.
  */
-async function getZonesForRegionMock(center: Coordinate): Promise<Zone[]> {
+export async function getZonesForRegionMock(center: Coordinate): Promise<Zone[]> {
   await delay(100);
   return [
     {
