@@ -159,7 +159,37 @@ export async function getRecommendations(
     ? primary
     : await getCuratedRecommendations(query);
 
-  return annotateDistance(dedupByProximity(merged), query.userLocation);
+  return annotateDistance(dedupBySamePlace(merged), query.userLocation);
+}
+
+/**
+ * Case/whitespace-insensitive name key for same-place matching. Mirrors
+ * the one-liner in lib/api/preferred-stations.ts — kept local rather
+ * than shared to avoid coupling the two adapters over a trivial
+ * normalize (two copies is under the rule-of-three threshold).
+ */
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/** ~50m, expressed as squared lat/lng degrees (cheap, no trig). */
+const SAME_PLACE_DEG_SQ = (50 / 111000) ** 2;
+
+/**
+ * Two recs/points refer to the SAME place when their normalized names
+ * match AND they sit within ~50m. Name is the disambiguator — proximity
+ * alone collapses distinct neighbors (two storefronts within 50m read as
+ * one, and the second is silently dropped). Same fix shape as
+ * preferred-stations' `stationsMatch`.
+ */
+function samePlace(
+  a: { name: string; latitude: number; longitude: number },
+  b: { name: string; latitude: number; longitude: number },
+): boolean {
+  if (normalizeName(a.name) !== normalizeName(b.name)) return false;
+  const dLat = a.latitude - b.latitude;
+  const dLng = a.longitude - b.longitude;
+  return dLat * dLat + dLng * dLng < SAME_PLACE_DEG_SQ;
 }
 
 /** Haversine miles between two lat/lng pairs. */
@@ -522,7 +552,7 @@ export async function getOpenNow(
     const openOnly = flat.filter((r) => r.isOpen === true);
     if (openOnly.length === 0) return [];
     const sorted = sortByDistance(openOnly, userLocation);
-    const deduped = dedupByProximity(sorted);
+    const deduped = dedupBySamePlace(sorted);
     const top = deduped.slice(0, OPEN_NOW_RESULT_LIMIT);
     return annotateDistance(top, userLocation);
   } catch {
@@ -589,21 +619,22 @@ async function getExternalRecommendations(
 // --- Dedup ---------------------------------------------------------------
 
 /**
- * Removes duplicates across sources by lat/lng proximity (~50m).
- * Preserves the first occurrence (curated wins over community wins
- * over external) so the curator's editorial copy always trumps a
- * peer report or external listing of the same place.
+ * Removes same-place duplicates across sources — same NORMALIZED NAME
+ * within ~50m (see `samePlace`). Name-aware so two genuinely different
+ * businesses within 50m both survive; proximity-only collapsed them and
+ * dropped the second. Preserves the first occurrence (curated wins over
+ * community wins over external) so the curator's editorial copy always
+ * trumps a peer report or external listing of the same place.
+ *
+ * Tradeoff: a community report whose placeName didn't resolve (generic
+ * fallback name) and the external listing of the same place will now
+ * BOTH show, where proximity-only merged them. A generic-named duplicate
+ * is strictly less bad than two distinct places collapsing to one.
  */
-function dedupByProximity(recs: Recommendation[]): Recommendation[] {
-  const PROXIMITY_DEG_SQ = (50 / 111000) ** 2; // ~50m in squared lat/lng
+function dedupBySamePlace(recs: Recommendation[]): Recommendation[] {
   const kept: Recommendation[] = [];
   for (const rec of recs) {
-    const collision = kept.find((k) => {
-      const dLat = k.latitude - rec.latitude;
-      const dLng = k.longitude - rec.longitude;
-      return dLat * dLat + dLng * dLng < PROXIMITY_DEG_SQ;
-    });
-    if (!collision) kept.push(rec);
+    if (!kept.some((k) => samePlace(k, rec))) kept.push(rec);
   }
   return kept;
 }
