@@ -32,6 +32,9 @@ yarn-error.*
 
 # local env files
 .env*.local
+# Also ignore a bare `.env` — `.env*.local` doesn't match it, and a stray
+# `.env` with a real token would otherwise get committed (repo is public).
+.env
 
 # typescript
 *.tsbuildinfo
