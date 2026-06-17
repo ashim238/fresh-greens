@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## design-fixes session — the "already-shipped backlog item" pattern (2026-06-17)
+
+Across one session, **four** items framed as open work turned out to be already done: 4a (emergency async sequencing + live regions — only haptics were missing), 4c (orange-sky was already a `.cursorrules` carve-out), the "flagship screens need polish" premise (home/en-route/pulled-over already had `chore/polish-app-wide` + `audit/safety-polish` passes), and the `/trusted-contact-setup` routing footgun (fixed 2026-06-01, backlog entry never struck through). I nearly re-implemented the footgun fix before reading the code.
+
+**Worth keeping:** the recurring cost isn't any one stale item — it's that this project's `next-session.md` + handoff summaries drift from shipped state, so "open" items routinely aren't. Two cheap defenses: (1) **strike through on ship**, not "later" — an unstruck shipped item costs a full re-investigation every time it's read; (2) before implementing any backlog/audit/summary item, **open the cited file and diff intent against reality first** — the doc is what was believed true when written, not what's true now. The whole session's wasted-motion traces to skipping (2). See the wave-4a entry's "re-read before rescope" line — same root cause, now confirmed as a pattern, not a one-off.
+
+---
+
 ## design-fixes wave 4b — onboarding a11y + Skip demotion (2026-06-17)
 
 - **A muted visual indicator silently becomes the screen-reader's only source of truth — and they can disagree.** onboarding's `PageControl` is wrapped in `accessibilityElementsHidden`, so VoiceOver never hears the dots; the FlatList's `accessibilityRole="adjustable"` label is the *only* page count a screen-reader user gets. It counted against `PANELS.length` (3) while the dots — and the downstream /permissions + /trusted-contact screens — all count against the 5-step flow. So a sighted user saw "5 dots" while VoiceOver said "page 3 of 3", then landed on "4 of 5". **Worth keeping:** when you hide one accessibility surface in favor of another, the surviving one inherits responsibility for the whole truth — check it against what's visible *and* against the adjacent screens. Fixed via a shared `ONBOARDING_FLOW_STEPS = 5` feeding both the dots and the spoken label so they can't drift.
