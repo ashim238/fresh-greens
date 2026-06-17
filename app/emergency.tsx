@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Asterisk } from 'phosphor-react-native/src/icons/Asterisk';
@@ -112,6 +113,11 @@ export default function Emergency() {
 
     setMode({ kind: 'countdown', target });
     setCountdownSec(COUNTDOWN_SEC);
+    // Tactile confirm that the call is now armed and counting down —
+    // Medium impact matches /pulled-over's state-transition register.
+    // Fires on both the initial commit and a pivot re-commit, so the
+    // tap registers in the hand even when the eyes are on the road.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     // VoiceOver: a sighted user sees the title swap on a pivot; a
     // non-sighted user needs the swap stated explicitly so they don't
     // think the timer simply reset on the same target. Two announcement
@@ -133,6 +139,12 @@ export default function Emergency() {
       remaining -= 1;
       if (remaining <= 0) {
         clearCountdown();
+        // Heavier, distinct signal at the dial moment — Warning, not
+        // Success: a call is firing now. This is the one haptic the user
+        // must feel even if they've looked away from the screen.
+        Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Warning,
+        ).catch(() => {});
         if (target === '911') {
           dialOrWarn('tel:911', 'Dial 911 directly from your phone.');
         } else if (phoneNumber) {
@@ -148,12 +160,20 @@ export default function Emergency() {
         setCountdownSec(COUNTDOWN_SEC);
         return;
       }
+      // Subtle metronome on each step down (the 2 and 1 frames; the
+      // opening 3 frame gets the Medium arm impact above) so a driver
+      // glancing at the road feels the cancel window closing without
+      // having to look. Lighter than the arm/fire haptics by design.
+      Haptics.selectionAsync().catch(() => {});
       setCountdownSec(remaining);
     }, 1000);
   }
 
   function stopCountdown() {
     clearCountdown();
+    // Light confirm that the interrupt landed — lighter than the
+    // arm/fire haptics so stopping feels like a release, not an event.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setMode({ kind: 'idle' });
     setCountdownSec(COUNTDOWN_SEC);
   }
@@ -369,7 +389,7 @@ function CountdownView({
       <View
         style={styles.countdownDisc}
         accessible
-        accessibilityLabel={`${seconds} seconds remaining`}
+        accessibilityLabel={`${seconds} second${seconds === 1 ? '' : 's'} remaining`}
         accessibilityLiveRegion="polite"
       >
         <Text style={styles.countdownNumber}>{seconds}</Text>
@@ -409,7 +429,6 @@ function CountdownView({
             onPress={onPivot}
             accessibilityRole="button"
             accessibilityLabel={pivotA11yLabel ?? pivotLabel}
-            hitSlop={8}
             style={({ pressed }) => [styles.pivotBtn, pressed && pressedDim]}
           >
             <Phone size={16} color={colors.labelSecondary} weight="duotone" />

@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## design-fixes wave 4a — emergency haptics (2026-06-17)
+
+Part of the post-audit design-fix waves (1: systemic token/a11y 1-liners; 2: Held-Question weight; 3: painted tap targets; 4a: emergency.tsx structural). Two things worth keeping:
+
+- **A compaction summary's scope estimate drifts from the code — re-read the file before executing "structural" work.** The pre-compaction audit notes flagged 4a as Opus-level async-state work (idle→countdown sequencing, abort path, VoiceOver live regions). Reading the actual `emergency.tsx` first: the async sequencing was already StrictMode-safe (dial side-effect in the interval *body*, not a `setState` updater; closure `remaining` counter; unmount `clearCountdown`), and all three live-region layers were already present. The *only* genuine gap was haptics. Had I trusted the summary, I'd have "rewritten" working code. **Worth keeping:** treat a handoff/audit summary as a pointer, not a spec — open the file and diff intent against reality before scoping. The summary is what was *believed* true when written, not what's true now.
+
+- **`hitSlop` on an already-44pt-painted control is legitimate forgiveness, not a violation.** Wave 3 removed `hitSlop` where it had been the *sole* compliance mechanism (sub-44 painted area). The emergency pivot button had `hitSlop={8}` *on top of* a `minHeight: 44` painted target — that's the rule working as intended (forgiveness layered on compliance), so removing it was a consistency tidy with the sibling Stop button, not a fix. **Worth keeping:** before stripping a `hitSlop`, check the painted dimensions first; the `.cursorrules` rule forbids hitSlop-as-compliance, not hitSlop-as-bonus.
+
+- **Crisis-screen haptic palette = an escalation arc, not uniform buzzes.** emergency.tsx countdown: Medium impact at arm (commit registered) → `selectionAsync` metronome on the 2/1 step-downs (window closing, felt without looking) → `notificationAsync(Warning)` at the dial moment (the one signal the user must feel if they've looked away) → Light impact on Stop (release, deliberately lighter than arm/fire). House style throughout: fire-and-forget `.catch(() => {})`, no `await`, matching `pulled-over.tsx`.
+
+---
+
 ## feat/distance-aware-refuel-phase1 (2026-06-17)
 
 Built via subagent-driven execution of an 8-task plan (route-progress odometer + earliest-of trigger). Three execution lessons:
