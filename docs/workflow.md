@@ -1,6 +1,8 @@
-# Building a screen — workflow
+# Per-PR / per-feature workflow
 
-The recipe we landed on while building Welcome (Figma `825:3162`). Follow it for each new screen so the rhythm becomes muscle memory.
+The recipe we landed on while building Welcome (Figma `825:3162`) and generalized since — it now covers any PR or feature, not just a new screen (steps 1–11 are the core rhythm; §12 audits, §13 subagent reviews, §14 process tools wrap it). Follow it each time so the rhythm becomes muscle memory.
+
+**Where this sits in the doc ecosystem:** this is the *per-PR* layer. Above it, [`docs/ROADMAP.md`](ROADMAP.md) holds the strategic milestones (pilot-ready → funding-ready) that decompose *into* PRs. Below it, [`docs/next-session.md`](next-session.md) is the tactical backlog and [`docs/learnings.md`](learnings.md) the journal. [`docs/architecture.md`](architecture.md) is the code-orientation map. (`CLAUDE.md` is the index that points at all of these.)
 
 ## 1. Start clean
 ```
@@ -32,7 +34,9 @@ Before writing a hex color, font size, or spacing value inline — check `theme/
 **If you added a color token to `theme/colors.ts`, mirror it into the design specimen** (`fresh-greens-specimen/index.html` — both the `:root` block and the visible swatch grid) and commit + push that sibling repo. The specimen is README-linked, so a missing token leaves portfolio visitors on a stale design system. Run `npm run check:specimen` to catch drift — it fails on any theme hex missing from the specimen (and skips cleanly if the sibling repo isn't cloned). This is the enforcement that prevents the hand-mirror from silently drifting; the Step 13 pre-merge audit runs it too.
 
 ## 5. Build, iterate on phone
-Save → Expo Go reloads on phone within ~1s. Tweak numbers (`marginBottom`, `width`, `borderRadius`) directly until it looks right. Don't be precious about reverting — the loop is the point.
+Save → the app reloads on phone within ~1s. Tweak numbers (`marginBottom`, `width`, `borderRadius`) directly until it looks right. Don't be precious about reverting — the loop is the point.
+
+**Expo Go vs. dev build:** pure-JS/UI work hot-reloads in Expo Go. But features using native modules — `expo-notifications`, `expo-calendar`, `expo-audio`, anything needing entitlements — do **not** run in Expo Go; they need a **dev build** (`eas build --profile development`, or a local prebuild). The fuel reminders, calendar destinations, and recording waveform all fall here, and some behavior (a notification firing, GPS-driven logic) is only testable on a dev build or the iOS Simulator with simulated location — not Expo Go. If a feature depends on a native module, verify it on a dev build.
 
 ## 6. Self-review the diff before committing
 Scan your own changes in Cursor's source-control panel. Catch:
@@ -51,8 +55,10 @@ git push -u origin feat/<screen-name>
 - Include the Figma node ID in parens — future-you searching the log will thank you.
 - Avoid `git add .` — name files explicitly.
 
-## 8. Open the PR on GitHub
-Description template:
+## 8. Open the PR on GitHub  *(or merge locally)*
+Opening a GitHub PR (this step + §9) buys the rendered-diff review surface, a remote branch backup, and collaboration. For **solo, fast features you can skip the push + PR** and squash-merge the local branch directly (§10 covers both paths) — the per-PR subagent audit (§13) is the real gate, not the GitHub PR. Use the PR path when the change is large, risky, or you want the GitHub diff; merge locally when it's small and self-reviewed.
+
+PR description template:
 ```
 ## What
 <one-line summary>
@@ -76,11 +82,19 @@ Hold the merge only when: (1) the audit surfaces critical findings that the auth
 
 Docs-only PRs that skip the audit (per Step 13's "no code surface" exception) still merge by default.
 
-Mechanics:
+Mechanics — **GitHub PR path:**
 ```
 gh pr merge <num> --squash --delete-branch
 git checkout main
 git pull --ff-only
+```
+**Local-only path** (branch was never pushed — squash-merge without a GitHub PR):
+```
+git checkout main && git pull --ff-only
+git merge --squash feat/<name>
+git commit                       # one squash commit summarizing the feature
+git push origin main
+git branch -D feat/<name>        # -D: squash leaves it "unmerged" to git
 ```
 
 The locally-installed `post-commit` + `post-checkout` git hooks re-run `graphify update .` automatically, so the codebase graph stays current without a manual step. If a graphify result feels suspiciously sparse, sanity-check with `head -1 graphify-out/GRAPH_REPORT.md` — the title carries the build date.
@@ -236,4 +250,4 @@ These wrap the per-PR rhythm above rather than being a step in it.
 
 - **grill-me** — an **opt-in** adversarial stress-test of a plan or design, run *between* `writing-plans` and execution. Not every PR: reach for it when the plan feels **risky or ambiguous** — a behavioral feature with edge cases (the distance-aware refuel plan was a fair candidate), a formula change, anything where "did we think through every branch" is a live question. A token swap or a copy fix doesn't need it. It interrogates each decision-branch until shared understanding; the payoff is catching a missing case before code, not after audit.
 
-- **GSD — deliberately NOT adopted as the default flow.** Its `spec→discuss→plan→execute` pipeline duplicates the superpowers `brainstorming → writing-plans → subagent-driven-development` rhythm this project already runs (and `gsd-graphify` duplicates our graphify). Running both would mean two parallel `.planning/`-vs-`docs/superpowers/` structures and constant "which pipeline am I in." The **one** piece GSD has that this project lacks is a **roadmap / milestone layer** above the per-PR rhythm — structured phases between now and a thesis/funding milestone, vs. the current PR-by-PR off `docs/next-session.md`. Revisit *that piece only* if/when the work shifts from incremental polish to milestone-driven planning; leave the rest on the shelf.
+- **GSD — only the roadmap layer adopted; the rest stays on the shelf.** GSD's `spec→discuss→plan→execute` pipeline duplicates the superpowers `brainstorming → writing-plans → subagent-driven-development` rhythm this project already runs (and `gsd-graphify` duplicates our graphify). Running both would mean two parallel `.planning/`-vs-`docs/superpowers/` structures and constant "which pipeline am I in" — so the pipeline stays unused. The **one** piece GSD has that this project lacked is a **roadmap / milestone layer** above the per-PR rhythm. That piece is now **adopted as [`docs/ROADMAP.md`](ROADMAP.md)** (2026-06-17) — the strategic milestones (pilot-ready → funding-ready) that decompose into specs → plans → PRs. We hand-rolled the doc rather than running GSD's roadmap commands, to keep one planning structure (`docs/`) instead of two. Everything else in GSD remains on the shelf.

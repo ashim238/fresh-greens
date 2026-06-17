@@ -10,6 +10,7 @@ You are working on Fresh Greens, a React Native + Expo (iPhone-first) thesis nav
 
 ## Where the backlog lives
 
+- **[`docs/ROADMAP.md`](docs/ROADMAP.md)** — strategic milestone layer above the per-PR rhythm (pilot-ready → funding-ready). Milestones decompose into specs → plans → PRs → next-session items. Read when deciding *what big chunk* to build next vs. *how* to build a PR (that's workflow.md). Adopted 2026-06-17 as the one roadmap-layer piece worth taking from GSD.
 - **[`docs/next-session.md`](docs/next-session.md)** — current punch list. Open items grouped by visual fidelity, interaction polish, new features, copy, named rounds (Round 4 — multi-row recs; Round 5 — safety + route-preview), accessibility, polish nits, architecture v2. Strike-through items as they ship rather than deleting; the closure note is worth keeping for grep.
 - **[`docs/learnings.md`](docs/learnings.md)** — running journal of decisions and gotchas, newest at top. Append a branch-headed entry per PR that taught something non-obvious (per workflow Step 11). The check: did this take two tries or surprise me at audit? Yes → entry.
 
