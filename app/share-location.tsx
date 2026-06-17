@@ -237,7 +237,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    // title1Regular per Held-Question rule — "What's the situation?" is
+    // a user prompt, not a directive. Active state "Sharing your location."
+    // is declarative but Regular reads cleanly there too.
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,

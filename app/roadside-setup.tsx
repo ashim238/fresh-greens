@@ -18,6 +18,7 @@ import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -106,7 +107,7 @@ export default function RoadsideSetup() {
               value={serviceName}
               onChangeText={setServiceName}
               placeholder="AAA, Geico, USAA, …"
-              placeholderTextColor={colors.mutedSecondary}
+              placeholderTextColor={colors.labelTertiary}
               autoCapitalize="words"
               accessibilityLabel="Service name"
             />
@@ -119,7 +120,7 @@ export default function RoadsideSetup() {
               value={phoneNumber}
               onChangeText={setPhoneNumber}
               placeholder="1-800-…"
-              placeholderTextColor={colors.mutedSecondary}
+              placeholderTextColor={colors.labelTertiary}
               keyboardType="phone-pad"
               accessibilityLabel="Phone number"
             />
@@ -177,12 +178,12 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
-    borderRadius: 12,
+    borderRadius: radii.md,
     paddingHorizontal: spacing.md,
   },
   cta: {
     minHeight: 50,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',

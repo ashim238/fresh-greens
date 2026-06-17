@@ -41,6 +41,7 @@ import { type ProblemType } from '../lib/api/roadside';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -620,7 +621,7 @@ function WrongSpotModal({
               setError(null);
             }}
             placeholder="Enter address or area"
-            placeholderTextColor={colors.mutedSecondary}
+            placeholderTextColor={colors.labelTertiary}
             autoFocus
             accessibilityLabel="Address or area"
           />
@@ -711,7 +712,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
-    borderRadius: 12,
+    borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: 60,
@@ -773,7 +774,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     padding: spacing.lg,
     width: '100%',
     gap: spacing.md,
@@ -783,11 +784,11 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   input: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.black,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
-    borderRadius: 12,
+    borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -831,7 +832,7 @@ const styles = StyleSheet.create({
   // Step 3 — live status
   sharedCard: {
     backgroundColor: colors.systemGroupedBackground,
-    borderRadius: 12,
+    borderRadius: radii.md,
     padding: spacing.md,
     marginBottom: spacing.lg,
     gap: spacing.xs,

@@ -567,14 +567,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   confirmTitle: {
-    ...typography.title3Emphasized,
+    // title3Regular per Held-Question rule — the confirm modal asks a
+    // question (Stop? Delete?); Regular holds it as a prompt, not a command.
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
     // Reserve room under the absolutely-positioned X — without this
     // the title would visually collide with the close target.
     paddingRight: spacing.xl,
   },
   confirmBody: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.labelSecondary,
   },
   confirmBodyEmphasis: {

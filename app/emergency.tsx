@@ -470,12 +470,12 @@ const styles = StyleSheet.create({
   // 44pt visual per .cursorrules tap-target rule ("on the visual, not
   // just the hit area"). The X glyph inside stays 20pt; the chrome
   // grows to meet the iOS HIG floor without leaning on hitSlop.
-  // Idle title — title1Emphasized (28pt bold) matches /pulled-over's
-  // armed-picker precedent the safety-flow titles converged on this
-  // session. The card asks a question ("Need help?"), so it gets the
-  // full safety-flow header register.
+  // Idle title — title1Regular (28pt, 400 weight) per the Held-Question
+  // rule: "Need help?" is a user prompt at a decision moment, not a
+  // directive. Regular holds the question open; Emphasized would read
+  // as a command on a stress-state screen.
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
     textAlign: 'center',
   },
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignSelf: 'stretch',
     height: 52,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     paddingHorizontal: spacing.lg,
   },
   // navy = the canonical safety-affordance color (.cursorrules

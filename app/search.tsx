@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   resultsHeaderText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     flex: 1,
   },
@@ -1216,15 +1216,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   resultName: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
   },
   resultAddress: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   resultDistance: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.black,
     // 72pt fits up to "9,999.9 mi" (10 chars × ~7pt at SF Pro 15)
     // — accommodates comma-separated values when Nominatim returns

@@ -315,14 +315,14 @@ const styles = StyleSheet.create({
     //
     // Weight differs from /report's Title1 Emphasized picker title,
     // but placement matches: left-aligned icon + title + subtitle stack.
-    ...typography.title1Regular,
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
     alignSelf: 'stretch',
   },
   subtitle: {
     // Supporting line under the Title1 Regular prompt — left-aligned to
     // match /report's picker + detail subtitle placement.
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.labelTertiary,
     alignSelf: 'stretch',
   },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emergencySectionLabel: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   gridRow: {
@@ -358,13 +358,13 @@ const styles = StyleSheet.create({
     // report.tsx `styles.tile` (max width per column, not fixed 140pt).
     flex: 1,
     minWidth: 0,
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   tabIcon: {
     width: '100%',
     minHeight: 96,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     backgroundColor: colors.systemGroupedBackground,
     alignItems: 'center',
     justifyContent: 'center',
@@ -406,12 +406,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   sosBarTitle: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   sosBarSubtitle: {
     // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
   },
 });

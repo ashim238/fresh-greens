@@ -17,6 +17,7 @@ import PermissionsLocation from '../assets/illustrations/permissions-location.sv
 import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
     // ("Allow location access to find safe routes…") — primary
     // content deserves the iOS-norm body register, not the 15pt
     // subhead tier v1 had it at.
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.white,
   },
   tapInstruction: {
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
     // step guidance flow; 13pt left it reading as caption while the
     // body above is now 17pt. 15pt keeps it subordinate to the body
     // (17pt) but lifts it out of fine-print tier.
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.white,
   },
   subDirections: {
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
     // Bumped 13pt → 15pt to match tapInstruction above — both are
     // step-by-step guidance copy and want the same supporting-tier
     // register. Audit 2026-06-01.
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.white,
   },
   cta: {

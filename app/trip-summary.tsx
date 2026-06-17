@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   inferenceHeading: {
-    ...dynamicType(typography.title3Emphasized),
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
   },
   inferenceSub: {
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.separatorSubtle,
   },
   inferenceLabel: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.black,
     flex: 1,
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.wiltedgreen,
   },
   inferenceResult: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
   },
   inferenceResultAccepted: {
     color: colors.wiltedgreen,

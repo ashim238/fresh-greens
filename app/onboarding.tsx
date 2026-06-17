@@ -21,6 +21,7 @@ import Onboarding3 from '../assets/illustrations/onboarding-3.svg';
 import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -349,7 +350,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   title: {
-    ...typography.largeTitleEmphasized,
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
   },
   body: {
@@ -359,7 +360,7 @@ const styles = StyleSheet.create({
     // with this much copy, Semibold reads dense and urgent when the
     // text is informational — Regular lets the 34pt title carry the
     // emphasis.
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.white,
   },
   actions: {

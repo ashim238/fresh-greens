@@ -16,6 +16,7 @@ import { usePreferredStations } from '../hooks/usePreferredStations';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 
@@ -423,7 +424,7 @@ export default function Fuel() {
                       accessibilityLabel={`Remove ${s.name}`}
                       style={({ pressed }) => [pressed && pressedDim]}
                     >
-                      <Trash size={20} color={colors.red} weight="regular" />
+                      <Trash size={20} color={colors.labelSecondary} weight="regular" />
                     </Pressable>
                   </View>
                 ))
@@ -467,7 +468,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
-    borderRadius: 12,
+    borderRadius: radii.md,
     paddingHorizontal: spacing.md,
   },
   segment: { flexDirection: 'row', gap: spacing.sm },
@@ -476,7 +477,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 100,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
   },
@@ -522,7 +523,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
   },
@@ -548,7 +549,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.freshgreen,
   },
@@ -558,7 +559,7 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     minHeight: 50,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',

@@ -46,6 +46,7 @@ import {
 import type { Coordinate } from '../lib/api/zones';
 import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { radii } from '../theme/radii';
@@ -926,7 +927,7 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   tileLabel: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
     textAlign: 'center',
     marginTop: 8,
@@ -942,7 +943,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   fieldLabel: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
   },
   textInput: {
@@ -952,7 +953,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.black,
     textAlignVertical: 'top',
   },

@@ -8,6 +8,7 @@ import PermissionsLocation from '../assets/illustrations/permissions-location.sv
 
 import { Button } from '../components/Button';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   title: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.white,
   },
   subtitle: {
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
     // sentence; 13pt dropped two tiers below the title (caption
     // tier), reading as fine print on what's actually an onboarding-
     // class screen. 15pt keeps it subordinate without burying it.
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.signOutSubtitle,
   },
   button: {
