@@ -119,25 +119,53 @@ New store mutators (alongside the existing ones):
 ## Unit 1.1 — Trip odometer
 
 **Where:** `app/en-route.tsx` already runs `Location.watchPositionAsync`
-(line ~1287) and holds `userLocation`. Add a small accumulator there (or a
-`hooks/useTripOdometer.ts` if en-route's effect block is already dense).
+(line ~1287), holds `userLocation`, and the active route polyline. Add the
+odometer there (or a `hooks/useTripOdometer.ts` if en-route's effect block is
+already dense).
 
-**What:** On each new fix, add `haversineMeters(prevFix, newFix)` (from
-`lib/geo.ts`) to a running per-trip total. Flush to the store via
-`addMilesSinceFilled(deltaMiles)` on a throttle — **every ≥0.5 mi accumulated**
-— so a crash loses at most ~0.5 mi. Flush the remainder on unmount/arrival.
+**Approach: route-progress projection, not raw GPS segment-sum.** Measure how
+far the user has advanced *along the active route polyline*, not the sum of raw
+fix-to-fix deltas. Per fix:
+1. Project the fix onto the route line with `nearestPointOnPolyline` (already in
+   `lib/scoring.ts`, added for the hazard markers).
+2. Look up that projected point's **arc-length from route start** (precompute a
+   cumulative-segment-length prefix array once per route — a `pathLength`-style
+   scan from `lib/geo.ts`).
+3. Track the **monotonic max** arc-length reached this route (clamp so it never
+   decreases — the same monotonic-progress discipline `findNextStep` /
+   `minStepIndex` already use in `routes.ts`).
+4. `delta = newMaxArcLength − lastFlushedArcLength`; flush via
+   `addMilesSinceFilled(deltaMiles)` on a throttle (**every ≥0.5 mi**, plus on
+   `AppState → background` and on unmount/arrival, so iOS killing a backgrounded
+   app loses at most the sub-0.5mi remainder).
 
-**Honesty guardrails:**
-- Ignore fixes with `coords.accuracy > 50m` (GPS drift would inflate miles).
-- Ignore implausible jumps (`> 2 mi` between consecutive ~1 Hz fixes ≈ >7000
-  mph — a teleport from a lost-signal reacquire, not real driving).
-- Only accumulates while `remindersEnabled && rangeMiles != null` — no point
-  metering distance the feature won't use.
+**On route change** (reroute, new destination, off-route re-issue): bank the
+current `maxArcLength` (already flushed incrementally) and reset the per-route
+prefix array + monotonic tracker for the new polyline. The accumulated
+`milesSinceFilled` persists across routes — only the per-route tracker resets.
 
-**Why GPS-segment sum, not route.distanceMeters:** counts *actual* partial
-drives (user navigates halfway, reroutes, cancels), which planned-route
-distance misses. Undercounts safely either way; segment-sum just undercounts
-less.
+**Why projection beats raw segment-sum** — segment-sum is noise-sensitive and
+needs three brittle filters; projection dissolves the failure modes:
+- **Stationary jitter** (a parked phone wandering in its accuracy circle would
+  inflate a raw sum at every red light) → projects to ~the same arc-length →
+  zero progress. No min-movement floor needed.
+- **Reacquire teleports** (a tunnel-exit GPS snap) → arc-length is monotonic and
+  bounded by route length; the spike projects near the same point or to one
+  already passed → no effect. No `Δdist/Δt` speed gate needed.
+- **Partial trips** → it's progress, not completion: reroute/cancel keeps the
+  miles already advanced.
+
+**Remaining guardrails (only two needed):**
+- Skip projecting a fix with `coords.accuracy > 50 m` (don't trust junk).
+- Only meter while `remindersEnabled && rangeMiles != null`.
+
+**Honest limitation:** progress only accrues *while navigating in-app with a
+route to project onto* — which was already the feature's stated boundary. True
+off-route driving with no reroute saturates progress (undercount — the safe
+direction). Raw segment-sum was the **rejected alternative** (see brainstorm
+2026-06-12): more code, three jitter filters, and it *over*counts at idle —
+firing the reminder early for sitting still, which breaks the "distance pulls
+earlier only for real driving" promise the whole earliest-of design rests on.
 
 ## Unit 1.2 — Earliest-of trigger engine
 
@@ -311,8 +339,9 @@ in-memory filter in `OptionPickSheet`.
 
 ```
 Phase 1:
-  drive (in-app nav) → watchPositionAsync fixes → haversine segment sum
-    → throttled addMilesSinceFilled() → milesSinceFilled persisted
+  drive (in-app nav) → watchPositionAsync fixes → project onto route
+    → monotonic max arc-length → throttled addMilesSinceFilled()
+    → milesSinceFilled persisted
   trip end / app-foreground → isDistanceRefuelDue()?
     → yes: immediate notification + cancel time notif + banner + refuelNotifiedAt
   "I filled up" → milesSinceFilled=0, refuelNotifiedAt=null, reschedule time notif
@@ -343,8 +372,10 @@ No test runner in the repo (verified-static + device pass, per project norm).
 2. **Throwaway-node assertions** (pure functions):
    - `isDistanceRefuelDue`: under threshold → false; at/over + not notified →
      true; over + already notified → false; rangeMiles null → false.
-   - Odometer segment sum: a known 3-point path → expected miles; a
-     >2mi teleport segment → excluded; an accuracy>50 fix → excluded.
+   - Odometer route-progress: fixes along a known polyline → monotonic
+     arc-length matches expected miles; a fix that projects *behind* the
+     max (jitter/backward GPS) → no decrease; a fix lateral to the line
+     (parked-at-light wander) → ~zero progress; an accuracy>50 fix → skipped.
    - Proxy range calc: EV (range>0) → epa-ev passthrough; gas → comb08×classTank
      rounded, epa-gas; unknown VClass → 15-gal fallback.
 3. **Proxy curl** (manual): `?step=makes&year=2020`, `?step=models&...`,
@@ -361,8 +392,10 @@ No test runner in the repo (verified-static + device pass, per project norm).
   `isDistanceRefuelDue`, `markFilledUp` reset additions.
 - `hooks/useFuelProfile.ts` — distance-check on trip-end + AppState foreground;
   earliest-wins cancel logic.
-- `app/en-route.tsx` (or new `hooks/useTripOdometer.ts`) — odometer accumulate +
-  throttled flush.
+- `app/en-route.tsx` (or new `hooks/useTripOdometer.ts`) — route-progress
+  odometer: per-fix projection (`nearestPointOnPolyline` from `lib/scoring.ts`)
+  → monotonic arc-length → throttled/background flush. Per-route
+  cumulative-length prefix array built from `lib/geo.ts`.
 - `app/fuel.tsx` — "Tank range" RowGroup (bucket/custom picker) + footer copy.
 - `lib/notifications.ts` — an `fireRefuelReminderNow()` immediate variant beside
   `scheduleRefuelReminder` (reuses the copy builder).
