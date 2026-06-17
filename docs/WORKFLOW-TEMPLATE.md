@@ -26,6 +26,30 @@ Five docs + an index, each at a different altitude. Reuse the *shape*:
 
 ---
 
+## Two layers: this doc (macro) + superpowers skills (micro)
+
+This file is the **map** — *when* to act, in what order, what the gates are. The
+**superpowers skills** are the **engine** — *how* each step executes. You read the
+map to know you should scope-then-plan-then-build; you invoke the skill to actually
+do each one. **The skill is always the source of truth for its own mechanics; the
+table below is a pointer, not a spec to keep in lockstep** — so a renamed skill is
+never a sync chore here.
+
+| Workflow step | Skill that executes it |
+|---|---|
+| Pull design + scope (§2–3) | `brainstorming` |
+| Write the plan (§3) | `writing-plans` |
+| Build a multi-task plan (§5) | `subagent-driven-development` |
+| Deep pre-execution stress-test (§12) | `grill-me` |
+| Commit + merge + cleanup (§7–9) | `finishing-a-development-branch` |
+| Session start | `task-observer` |
+
+Steps with **no** skill — the goal-backward check (§10), learnings (§11), the review
+agents (§12) — are the workflow's own. Superpowers fills in only where a non-trivial
+mechanical process is worth codifying once and reusing.
+
+---
+
 ## 1. Start clean
 Branch off the trunk; name the branch for the work (`feat/<thing>`, `fix/<thing>`).
 
