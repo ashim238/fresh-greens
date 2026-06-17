@@ -90,7 +90,10 @@ export type FuelProfile = {
   rangeMiles: number | null;
   /** Provenance of rangeMiles — drives copy + the adjust affordance. */
   rangeSource: RangeSource;
-  /** In-app driven miles since lastFilledAt. Reset to 0 on "I filled up". */
+  /** In-app driven miles since the tank was last considered full.
+      A FULL fill resets this to 0; a PARTIAL fill resets it to
+      rangeMiles × (1 − fillFraction) — i.e. you start the new cycle
+      already part-consumed (see Unit 1.4). */
   milesSinceFilled: number;
   /** ISO — set when EITHER trigger fires; cleared on "I filled up".
       Dedups the distance check so it doesn't re-fire every trip-end after
@@ -109,8 +112,13 @@ New defaults: `rangeMiles: null`, `rangeSource: 'none'`, `milesSinceFilled: 0`,
 New store mutators (alongside the existing ones):
 - `addMilesSinceFilled(delta: number)` — `milesSinceFilled += delta`, persist.
   Called (throttled) by the trip odometer.
-- `markFilledUp()` (exists) — additionally resets `milesSinceFilled = 0` and
-  `refuelNotifiedAt = null`, and reschedules the time notification.
+- `markFilledUp(fillFraction = 1)` (exists; gains an optional fraction) —
+  resets `milesSinceFilled = rangeMiles × (1 − fillFraction)` (so a full fill →
+  0; a half fill → half the range already "spent"), clears
+  `refuelNotifiedAt = null`, and reschedules the time notification (a partial
+  fill also shortens the next time cadence proportionally — see Unit 1.4). When
+  `rangeMiles` is null (distance trigger off), a partial fill only scales the
+  time cadence; `milesSinceFilled` stays 0.
 
 ---
 
@@ -202,13 +210,31 @@ When `due`:
 - Surface the in-app `refuelDue` banner (the `FuelStopsSheet` already accepts a
   `refuelDue` prop — wire it to `refuelNotifiedAt != null`).
 
+**Station-aware notification copy (distance fire only).** Because the distance
+trigger fires *in-app* at trip-end, the live route + loaded on-route stops
+(`useRouteFuelStops`) are right there — so the immediate notification can name a
+real stop instead of a generic nudge: prefer the nearest **favorited** stop
+ahead on the route, else the nearest on-route stop, e.g. *"Low on gas — Sunoco
+on Franklin (you trust it) is 0.4 mi ahead."* This is the thesis payoff —
+favorited = trusted = Green Book lineage, surfaced at the moment of need. Falls
+back to the generic copy when no stop is loaded (not navigating, or the stops
+fetch is empty/in-flight).
+
+**This is deliberately NOT done for the scheduled *time* notification.** That
+one fires when the app is closed; the OS can't run a station lookup at fire
+time, and a station baked into the payload at schedule time goes stale (it could
+be days and many miles away when it fires). The time notification stays generic;
+only the in-app distance fire is station-aware.
+
 **Earliest-wins, both directions:**
 - Distance crosses first → fires now, cancels the time notification.
 - Time fires first → the scheduled notification delivers; on next app-open the
   distance check sees `refuelNotifiedAt != null` (we set it when the time
   notification is *known fired* — see below) and stays quiet.
-- "I filled up" → `milesSinceFilled = 0`, `refuelNotifiedAt = null`, reschedule
-  the time notification. Clean slate.
+- "I filled up" → `markFilledUp(fillFraction)` (Unit 1.4): `milesSinceFilled =
+  rangeMiles × (1 − fillFraction)`, `refuelNotifiedAt = null`, reschedule the
+  time notification (cadence scaled by the fraction). Full fill = clean slate;
+  partial fill = start the cycle part-consumed.
 
 **Tracking that the time notification fired:** the OS notification fires
 out-of-process. On app foreground, if `now >= nextReminderAt` and
@@ -232,6 +258,56 @@ Add a **"Tank range"** RowGroup below the cadence row:
 - Footer copy: *"We'll remind you at your cadence OR after this many in-app
   navigated miles — whichever comes first. Miles only count trips you navigate
   in the app."* (Honest about the undercount.)
+
+## Unit 1.4 — Amount-aware "I filled up"
+
+The shipped "I filled up" is binary and assumes a **full** tank — which fails
+in the *unsafe* direction for a **partial** fill: resetting to a full cycle
+overestimates remaining range, so the next reminder fires *too late*. Partial
+fills ("$15 of regular") are disproportionately common among lower-income
+drivers — this app's core demographic — so the full-tank assumption quietly
+serves the people who already have it easiest. This unit makes the fill-up
+amount-aware.
+
+`markFilledUp(fillFraction)` (Unit data-model) takes a 0–1 fraction:
+- `milesSinceFilled = rangeMiles × (1 − fillFraction)` (full → 0; half →
+  half the range pre-spent), and
+- the rescheduled **time cadence is scaled**: `effectiveDays = cadenceDays ×
+  fillFraction` (a half fill → remind in half the days). Clamped to ≥1 day by
+  the existing scheduler.
+
+**How the driver enters the amount — two registers, gated by data availability:**
+
+- **Phase 1 (and all EVs): fraction buttons.** A small picker —
+  **Filled up (1.0) · ¾ · ½ · A little (¼)**. Zero data dependencies; works with
+  just `rangeMiles`. Honestly coarse (it *looks* like the estimate it is). EVs
+  always use this register — a charge is a %, not a pump dollar amount.
+
+- **Phase 2 (gas/diesel): dollar input with a live coarse subtext.** The driver
+  types what they actually know — **"$15"** — and the sheet shows the derived
+  fraction as subtext: **"about ⅓ tank."** The math needs only price/gal and
+  tank size (MPG cancels):
+
+  ```
+  fillFraction = clamp( dollars ÷ (pricePerGallon × tankGallons), 0, 1 )
+  ```
+
+  - `tankGallons` = the class-typical gallons the EPA range path already uses
+    (Unit 2.1) — a documented estimate.
+  - `pricePerGallon` = the active/nearest station's price when available, else a
+    regional/national average constant.
+  - Snapped to the nearest coarse bucket for display (¼/½/¾/full) and hedged with
+    "about" — never a false-precise "+73 miles." The bounded downside (a
+    one-bucket error just nudges slightly less early; the time cadence still
+    backstops) is what makes the rough conversion acceptable here.
+
+  Falls back to the Phase-1 fraction buttons if price *and* tank can't be
+  resolved (so the subtext is never fabricated).
+
+**Why dollar input only in Phase 2:** Phase 1's bucket gives total `rangeMiles`
+but no tank or price — there is nothing to compute the fraction *from*, so the
+subtext would be invented. The dollar register lands exactly where the inputs
+exist to make "about ⅓ tank" true rather than guessed.
 
 ---
 
@@ -343,8 +419,13 @@ Phase 1:
     → monotonic max arc-length → throttled addMilesSinceFilled()
     → milesSinceFilled persisted
   trip end / app-foreground → isDistanceRefuelDue()?
-    → yes: immediate notification + cancel time notif + banner + refuelNotifiedAt
-  "I filled up" → milesSinceFilled=0, refuelNotifiedAt=null, reschedule time notif
+    → yes: immediate notification (station-aware: names nearest favorited/
+      on-route stop ahead) + cancel time notif + banner + refuelNotifiedAt
+  "I filled up" → markFilledUp(fillFraction):
+      Phase 1 / EV → fraction buttons (Full/¾/½/¼)
+      Phase 2 gas  → "$15" → "about ⅓ tank" subtext (÷ price×tank)
+    → milesSinceFilled = rangeMiles×(1−fraction), refuelNotifiedAt=null,
+      reschedule time notif (cadence × fraction)
 
 Phase 2:
   fuel screen → pick Year → /api/vehicles?step=makes → pick Make
@@ -355,8 +436,9 @@ Phase 2:
 
 ## Error handling
 
-- Odometer: bad-accuracy / teleport fixes skipped (Unit 1.1). Crash mid-trip
-  loses ≤0.5 mi (throttled flush).
+- Odometer: bad-accuracy fixes (>50 m) skipped; jitter/teleport are inherently
+  absorbed by the monotonic arc-length (Unit 1.1), no filter needed. Crash
+  mid-trip loses ≤0.5 mi (throttled flush).
 - Notification permission denied: the existing `scheduleRefuelReminder` already
   returns a discriminated result; the distance path reuses it. No permission →
   the in-app `refuelDue` banner still shows (graceful).
@@ -378,27 +460,41 @@ No test runner in the repo (verified-static + device pass, per project norm).
      (parked-at-light wander) → ~zero progress; an accuracy>50 fix → skipped.
    - Proxy range calc: EV (range>0) → epa-ev passthrough; gas → comb08×classTank
      rounded, epa-gas; unknown VClass → 15-gal fallback.
+   - `markFilledUp(fraction)`: full (1.0) → milesSinceFilled 0 + full cadence;
+     half (0.5) → milesSinceFilled = rangeMiles×0.5 + cadence×0.5 (clamped ≥1d);
+     rangeMiles null → milesSinceFilled stays 0, only cadence scales.
+   - `$ → fillFraction`: dollars ÷ (price×tank) clamped 0–1; snaps to the
+     nearest coarse bucket; price+tank both missing → returns null (UI falls
+     back to fraction buttons).
+   - Station-aware copy: nearest favorited on-route stop ahead wins; else
+     nearest on-route stop; no stops loaded → generic copy.
 3. **Proxy curl** (manual): `?step=makes&year=2020`, `?step=models&...`,
    `?step=range&year=2020&make=Honda&model=Civic` → sane JSON.
 4. **Device:** set a low range (e.g. Custom 2 mi) + reminders on → navigate >2mi
-   in-app → refuel notification + banner fire; time notification cancelled;
-   "I filled up" clears banner and miles. Phase 2: pick 2020/Honda/Civic →
-   range pre-fills, editable; pick an EV → read-only range.
+   in-app → refuel notification (names a trusted/on-route stop) + banner fire;
+   time notification cancelled. Tap "I filled up" → choose "A little" (¼) →
+   banner clears, milesSinceFilled resets to ¾ of range (not 0), next cadence
+   shortened. Phase 2: pick 2020/Honda/Civic → range pre-fills, editable; enter
+   "$15" on fill-up → "about ⅓ tank" subtext; pick an EV → read-only range +
+   fraction buttons on fill-up (no dollar input).
 
 ## Files touched
 
 **Phase 1**
 - `lib/api/fuel.ts` — schema additions, defaults, `addMilesSinceFilled`,
-  `isDistanceRefuelDue`, `markFilledUp` reset additions.
+  `isDistanceRefuelDue`, `markFilledUp(fillFraction)` (partial-fill reset +
+  cadence scale), `fillFractionFromDollars(dollars, pricePerGal, tankGallons)`.
 - `hooks/useFuelProfile.ts` — distance-check on trip-end + AppState foreground;
-  earliest-wins cancel logic.
+  earliest-wins cancel logic; `markFilledUp` now takes a fraction.
 - `app/en-route.tsx` (or new `hooks/useTripOdometer.ts`) — route-progress
   odometer: per-fix projection (`nearestPointOnPolyline` from `lib/scoring.ts`)
   → monotonic arc-length → throttled/background flush. Per-route
   cumulative-length prefix array built from `lib/geo.ts`.
-- `app/fuel.tsx` — "Tank range" RowGroup (bucket/custom picker) + footer copy.
-- `lib/notifications.ts` — an `fireRefuelReminderNow()` immediate variant beside
-  `scheduleRefuelReminder` (reuses the copy builder).
+- `app/fuel.tsx` — "Tank range" RowGroup (bucket/custom picker) + footer copy;
+  the "I filled up" control → **fraction buttons** (Phase 1 / EV).
+- `lib/notifications.ts` — `fireRefuelReminderNow(profile, nearbyStop?)` immediate
+  variant beside `scheduleRefuelReminder`; reuses the copy builder and, when a
+  stop is passed (distance fire only), names it in the body.
 - `components/FuelStopsSheet.tsx` — wire `refuelDue` to `refuelNotifiedAt`
   (prop already exists).
 
@@ -410,7 +506,8 @@ No test runner in the repo (verified-static + device pass, per project norm).
   refactored to consume it.
 - `hooks/useVehicleLookup.ts` — cascade fetch wrapper.
 - `app/fuel.tsx` — "Your car" RowGroup (year/make/model cascade) + gas-estimate
-  adjust affordance.
+  adjust affordance; the "I filled up" control gains the **dollar-input +
+  "about ⅓ tank" subtext** register for gas/diesel (EVs keep fraction buttons).
 
 ## Workflow
 
