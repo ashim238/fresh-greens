@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## design-fixes wave 4b — onboarding a11y + Skip demotion (2026-06-17)
+
+- **A muted visual indicator silently becomes the screen-reader's only source of truth — and they can disagree.** onboarding's `PageControl` is wrapped in `accessibilityElementsHidden`, so VoiceOver never hears the dots; the FlatList's `accessibilityRole="adjustable"` label is the *only* page count a screen-reader user gets. It counted against `PANELS.length` (3) while the dots — and the downstream /permissions + /trusted-contact screens — all count against the 5-step flow. So a sighted user saw "5 dots" while VoiceOver said "page 3 of 3", then landed on "4 of 5". **Worth keeping:** when you hide one accessibility surface in favor of another, the surviving one inherits responsibility for the whole truth — check it against what's visible *and* against the adjacent screens. Fixed via a shared `ONBOARDING_FLOW_STEPS = 5` feeding both the dots and the spoken label so they can't drift.
+
+- **"Demote the button" has a surface-dependent correct answer — outline isn't always lighter.** The instinct for a lower-emphasis Skip was `secondary outline`, but onboarding's background IS `wiltedgreen`, so a wiltedgreen-border/wiltedgreen-text outline button would vanish into the page. The Button component's own variant matrix documents `transparent` (white underlined link) as the variant built for colored onboarding surfaces. **Worth keeping:** before picking a "quieter" button variant, check it against the actual surface color — the demotion that works on white can disappear on a branded background. The component's variant docs already encoded which variant belongs on which surface; read them.
+
+- **Consolidating duplicated navigation exits is also the hook for a one-shot guard.** Three call sites pushed `/permissions` (Continue, Skip, drag-past-end); a frantic bounce-drag could stack duplicates. DRY-ing them into one `goToPermissions()` gave a single place to latch — but a *permanent* latch dead-locks the pager when the user backs out of /permissions, so it's re-armed via `useFocusEffect`. **Worth keeping:** a leave-once latch on a screen that stays mounted under a pushed route needs a focus-reset, or returning to it breaks every exit.
+
+---
+
 ## design-fixes wave 4a — emergency haptics (2026-06-17)
 
 Part of the post-audit design-fix waves (1: systemic token/a11y 1-liners; 2: Held-Question weight; 3: painted tap targets; 4a: emergency.tsx structural). Two things worth keeping:

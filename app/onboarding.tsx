@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   FlatList,
   type NativeScrollEvent,
@@ -143,6 +143,16 @@ const PANELS: Panel[] = [
   },
 ];
 
+// The onboarding journey spans 5 screens: these 3 swipe panels, then
+// /permissions (4 of 5) and /trusted-contact-setup (5 of 5). The dots
+// (PageControl) AND the VoiceOver page announcement both count against
+// this whole-flow total — the dots are muted to VoiceOver, so the
+// FlatList's spoken "page X of N" is the only count a screen-reader user
+// hears, and it must match the dots a sighted user sees (and the
+// downstream screens, which each render total={5}). Counting against
+// PANELS.length (3) made the spoken flow jump "3 of 3" → "4 of 5".
+const ONBOARDING_FLOW_STEPS = 5;
+
 export default function Onboarding() {
   const router = useRouter();
   // useWindowDimensions: hook that returns current screen size and updates
@@ -163,6 +173,22 @@ export default function Onboarding() {
   // to advance or to leave the pager.
   const [pagerIndex, setPagerIndex] = useState(0);
 
+  // One-shot latch so a frantic past-the-end bounce-drag (or a double
+  // tap on Continue/Skip) can't stack two /permissions screens. Re-armed
+  // on focus so backing out of /permissions to here leaves every exit
+  // usable again — a permanent latch would dead-lock the pager.
+  const leftPagerRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      leftPagerRef.current = false;
+    }, []),
+  );
+  const goToPermissions = useCallback(() => {
+    if (leftPagerRef.current) return;
+    leftPagerRef.current = true;
+    router.push('/permissions');
+  }, [router]);
+
   // onMomentumScrollEnd fires when a swipe finishes (not during the swipe
   // itself). contentOffset.x is the scroll position; dividing by item
   // width gives the page index.
@@ -180,7 +206,7 @@ export default function Onboarding() {
     const offset = e.nativeEvent.contentOffset.x;
     const lastPanelOffset = (PANELS.length - 1) * width;
     if (offset > lastPanelOffset + 30) {
-      router.push('/permissions');
+      goToPermissions();
     }
   }
 
@@ -195,12 +221,8 @@ export default function Onboarding() {
         animated: true,
       });
     } else {
-      router.push('/permissions');
+      goToPermissions();
     }
-  }
-
-  function handleSkip() {
-    router.push('/permissions');
   }
 
   return (
@@ -219,7 +241,7 @@ export default function Onboarding() {
         data={PANELS}
         keyExtractor={(item) => item.id}
         accessibilityRole="adjustable"
-        accessibilityLabel={`Onboarding, page ${pagerIndex + 1} of ${PANELS.length}`}
+        accessibilityLabel={`Onboarding, page ${pagerIndex + 1} of ${ONBOARDING_FLOW_STEPS}`}
         accessibilityActions={[
           { name: 'increment' },
           { name: 'decrement' },
@@ -284,7 +306,7 @@ export default function Onboarding() {
         pointerEvents="box-none"
       >
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <PageControl total={5} activeIndex={pagerIndex} />
+          <PageControl total={ONBOARDING_FLOW_STEPS} activeIndex={pagerIndex} />
         </View>
         <View style={styles.spacer} pointerEvents="none" />
         <View style={styles.actions} pointerEvents="auto">
@@ -300,11 +322,17 @@ export default function Onboarding() {
             }
             style={styles.btnStretch}
           />
+          {/* Demoted to a transparent text-link (white underlined "Skip")
+              so it reads as the low-emphasis alternative beneath the
+              filled Continue, not a competing peer button. Transparent is
+              the Button variant designed for this colored onboarding
+              surface — a secondary OUTLINE here would be wiltedgreen-on-
+              wiltedgreen and vanish. */}
           <Button
-            type="secondary"
-            fill="fill"
+            type="primary"
+            fill="transparent"
             text="Skip"
-            onPress={handleSkip}
+            onPress={goToPermissions}
             accessibilityLabel="Skip onboarding"
             style={styles.btnStretch}
           />
