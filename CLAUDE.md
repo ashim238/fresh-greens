@@ -5,7 +5,7 @@ You are working on Fresh Greens, a React Native + Expo (iPhone-first) thesis nav
 ## Where the rules live
 
 - **[`.cursorrules`](.cursorrules)** — design rulebook. Color tokens + reserved-color rule, typography, tap-target rule, code conventions, anti-slop checks, out-of-scope items. The single source of truth for "is this design choice on-brand." Read before generating any UI code.
-- **[`docs/workflow.md`](docs/workflow.md)** — per-PR rhythm. Step 1–13 recipe covering branch → Figma fetch → scope → commit → audit → merge. Step 10 (Merge, sync, clean up) and Step 13 (Subagent reviews) define the per-PR rhythm; Step 11 covers the learnings entry. Follow this for every PR.
+- **[`docs/workflow.md`](docs/workflow.md)** — per-PR rhythm, **Fresh Greens overlay**. Binds the placeholders in [`docs/WORKFLOW-TEMPLATE.md`](docs/WORKFLOW-TEMPLATE.md) (the project-agnostic spine — branch → scope → build → self-review → verify-the-goal → merge → learnings, plus subagent-driven execution + two-stage review) to this project's tools, and carries the FG-specific review-agent briefs + Figma fidelity audit. Read both together; follow for every PR. Starting a new project → copy the template, write a fresh overlay.
 - **[`docs/architecture.md`](docs/architecture.md)** — project orientation. Three-layer architecture (adapters / scoring / screens), tech stack, design rules, shipped-vs-deferred status. Read when scoping a new feature or onboarding a new area.
 
 ## Where the backlog lives
