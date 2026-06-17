@@ -337,6 +337,11 @@ function Drift({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    // Orange = sunrise sky on the brand splash — the one place a reserved
+    // color is used decoratively, blessed by .cursorrules reserved-color
+    // exception #1 ("Welcome screen orange = sunrise"). NOT a hazard
+    // signal. Pointer left here so a reserved-color audit (`rg "colors\.
+    // (orange|red|...)"`) doesn't re-flag this use site — it has, twice.
     backgroundColor: colors.orange,
   },
 
