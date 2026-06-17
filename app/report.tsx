@@ -623,7 +623,6 @@ function DetailView({
                             onChangeSubTag(active ? undefined : tag)
                           }
                           disabled={submitting}
-                          hitSlop={8}
                           accessibilityRole="button"
                           accessibilityState={{ selected: active }}
                           accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
@@ -1014,17 +1013,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  // Pill shape per the design system's pill register (same as the
-  // submit button + the home toggle buttons). 32pt visual height
-  // is below the 44pt HIG tap minimum, but a non-touchable hitSlop
-  // of 8 brings the effective area to 48pt — exception-clause
-  // case for chip rows of which 5+ would otherwise dominate the
-  // form layout. Outlined freshgreen on the unselected side keeps
-  // the brand register; filled freshgreen on selected is the
-  // standard "this is the choice" affordance.
+  // Pill shape per the design system's pill register. minHeight: 44
+  // paints the HIG tap-target floor; visual label centers inside the
+  // larger painted area. Outlined freshgreen (unselected) / filled
+  // wiltedgreen (selected) — the content treatment is unchanged.
   chip: {
     paddingHorizontal: 14,
-    height: 32,
+    minHeight: 44,
     borderRadius: 1000,
     borderWidth: 1,
     borderColor: colors.freshgreen,

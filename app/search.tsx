@@ -842,10 +842,9 @@ export default function Search() {
                         ],
                       );
                     }}
-                    hitSlop={12}
                     accessibilityRole="button"
                     accessibilityLabel="Clear all recent searches"
-                    style={({ pressed }) => pressed && pressedDim}
+                    style={({ pressed }) => [styles.recentClearBtn, pressed && pressedDim]}
                   >
                     <Text style={styles.recentClear}>Clear</Text>
                   </Pressable>
@@ -1138,6 +1137,10 @@ const styles = StyleSheet.create({
   recentClear: {
     ...dynamicType(typography.footnoteEmphasized),
     color: colors.freshgreen,
+  },
+  recentClearBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   recentEmpty: {
     ...dynamicType(relaxedLineHeight(typography.subheadlineRegular)),

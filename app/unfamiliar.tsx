@@ -256,7 +256,6 @@ function ProblemPicker({
           style={styles.pulseFooter}
           accessibilityRole="button"
           accessibilityLabel={`Messages opened for ${contactName}. Tap to call or text.`}
-          hitSlop={8}
         >
           <NotifyingPulse contactName={contactName} />
         </Pressable>
@@ -287,7 +286,6 @@ function DestinationPicker({
         style={({ pressed }) => [styles.backChevron, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel="Back"
-        hitSlop={12}
       >
         <CaretLeft size={28} color={colors.black} weight="regular" />
       </Pressable>
@@ -334,7 +332,6 @@ function DestinationPicker({
           style={styles.pulseFooter}
           accessibilityRole="button"
           accessibilityLabel={`Messages opened for ${contactName}. Tap to call or text.`}
-          hitSlop={8}
         >
           <NotifyingPulse contactName={contactName} />
         </Pressable>
@@ -410,8 +407,8 @@ const styles = StyleSheet.create({
   },
   backChevron: {
     marginTop: spacing.sm,
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
@@ -421,7 +418,7 @@ const styles = StyleSheet.create({
   // have a back chevron). User-flagged 2026-06-01.
   backChevronPlaceholder: {
     marginTop: spacing.sm,
-    height: 32,
+    height: 44,
   },
   // Eyebrow + title pair — mirrors /pulled-over's armed picker. The
   // eyebrow drops to title3Regular (20pt) so the size-step against
@@ -518,8 +515,10 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   pulseFooter: {
+    minHeight: 44,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xs,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 });
