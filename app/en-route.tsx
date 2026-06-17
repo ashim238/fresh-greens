@@ -115,7 +115,13 @@ import {
   NAV_ROLL_WHEN_BACKGROUNDED,
 } from '../lib/corridor/constants';
 import { collapseHazardZones } from '../lib/corridor/merge-hazards';
-import { haversineMeters, pathLengthMeters } from '../lib/geo';
+import {
+  arcLengthAtNearestPoint,
+  cumulativeLengthsMeters,
+  haversineMeters,
+  metersToMiles,
+  pathLengthMeters,
+} from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
 import { DAYLIGHT_DASH_PATTERN, gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
@@ -123,6 +129,7 @@ import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
 import {
   hazardsNearTurn,
   isPointInZone,
+  nearestPointOnPolyline,
   pickWinner,
   routeConditions,
   zoneAnchor,
@@ -513,17 +520,17 @@ export default function EnRoute() {
   // Full bottom sheet opens FuelStopsSheet; useRouteFuelStops only
   // fetches while the sheet is open (active), and filters POIs to the
   // recommended route's polyline.
-  const { profile: fuelProfile } = useFuelProfile();
+  const { profile: fuelProfile, addMilesSinceFilled, checkRefuelTriggers } =
+    useFuelProfile();
   const { addRecent } = useRecentSearches();
   const [showFuelStops, setShowFuelStops] = useState(false);
   const [highlightFuelStopId, setHighlightFuelStopId] = useState<string | null>(
     null,
   );
-  // Reminder is "due" when its next-fire time has passed — drives the badge.
+  // "Due" = either trigger fired this tank (the hook stamps refuelNotifiedAt
+  // for both the time and distance fires). Drives the FuelStopsSheet banner.
   const refuelDue =
-    !!fuelProfile?.remindersEnabled &&
-    !!fuelProfile.nextReminderAt &&
-    new Date(fuelProfile.nextReminderAt).getTime() <= Date.now();
+    !!fuelProfile?.remindersEnabled && fuelProfile.refuelNotifiedAt != null;
   const fuelStops = useRouteFuelStops({
     active: showFuelStops || (activeRoute?.coordinates.length ?? 0) > 0,
     routeCoords: activeRoute?.coordinates ?? [],
@@ -665,6 +672,56 @@ export default function EnRoute() {
   useEffect(() => {
     minStepIndexRef.current = 0;
   }, [activeRoute?.id]);
+
+  // --- Trip odometer (distance-trigger accumulation) ---------------------
+  // Per-route cumulative-length prefix array, rebuilt when the active route
+  // polyline changes. The monotonic max arc-length reached this route +
+  // the last-flushed arc-length drive the throttled delta to
+  // addMilesSinceFilled. The accumulated milesSinceFilled lives in the
+  // FuelProfile and persists across routes — only these per-route trackers
+  // reset on a new polyline.
+  const odoCumulativeRef = useRef<number[]>([]);
+  const odoMaxArcRef = useRef(0);
+  const odoLastFlushedArcRef = useRef(0);
+
+  // Read the live odometer-relevant values via refs inside the once-mounted
+  // watchPositionAsync callback (Step 6) and the unmount flush, so they
+  // don't re-subscribe GPS. Mirrors en-route's existing userLocationRef.
+  const odoActiveCoordsRef = useRef<Coordinate[]>([]);
+  const odoMeteringEnabledRef = useRef(false);
+
+  // Rebuild the prefix array + reset per-route trackers on route change.
+  // Keyed on route id (stable identity) — NOT coordinates array identity,
+  // which can change reference across re-renders for the same geometry and
+  // would reset the monotonic high-water mark mid-trip → transient under-count.
+  // A reroute always produces a new route id, so id is the correct key.
+  // Bank-on-reset is implicit: deltas are flushed incrementally as the user
+  // drives, so resetting maxArc/lastFlushed for the new polyline loses
+  // nothing already accumulated.
+  useEffect(() => {
+    const coords = activeRoute?.coordinates ?? [];
+    odoActiveCoordsRef.current = coords;
+    odoCumulativeRef.current =
+      coords.length >= 2 ? cumulativeLengthsMeters(coords) : [];
+    odoMaxArcRef.current = 0;
+    odoLastFlushedArcRef.current = 0;
+  }, [activeRoute?.id]);
+
+  // Keep a ref of whether metering is armed (reminders on + range set) so
+  // the GPS callback can gate cheaply without a stale closure.
+  useEffect(() => {
+    odoMeteringEnabledRef.current =
+      !!fuelProfile?.remindersEnabled && fuelProfile.rangeMiles != null;
+  }, [fuelProfile?.remindersEnabled, fuelProfile?.rangeMiles]);
+
+  // Live-value refs for the trip-end stop resolver — kept current so the
+  // resolver reads the latest values without resubscribing GPS.
+  const sortedFuelStopsRef = useRef(sortedFuelStops);
+  const isPreferredRef = useRef(isPreferred);
+  useEffect(() => {
+    sortedFuelStopsRef.current = sortedFuelStops;
+    isPreferredRef.current = isPreferred;
+  });
 
   // Next maneuver the driver should act on — closest-by-GPS step from
   // OSRM's `steps=true` payload, advancing past completed maneuvers
@@ -1310,6 +1367,36 @@ export default function EnRoute() {
           if (typeof hdg === 'number' && hdg >= 0) {
             setHeading(hdg);
           }
+          // --- Trip odometer: project this fix onto the route, advance the
+          // monotonic max arc-length, flush in >= 0.5 mi increments. Two
+          // guardrails (spec Unit 1.1): skip junk fixes (accuracy > 50m),
+          // and only meter while the distance trigger is armed.
+          if (!odoMeteringEnabledRef.current) return;
+          const acc = pos.coords.accuracy;
+          if (typeof acc === 'number' && acc > 50) return; // junk fix
+          const coords = odoActiveCoordsRef.current;
+          const cumulative = odoCumulativeRef.current;
+          if (coords.length < 2 || cumulative.length !== coords.length) return;
+
+          const fix = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
+          // Project onto the route line (snap), then look up its arc-length.
+          // nearestPointOnPolyline gives the snapped coordinate;
+          // arcLengthAtNearestPoint gives how far along the route that is.
+          const snapped = nearestPointOnPolyline(fix, coords);
+          const arc = arcLengthAtNearestPoint(snapped, coords, cumulative);
+          // Monotonic: progress never decreases (jitter/backward GPS absorbed).
+          if (arc > odoMaxArcRef.current) odoMaxArcRef.current = arc;
+
+          const FLUSH_METERS = 0.5 * 1609.344;
+          const pendingMeters = odoMaxArcRef.current - odoLastFlushedArcRef.current;
+          if (pendingMeters >= FLUSH_METERS) {
+            const deltaMiles = metersToMiles(pendingMeters);
+            odoLastFlushedArcRef.current = odoMaxArcRef.current;
+            void addMilesSinceFilled(deltaMiles);
+          }
         },
       );
     })();
@@ -1317,6 +1404,61 @@ export default function EnRoute() {
       subscription?.remove();
     };
   }, []);
+
+  // Nearest TRUSTED stop AHEAD of the user — resolved at the trip-end fire so
+  // the notification names a real, trusted stop the driver is actually
+  // approaching ("Sunoco on Franklin — you trust it"), never one already
+  // behind them. "Ahead" = projected arc-length greater than the user's
+  // current arc-length, reusing the odometer's per-route prefix
+  // (odoCumulativeRef, built in Step 5 — no extra prefix build). Returns
+  // undefined → fireRefuelReminderNow falls back to generic copy.
+  const resolveTrustedStopAhead = useCallback((): string | undefined => {
+    const coords = odoActiveCoordsRef.current;
+    const prefix = odoCumulativeRef.current;
+    const here = userLocationRef.current;
+    const stops = sortedFuelStopsRef.current; // preferred-first, then nearest
+    if (!here || coords.length < 2 || prefix.length === 0 || stops.length === 0) {
+      return undefined;
+    }
+    const userArc = arcLengthAtNearestPoint(here, coords, prefix);
+    const ahead = stops.filter(
+      (s) => arcLengthAtNearestPoint(s, coords, prefix) > userArc,
+    );
+    // filter preserves the preferred-first order, so find(isPreferred) is the
+    // nearest trusted stop ahead and ahead[0] the nearest stop ahead overall.
+    return (ahead.find((s) => isPreferredRef.current(s)) ?? ahead[0])?.name;
+  }, []);
+
+  // Flush the sub-0.5mi odometer remainder on background (iOS may kill a
+  // backgrounded app — losing at most the unflushed remainder this commits)
+  // and on unmount/arrival; the unmount path also runs the trip-end distance
+  // check so a crossed threshold fires its immediate notification right then.
+  const flushOdometer = useCallback(() => {
+    const pendingMeters = odoMaxArcRef.current - odoLastFlushedArcRef.current;
+    if (pendingMeters > 0) {
+      odoLastFlushedArcRef.current = odoMaxArcRef.current;
+      void addMilesSinceFilled(metersToMiles(pendingMeters));
+    }
+  }, [addMilesSinceFilled]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      // Gate to 'background' only — iOS raises 'inactive' transiently
+      // during permission prompts (e.g. the notification-permission dialog),
+      // which would trigger a spurious flush mid-trip. The unmount path
+      // below covers the true trip-end case.
+      if (state === 'background') flushOdometer();
+    });
+    return () => {
+      sub.remove();
+      // Unmount = trip end (user backed out / navigated away). Flush the
+      // remainder, then run the distance check, resolving the nearest trusted
+      // stop AHEAD at this instant (Step 8) so the immediate notification can
+      // be station-aware.
+      flushOdometer();
+      void checkRefuelTriggers(resolveTrustedStopAhead());
+    };
+  }, [flushOdometer, checkRefuelTriggers, resolveTrustedStopAhead]);
 
   useFocusEffect(
     useCallback(() => {

@@ -121,6 +121,41 @@ function refuelVerb(fuelType: FuelProfile['fuelType']): 'refuel' | 'recharge' {
 }
 
 /**
+ * Builds the title/body for a refuel reminder. Shared by the scheduled
+ * (time) reminder and the immediate (distance) fire so the voice is
+ * consistent. When `stopName` is passed (distance fire only — the
+ * station is loaded in-app at trip-end), the body names a real stop;
+ * otherwise it uses the generic time-based copy. `daysCopy` is the
+ * "it's been about N days" tail, only meaningful for the scheduled
+ * reminder — omitted for the immediate fire (which is mileage-driven).
+ */
+function refuelCopy(
+  profile: FuelProfile,
+  opts: { stopName?: string; days?: number } = {},
+): { title: string; body: string } {
+  const verb = refuelVerb(profile.fuelType);
+  const subject = profile.carName ? ` the ${profile.carName}` : '';
+  const lowOn = profile.fuelType === 'electric' ? 'Low on charge' : 'Low on gas';
+  if (opts.stopName) {
+    return {
+      title: `Time to ${verb}${subject}`,
+      body: `${lowOn} — ${opts.stopName} is on your route (you trust it).`,
+    };
+  }
+  if (opts.days != null) {
+    const d = opts.days;
+    return {
+      title: `Time to ${verb}${subject}`,
+      body: `It's been about ${d} day${d === 1 ? '' : 's'} — a good time to ${verb}.`,
+    };
+  }
+  return {
+    title: `Time to ${verb}${subject}`,
+    body: `${lowOn} — a good time to ${verb}.`,
+  };
+}
+
+/**
  * Schedules a RECURRING refuel reminder from the given profile. Cancels
  * any prior reminder first (by `profile.notificationId`). Uses a
  * TIME_INTERVAL repeating trigger (cadenceDays × 86400s) so it survives
@@ -162,15 +197,14 @@ export async function scheduleRefuelReminder(
   // 1 day = 86400s clears that comfortably.
   const days = Math.max(1, Math.round(profile.cadenceDays));
   const seconds = days * 86400;
-  const verb = refuelVerb(profile.fuelType);
-  const subject = profile.carName ? ` the ${profile.carName}` : '';
   const nextReminderAt = new Date(Date.now() + seconds * 1000).toISOString();
+  const copy = refuelCopy(profile, { days });
 
   try {
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
-        title: `Time to ${verb}${subject}`,
-        body: `It's been about ${days} day${days === 1 ? '' : 's'} — a good time to ${verb}.`,
+        title: copy.title,
+        body: copy.body,
         sound: 'default',
       },
       trigger: {
@@ -185,6 +219,54 @@ export async function scheduleRefuelReminder(
     return { ok: true, identifier, nextReminderAt };
   } catch (err) {
     console.warn('[notifications] refuel schedule failed:', err);
+    return { ok: false, reason: 'failed' };
+  }
+}
+
+/**
+ * Fires an IMMEDIATE refuel reminder (null trigger → delivers now). This
+ * is the distance-trigger path: the threshold crossed in-app, so we nudge
+ * right then rather than waiting for the time cadence. When `stopName` is
+ * passed (the caller resolved a trusted/on-route stop ahead), the body
+ * names it — the thesis payoff: favorited = trusted, surfaced at the
+ * moment of need. Generic copy otherwise.
+ *
+ * Reuses the same inline-permission flow as the scheduled reminder. Asks
+ * once if not yet granted; on denial returns permission-denied so the
+ * caller can still show the in-app banner (graceful — no notification,
+ * but the UI surface still fires).
+ *
+ * Returns ok with the identifier (callers don't need to persist it — an
+ * immediate notification isn't rescheduled/cancelled like the recurring
+ * one) or a discriminated failure.
+ */
+export async function fireRefuelReminderNow(
+  profile: FuelProfile,
+  stopName?: string,
+): Promise<ScheduleResult> {
+  const existing = await Notifications.getPermissionsAsync();
+  let granted = existing.granted;
+  if (!granted && existing.canAskAgain) {
+    const req = await Notifications.requestPermissionsAsync({
+      ios: { allowAlert: true, allowSound: true, allowBadge: false },
+    });
+    granted = req.granted;
+  }
+  if (!granted) {
+    return { ok: false, reason: 'permission-denied' };
+  }
+
+  const copy = refuelCopy(profile, stopName ? { stopName } : {});
+  try {
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: { title: copy.title, body: copy.body, sound: 'default' },
+      // null trigger = deliver immediately.
+      trigger: null,
+    });
+    console.info(`[notifications] fired immediate refuel reminder ${identifier}`);
+    return { ok: true, identifier };
+  } catch (err) {
+    console.warn('[notifications] immediate refuel fire failed:', err);
     return { ok: false, reason: 'failed' };
   }
 }

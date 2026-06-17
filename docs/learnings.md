@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/distance-aware-refuel-phase1 (2026-06-17)
+
+Built via subagent-driven execution of an 8-task plan (route-progress odometer + earliest-of trigger). Three execution lessons:
+
+- **A decision baked into a plan in two places drifts when you edit one copy.** I changed the partial-fill cadence from `round`→`floor` in the plan's *node-assertion* block but missed the *implementation snippet* lower down — my grep keyed on `p.cadenceDays` (the assertion's spelling) and the impl used `profile.cadenceDays`. The implementer hit the contradiction and flagged it (DONE_WITH_CONCERNS) rather than silently matching the stale snippet. **Worth keeping:** when you revise a value/decision that appears in both an example and the real code of a doc, grep the *concept* across every spelling, not one variable name — and tell implementers to surface plan/code mismatches, not quietly "fix" them; that flag is the safety net that caught it.
+
+- **Smart quotes in a plan's code blocks silently corrupt pasted code.** Task 6's JSX failed to parse because the plan markdown carried U+201D `”` (prose smart-quotes) inside a code fence, which became the actual JSX attribute delimiters on copy-paste. **Worth keeping:** plan/spec code blocks must use ASCII quotes only; a "code-complete" plan can still hand the implementer unparseable text if the authoring tool prettified the quotes. Sanitize code fences when writing plans.
+
+- **A hook that mutates persisted state from rapid external calls needs a synchronously-updated read-ref.** The odometer flushes `addMilesSinceFilled` every ≥0.5 mi; without care, two quick flushes both read the same stale `milesSinceFilled` and the second clobbers the first. The fix: read latest via `profileRef.current`, compute next, set `profileRef.current = next` *synchronously* before the `await setStored…`, so the next call sees the updated value. **Worth keeping:** `setState` is async and batched; for accumulation driven by an external high-frequency caller, the ref-updated-before-await pattern is what makes successive calls compose instead of race.
+
+---
+
 ## feat/passive-zone-tiles (2026-06-04)
 
 - **Metro tile cache.** `zone-tile-cache.ts` stores OSM zones in ~12 km grid cells (LRU 16, 24h TTL). `fetchCorridorSample` reads tiles before Overpass; writes after network. `maybeWarmZoneTile` on /home GPS + browse (45s throttle, one in flight).

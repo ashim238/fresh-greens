@@ -10,7 +10,7 @@ import { Trash } from 'phosphor-react-native/src/icons/Trash';
 
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
-import { type FuelType } from '../lib/api/fuel';
+import { type FuelProfile, type FuelType } from '../lib/api/fuel';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { colors } from '../theme/colors';
@@ -28,6 +28,26 @@ const FUEL_TYPES: { id: FuelType; label: string }[] = [
 
 const MIN_DAYS = 1;
 const MAX_DAYS = 60;
+
+/** Phase-1 tank-range tier buckets. `null` = Time only (distance off). */
+const RANGE_BUCKETS: { id: string; label: string; rangeMiles: number | null }[] = [
+  { id: 'none', label: 'Time only', rangeMiles: null },
+  { id: 'compact', label: 'Compact ~300 mi', rangeMiles: 300 },
+  { id: 'sedan', label: 'Sedan ~350 mi', rangeMiles: 350 },
+  { id: 'suv', label: 'SUV / Truck ~400 mi', rangeMiles: 400 },
+  { id: 'ev', label: 'EV ~250 mi', rangeMiles: 250 },
+];
+
+const MIN_RANGE = 20;
+const MAX_RANGE = 800;
+
+/** Fraction-button options for "I filled up" (Phase 1 / all EVs). */
+const FILL_FRACTIONS: { id: string; label: string; a11yLabel: string; fraction: number }[] = [
+  { id: 'full', label: 'Filled up', a11yLabel: 'Filled up', fraction: 1 },
+  { id: 'three-q', label: '¾', a11yLabel: 'Filled three quarters', fraction: 0.75 },
+  { id: 'half', label: '½', a11yLabel: 'Filled one half', fraction: 0.5 },
+  { id: 'quarter', label: '¼', a11yLabel: 'Filled one quarter', fraction: 0.25 },
+];
 
 /**
  * /fuel — refuel-reminder setup. Pushed from the /search Fuel card.
@@ -66,6 +86,10 @@ export default function Fuel() {
   const [enabled, setEnabled] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [rangeMiles, setRangeMiles] = useState<number | null>(null);
+  const [rangeSource, setRangeSource] = useState<FuelProfile['rangeSource']>('none');
+  const [customRangeOpen, setCustomRangeOpen] = useState(false);
+  const [customRangeText, setCustomRangeText] = useState('');
 
   // Seed the form once, after the profile loads. useEffect (vs the
   // older conditional-setState-during-render pattern) is the idiomatic
@@ -77,6 +101,8 @@ export default function Fuel() {
     setFuelType(profile.fuelType);
     setCadenceDays(profile.cadenceDays);
     setEnabled(profile.remindersEnabled);
+    setRangeMiles(profile.rangeMiles);
+    setRangeSource(profile.rangeSource);
     setHydrated(true);
   }, [loading, profile, hydrated]);
 
@@ -88,6 +114,8 @@ export default function Fuel() {
       fuelType,
       cadenceDays,
       remindersEnabled: enabled,
+      rangeMiles,
+      rangeSource,
     });
     setSaving(false);
     if (!result.ok) {
@@ -104,12 +132,44 @@ export default function Fuel() {
     router.back();
   }
 
-  async function handleFilledUp() {
-    const result = await markFilledUp();
+  async function handleFilledUp(fillFraction: number) {
+    const result = await markFilledUp(fillFraction);
     if (!result.ok) {
       Alert.alert('Could not update', 'Please try again in a moment.');
     }
   }
+
+  function handlePickBucket(bucket: (typeof RANGE_BUCKETS)[number]) {
+    setCustomRangeOpen(false);
+    setRangeMiles(bucket.rangeMiles);
+    setRangeSource(bucket.rangeMiles == null ? 'none' : 'bucket');
+  }
+
+  function handleOpenCustom() {
+    setCustomRangeOpen(true);
+    setCustomRangeText(rangeMiles != null ? String(rangeMiles) : '');
+  }
+
+  function handleCommitCustom() {
+    const parsed = parseInt(customRangeText, 10);
+    if (Number.isFinite(parsed)) {
+      const clamped = Math.max(MIN_RANGE, Math.min(MAX_RANGE, parsed));
+      setRangeMiles(clamped);
+      setRangeSource('custom');
+      setCustomRangeText(String(clamped));
+    } else {
+      // Invalid input (empty or NaN) — close the custom input and revert
+      // to the previously committed range so the Custom chip doesn't stay
+      // selected with no value behind it.
+      setCustomRangeOpen(false);
+    }
+  }
+
+  // Which bucket (if any) is currently selected — for the selected styling.
+  const selectedBucketId =
+    rangeSource === 'custom'
+      ? 'custom'
+      : RANGE_BUCKETS.find((b) => b.rangeMiles === rangeMiles)?.id ?? 'none';
 
   const nextLabel =
     profile?.remindersEnabled && profile.nextReminderAt
@@ -147,7 +207,7 @@ export default function Fuel() {
                   value={carName}
                   onChangeText={setCarName}
                   placeholder="e.g. Civic"
-                  placeholderTextColor={colors.labelTertiary}
+                  placeholderTextColor={colors.mutedSecondary}
                   returnKeyType="done"
                   accessibilityLabel="Car name, optional"
                 />
@@ -225,18 +285,114 @@ export default function Fuel() {
               )}
             </RowGroup>
 
+            {enabled && (
+              <RowGroup
+                footer="We'll remind you at your cadence OR after this many in-app navigated miles -- whichever comes first. Miles only count trips you navigate in the app."
+              >
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Tank range</Text>
+                  <View
+                    style={styles.rangeOptions}
+                    accessibilityRole="radiogroup"
+                    accessibilityLabel="Tank range"
+                  >
+                    {RANGE_BUCKETS.map((b) => {
+                      const selected = selectedBucketId === b.id && !customRangeOpen;
+                      return (
+                        <Pressable
+                          key={b.id}
+                          onPress={() => handlePickBucket(b)}
+                          style={({ pressed }) => [
+                            styles.rangeOption,
+                            selected && styles.rangeOptionSelected,
+                            pressed && pressedDim,
+                          ]}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected, checked: selected }}
+                          accessibilityLabel={b.label}
+                        >
+                          <Text
+                            style={[
+                              styles.rangeOptionText,
+                              selected && styles.rangeOptionTextSelected,
+                            ]}
+                          >
+                            {b.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable
+                      onPress={handleOpenCustom}
+                      style={({ pressed }) => [
+                        styles.rangeOption,
+                        (selectedBucketId === 'custom' || customRangeOpen) &&
+                          styles.rangeOptionSelected,
+                        pressed && pressedDim,
+                      ]}
+                      accessibilityRole="radio"
+                      accessibilityState={{
+                        selected: selectedBucketId === 'custom' || customRangeOpen,
+                        checked: selectedBucketId === 'custom' || customRangeOpen,
+                      }}
+                      accessibilityLabel="Custom range"
+                    >
+                      <Text
+                        style={[
+                          styles.rangeOptionText,
+                          (selectedBucketId === 'custom' || customRangeOpen) &&
+                            styles.rangeOptionTextSelected,
+                        ]}
+                      >
+                        {rangeSource === 'custom' && rangeMiles != null
+                          ? `Custom · ${rangeMiles} mi`
+                          : 'Custom…'}
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {customRangeOpen && (
+                    <View style={styles.customRangeRow}>
+                      <TextInput
+                        style={styles.input}
+                        value={customRangeText}
+                        onChangeText={setCustomRangeText}
+                        onEndEditing={handleCommitCustom}
+                        placeholder="e.g. 320"
+                        placeholderTextColor={colors.mutedSecondary}
+                        keyboardType="number-pad"
+                        returnKeyType="done"
+                        onSubmitEditing={handleCommitCustom}
+                        accessibilityLabel="Custom tank range in miles"
+                      />
+                      <Text style={styles.customRangeUnit}>mi</Text>
+                    </View>
+                  )}
+                </View>
+              </RowGroup>
+            )}
+
             {profile?.remindersEnabled && nextLabel && (
-              <RowGroup footer="Tap “I filled up” to reset the cadence clock.">
+              <RowGroup footer="Tell us how much you filled -- a partial fill reminds you sooner.">
                 <View style={styles.statusBlock}>
                   <Text style={styles.statusText}>Next reminder: {nextLabel}</Text>
-                  <Pressable
-                    onPress={handleFilledUp}
-                    style={({ pressed }) => [styles.filledBtn, pressed && pressedDim]}
-                    accessibilityRole="button"
-                    accessibilityLabel="I filled up — reset the reminder"
-                  >
-                    <Text style={styles.filledBtnText}>I filled up</Text>
-                  </Pressable>
+                  <Text style={styles.fieldLabel}>I filled up…</Text>
+                  <View style={styles.fillRow}>
+                    {FILL_FRACTIONS.map((f) => (
+                      <Pressable
+                        key={f.id}
+                        onPress={() => handleFilledUp(f.fraction)}
+                        style={({ pressed }) => [
+                          styles.fillBtn,
+                          pressed && pressedDim,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={f.a11yLabel}
+                      >
+                        <Text style={styles.fillBtnText}>{f.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               </RowGroup>
             )}
@@ -359,16 +515,47 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   statusText: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
-  filledBtn: {
-    alignSelf: 'flex-start',
+  rangeOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  rangeOption: {
     minHeight: 44,
+    minWidth: 44,
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: colors.separatorSubtle,
+  },
+  rangeOptionSelected: {
+    backgroundColor: colors.freshgreen,
+    borderColor: colors.freshgreen,
+  },
+  rangeOptionText: {
+    ...dynamicType(typography.subheadlineEmphasized),
+    color: colors.labelSecondary,
+  },
+  rangeOptionTextSelected: { color: colors.white },
+  customRangeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  customRangeUnit: {
+    ...dynamicType(typography.bodyRegular),
+    color: colors.labelSecondary,
+  },
+  fillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  fillBtn: {
+    minHeight: 44,
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: colors.freshgreen,
   },
-  filledBtnText: { ...dynamicType(typography.subheadlineEmphasized), color: colors.freshgreen },
+  fillBtnText: {
+    ...dynamicType(typography.subheadlineEmphasized),
+    color: colors.freshgreen,
+  },
   saveBtn: {
     minHeight: 50,
     borderRadius: 100,

@@ -2,6 +2,10 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Distance-aware refuel — Phase 2 queued (2026-06-17)
+
+Phase 1 shipped on `feat/distance-aware-refuel-phase1` (route-progress odometer + earliest-of(time, distance) + tier-bucket range + fraction-button fill-up + station-aware distance notification). **Phase 2** is fully specced in `docs/superpowers/specs/2026-06-12-distance-aware-refuel-design.md` (the `# PHASE 2` section) but NOT built: the EPA fueleconomy.gov proxy endpoint (`proxy/api/vehicles.ts`, cascading year→make→model + class-tank range), the generic `OptionPickSheet` extraction (refactor `CalendarPickSheet` to consume it), `hooks/useVehicleLookup.ts`, and the **dollar-input → "about ⅓ tank" subtext** fill-up register for gas/diesel (gated on real station prices; EVs + Phase 1 keep fraction buttons). Writes the same `rangeMiles`/`rangeSource` fields Phase 1 already owns — pure enrichment of the range-input step, the trigger engine is untouched. Also open (design decision, separate spec): **pull `felt-welcome`/`black-owned` out of `scoreRoute`'s path scoring** — they're destination signals, not passage safety (Jacobs "whose eyes" thread, 2026-06-17); fixes an existing score-vs-chip divergence where felt-welcome gives +2 to the path but never shows on the safe-chips.
+
 ## Audit-10 follow-up — `tapTarget44` migration sweep (2026-06-04)
 
 ~~**9 pre-existing bare-form duplicates remain**~~ — ✅ **Done** (`chore/polish-app-wide` / impeccable polish pass 2026-06): emergency close, home route-cycle chevrons, pulled-over review chevrons, recordings back/delete/confirm-close, saved-places remove, trusted-contact back, CalendarPickSheet close, SettingsHeader controls. Removed redundant `hitSlop` where the painted target is now 44pt.
