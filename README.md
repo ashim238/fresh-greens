@@ -38,7 +38,7 @@ The dev build installs onto a USB-connected (or wirelessly-paired) iPhone. The C
 - [`docs/architecture.md`](docs/architecture.md) — full project orientation: tech stack, three-layer architecture, design rules, and the running punch list of shipped vs. deferred work.
 - [`docs/next-session.md`](docs/next-session.md) — the live backlog. Open items, struck-through closures, named rounds.
 - [`docs/learnings.md`](docs/learnings.md) — running journal of decisions and gotchas, newest at top.
-- [`fresh-greens-specimen/index.html`](fresh-greens-specimen/index.html) — design system specimen (colors, typography, design rules, references) generated from the theme tokens.
+- [`DESIGN.md`](DESIGN.md) — the design system at a glance (colors, typography, rules). The machine-readable version with tonal ramps + component specs lives in `.impeccable/design.json`; `theme/` is the source the app consumes.
 
 ## What's shipped vs. what's v2
 

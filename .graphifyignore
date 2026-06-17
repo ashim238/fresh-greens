@@ -9,4 +9,3 @@ build/
 # Our additions: keep the graph about our code, not the dependency tree
 package-lock.json
 proxy/package.json
-fresh-greens-specimen/
