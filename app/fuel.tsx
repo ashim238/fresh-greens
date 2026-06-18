@@ -31,11 +31,16 @@ import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 
-const FUEL_TYPES: { id: FuelType; label: string }[] = [
-  { id: 'gas', label: 'Gas' },
-  { id: 'diesel', label: 'Diesel' },
-  { id: 'hybrid', label: 'Hybrid' },
-  { id: 'electric', label: 'Electric' },
+/**
+ * Per-fuel-type display spec. The icon is rendered to the left of the
+ * label inside each segment pill. Gas and Diesel share GasPump — Phosphor
+ * has no diesel-specific glyph, and the label below disambiguates.
+ */
+const FUEL_TYPES: { id: FuelType; label: string; Icon: typeof GasPump }[] = [
+  { id: 'gas', label: 'Gas', Icon: GasPump },
+  { id: 'diesel', label: 'Diesel', Icon: GasPump },
+  { id: 'hybrid', label: 'Hybrid', Icon: Leaf },
+  { id: 'electric', label: 'Electric', Icon: Lightning },
 ];
 
 const MIN_DAYS = 1;
@@ -277,6 +282,11 @@ export default function Fuel() {
                         accessibilityState={{ selected }}
                         accessibilityLabel={ft.label}
                       >
+                        <ft.Icon
+                          size={20}
+                          color={selected ? colors.white : colors.labelSecondary}
+                          weight={selected ? 'fill' : 'regular'}
+                        />
                         <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
                           {ft.label}
                         </Text>
@@ -520,8 +530,11 @@ const styles = StyleSheet.create({
   segmentItem: {
     flex: 1,
     minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
