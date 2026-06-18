@@ -136,6 +136,10 @@ export default function Fuel() {
   const [rangeSource, setRangeSource] = useState<FuelProfile['rangeSource']>('none');
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
   const [customRangeText, setCustomRangeText] = useState('');
+  // "Also use distance" toggle — owns the distance-trigger on/off
+  // semantics. When OFF, rangeMiles=null and rangeSource='none' on save.
+  // Hydrated from existing profile.rangeSource (ON if any non-'none' source).
+  const [distanceEnabled, setDistanceEnabled] = useState(false);
 
   // Seed the form once, after the profile loads. useEffect (vs the
   // older conditional-setState-during-render pattern) is the idiomatic
@@ -149,6 +153,7 @@ export default function Fuel() {
     setEnabled(profile.remindersEnabled);
     setRangeMiles(profile.rangeMiles);
     setRangeSource(profile.rangeSource);
+    setDistanceEnabled(profile.rangeSource !== 'none');
     setHydrated(true);
   }, [loading, profile, hydrated]);
 
@@ -160,8 +165,8 @@ export default function Fuel() {
       fuelType,
       cadenceDays,
       remindersEnabled: enabled,
-      rangeMiles,
-      rangeSource,
+      rangeMiles: distanceEnabled ? rangeMiles : null,
+      rangeSource: distanceEnabled ? rangeSource : 'none',
     });
     setSaving(false);
     if (!result.ok) {
@@ -297,7 +302,13 @@ export default function Fuel() {
               </View>
             </RowGroup>
 
-            <RowGroup>
+            <RowGroup
+              footer={
+                enabled && distanceEnabled
+                  ? "Reminders fire on your schedule OR after this many in-app navigated miles, whichever comes first. Miles only count trips you navigate in the app."
+                  : undefined
+              }
+            >
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Remind me to refuel</Text>
                 <Switch
@@ -309,124 +320,129 @@ export default function Fuel() {
                 />
               </View>
 
-              {/* Cadence only matters once reminders are on — hide it
-                  when the toggle is off so the group doesn't show a
-                  setting that has no effect (and the separator above it
-                  collapses with it). */}
               {enabled && (
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Remind me every</Text>
-                  <View style={styles.stepperRow}>
-                    <Pressable
-                      onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
-                      style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Fewer days"
-                    >
-                      <Minus size={20} color={colors.black} weight="bold" />
-                    </Pressable>
-                    <Text style={styles.stepValue}>
-                      {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
-                    </Text>
-                    <Pressable
-                      onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
-                      style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
-                      accessibilityRole="button"
-                      accessibilityLabel="More days"
-                    >
-                      <Plus size={20} color={colors.black} weight="bold" />
-                    </Pressable>
+                <>
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>Remind me every</Text>
+                    <View style={styles.stepperRow}>
+                      <Pressable
+                        onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
+                        style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Fewer days"
+                      >
+                        <Minus size={20} color={colors.black} weight="bold" />
+                      </Pressable>
+                      <Text style={styles.stepValue}>
+                        {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
+                      </Text>
+                      <Pressable
+                        onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
+                        style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                        accessibilityRole="button"
+                        accessibilityLabel="More days"
+                      >
+                        <Plus size={20} color={colors.black} weight="bold" />
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              )}
-            </RowGroup>
 
-            {enabled && (
-              <RowGroup
-                footer="We'll remind you at your cadence OR after this many in-app navigated miles -- whichever comes first. Miles only count trips you navigate in the app."
-              >
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Tank range</Text>
-                  <View
-                    style={styles.rangeOptions}
-                    accessibilityRole="radiogroup"
-                    accessibilityLabel="Tank range"
-                  >
-                    {activeBuckets.map((b) => {
-                      const selected = selectedBucketId === b.id && !customRangeOpen;
-                      return (
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleLabel}>Also use distance</Text>
+                    <Switch
+                      value={distanceEnabled}
+                      onValueChange={setDistanceEnabled}
+                      trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+                      thumbColor={colors.white}
+                      accessibilityLabel="Also use distance to trigger reminders"
+                    />
+                  </View>
+
+                  {distanceEnabled && (
+                    <View style={styles.field}>
+                      <Text style={styles.fieldLabel}>Tank range</Text>
+                      <View
+                        style={styles.rangeOptions}
+                        accessibilityRole="radiogroup"
+                        accessibilityLabel="Tank range"
+                      >
+                        {activeBuckets.map((b) => {
+                          const selected = selectedBucketId === b.id && !customRangeOpen;
+                          return (
+                            <Pressable
+                              key={b.id}
+                              onPress={() => handlePickBucket(b)}
+                              style={({ pressed }) => [
+                                styles.rangeOption,
+                                selected && styles.rangeOptionSelected,
+                                pressed && pressedDim,
+                              ]}
+                              accessibilityRole="radio"
+                              accessibilityState={{ selected, checked: selected }}
+                              accessibilityLabel={b.label}
+                            >
+                              <Text
+                                style={[
+                                  styles.rangeOptionText,
+                                  selected && styles.rangeOptionTextSelected,
+                                ]}
+                              >
+                                {b.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                         <Pressable
-                          key={b.id}
-                          onPress={() => handlePickBucket(b)}
+                          onPress={handleOpenCustom}
                           style={({ pressed }) => [
                             styles.rangeOption,
-                            selected && styles.rangeOptionSelected,
+                            (selectedBucketId === 'custom' || customRangeOpen) &&
+                              styles.rangeOptionSelected,
                             pressed && pressedDim,
                           ]}
                           accessibilityRole="radio"
-                          accessibilityState={{ selected, checked: selected }}
-                          accessibilityLabel={b.label}
+                          accessibilityState={{
+                            selected: selectedBucketId === 'custom' || customRangeOpen,
+                            checked: selectedBucketId === 'custom' || customRangeOpen,
+                          }}
+                          accessibilityLabel="Custom range"
                         >
                           <Text
                             style={[
                               styles.rangeOptionText,
-                              selected && styles.rangeOptionTextSelected,
+                              (selectedBucketId === 'custom' || customRangeOpen) &&
+                                styles.rangeOptionTextSelected,
                             ]}
                           >
-                            {b.label}
+                            {rangeSource === 'custom' && rangeMiles != null
+                              ? `Custom · ${rangeMiles} mi`
+                              : 'Custom…'}
                           </Text>
                         </Pressable>
-                      );
-                    })}
-                    <Pressable
-                      onPress={handleOpenCustom}
-                      style={({ pressed }) => [
-                        styles.rangeOption,
-                        (selectedBucketId === 'custom' || customRangeOpen) &&
-                          styles.rangeOptionSelected,
-                        pressed && pressedDim,
-                      ]}
-                      accessibilityRole="radio"
-                      accessibilityState={{
-                        selected: selectedBucketId === 'custom' || customRangeOpen,
-                        checked: selectedBucketId === 'custom' || customRangeOpen,
-                      }}
-                      accessibilityLabel="Custom range"
-                    >
-                      <Text
-                        style={[
-                          styles.rangeOptionText,
-                          (selectedBucketId === 'custom' || customRangeOpen) &&
-                            styles.rangeOptionTextSelected,
-                        ]}
-                      >
-                        {rangeSource === 'custom' && rangeMiles != null
-                          ? `Custom · ${rangeMiles} mi`
-                          : 'Custom…'}
-                      </Text>
-                    </Pressable>
-                  </View>
+                      </View>
 
-                  {customRangeOpen && (
-                    <View style={styles.customRangeRow}>
-                      <TextInput
-                        style={styles.input}
-                        value={customRangeText}
-                        onChangeText={setCustomRangeText}
-                        onEndEditing={handleCommitCustom}
-                        placeholder="e.g. 320"
-                        placeholderTextColor={colors.mutedSecondary}
-                        keyboardType="number-pad"
-                        returnKeyType="done"
-                        onSubmitEditing={handleCommitCustom}
-                        accessibilityLabel="Custom tank range in miles"
-                      />
-                      <Text style={styles.customRangeUnit}>mi</Text>
+                      {customRangeOpen && (
+                        <View style={styles.customRangeRow}>
+                          <TextInput
+                            style={styles.input}
+                            value={customRangeText}
+                            onChangeText={setCustomRangeText}
+                            onEndEditing={handleCommitCustom}
+                            placeholder="e.g. 320"
+                            placeholderTextColor={colors.mutedSecondary}
+                            keyboardType="number-pad"
+                            returnKeyType="done"
+                            onSubmitEditing={handleCommitCustom}
+                            accessibilityLabel="Custom tank range in miles"
+                          />
+                          <Text style={styles.customRangeUnit}>mi</Text>
+                        </View>
+                      )}
                     </View>
                   )}
-                </View>
-              </RowGroup>
-            )}
+                </>
+              )}
+            </RowGroup>
 
             {profile?.remindersEnabled && nextLabel && (
               <RowGroup footer="Tell us how much you filled -- a partial fill reminds you sooner.">
