@@ -77,8 +77,15 @@ Order, top-to-bottom:
    - Selected: `colors.freshgreen` background, white label + icon, **Phosphor `Check` glyph** (14pt) prepended to the icon.
    - Minimum painted height: 44pt (cardinal rule). `tapTarget44` from `theme/interaction`.
    - Pressed: `pressedDim` from `theme/interaction`.
-   - Per-pill icons (Phosphor): `Car` (Compact), `CarProfile` (Sedan), `Truck` (SUV/Truck), `Lightning` (all EV variants), `PencilSimple` (Custom).
-   - Class buckets are class-based labels for gas/diesel/hybrid; EV uses range-based labels (Short / Mid / Long) because EV ranges vary too widely for vehicle class to map cleanly. The pill structure is identical; only the label vocabulary differs.
+   - Per-pill icons (Phosphor) — chosen so the glyph visually matches the bucket's meaning, not just "a car":
+     - **Compact:** `CarSimple` (minimal-silhouette hatchback) — reads as small/compact.
+     - **Sedan:** `CarProfile` (longer side-view sedan silhouette) — reads as a standard 4-door.
+     - **SUV/Truck:** `Truck` (boxier, taller silhouette) — reads as a larger vehicle.
+     - **EV Short:** `BatteryLow` — small-charge battery glyph signals short range.
+     - **EV Mid:** `BatteryMedium` — half-charge battery glyph.
+     - **EV Long:** `BatteryHigh` — near-full battery glyph signals long range.
+     - **Custom:** `PencilSimple` — signals "type in your own number".
+   - Class buckets are class-based labels for gas/diesel/hybrid; EV uses range-based labels (Short / Mid / Long) because EV ranges vary too widely for vehicle class to map cleanly. The pill structure is identical; only the label vocabulary and icon family differ — vehicle silhouettes for class-based pills, battery-level glyphs for EV range pills.
 
 3. **(Phase 2 only)** — The "Use my exact car for a precise range" upgrade link belongs below the pill row but is **not rendered in Phase 1.5**. Phase 2 adds it as a new element when the cascade behind it is built. No reserved space, no stub — the link simply appears between the pill row and the footer copy when Phase 2 ships.
 
