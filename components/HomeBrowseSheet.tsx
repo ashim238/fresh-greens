@@ -41,7 +41,9 @@ import type {
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -119,6 +121,8 @@ export function HomeBrowseSheet({
   const trusted = trustedRowResult?.recommendations ?? [];
   const trustedLoading = trustedRowResult?.loading ?? true;
   const reduceMotion = useReduceMotion();
+  const [showAllRows, setShowAllRows] = useState(false);
+  const [trustedRowCollapsed, setTrustedRowCollapsed] = useState(false);
 
   // This sheet OWNS its vertical scroller (moved in from app/home.tsx).
   // It has to: `stickyHeaderIndices` only pins a ScrollView's *direct*
@@ -206,6 +210,7 @@ export function HomeBrowseSheet({
     // Optimistic active state — light up the tapped chip immediately
     // rather than waiting for the scroll-spy to catch up mid-animation.
     setActiveCategory(category);
+    setShowAllRows(true);
     Haptics.selectionAsync().catch(() => {});
     // Try the cached Y first regardless of collapsed state — covers
     // the case where rows are already laid out (e.g. user collapsed
@@ -319,15 +324,15 @@ export function HomeBrowseSheet({
           if (!reduceMotion) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           }
-          onToggleCollapsed();
+          setTrustedRowCollapsed((v) => !v);
         }}
         accessibilityRole="button"
         accessibilityLabel={
-          collapsed
+          trustedRowCollapsed
             ? 'Show trusted-by-your-community recommendations'
             : 'Hide trusted-by-your-community recommendations'
         }
-        accessibilityState={{ expanded: !collapsed }}
+        accessibilityState={{ expanded: !trustedRowCollapsed }}
         style={({ pressed }) => [styles.sectionRow, { minHeight: 44 }, pressed && pressedDim]}
         onLayout={(e) => recordRowY('trusted-community', e.nativeEvent.layout.y)}
       >
@@ -335,7 +340,7 @@ export function HomeBrowseSheet({
           <CommunitySignalGlyph24 width={24} height={24} />
           <Text style={styles.sectionTitle}>Trusted by your community</Text>
         </View>
-        {collapsed ? (
+        {trustedRowCollapsed ? (
           <CaretDown size={16} color={colors.black} weight="fill" />
         ) : (
           <CaretUp size={16} color={colors.black} weight="fill" />
@@ -343,18 +348,19 @@ export function HomeBrowseSheet({
       </Pressable>
       {!collapsed && (
         <>
-          <TrustedByCommunityRow
-            recommendations={trusted}
-            loading={trustedLoading}
-            reduceMotion={reduceMotion}
-            onSelectRecommendation={onSelectRecommendation}
-            onEmptyTap={onEmptyTap}
-          />
-          {/* Rows 2–7: Open Now + 5 per-category. Each row is
-              header (glyph + title) + carousel body. Wrap each in
-              a View with onLayout so its Y is captured for chip
-              jump-links. */}
-          {BROWSE_ROW_SPECS.slice(1).map((spec) => {
+          {!trustedRowCollapsed && (
+            <TrustedByCommunityRow
+              recommendations={trusted}
+              loading={trustedLoading}
+              reduceMotion={reduceMotion}
+              onSelectRecommendation={onSelectRecommendation}
+              onEmptyTap={onEmptyTap}
+            />
+          )}
+          {/* Rows 2–7: Open Now + 5 per-category. Progressive
+              disclosure: show Open Now + first category initially,
+              expand all on "Show all categories" tap. */}
+          {(showAllRows ? BROWSE_ROW_SPECS.slice(1) : BROWSE_ROW_SPECS.slice(1, 3)).map((spec) => {
             const result = browseRowResults[spec.key];
             return (
               <View
@@ -372,6 +378,17 @@ export function HomeBrowseSheet({
               </View>
             );
           })}
+          {!showAllRows && (
+            <Pressable
+              onPress={() => setShowAllRows(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Show all categories"
+              style={({ pressed }) => [styles.showAllBtn, pressed && pressedDim]}
+            >
+              <Text style={styles.showAllText}>Show all categories</Text>
+              <CaretDown size={14} color={colors.labelSecondary} />
+            </Pressable>
+          )}
         </>
       )}
     </ScrollView>
@@ -805,11 +822,25 @@ function WeatherDrivingCard({
 }: {
   userLocation?: { latitude: number; longitude: number } | null;
 }) {
-  const { weather } = useWeather(userLocation);
-  // Fall back to a sensible placeholder until the first API
-  // response lands. The card never disappears — it's read at a
-  // glance and "missing weather" reads worse than "loading-state
-  // weather." 66°/Moderate was the prior hardcoded mock.
+  const { weather, loading, error, retry } = useWeather(userLocation);
+
+  if (error && !loading) {
+    return (
+      <Pressable
+        onPress={retry}
+        accessibilityRole="button"
+        accessibilityLabel="Weather unavailable. Tap to retry."
+        style={({ pressed }) => [styles.weatherCard, pressed && pressedDim]}
+      >
+        <View style={styles.weatherRow}>
+          <WeatherGlyph width={16} height={16} />
+          <Text style={styles.weatherText}>—°</Text>
+        </View>
+        <Text style={styles.weatherRetryHint}>Tap to retry</Text>
+      </Pressable>
+    );
+  }
+
   const temp = weather ? `${weather.temperatureF}°` : '—°';
   const condition = weather ? weather.drivingLabel : '—';
 
@@ -1299,6 +1330,10 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
+  weatherRetryHint: {
+    ...dynamicType(typography.caption2Regular),
+    color: colors.labelTertiary,
+  },
   chipsRow: {
     paddingHorizontal: 16,
     gap: 8,
@@ -1363,6 +1398,22 @@ const styles = StyleSheet.create({
   // between rows.
   browseRow: {
     gap: 8,
+  },
+  showAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: colors.fillsQuaternary,
+    minHeight: 44,
+  },
+  showAllText: {
+    ...typography.subheadlineRegular,
+    color: colors.labelSecondary,
   },
   browseEmptyLine: {
     ...typography.footnoteRegular,

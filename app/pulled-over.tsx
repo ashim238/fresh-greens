@@ -33,6 +33,7 @@ import {
 } from 'react';
 import {
   AccessibilityInfo,
+  Alert,
   Animated,
   Image,
   Linking,
@@ -357,43 +358,52 @@ export default function PulledOver() {
   // "screen was removed natively but didn't get removed from JS state"
   // warning. usePreventRemove is the supported pattern for this case.
   usePreventRemove(hasActiveRecording, ({ data }) => {
-    (async () => {
-      try {
-        if (recorder.isRecording) {
-          try {
-            await recorder.stop();
-          } catch (stopErr) {
-            console.warn('[pulled-over] recorder.stop() failed', stopErr);
-          }
-        }
-        const sourceUri = recorder.uri;
-        if (!sourceUri) {
-          console.warn('[pulled-over] no recorder uri; skipping save');
-          return;
-        }
-        const startedAt = recordingStartedAtRef.current ?? Date.now();
-        const durationMs = Date.now() - startedAt;
-        if (durationMs < 2000) {
-          console.log('[pulled-over] recording <2s; skipping save', { durationMs });
-          return;
-        }
-        const saved = await addRecording({
-          sourceUri,
-          durationMs,
-          armed: recordingArmedRef.current,
-          createdAt: startedAt,
-        });
-        console.log('[pulled-over] saved recording', saved.id, 'durationMs=', durationMs);
-      } catch (err) {
-        console.warn('[pulled-over] save failed', err);
-      } finally {
-        // Re-dispatch the navigation action we blocked. Setting
-        // hasActiveRecording=false first prevents this dispatch from
-        // re-triggering the prevent.
-        setHasActiveRecording(false);
-        navigation.dispatch(data.action);
-      }
-    })();
+    Alert.alert(
+      'Recording in progress',
+      'Your recording will be saved. Leave this screen?',
+      [
+        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Save & leave',
+          onPress: () => {
+            (async () => {
+              try {
+                if (recorder.isRecording) {
+                  try {
+                    await recorder.stop();
+                  } catch (stopErr) {
+                    console.warn('[pulled-over] recorder.stop() failed', stopErr);
+                  }
+                }
+                const sourceUri = recorder.uri;
+                if (!sourceUri) {
+                  console.warn('[pulled-over] no recorder uri; skipping save');
+                  return;
+                }
+                const startedAt = recordingStartedAtRef.current ?? Date.now();
+                const durationMs = Date.now() - startedAt;
+                if (durationMs < 2000) {
+                  console.log('[pulled-over] recording <2s; skipping save', { durationMs });
+                  return;
+                }
+                const saved = await addRecording({
+                  sourceUri,
+                  durationMs,
+                  armed: recordingArmedRef.current,
+                  createdAt: startedAt,
+                });
+                console.log('[pulled-over] saved recording', saved.id, 'durationMs=', durationMs);
+              } catch (err) {
+                console.warn('[pulled-over] save failed', err);
+              } finally {
+                setHasActiveRecording(false);
+                navigation.dispatch(data.action);
+              }
+            })();
+          },
+        },
+      ],
+    );
   });
 
   // Sample metering into a circular buffer. Each tick: push the latest

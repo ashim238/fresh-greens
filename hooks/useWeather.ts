@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { getCurrentWeather, type CurrentWeather } from '../lib/api/weather';
 
@@ -20,6 +20,8 @@ export function useWeather(
 ) {
   const [weather, setWeather] = useState<CurrentWeather | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
 
   const gridLat = userLocation ? Math.round(userLocation.latitude * 200) / 200 : null;
   const gridLng = userLocation ? Math.round(userLocation.longitude * 200) / 200 : null;
@@ -28,10 +30,12 @@ export function useWeather(
     if (!userLocation) return;
     let cancelled = false;
     setLoading(true);
+    setError(false);
     (async () => {
       const w = await getCurrentWeather(userLocation.latitude, userLocation.longitude);
       if (!cancelled) {
         setWeather(w);
+        setError(w === null);
         setLoading(false);
       }
     })();
@@ -39,7 +43,9 @@ export function useWeather(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridLat, gridLng]);
+  }, [gridLat, gridLng, retryTick]);
 
-  return { weather, loading };
+  const retry = useCallback(() => setRetryTick((t) => t + 1), []);
+
+  return { weather, loading, error, retry };
 }
