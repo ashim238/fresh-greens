@@ -4,9 +4,20 @@ import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BatteryHigh } from 'phosphor-react-native/src/icons/BatteryHigh';
+import { BatteryLow } from 'phosphor-react-native/src/icons/BatteryLow';
+import { BatteryMedium } from 'phosphor-react-native/src/icons/BatteryMedium';
+import { CarProfile } from 'phosphor-react-native/src/icons/CarProfile';
+import { CarSimple } from 'phosphor-react-native/src/icons/CarSimple';
+import { Check } from 'phosphor-react-native/src/icons/Check';
+import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
+import { Leaf } from 'phosphor-react-native/src/icons/Leaf';
+import { Lightning } from 'phosphor-react-native/src/icons/Lightning';
 import { Minus } from 'phosphor-react-native/src/icons/Minus';
+import { PencilSimple } from 'phosphor-react-native/src/icons/PencilSimple';
 import { Plus } from 'phosphor-react-native/src/icons/Plus';
 import { Trash } from 'phosphor-react-native/src/icons/Trash';
+import { Truck } from 'phosphor-react-native/src/icons/Truck';
 
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
