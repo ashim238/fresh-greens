@@ -96,6 +96,52 @@ const FILL_FRACTIONS: { id: string; label: string; a11yLabel: string; fraction: 
 ];
 
 /**
+ * Bucket pill — text label + leading Phosphor icon, with the
+ * four-affordance selected state (bg, icon color, label color, Check
+ * prefix). Used for the per-fuel-type buckets AND the universal Custom
+ * pill. The Custom pill passes `Icon={PencilSimple}`.
+ */
+function BucketPill({
+  Icon,
+  label,
+  selected,
+  onPress,
+  a11yLabel,
+}: {
+  Icon: typeof CarSimple;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  a11yLabel: string;
+}) {
+  const iconColor = selected ? colors.white : colors.labelSecondary;
+  const textStyle = [styles.rangeOptionText, selected && styles.rangeOptionTextSelected];
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.rangeOption,
+        selected && styles.rangeOptionSelected,
+        pressed && pressedDim,
+      ]}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, checked: selected }}
+      accessibilityLabel={a11yLabel}
+    >
+      {selected && (
+        <Check size={14} color={colors.white} weight="bold" />
+      )}
+      <Icon
+        size={20}
+        color={iconColor}
+        weight={selected ? 'fill' : 'regular'}
+      />
+      <Text style={textStyle}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/**
  * /fuel — refuel-reminder setup. Pushed from the /search Fuel card.
  *
  * Time-based by design (no fuel sensing): the user sets a cadence and an
@@ -366,59 +412,27 @@ export default function Fuel() {
                         accessibilityRole="radiogroup"
                         accessibilityLabel="Tank range"
                       >
-                        {activeBuckets.map((b) => {
-                          const selected = selectedBucketId === b.id && !customRangeOpen;
-                          return (
-                            <Pressable
-                              key={b.id}
-                              onPress={() => handlePickBucket(b)}
-                              style={({ pressed }) => [
-                                styles.rangeOption,
-                                selected && styles.rangeOptionSelected,
-                                pressed && pressedDim,
-                              ]}
-                              accessibilityRole="radio"
-                              accessibilityState={{ selected, checked: selected }}
-                              accessibilityLabel={b.label}
-                            >
-                              <Text
-                                style={[
-                                  styles.rangeOptionText,
-                                  selected && styles.rangeOptionTextSelected,
-                                ]}
-                              >
-                                {b.label}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                        <Pressable
-                          onPress={handleOpenCustom}
-                          style={({ pressed }) => [
-                            styles.rangeOption,
-                            (selectedBucketId === 'custom' || customRangeOpen) &&
-                              styles.rangeOptionSelected,
-                            pressed && pressedDim,
-                          ]}
-                          accessibilityRole="radio"
-                          accessibilityState={{
-                            selected: selectedBucketId === 'custom' || customRangeOpen,
-                            checked: selectedBucketId === 'custom' || customRangeOpen,
-                          }}
-                          accessibilityLabel="Custom range"
-                        >
-                          <Text
-                            style={[
-                              styles.rangeOptionText,
-                              (selectedBucketId === 'custom' || customRangeOpen) &&
-                                styles.rangeOptionTextSelected,
-                            ]}
-                          >
-                            {rangeSource === 'custom' && rangeMiles != null
+                        {activeBuckets.map((b) => (
+                          <BucketPill
+                            key={b.id}
+                            Icon={b.Icon}
+                            label={b.label}
+                            selected={selectedBucketId === b.id && !customRangeOpen}
+                            onPress={() => handlePickBucket(b)}
+                            a11yLabel={b.label}
+                          />
+                        ))}
+                        <BucketPill
+                          Icon={PencilSimple}
+                          label={
+                            rangeSource === 'custom' && rangeMiles != null
                               ? `Custom · ${rangeMiles} mi`
-                              : 'Custom…'}
-                          </Text>
-                        </Pressable>
+                              : 'Custom…'
+                          }
+                          selected={selectedBucketId === 'custom' || customRangeOpen}
+                          onPress={handleOpenCustom}
+                          a11yLabel="Custom range"
+                        />
                       </View>
 
                       {customRangeOpen && (
@@ -594,7 +608,10 @@ const styles = StyleSheet.create({
   rangeOption: {
     minHeight: 44,
     minWidth: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
