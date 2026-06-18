@@ -41,14 +41,43 @@ const FUEL_TYPES: { id: FuelType; label: string }[] = [
 const MIN_DAYS = 1;
 const MAX_DAYS = 60;
 
-/** Phase-1 tank-range tier buckets. `null` = Time only (distance off). */
-const RANGE_BUCKETS: { id: string; label: string; rangeMiles: number | null }[] = [
-  { id: 'none', label: 'Time only', rangeMiles: null },
-  { id: 'compact', label: 'Compact ~300 mi', rangeMiles: 300 },
-  { id: 'sedan', label: 'Sedan ~350 mi', rangeMiles: 350 },
-  { id: 'suv', label: 'SUV / Truck ~400 mi', rangeMiles: 400 },
-  { id: 'ev', label: 'EV ~250 mi', rangeMiles: 250 },
-];
+/**
+ * Per-fuel-type bucket specs. Gas/diesel/hybrid use vehicle-class labels
+ * (drivers think "I drive a sedan"); EV uses range-based labels because
+ * EV ranges vary too widely for vehicle class to map cleanly. The Custom
+ * pill is rendered separately (universal across fuel types). Icons are
+ * imported in Task 1; the icon component reference travels with each
+ * bucket so the row-render loop can dispatch off the spec.
+ */
+type BucketSpec = {
+  id: string;
+  label: string;
+  rangeMiles: number;
+  Icon: typeof CarSimple;
+};
+
+const BUCKETS_BY_FUEL_TYPE: Record<FuelType, BucketSpec[]> = {
+  gas: [
+    { id: 'compact-gas', label: 'Compact · 300 mi', rangeMiles: 300, Icon: CarSimple },
+    { id: 'sedan-gas', label: 'Sedan · 350 mi', rangeMiles: 350, Icon: CarProfile },
+    { id: 'suv-gas', label: 'SUV / Truck · 400 mi', rangeMiles: 400, Icon: Truck },
+  ],
+  diesel: [
+    { id: 'compact-diesel', label: 'Compact · 350 mi', rangeMiles: 350, Icon: CarSimple },
+    { id: 'sedan-diesel', label: 'Sedan · 400 mi', rangeMiles: 400, Icon: CarProfile },
+    { id: 'suv-diesel', label: 'SUV / Truck · 450 mi', rangeMiles: 450, Icon: Truck },
+  ],
+  hybrid: [
+    { id: 'compact-hybrid', label: 'Compact · 450 mi', rangeMiles: 450, Icon: CarSimple },
+    { id: 'sedan-hybrid', label: 'Sedan · 500 mi', rangeMiles: 500, Icon: CarProfile },
+    { id: 'suv-hybrid', label: 'SUV · 550 mi', rangeMiles: 550, Icon: Truck },
+  ],
+  electric: [
+    { id: 'ev-short', label: 'Short · 200 mi', rangeMiles: 200, Icon: BatteryLow },
+    { id: 'ev-mid', label: 'Mid · 280 mi', rangeMiles: 280, Icon: BatteryMedium },
+    { id: 'ev-long', label: 'Long · 360 mi', rangeMiles: 360, Icon: BatteryHigh },
+  ],
+};
 
 const MIN_RANGE = 20;
 const MAX_RANGE = 800;
@@ -151,10 +180,10 @@ export default function Fuel() {
     }
   }
 
-  function handlePickBucket(bucket: (typeof RANGE_BUCKETS)[number]) {
+  function handlePickBucket(bucket: BucketSpec) {
     setCustomRangeOpen(false);
     setRangeMiles(bucket.rangeMiles);
-    setRangeSource(bucket.rangeMiles == null ? 'none' : 'bucket');
+    setRangeSource('bucket');
   }
 
   function handleOpenCustom() {
@@ -178,10 +207,15 @@ export default function Fuel() {
   }
 
   // Which bucket (if any) is currently selected — for the selected styling.
+  // Matches against the active fuel-type's bucket set; if the stored
+  // rangeMiles isn't a bucket in the current set (e.g. user switched fuel
+  // types and we haven't reset yet — Task 6 covers that flow), nothing
+  // shows as selected and the user can pick fresh.
+  const activeBuckets = BUCKETS_BY_FUEL_TYPE[fuelType];
   const selectedBucketId =
     rangeSource === 'custom'
       ? 'custom'
-      : RANGE_BUCKETS.find((b) => b.rangeMiles === rangeMiles)?.id ?? 'none';
+      : activeBuckets.find((b) => b.rangeMiles === rangeMiles)?.id ?? null;
 
   const nextLabel =
     profile?.remindersEnabled && profile.nextReminderAt
@@ -308,7 +342,7 @@ export default function Fuel() {
                     accessibilityRole="radiogroup"
                     accessibilityLabel="Tank range"
                   >
-                    {RANGE_BUCKETS.map((b) => {
+                    {activeBuckets.map((b) => {
                       const selected = selectedBucketId === b.id && !customRangeOpen;
                       return (
                         <Pressable
