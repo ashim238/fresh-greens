@@ -136,7 +136,9 @@ function BucketPill({
         color={iconColor}
         weight={selected ? 'fill' : 'regular'}
       />
-      <Text style={textStyle}>{label}</Text>
+      <Text style={textStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -628,6 +630,10 @@ const styles = StyleSheet.create({
   fuelChangeNote: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
+    backgroundColor: colors.fillsQuaternary,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   rangeOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   rangeOption: {
