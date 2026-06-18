@@ -526,10 +526,9 @@ export default function Fuel() {
                     </View>
                     <Pressable
                       onPress={() => handleRemoveStation(s.id, s.name)}
-                      hitSlop={8}
                       accessibilityRole="button"
                       accessibilityLabel={`Remove ${s.name}`}
-                      style={({ pressed }) => [pressed && pressedDim]}
+                      style={({ pressed }) => [styles.stationRemoveBtn, pressed && pressedDim]}
                     >
                       <Trash size={20} color={colors.labelSecondary} weight="regular" />
                     </Pressable>
@@ -689,6 +688,12 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  stationRemoveBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stationTextStack: { flex: 1, gap: 2 },
   stationName: { ...dynamicType(typography.bodyRegular), color: colors.black },
