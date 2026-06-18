@@ -480,8 +480,8 @@ export default function Fuel() {
               )}
             </RowGroup>
 
-            {profile?.remindersEnabled && nextLabel && (
-              <RowGroup footer="Tell us how much you filled -- a partial fill reminds you sooner.">
+            {enabled && profile?.remindersEnabled && nextLabel && (
+              <RowGroup footer="Tell us how much you filled — a partial fill reminds you sooner.">
                 <View style={styles.statusBlock}>
                   <Text style={styles.statusText}>Next reminder: {nextLabel}</Text>
                   <Text style={styles.fieldLabel}>I filled up…</Text>
