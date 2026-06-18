@@ -145,7 +145,6 @@ function PressableIcon({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
       style={({ pressed }) => [styles.iconWrap, pressed && pressedDim]}
     >
       {icon}
@@ -217,8 +216,8 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   iconWrap: {
-    width: 24,
-    height: 24,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

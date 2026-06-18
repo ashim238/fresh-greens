@@ -11,6 +11,9 @@ import EnrouteHazardPolice from '../assets/illustrations/enroute-hazard-police.s
 import EnrouteHazardRoad from '../assets/illustrations/enroute-hazard-road.svg';
 import EnrouteHazardWildlife from '../assets/illustrations/enroute-hazard-wildlife.svg';
 
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+
 import type { HazardCategory } from '../lib/scoring';
 
 /**
@@ -25,13 +28,8 @@ import type { HazardCategory } from '../lib/scoring';
  *   Extended — 158×50 pill: `[hazard icon] For X mi.` Shown when the
  *              user is currently inside (or near) the zone, telling
  *              the driver how long the zone lasts so they know what
- *              to expect ahead.
- *
- * v1 limitation: the Extended SVG carries a baked-in "For 0.5 mi."
- * text path from Figma. The dynamic `lengthMiles` prop is still
- * threaded through for VoiceOver (which uses the real length) but
- * the visible text on the pill is the Figma-baked value until a
- * future PR strips the text path and overlays a dynamic `<Text>`.
+ *              to expect ahead. Dynamic mileage is overlaid as a Text
+ *              element covering the Figma-baked "For 0.5 mi." path.
  */
 
 export function EnRouteZone({
@@ -90,7 +88,7 @@ export function EnRouteZone({
       {state === 'default' ? (
         <DefaultMarker category={category} />
       ) : (
-        <ExtendedPill category={category} />
+        <ExtendedPill category={category} lengthMiles={lengthMiles} />
       )}
     </Marker>
   );
@@ -116,7 +114,13 @@ function DefaultMarker({ category }: { category: HazardCategory }) {
   );
 }
 
-function ExtendedPill({ category }: { category: HazardCategory }) {
+function ExtendedPill({
+  category,
+  lengthMiles,
+}: {
+  category: HazardCategory;
+  lengthMiles: number;
+}) {
   return (
     <View style={styles.extendedFrame} accessibilityIgnoresInvertColors>
       {category === 'lighting' && (
@@ -131,6 +135,9 @@ function ExtendedPill({ category }: { category: HazardCategory }) {
       {category === 'community-alert' && (
         <EnrouteHazardExtendedCommunityAlert width={158} height={50} />
       )}
+      <Text style={styles.extendedMilesOverlay} numberOfLines={1}>
+        For {formatMiles(lengthMiles)}
+      </Text>
     </View>
   );
 }
@@ -168,5 +175,19 @@ const styles = StyleSheet.create({
   extendedFrame: {
     width: 158,
     height: 50,
+    position: 'relative',
+  },
+  extendedMilesOverlay: {
+    position: 'absolute',
+    right: 10,
+    top: 0,
+    bottom: 0,
+    width: 72,
+    textAlignVertical: 'center',
+    textAlign: 'center',
+    ...typography.caption1Emphasized,
+    color: colors.black,
+    backgroundColor: colors.white,
+    borderRadius: 4,
   },
 });

@@ -1,5 +1,6 @@
 import HazardCommunityAlert from '../assets/illustrations/hazard-community-alert.svg';
 import HazardLighting from '../assets/illustrations/hazard-lighting.svg';
+import HazardPolice from '../assets/illustrations/hazard-police.svg';
 import HazardRoadCondition from '../assets/illustrations/hazard-road-conditions.svg';
 import HazardWildlife from '../assets/illustrations/hazard-wildlife.svg';
 
@@ -39,5 +40,7 @@ export function Hazard({
       return <HazardWildlife width={size} height={size} />;
     case 'community-alert':
       return <HazardCommunityAlert width={size} height={size} />;
+    case 'police':
+      return <HazardPolice width={size} height={size} />;
   }
 }

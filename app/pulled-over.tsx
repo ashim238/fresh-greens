@@ -202,6 +202,12 @@ export default function PulledOver() {
   // animation in the app NOT gated; now respects the system preference.
   // Per design-system.md §4.5.
   const reduceMotion = useReduceMotion();
+  // Mic permission state — optimistic default (true) since we don't know
+  // the status until after requesting. Set to false if permission denied.
+  const [micGranted, setMicGranted] = useState(true);
+  // Track whether the user manually stopped recording (separate from
+  // auto-stop on modal dismiss). Controls the "Recording saved" state.
+  const [recordingStopped, setRecordingStopped] = useState(false);
 
   const { addRecording } = useRecordings();
   // State-aware firearm guidance — variant resolved from the device's
@@ -210,7 +216,7 @@ export default function PulledOver() {
   // for the safer-default rationale. The downstream views render
   // duty-to-inform copy while `loading === true`, so the brief delay
   // between mount and state-resolution is invisible to the user.
-  const { duty: disclosureDuty } = useDisclosureDuty();
+  const { duty: disclosureDuty, stateName: disclosureStateName } = useDisclosureDuty();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Tracks whether we've already kicked off the recorder. The lifecycle
   // effect below is keyed on `phase` (so it can fire once we leave
@@ -316,6 +322,7 @@ export default function PulledOver() {
       try {
         const status = await requestRecordingPermissionsAsync();
         if (!status.granted) {
+          setMicGranted(false);
           console.warn('Microphone permission not granted; waveform disabled');
           return;
         }
@@ -463,6 +470,20 @@ export default function PulledOver() {
     if (reviewIndex > 0) setReviewIndex(reviewIndex - 1);
   }
 
+  const handleStopRecording = useCallback(async () => {
+    try {
+      if (recorder.isRecording) {
+        await recorder.stop();
+      }
+      setRecordingStopped(true);
+      setHasActiveRecording(false);
+    } catch (err) {
+      console.warn('[pulled-over] manual stop failed', err);
+      setRecordingStopped(true);
+      setHasActiveRecording(false);
+    }
+  }, [recorder]);
+
   function handleClose() {
     router.back();
   }
@@ -498,10 +519,14 @@ export default function PulledOver() {
             <GuidanceView
               showFirearmGuidance={showFirearmGuidance}
               disclosureDuty={disclosureDuty}
+              stateName={disclosureStateName}
               elapsed={elapsed}
               meteringHistory={meteringHistory}
               reduceMotion={reduceMotion}
+              micGranted={micGranted}
+              recordingStopped={recordingStopped}
               onContinue={handleContinueToContact}
+              onStopRecording={handleStopRecording}
             />
           )}
           {phase === 'contact' && (
@@ -512,6 +537,7 @@ export default function PulledOver() {
               index={reviewIndex}
               showFirearmGuidance={showFirearmGuidance}
               disclosureDuty={disclosureDuty}
+              stateName={disclosureStateName}
               onNext={handleReviewNext}
               onBack={handleReviewBack}
               // "Close" on review now returns to the contact phase
@@ -682,17 +708,25 @@ function GuidanceBullet({ children }: { children: ReactNode }) {
 function GuidanceView({
   showFirearmGuidance,
   disclosureDuty,
+  stateName,
   elapsed,
   meteringHistory,
   reduceMotion,
+  micGranted,
+  recordingStopped,
   onContinue,
+  onStopRecording,
 }: {
   showFirearmGuidance: boolean;
   disclosureDuty: DisclosureDuty;
+  stateName: string | null;
   elapsed: number;
   meteringHistory: number[];
   reduceMotion: boolean;
+  micGranted: boolean;
+  recordingStopped: boolean;
   onContinue: () => void;
+  onStopRecording: () => void;
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -779,9 +813,9 @@ function GuidanceView({
         // invisible touch-area extension).
       >
         {isSpeaking ? (
-          <Stop size={32} color={colors.mutedTertiary} />
+          <Stop size={32} color={colors.labelTertiary} />
         ) : (
-          <SpeakerHigh size={32} color={colors.mutedTertiary} />
+          <SpeakerHigh size={32} color={colors.labelTertiary} />
         )}
         <Text style={guidanceStyles.readAloudText}>
           {isSpeaking ? 'Stop' : 'Read aloud'}
@@ -792,26 +826,53 @@ function GuidanceView({
 
       {/*
         Recording widget — Figma node 825:4298. Background F2F2F7,
-        radius 20, padding 16, gap 8, items-center. The static
-        waveform bars from the Figma mockup are replaced with a real
-        live waveform driven by mic metering. Stop button removed:
-        recording is ambient protection across the rest of the flow,
-        not a thing the user manages mid-encounter. The "Saved to your
-        account" footnote answers "where does this go" without
-        crowding the trusted-contact status at the modal bottom.
+        radius 20, padding 16, gap 8, items-center. Shows different states:
+        - Recording active (micGranted && !recordingStopped): live waveform
+          with timer and stop button
+        - Mic unavailable (!micGranted): "Microphone unavailable" message
+        - Recording stopped (recordingStopped && micGranted): "Recording saved"
+          confirmation
       */}
-      <View style={guidanceStyles.recordingWidget}>
-        <View style={guidanceStyles.recordingTextBlock}>
-          <Text style={guidanceStyles.recordingLabel}>Recording…</Text>
-          <Text style={guidanceStyles.recordingTimer}>{timeString}</Text>
+      {!micGranted ? (
+        <View style={guidanceStyles.recordingWidget}>
+          <Text style={guidanceStyles.recordingLabel}>Guidance active</Text>
+          <Text style={guidanceStyles.micUnavailableText}>
+            Microphone unavailable — your guidance continues below
+          </Text>
         </View>
+      ) : recordingStopped ? (
+        <View style={guidanceStyles.recordingWidget}>
+          <Text style={guidanceStyles.recordingLabel}>Recording saved</Text>
+          <Text style={guidanceStyles.micUnavailableText}>
+            Saved to your phone — guidance continues below
+          </Text>
+        </View>
+      ) : (
+        <View style={guidanceStyles.recordingWidget}>
+          <View style={guidanceStyles.recordingTextBlock}>
+            <Text style={guidanceStyles.recordingLabel}>Recording…</Text>
+            <Text style={guidanceStyles.recordingTimer}>{timeString}</Text>
+          </View>
 
-        <Waveform history={meteringHistory} reduceMotion={reduceMotion} />
+          <Waveform history={meteringHistory} reduceMotion={reduceMotion} />
 
-        <Text style={guidanceStyles.recordingFootnote}>
-          Saved to your phone — only you can access it
-        </Text>
-      </View>
+          <Pressable
+            onPress={onStopRecording}
+            accessibilityRole="button"
+            accessibilityLabel="Stop recording"
+            style={({ pressed }) => [
+              guidanceStyles.stopRecordingBtn,
+              pressed && pressedDim,
+            ]}
+          >
+            <Text style={guidanceStyles.stopRecordingText}>Stop recording</Text>
+          </Pressable>
+
+          <Text style={guidanceStyles.recordingFootnote}>
+            Saved to your phone — only you can access it
+          </Text>
+        </View>
+      )}
 
       <Pressable
         onPress={onContinue}
@@ -1052,6 +1113,7 @@ function ReviewView({
   index,
   showFirearmGuidance,
   disclosureDuty,
+  stateName,
   onNext,
   onBack,
   onClose,
@@ -1059,6 +1121,7 @@ function ReviewView({
   index: number;
   showFirearmGuidance: boolean;
   disclosureDuty: DisclosureDuty;
+  stateName: string | null;
   onNext: () => void;
   onBack: () => void;
   onClose: () => void;
@@ -1073,6 +1136,7 @@ function ReviewView({
           <WhatToSayView
             showFirearm={showFirearmGuidance}
             disclosureDuty={disclosureDuty}
+            stateName={stateName}
           />
         )}
         {index === 4 && <WhatToKnowView />}
@@ -1107,8 +1171,27 @@ function ReviewView({
               />
             </Pressable>
           ) : (
-            <View style={tapTarget44} />
+            <View style={tapTarget44}>
+              <CaretLeft
+                size={24}
+                color={colors.separatorSubtle}
+                weight="regular"
+              />
+            </View>
           )}
+
+          <View
+            style={reviewStyles.dotStrip}
+            accessibilityLabel={`Step ${index + 1} of ${REVIEW_VIEW_COUNT}`}
+          >
+            {Array.from({ length: REVIEW_VIEW_COUNT }).map((_, i) => (
+              <View
+                key={i}
+                style={[reviewStyles.dot, i === index && reviewStyles.dotActive]}
+              />
+            ))}
+          </View>
+
           {index < REVIEW_VIEW_COUNT - 1 ? (
             <Pressable
               onPress={onNext}
@@ -1127,7 +1210,13 @@ function ReviewView({
               />
             </Pressable>
           ) : (
-            <View style={tapTarget44} />
+            <View style={tapTarget44}>
+              <CaretRight
+                size={24}
+                color={colors.separatorSubtle}
+                weight="regular"
+              />
+            </View>
           )}
         </View>
       </View>
@@ -1344,9 +1433,11 @@ function WhatToHaveView() {
 function WhatToSayView({
   showFirearm,
   disclosureDuty,
+  stateName,
 }: {
   showFirearm: boolean;
   disclosureDuty: DisclosureDuty;
+  stateName: string | null;
 }) {
   const bullets: ReactNode[] = [];
 
@@ -1362,6 +1453,13 @@ function WhatToSayView({
     //     asked, answer honestly" (CA/NY/IL register).
     //   - asked-only:     "hands visible" + "if asked, answer
     //     honestly" (most permit-only states).
+    if (stateName) {
+      bullets.push(
+        <Text key="state-attribution" style={guidanceStyles.stateAttribution}>
+          Laws for {stateName}
+        </Text>,
+      );
+    }
     const sayBullets = FIREARM_GUIDANCE[disclosureDuty].sayBullets;
     sayBullets.forEach((line, i) => {
       bullets.push(
@@ -1497,13 +1595,13 @@ const chipStyles = StyleSheet.create({
   },
   dotSeparator: {
     ...typography.footnoteRegular,
-    color: colors.mutedTertiary,
+    color: colors.labelTertiary,
   },
   timer: {
     // Tabular figures so the seconds digits don't jiggle as they
     // change (default proportional figures shift width per glyph).
     ...typography.footnoteRegular,
-    color: colors.mutedSecondary,
+    color: colors.labelTertiary,
     fontVariant: ['tabular-nums'],
   },
 });
@@ -1673,7 +1771,7 @@ const guidanceStyles = StyleSheet.create({
   },
   readAloudText: {
     ...typography.subheadlineEmphasized,
-    color: colors.mutedTertiary,
+    color: colors.labelTertiary,
   },
   spacer: {
     flex: 1,
@@ -1703,7 +1801,7 @@ const guidanceStyles = StyleSheet.create({
     // same visual tier as its label. Plus dynamicType per the same
     // reasoning as recordingLabel.
     ...dynamicType(typography.bodyRegular),
-    color: colors.mutedSecondary,
+    color: colors.labelTertiary,
     fontVariant: ['tabular-nums'],
   },
   waveformRow: {
@@ -1722,7 +1820,7 @@ const guidanceStyles = StyleSheet.create({
   },
   recordingFootnote: {
     ...typography.caption1Regular,
-    color: colors.mutedTertiary,
+    color: colors.labelTertiary,
     textAlign: 'center',
   },
   // Wiltedgreen-outline pill (mirrors Contact's Text button) — quieter
@@ -1743,6 +1841,26 @@ const guidanceStyles = StyleSheet.create({
   continueText: {
     ...typography.subheadlineEmphasized,
     color: colors.wiltedgreen,
+  },
+  micUnavailableText: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
+  stopRecordingBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  stopRecordingText: {
+    ...typography.footnoteRegular,
+    color: colors.labelTertiary,
+    textDecorationLine: 'underline',
+  },
+  stateAttribution: {
+    ...typography.caption1Regular,
+    color: colors.labelTertiary,
+    marginBottom: 4,
   },
 });
 
@@ -1915,7 +2033,7 @@ const reviewStyles = StyleSheet.create({
   },
   closeText: {
     ...typography.footnoteRegular,
-    color: colors.mutedTertiary,
+    color: colors.labelTertiary,
     textDecorationLine: 'underline',
   },
   chevronsRow: {
@@ -1923,6 +2041,23 @@ const reviewStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 32,
     alignItems: 'center',
+  },
+  dotStrip: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.separatorSubtle,
+  },
+  dotActive: {
+    backgroundColor: colors.wiltedgreen,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });
 

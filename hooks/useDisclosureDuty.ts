@@ -7,6 +7,59 @@ import {
   type DisclosureDuty,
 } from '../lib/api/gun-laws';
 
+const STATE_NAMES: Record<string, string> = {
+  AL: 'Alabama',
+  AK: 'Alaska',
+  AZ: 'Arizona',
+  AR: 'Arkansas',
+  CA: 'California',
+  CO: 'Colorado',
+  CT: 'Connecticut',
+  DE: 'Delaware',
+  FL: 'Florida',
+  GA: 'Georgia',
+  HI: 'Hawaii',
+  ID: 'Idaho',
+  IL: 'Illinois',
+  IN: 'Indiana',
+  IA: 'Iowa',
+  KS: 'Kansas',
+  KY: 'Kentucky',
+  LA: 'Louisiana',
+  ME: 'Maine',
+  MD: 'Maryland',
+  MA: 'Massachusetts',
+  MI: 'Michigan',
+  MN: 'Minnesota',
+  MS: 'Mississippi',
+  MO: 'Missouri',
+  MT: 'Montana',
+  NE: 'Nebraska',
+  NV: 'Nevada',
+  NH: 'New Hampshire',
+  NJ: 'New Jersey',
+  NM: 'New Mexico',
+  NY: 'New York',
+  NC: 'North Carolina',
+  ND: 'North Dakota',
+  OH: 'Ohio',
+  OK: 'Oklahoma',
+  OR: 'Oregon',
+  PA: 'Pennsylvania',
+  RI: 'Rhode Island',
+  SC: 'South Carolina',
+  SD: 'South Dakota',
+  TN: 'Tennessee',
+  TX: 'Texas',
+  UT: 'Utah',
+  VT: 'Vermont',
+  VA: 'Virginia',
+  WA: 'Washington',
+  WV: 'West Virginia',
+  WI: 'Wisconsin',
+  WY: 'Wyoming',
+};
+
 /**
  * Reactive wrapper around the gun-laws adapter. On mount, fetches the
  * device's current position (one-shot, not a watcher), reverse-geocodes
@@ -38,9 +91,11 @@ import {
 export function useDisclosureDuty(): {
   duty: DisclosureDuty;
   loading: boolean;
+  stateName: string | null;
 } {
   const [duty, setDuty] = useState<DisclosureDuty>('duty-to-inform');
   const [loading, setLoading] = useState(true);
+  const [stateName, setStateName] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +115,7 @@ export function useDisclosureDuty(): {
         });
         if (cancelled) return;
         setDuty(getDisclosureDuty(stateCode));
+        setStateName(stateCode ? (STATE_NAMES[stateCode] ?? stateCode) : null);
       } catch (err) {
         // Soft-fail: stay on the safer default.
         console.warn('[useDisclosureDuty] could not resolve state', err);
@@ -72,5 +128,5 @@ export function useDisclosureDuty(): {
     };
   }, []);
 
-  return { duty, loading };
+  return { duty, loading, stateName };
 }

@@ -328,8 +328,7 @@ export function HomeBrowseSheet({
             : 'Hide trusted-by-your-community recommendations'
         }
         accessibilityState={{ expanded: !collapsed }}
-        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-        style={({ pressed }) => [styles.sectionRow, pressed && pressedDim]}
+        style={({ pressed }) => [styles.sectionRow, { minHeight: 44 }, pressed && pressedDim]}
         onLayout={(e) => recordRowY('trusted-community', e.nativeEvent.layout.y)}
       >
         <View style={styles.sectionTitleGroup}>

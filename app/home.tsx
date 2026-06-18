@@ -2889,6 +2889,18 @@ export default function Home() {
             {routeConditionsText}
           </Text>
 
+          {/*
+            Daylight arrival hint — non-color redundant cue for sighted
+            colorblind users. The daylight strip uses gradient color alone
+            to convey arrival time, but a colorblind user can't distinguish
+            dawn/dusk/night by hue. This small text label makes the arrival
+            band explicit for both sighted and VoiceOver users. Only shown
+            for non-daylight arrivals (dusk/dark) since daylight is obvious.
+          */}
+          {arrivalLabel && !arrivalLabel.includes('daylight') && (
+            <Text style={styles.daylightArrivalHint}>{arrivalLabel}</Text>
+          )}
+
           {recommended && trustedStationOnRoute && (
             <View style={styles.trustedOnRouteRow}>
               <Star size={16} color={colors.burntgreen} weight="fill" />
@@ -3764,7 +3776,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: colors.orange,
+    borderColor: colors.slightlyDarkOrange,
     backgroundColor: colors.white,
   },
   routeChipPressable: {
@@ -3821,6 +3833,15 @@ const styles = StyleSheet.create({
   daylightIcons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  daylightArrivalHint: {
+    // Small muted label showing arrival band (dusk/dark) for colorblind users.
+    // Positioned below the conditions caption, styled subordinate to main info.
+    // Uses caption2 (11pt) and labelSecondary (muted but readable).
+    ...typography.caption2Regular,
+    color: colors.labelSecondary,
+    paddingHorizontal: 24,
+    marginTop: 2,
   },
   tradeoffRow: {
     // H13: 16 → 24 to match the route card's canonical gutter

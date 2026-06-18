@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Alert,
+  Animated,
   AppState,
   Pressable,
   StyleSheet,
@@ -78,6 +79,7 @@ import {
 } from '../lib/api/preferences';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
@@ -328,6 +330,8 @@ export default function EnRoute() {
   // across sessions and applies on both /home and /en-route.
   const { preferences } = usePreferences();
   const showZones = preferences?.showZones ?? false;
+  const reduceMotion = useReduceMotion();
+  const etaPulseAnim = useRef(new Animated.Value(1)).current;
 
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const osmZonesRef = useRef<Zone[]>([]);
@@ -339,6 +343,33 @@ export default function EnRoute() {
   useEffect(() => {
     osmZonesRef.current = osmZones;
   }, [osmZones]);
+
+  // ETA pulse animation during OSRM fetch. When arrivalDisplay.time
+  // is '—' (loading) and reduce-motion is not set, pulse the opacity
+  // from 1 → 0.35 → 1 continuously (600ms cycle, 600ms return).
+  useEffect(() => {
+    if (arrivalDisplay.time === '—' && !reduceMotion) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(etaPulseAnim, {
+            toValue: 0.35,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(etaPulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      etaPulseAnim.setValue(1);
+    }
+  }, [arrivalDisplay.time, reduceMotion, etaPulseAnim]);
+
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
   // Provenance of the rendered routes — drives the "Offline route" /
@@ -904,15 +935,16 @@ export default function EnRoute() {
     prevEnteredZoneIdsRef.current = enteredZoneIds;
     if (!entered) return;
 
-    setSheetExpanded(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-
-    if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
-    autoCollapseTimerRef.current = setTimeout(() => {
-      setSheetExpanded(false);
-      autoCollapseTimerRef.current = null;
-    }, 5000);
-  }, [enteredZoneIds]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!reduceMotion) {
+      setSheetExpanded(true);
+      if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
+      autoCollapseTimerRef.current = setTimeout(() => {
+        setSheetExpanded(false);
+        autoCollapseTimerRef.current = null;
+      }, 5000);
+    }
+  }, [enteredZoneIds, reduceMotion]);
 
   // Cleanup the auto-collapse timer on unmount so a pending callback
   // never fires after the screen is gone.
@@ -2053,13 +2085,6 @@ export default function EnRoute() {
         */}
         <Pressable
           style={styles.dragHandleTapTarget}
-          // hitSlop extends the touchable area without painting
-          // padding — keeps the visual gap tight (8 + 4 + 8 = 20pt)
-          // while the touch hit region meets HIG 44pt (12 + 8 + 4 +
-          // 8 + 12 = 44pt vertical). Earlier version painted 20pt
-          // of vertical padding which stacked with the sheet's
-          // gap: 16 to leave ~60pt of dead space above the ETA.
-          hitSlop={{ top: 12, bottom: 12, left: 24, right: 24 }}
           onPress={handleDragHandleToggle}
           accessibilityRole="button"
           accessibilityLabel={
@@ -2116,18 +2141,22 @@ export default function EnRoute() {
                 on the time defends against any locale-format expansion.
               */}
               <View style={styles.etaIconSpacer} />
-              <Text
-                style={styles.eta}
+              <Animated.Text
+                style={[styles.eta, { opacity: etaPulseAnim }]}
                 numberOfLines={1}
                 // accessibilityLiveRegion="polite" lets TalkBack
                 // re-announce the ETA when it updates after rerouting
                 // — Apple Maps speaks every route recalc; this is the
                 // text-region equivalent on Android.
                 accessibilityLiveRegion="polite"
-                accessibilityLabel={`Arrival time ${arrivalDisplay.time}${arrivalDisplay.isNight ? ', after dark' : ', in daylight'}`}
+                accessibilityLabel={
+                  arrivalDisplay.time === '—'
+                    ? 'Calculating arrival time'
+                    : `Arrival time ${arrivalDisplay.time}${arrivalDisplay.isNight ? ', after dark' : ', in daylight'}`
+                }
               >
                 {arrivalDisplay.time}
-              </Text>
+              </Animated.Text>
               {arrivalDisplay.isNight ? (
                 <DaylightMoon width={16} height={16} />
               ) : (
@@ -2596,8 +2625,7 @@ const styles = StyleSheet.create({
   // Painting the full 44pt of padding left too much dead space
   // above the ETA row.
   dragHandleTapTarget: {
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingVertical: 20,
     alignItems: 'center',
   },
   // Hazard panel (Full state) — yellow diamond hazard marker on the
@@ -2735,7 +2763,7 @@ const styles = StyleSheet.create({
   },
   routeBadgeActive: { backgroundColor: colors.freshgreen, borderColor: colors.freshgreen },
   routeBadgeText: { ...typography.caption1Emphasized, color: colors.black },
-  routeBadgeTextActive: { color: colors.white },
+  routeBadgeTextActive: { color: colors.black },
 
   // --- End trip pill ---
   endTripBtn: {
