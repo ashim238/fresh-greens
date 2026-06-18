@@ -186,6 +186,10 @@ export default function Fuel() {
   // semantics. When OFF, rangeMiles=null and rangeSource='none' on save.
   // Hydrated from existing profile.rangeSource (ON if any non-'none' source).
   const [distanceEnabled, setDistanceEnabled] = useState(false);
+  // Inline prompt above the bucket pills, shown briefly after the user
+  // changes fuel type while a bucket was selected. Auto-clears on the
+  // next bucket pick (see handlePickBucket).
+  const [showFuelChangeNote, setShowFuelChangeNote] = useState(false);
 
   // Seed the form once, after the profile loads. useEffect (vs the
   // older conditional-setState-during-render pattern) is the idiomatic
@@ -240,11 +244,13 @@ export default function Fuel() {
     setCustomRangeOpen(false);
     setRangeMiles(bucket.rangeMiles);
     setRangeSource('bucket');
+    setShowFuelChangeNote(false);
   }
 
   function handleOpenCustom() {
     setCustomRangeOpen(true);
     setCustomRangeText(rangeMiles != null ? String(rangeMiles) : '');
+    setShowFuelChangeNote(false);
   }
 
   function handleCommitCustom() {
@@ -323,7 +329,18 @@ export default function Fuel() {
                     return (
                       <Pressable
                         key={ft.id}
-                        onPress={() => setFuelType(ft.id)}
+                        onPress={() => {
+                          if (ft.id === fuelType) return;
+                          setFuelType(ft.id);
+                          // Clear the bucket pick — a 350mi gas Sedan ≠ 350mi EV.
+                          // Auto-mapping would silently change a number the user didn't approve.
+                          if (rangeSource !== 'none') {
+                            setRangeMiles(null);
+                            setRangeSource('none');
+                            setCustomRangeOpen(false);
+                            setShowFuelChangeNote(true);
+                          }
+                        }}
                         style={({ pressed }) => [
                           styles.segmentItem,
                           selected && styles.segmentItemSelected,
@@ -407,6 +424,11 @@ export default function Fuel() {
                   {distanceEnabled && (
                     <View style={styles.field}>
                       <Text style={styles.fieldLabel}>Tank range</Text>
+                      {showFuelChangeNote && (
+                        <Text style={styles.fuelChangeNote} accessibilityLiveRegion="polite">
+                          Pick a tank range for your new fuel type.
+                        </Text>
+                      )}
                       <View
                         style={styles.rangeOptions}
                         accessibilityRole="radiogroup"
@@ -604,6 +626,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   statusText: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
+  fuelChangeNote: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
+  },
   rangeOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   rangeOption: {
     minHeight: 44,
