@@ -24,18 +24,19 @@ Today both collapse into `data === null || data.length === 0`, so "still loading
 
 ## Scope
 
-**6 screens, 5 hooks** (`useTrustedContact` serves two screens):
+**5 screens, 4 hooks** (`useTrustedContact` serves two screens):
 
 | Screen | Hook | Read mode today | Notes |
 |---|---|---|---|
 | `saved-places` | `useSavedPlaces` | mount-only | list |
 | `zone-preferences` | `usePreferences` | refocus | settings toggles |
 | `safety-settings` | `useTrustedContact` | refocus | per-row gate (see below) |
-| `trusted-contact-setup` | `useTrustedContact` | refocus | nullable-when-loaded |
+| `trusted-contact-setup` | `useTrustedContact` | refocus | nullable-when-loaded; animation guard reads the hydration flag |
 | `share-location` | `useShareSession` | refocus | `session` nullable-when-loaded |
-| `recordings` | `useRecordings` | mount-only | has an `error` branch |
 
-**Out of scope:** error-state presentation (owned by Sprint 1 PR #3, `SafetyErrorMessage` + error taxonomy); optimistic-write integrity (Sprint 1 PR #2, `useOptimisticMutation`). This PR is scoped to the loading→ready axis only.
+**`recordings` deferred to PR #3** (revised during planning, 2026-06-19). Two reasons surfaced while mapping the edits: (1) `useRecordings` + the recordings screen already gate on `loading` with a real Loading state (the PR-K loading→error→empty→list ladder), so there is no empty-state flash to fix here — unlike the 5 screens above, recordings does not conflate the axes. (2) Its `error` path fights the single-axis primitive; migrating it means threading the error catch through the reader. Since PR #3 (`SafetyErrorMessage`) already touches recordings' error branch, migrating it there is a single touch instead of two. See "Recordings" section below.
+
+**Out of scope:** error-state presentation (owned by Sprint 1 PR #3, `SafetyErrorMessage` + error taxonomy); optimistic-write integrity (Sprint 1 PR #2, `useOptimisticMutation`); `recordings` migration (PR #3, per above). This PR is scoped to the loading→ready axis on the 5 screens that genuinely flash.
 
 ---
 
@@ -110,16 +111,16 @@ export function useTrustedContact(): TrustedContactState {
 }
 ```
 
-**Refactor shape across all 5 hooks:** delete the `useState` + `useEffect`/`useFocusEffect` + `cancelled`-guard scaffolding; keep every line of domain logic. `tryCaptureContactLocation`, the picker flow, the one-home-at-a-time invariant, the SMS-open chain — untouched. The primitive absorbs only the boilerplate that was being copy-pasted (and subtly diverging) five times.
+**Refactor shape across all 4 hooks:** delete the `useState` + `useEffect`/`useFocusEffect` + `cancelled`-guard scaffolding; keep every line of domain logic. `tryCaptureContactLocation`, the picker flow, the one-home-at-a-time invariant, the SMS-open chain — untouched. The primitive absorbs only the boilerplate that was being copy-pasted (and subtly diverging) across these hooks.
 
-### Recordings: single-axis primitive, error layered on top
+### Recordings: deferred to PR #3 (not in this PR)
 
-`useRecordings` is the only hook with an `error` branch (the PR-K load-failure ladder: loading → error → empty → list). The primitive stays **loading→ready only**; recordings reconciles by:
+`useRecordings` is the only hook with an `error` branch (the PR-K load-failure ladder: loading → error → empty → list). It is **out of scope for this PR**, for two reasons found during planning:
 
-- its reader catching internally so `ready` still flips (no hang),
-- the **existing `error` branch staying exactly as-is**, living inside the ready branch.
+- **No flash to fix.** Unlike the 5 in-scope screens, the recordings screen already gates on `loading` and renders a real Loading state — it never shows the empty state during hydration. The axis-conflation bug this primitive fixes simply isn't present.
+- **Its error path fights the single-axis primitive.** Migrating now would mean threading the error catch through `useHydratedState`'s reader (reader catches internally, sets a domain-level error so `ready` still flips). That's the one awkward shape the primitive doesn't model cleanly.
 
-Error presentation is standardized later by Sprint 1 PR #3 (`SafetyErrorMessage`). Keeping the primitive single-axis means the 5 storage-backed hooks (whose AsyncStorage reads don't meaningfully fail) carry no never-hit error branch, and screen narrows stay two-case.
+PR #3 (`SafetyErrorMessage` + error taxonomy) already touches recordings' error branch. Migrating `useRecordings` to `useHydratedState` there is a single coordinated touch instead of two. Keeping the primitive single-axis (loading→ready only) means the 4 in-scope storage-backed hooks — whose AsyncStorage reads don't meaningfully fail — carry no never-hit error branch, and every screen narrow stays two-case.
 
 ### Screen consumer pattern
 
@@ -141,8 +142,8 @@ This is the chrome-only render (no skeleton primitive — a blank body reads hon
 
 The project has no test runner (no jest/RTL); the norm is **tsc + node assertions + manual device/sim smoke**. This PR matches that and does **not** add a test framework.
 
-- **`tsc` is the primary gate.** The discriminated union makes the bug a compile error — green tsc proves all 6 screens narrow correctly before reading data. This is most of the protection the PR exists to provide.
-- **Manual smoke (all 6 screens):** cold-launch with stored data present → confirm zero flash; with data absent → confirm the empty state renders (not a flash, not a hang). Critical walk for `useTrustedContact`: set a contact in `trusted-contact-setup`, pop back to `safety-settings`, confirm the name appears immediately (no "Add someone you trust" flicker).
+- **`tsc` is the primary gate.** The discriminated union makes the bug a compile error — green tsc proves all 5 screens narrow correctly before reading data. This is most of the protection the PR exists to provide.
+- **Manual smoke (all 5 screens):** cold-launch with stored data present → confirm zero flash; with data absent → confirm the empty state renders (not a flash, not a hang). Critical walk for `useTrustedContact`: set a contact in `trusted-contact-setup`, pop back to `safety-settings`, confirm the name appears immediately (no "Add someone you trust" flicker).
 - **Per-hook contract check:** each refactored hook's write methods still mutate local state correctly (add/remove/clear) — covered by the smoke walks.
 
 ---
@@ -150,19 +151,22 @@ The project has no test runner (no jest/RTL); the norm is **tsc + node assertion
 ## Files
 
 - **Create:** `hooks/useHydratedState.ts`
-- **Modify:** `hooks/useSavedPlaces.ts`, `hooks/usePreferences.ts`, `hooks/useTrustedContact.ts`, `hooks/useShareSession.ts`, `hooks/useRecordings.ts`
-- **Modify:** `app/saved-places.tsx`, `app/zone-preferences.tsx`, `app/safety-settings.tsx`, `app/trusted-contact-setup.tsx`, `app/share-location.tsx`, `app/recordings.tsx`
+- **Modify (hooks):** `hooks/useSavedPlaces.ts`, `hooks/usePreferences.ts`, `hooks/useTrustedContact.ts`, `hooks/useShareSession.ts`
+- **Modify (screens):** `app/saved-places.tsx`, `app/zone-preferences.tsx`, `app/safety-settings.tsx`, `app/trusted-contact-setup.tsx`, `app/share-location.tsx`
+- **Deferred to PR #3 (not touched here):** `hooks/useRecordings.ts`, `app/recordings.tsx`
 
 ## Verification (definition of done)
 
 - [ ] `tsc` passes with no errors
-- [ ] All 6 screens narrow on `ready` before accessing loaded data (compile-enforced)
-- [ ] Cold-launch smoke on all 6 screens: no empty-state flash with data present
+- [ ] All 5 screens narrow on `ready` before accessing loaded data (compile-enforced)
+- [ ] Cold-launch smoke on all 5 screens: no empty-state flash with data present
 - [ ] Empty state still renders correctly with data absent (loaded-but-empty)
 - [ ] `useTrustedContact` refocus walk: contact set in setup appears immediately on pop-back to `safety-settings`
+- [ ] `trusted-contact-setup` avatar-spring animation still fires only on a genuine unset→set transition, not on hydrate of a pre-existing contact
 - [ ] Each refactored hook's write methods (add/remove/clear/pick/start/end) still update local state
 - [ ] No domain logic changed — only loading scaffolding replaced
+- [ ] `useRecordings` / `app/recordings.tsx` untouched (confirms scope discipline)
 
 ## Sequencing
 
-PR #1 of the Sprint 1 trio. PR #2 (`useOptimisticMutation`) and PR #3 (`SafetyErrorMessage` + error taxonomy) are separate specs, brainstormed after this lands. Recordings' `error` branch is intentionally left untouched here; PR #3 standardizes it.
+PR #1 of the Sprint 1 trio. PR #2 (`useOptimisticMutation`) and PR #3 (`SafetyErrorMessage` + error taxonomy) are separate specs, brainstormed after this lands. `useRecordings` migrates to `useHydratedState` in PR #3, coordinated with the standardization of its `error` branch.
