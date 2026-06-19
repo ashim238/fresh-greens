@@ -1,12 +1,24 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BatteryHigh } from 'phosphor-react-native/src/icons/BatteryHigh';
+import { BatteryLow } from 'phosphor-react-native/src/icons/BatteryLow';
+import { BatteryMedium } from 'phosphor-react-native/src/icons/BatteryMedium';
+import { CarProfile } from 'phosphor-react-native/src/icons/CarProfile';
+import { CarSimple } from 'phosphor-react-native/src/icons/CarSimple';
+import { Check } from 'phosphor-react-native/src/icons/Check';
+import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
+import { Leaf } from 'phosphor-react-native/src/icons/Leaf';
+import { Lightning } from 'phosphor-react-native/src/icons/Lightning';
 import { Minus } from 'phosphor-react-native/src/icons/Minus';
+import { PencilSimple } from 'phosphor-react-native/src/icons/PencilSimple';
 import { Plus } from 'phosphor-react-native/src/icons/Plus';
 import { Trash } from 'phosphor-react-native/src/icons/Trash';
+import { Truck } from 'phosphor-react-native/src/icons/Truck';
 
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
@@ -20,24 +32,58 @@ import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 
-const FUEL_TYPES: { id: FuelType; label: string }[] = [
-  { id: 'gas', label: 'Gas' },
-  { id: 'diesel', label: 'Diesel' },
-  { id: 'hybrid', label: 'Hybrid' },
-  { id: 'electric', label: 'Electric' },
+/**
+ * Per-fuel-type display spec. The icon is rendered to the left of the
+ * label inside each segment pill. Gas and Diesel share GasPump — Phosphor
+ * has no diesel-specific glyph, and the label below disambiguates.
+ */
+const FUEL_TYPES: { id: FuelType; label: string; Icon: typeof GasPump }[] = [
+  { id: 'gas', label: 'Gas', Icon: GasPump },
+  { id: 'diesel', label: 'Diesel', Icon: GasPump },
+  { id: 'hybrid', label: 'Hybrid', Icon: Leaf },
+  { id: 'electric', label: 'Electric', Icon: Lightning },
 ];
 
 const MIN_DAYS = 1;
 const MAX_DAYS = 60;
 
-/** Phase-1 tank-range tier buckets. `null` = Time only (distance off). */
-const RANGE_BUCKETS: { id: string; label: string; rangeMiles: number | null }[] = [
-  { id: 'none', label: 'Time only', rangeMiles: null },
-  { id: 'compact', label: 'Compact ~300 mi', rangeMiles: 300 },
-  { id: 'sedan', label: 'Sedan ~350 mi', rangeMiles: 350 },
-  { id: 'suv', label: 'SUV / Truck ~400 mi', rangeMiles: 400 },
-  { id: 'ev', label: 'EV ~250 mi', rangeMiles: 250 },
-];
+/**
+ * Per-fuel-type bucket specs. Gas/diesel/hybrid use vehicle-class labels
+ * (drivers think "I drive a sedan"); EV uses range-based labels because
+ * EV ranges vary too widely for vehicle class to map cleanly. The Custom
+ * pill is rendered separately (universal across fuel types). Icons are
+ * imported in Task 1; the icon component reference travels with each
+ * bucket so the row-render loop can dispatch off the spec.
+ */
+type BucketSpec = {
+  id: string;
+  label: string;
+  rangeMiles: number;
+  Icon: typeof CarSimple;
+};
+
+const BUCKETS_BY_FUEL_TYPE: Record<FuelType, BucketSpec[]> = {
+  gas: [
+    { id: 'compact-gas', label: 'Compact · 300 mi', rangeMiles: 300, Icon: CarSimple },
+    { id: 'sedan-gas', label: 'Sedan · 350 mi', rangeMiles: 350, Icon: CarProfile },
+    { id: 'suv-gas', label: 'SUV / Truck · 400 mi', rangeMiles: 400, Icon: Truck },
+  ],
+  diesel: [
+    { id: 'compact-diesel', label: 'Compact · 350 mi', rangeMiles: 350, Icon: CarSimple },
+    { id: 'sedan-diesel', label: 'Sedan · 400 mi', rangeMiles: 400, Icon: CarProfile },
+    { id: 'suv-diesel', label: 'SUV / Truck · 450 mi', rangeMiles: 450, Icon: Truck },
+  ],
+  hybrid: [
+    { id: 'compact-hybrid', label: 'Compact · 450 mi', rangeMiles: 450, Icon: CarSimple },
+    { id: 'sedan-hybrid', label: 'Sedan · 500 mi', rangeMiles: 500, Icon: CarProfile },
+    { id: 'suv-hybrid', label: 'SUV · 550 mi', rangeMiles: 550, Icon: Truck },
+  ],
+  electric: [
+    { id: 'ev-short', label: 'Short · 200 mi', rangeMiles: 200, Icon: BatteryLow },
+    { id: 'ev-mid', label: 'Mid · 280 mi', rangeMiles: 280, Icon: BatteryMedium },
+    { id: 'ev-long', label: 'Long · 360 mi', rangeMiles: 360, Icon: BatteryHigh },
+  ],
+};
 
 const MIN_RANGE = 20;
 const MAX_RANGE = 800;
@@ -49,6 +95,54 @@ const FILL_FRACTIONS: { id: string; label: string; a11yLabel: string; fraction: 
   { id: 'half', label: '½', a11yLabel: 'Filled one half', fraction: 0.5 },
   { id: 'quarter', label: '¼', a11yLabel: 'Filled one quarter', fraction: 0.25 },
 ];
+
+/**
+ * Bucket pill — text label + leading Phosphor icon, with the
+ * four-affordance selected state (bg, icon color, label color, Check
+ * prefix). Used for the per-fuel-type buckets AND the universal Custom
+ * pill. The Custom pill passes `Icon={PencilSimple}`.
+ */
+function BucketPill({
+  Icon,
+  label,
+  selected,
+  onPress,
+  a11yLabel,
+}: {
+  Icon: typeof CarSimple;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  a11yLabel: string;
+}) {
+  const iconColor = selected ? colors.white : colors.labelSecondary;
+  const textStyle = [styles.rangeOptionText, selected && styles.rangeOptionTextSelected];
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.rangeOption,
+        selected && styles.rangeOptionSelected,
+        pressed && pressedDim,
+      ]}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, checked: selected }}
+      accessibilityLabel={a11yLabel}
+    >
+      {selected && (
+        <Check size={14} color={colors.white} weight="bold" />
+      )}
+      <Icon
+        size={20}
+        color={iconColor}
+        weight={selected ? 'fill' : 'regular'}
+      />
+      <Text style={textStyle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 /**
  * /fuel — refuel-reminder setup. Pushed from the /search Fuel card.
@@ -91,6 +185,14 @@ export default function Fuel() {
   const [rangeSource, setRangeSource] = useState<FuelProfile['rangeSource']>('none');
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
   const [customRangeText, setCustomRangeText] = useState('');
+  // "Also use distance" toggle — owns the distance-trigger on/off
+  // semantics. When OFF, rangeMiles=null and rangeSource='none' on save.
+  // Hydrated from existing profile.rangeSource (ON if any non-'none' source).
+  const [distanceEnabled, setDistanceEnabled] = useState(false);
+  // Inline prompt above the bucket pills, shown briefly after the user
+  // changes fuel type while a bucket was selected. Auto-clears on the
+  // next bucket pick (see handlePickBucket).
+  const [showFuelChangeNote, setShowFuelChangeNote] = useState(false);
 
   // Seed the form once, after the profile loads. useEffect (vs the
   // older conditional-setState-during-render pattern) is the idiomatic
@@ -104,6 +206,7 @@ export default function Fuel() {
     setEnabled(profile.remindersEnabled);
     setRangeMiles(profile.rangeMiles);
     setRangeSource(profile.rangeSource);
+    setDistanceEnabled(profile.rangeSource !== 'none');
     setHydrated(true);
   }, [loading, profile, hydrated]);
 
@@ -115,8 +218,8 @@ export default function Fuel() {
       fuelType,
       cadenceDays,
       remindersEnabled: enabled,
-      rangeMiles,
-      rangeSource,
+      rangeMiles: distanceEnabled ? rangeMiles : null,
+      rangeSource: distanceEnabled ? rangeSource : 'none',
     });
     setSaving(false);
     if (!result.ok) {
@@ -133,22 +236,32 @@ export default function Fuel() {
     router.back();
   }
 
-  async function handleFilledUp(fillFraction: number) {
+  // The last-logged fill fraction. Persists as a selected state on its
+  // pill (freshgreen fill) so the user can see at a glance what they
+  // last recorded for this cycle, rather than a momentary flash.
+  const [selectedFillId, setSelectedFillId] = useState<string | null>(null);
+
+  async function handleFilledUp(id: string, fillFraction: number) {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setSelectedFillId(id);
+
     const result = await markFilledUp(fillFraction);
     if (!result.ok) {
       Alert.alert('Could not update', 'Please try again in a moment.');
     }
   }
 
-  function handlePickBucket(bucket: (typeof RANGE_BUCKETS)[number]) {
+  function handlePickBucket(bucket: BucketSpec) {
     setCustomRangeOpen(false);
     setRangeMiles(bucket.rangeMiles);
-    setRangeSource(bucket.rangeMiles == null ? 'none' : 'bucket');
+    setRangeSource('bucket');
+    setShowFuelChangeNote(false);
   }
 
   function handleOpenCustom() {
     setCustomRangeOpen(true);
     setCustomRangeText(rangeMiles != null ? String(rangeMiles) : '');
+    setShowFuelChangeNote(false);
   }
 
   function handleCommitCustom() {
@@ -167,10 +280,15 @@ export default function Fuel() {
   }
 
   // Which bucket (if any) is currently selected — for the selected styling.
+  // Matches against the active fuel-type's bucket set; if the stored
+  // rangeMiles isn't a bucket in the current set (e.g. user switched fuel
+  // types and we haven't reset yet — Task 6 covers that flow), nothing
+  // shows as selected and the user can pick fresh.
+  const activeBuckets = BUCKETS_BY_FUEL_TYPE[fuelType];
   const selectedBucketId =
     rangeSource === 'custom'
       ? 'custom'
-      : RANGE_BUCKETS.find((b) => b.rangeMiles === rangeMiles)?.id ?? 'none';
+      : activeBuckets.find((b) => b.rangeMiles === rangeMiles)?.id ?? null;
 
   const nextLabel =
     profile?.remindersEnabled && profile.nextReminderAt
@@ -222,7 +340,18 @@ export default function Fuel() {
                     return (
                       <Pressable
                         key={ft.id}
-                        onPress={() => setFuelType(ft.id)}
+                        onPress={() => {
+                          if (ft.id === fuelType) return;
+                          setFuelType(ft.id);
+                          // Clear the bucket pick — a 350mi gas Sedan ≠ 350mi EV.
+                          // Auto-mapping would silently change a number the user didn't approve.
+                          if (rangeSource !== 'none') {
+                            setRangeMiles(null);
+                            setRangeSource('none');
+                            setCustomRangeOpen(false);
+                            setShowFuelChangeNote(true);
+                          }
+                        }}
                         style={({ pressed }) => [
                           styles.segmentItem,
                           selected && styles.segmentItemSelected,
@@ -232,7 +361,15 @@ export default function Fuel() {
                         accessibilityState={{ selected }}
                         accessibilityLabel={ft.label}
                       >
-                        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                        <ft.Icon
+                          size={20}
+                          color={selected ? colors.white : colors.labelSecondary}
+                          weight={selected ? 'fill' : 'regular'}
+                        />
+                        <Text
+                          style={[styles.segmentText, selected && styles.segmentTextSelected]}
+                          numberOfLines={1}
+                        >
                           {ft.label}
                         </Text>
                       </Pressable>
@@ -242,7 +379,13 @@ export default function Fuel() {
               </View>
             </RowGroup>
 
-            <RowGroup>
+            <RowGroup
+              footer={
+                enabled && distanceEnabled
+                  ? "Reminders fire on your schedule OR after this many in-app navigated miles, whichever comes first. Miles only count trips you navigate in the app."
+                  : undefined
+              }
+            >
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Remind me to refuel</Text>
                 <Switch
@@ -254,145 +397,135 @@ export default function Fuel() {
                 />
               </View>
 
-              {/* Cadence only matters once reminders are on — hide it
-                  when the toggle is off so the group doesn't show a
-                  setting that has no effect (and the separator above it
-                  collapses with it). */}
               {enabled && (
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Remind me every</Text>
-                  <View style={styles.stepperRow}>
-                    <Pressable
-                      onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
-                      style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Fewer days"
-                    >
-                      <Minus size={20} color={colors.black} weight="bold" />
-                    </Pressable>
-                    <Text style={styles.stepValue}>
-                      {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
-                    </Text>
-                    <Pressable
-                      onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
-                      style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
-                      accessibilityRole="button"
-                      accessibilityLabel="More days"
-                    >
-                      <Plus size={20} color={colors.black} weight="bold" />
-                    </Pressable>
+                <>
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>Remind me every</Text>
+                    <View style={styles.stepperRow}>
+                      <Pressable
+                        onPress={() => setCadenceDays((d) => Math.max(MIN_DAYS, d - 1))}
+                        style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Fewer days"
+                      >
+                        <Minus size={20} color={colors.black} weight="bold" />
+                      </Pressable>
+                      <Text style={styles.stepValue}>
+                        {cadenceDays} {cadenceDays === 1 ? 'day' : 'days'}
+                      </Text>
+                      <Pressable
+                        onPress={() => setCadenceDays((d) => Math.min(MAX_DAYS, d + 1))}
+                        style={({ pressed }) => [styles.stepBtn, pressed && pressedDim]}
+                        accessibilityRole="button"
+                        accessibilityLabel="More days"
+                      >
+                        <Plus size={20} color={colors.black} weight="bold" />
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
+
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleLabel}>Also use distance</Text>
+                    <Switch
+                      value={distanceEnabled}
+                      onValueChange={setDistanceEnabled}
+                      trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+                      thumbColor={colors.white}
+                      accessibilityLabel="Also use distance to trigger reminders"
+                    />
+                  </View>
+
+                  {distanceEnabled && (
+                    <View style={styles.field}>
+                      <Text style={styles.fieldLabel}>Tank range</Text>
+                      {showFuelChangeNote && (
+                        <Text style={styles.fuelChangeNote} accessibilityLiveRegion="polite">
+                          Pick a tank range for your new fuel type.
+                        </Text>
+                      )}
+                      <View
+                        style={styles.rangeOptions}
+                        accessibilityRole="radiogroup"
+                        accessibilityLabel="Tank range"
+                      >
+                        {activeBuckets.map((b) => (
+                          <BucketPill
+                            key={b.id}
+                            Icon={b.Icon}
+                            label={b.label}
+                            selected={selectedBucketId === b.id && !customRangeOpen}
+                            onPress={() => handlePickBucket(b)}
+                            a11yLabel={b.label}
+                          />
+                        ))}
+                        <BucketPill
+                          Icon={PencilSimple}
+                          label={
+                            rangeSource === 'custom' && rangeMiles != null
+                              ? `Custom · ${rangeMiles} mi`
+                              : 'Custom…'
+                          }
+                          selected={selectedBucketId === 'custom' || customRangeOpen}
+                          onPress={handleOpenCustom}
+                          a11yLabel="Custom range"
+                        />
+                      </View>
+
+                      {customRangeOpen && (
+                        <View style={styles.customRangeRow}>
+                          <TextInput
+                            style={styles.input}
+                            value={customRangeText}
+                            onChangeText={setCustomRangeText}
+                            onEndEditing={handleCommitCustom}
+                            placeholder="e.g. 320"
+                            placeholderTextColor={colors.mutedSecondary}
+                            keyboardType="number-pad"
+                            returnKeyType="done"
+                            onSubmitEditing={handleCommitCustom}
+                            accessibilityLabel="Custom tank range in miles"
+                          />
+                          <Text style={styles.customRangeUnit}>mi</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </>
               )}
             </RowGroup>
 
-            {enabled && (
-              <RowGroup
-                footer="We'll remind you at your cadence OR after this many in-app navigated miles -- whichever comes first. Miles only count trips you navigate in the app."
-              >
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Tank range</Text>
-                  <View
-                    style={styles.rangeOptions}
-                    accessibilityRole="radiogroup"
-                    accessibilityLabel="Tank range"
-                  >
-                    {RANGE_BUCKETS.map((b) => {
-                      const selected = selectedBucketId === b.id && !customRangeOpen;
-                      return (
-                        <Pressable
-                          key={b.id}
-                          onPress={() => handlePickBucket(b)}
-                          style={({ pressed }) => [
-                            styles.rangeOption,
-                            selected && styles.rangeOptionSelected,
-                            pressed && pressedDim,
-                          ]}
-                          accessibilityRole="radio"
-                          accessibilityState={{ selected, checked: selected }}
-                          accessibilityLabel={b.label}
-                        >
-                          <Text
-                            style={[
-                              styles.rangeOptionText,
-                              selected && styles.rangeOptionTextSelected,
-                            ]}
-                          >
-                            {b.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                    <Pressable
-                      onPress={handleOpenCustom}
-                      style={({ pressed }) => [
-                        styles.rangeOption,
-                        (selectedBucketId === 'custom' || customRangeOpen) &&
-                          styles.rangeOptionSelected,
-                        pressed && pressedDim,
-                      ]}
-                      accessibilityRole="radio"
-                      accessibilityState={{
-                        selected: selectedBucketId === 'custom' || customRangeOpen,
-                        checked: selectedBucketId === 'custom' || customRangeOpen,
-                      }}
-                      accessibilityLabel="Custom range"
-                    >
-                      <Text
-                        style={[
-                          styles.rangeOptionText,
-                          (selectedBucketId === 'custom' || customRangeOpen) &&
-                            styles.rangeOptionTextSelected,
-                        ]}
-                      >
-                        {rangeSource === 'custom' && rangeMiles != null
-                          ? `Custom · ${rangeMiles} mi`
-                          : 'Custom…'}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {customRangeOpen && (
-                    <View style={styles.customRangeRow}>
-                      <TextInput
-                        style={styles.input}
-                        value={customRangeText}
-                        onChangeText={setCustomRangeText}
-                        onEndEditing={handleCommitCustom}
-                        placeholder="e.g. 320"
-                        placeholderTextColor={colors.mutedSecondary}
-                        keyboardType="number-pad"
-                        returnKeyType="done"
-                        onSubmitEditing={handleCommitCustom}
-                        accessibilityLabel="Custom tank range in miles"
-                      />
-                      <Text style={styles.customRangeUnit}>mi</Text>
-                    </View>
-                  )}
-                </View>
-              </RowGroup>
-            )}
-
-            {profile?.remindersEnabled && nextLabel && (
-              <RowGroup footer="Tell us how much you filled -- a partial fill reminds you sooner.">
+            {enabled && profile?.remindersEnabled && nextLabel && (
+              <RowGroup footer="Tell us how much you filled — a partial fill reminds you sooner.">
                 <View style={styles.statusBlock}>
                   <Text style={styles.statusText}>Next reminder: {nextLabel}</Text>
                   <Text style={styles.fieldLabel}>I filled up…</Text>
                   <View style={styles.fillRow}>
-                    {FILL_FRACTIONS.map((f) => (
-                      <Pressable
-                        key={f.id}
-                        onPress={() => handleFilledUp(f.fraction)}
-                        style={({ pressed }) => [
-                          styles.fillBtn,
-                          pressed && pressedDim,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={f.a11yLabel}
-                      >
-                        <Text style={styles.fillBtnText}>{f.label}</Text>
-                      </Pressable>
-                    ))}
+                    {FILL_FRACTIONS.map((f) => {
+                      const selected = selectedFillId === f.id;
+                      return (
+                        <Pressable
+                          key={f.id}
+                          onPress={() => handleFilledUp(f.id, f.fraction)}
+                          style={({ pressed }) => [
+                            styles.fillBtn,
+                            selected && styles.fillBtnSelected,
+                            pressed && pressedDim,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={f.a11yLabel}
+                          accessibilityState={{ selected }}
+                        >
+                          {selected && (
+                            <Check size={14} color={colors.white} weight="bold" />
+                          )}
+                          <Text
+                            style={[styles.fillBtnText, selected && styles.fillBtnTextSelected]}
+                          >
+                            {f.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 </View>
               </RowGroup>
@@ -419,10 +552,9 @@ export default function Fuel() {
                     </View>
                     <Pressable
                       onPress={() => handleRemoveStation(s.id, s.name)}
-                      hitSlop={8}
                       accessibilityRole="button"
                       accessibilityLabel={`Remove ${s.name}`}
-                      style={({ pressed }) => [pressed && pressedDim]}
+                      style={({ pressed }) => [styles.stationRemoveBtn, pressed && pressedDim]}
                     >
                       <Trash size={20} color={colors.labelSecondary} weight="regular" />
                     </Pressable>
@@ -434,12 +566,20 @@ export default function Fuel() {
             <Pressable
               onPress={handleSave}
               disabled={saving}
-              style={({ pressed }) => [styles.saveBtn, pressed && !saving && pressedDim]}
+              style={({ pressed }) => [
+                styles.saveBtn,
+                saving && styles.saveBtnDisabled,
+                pressed && !saving && pressedDim,
+              ]}
               accessibilityRole="button"
               accessibilityLabel="Save refuel reminder settings"
-              accessibilityState={{ disabled: saving }}
+              accessibilityState={{ disabled: saving, busy: saving }}
             >
-              <Text style={styles.saveBtnText}>Save</Text>
+              {saving ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>Save</Text>
+              )}
             </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -461,7 +601,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
-  fieldLabel: { ...dynamicType(typography.footnoteEmphasized), color: colors.labelSecondary },
+  // Subheadline (15/600), not footnote (13/600): lifts control labels
+  // one rung above the 13pt secondary-metadata tier (status text,
+  // footnotes) so a label reads as a label, not a caption. Matches the
+  // RowGroup title size, so section titles and field labels speak the
+  // same register. No new weight or color — restraint preserved.
+  fieldLabel: { ...dynamicType(typography.subheadlineEmphasized), color: colors.labelSecondary },
   input: {
     ...dynamicType(typography.bodyRegular),
     color: colors.black,
@@ -471,12 +616,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
   },
-  segment: { flexDirection: 'row', gap: spacing.sm },
+  // Pills size to their content (no flex:1) so each fuel type gets the
+  // same horizontal breathing room around its label, rather than equal
+  // widths that crowd the long labels (Electric/Diesel) and over-pad the
+  // short one (Gas). flexWrap lets the four content-sized pills flow onto
+  // a second row on narrower viewports instead of clipping.
+  segment: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   segmentItem: {
-    flex: 1,
     minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
@@ -496,7 +648,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
   },
@@ -516,11 +668,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   statusText: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
+  fuelChangeNote: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
+    backgroundColor: colors.fillsQuaternary,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
   rangeOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   rangeOption: {
     minHeight: 44,
     minWidth: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
@@ -545,25 +708,39 @@ const styles = StyleSheet.create({
   fillBtn: {
     minHeight: 44,
     minWidth: 64,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.freshgreen,
   },
+  fillBtnSelected: {
+    backgroundColor: colors.freshgreen,
+  },
   fillBtnText: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.freshgreen,
+  },
+  fillBtnTextSelected: {
+    color: colors.white,
   },
   saveBtn: {
     minHeight: 50,
     borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
+    // 1pt wiltedgreen border per DESIGN.md: freshgreen alone is 2.88:1
+    // against the page (below the 3:1 UI-component floor); the border
+    // lifts the button-to-page edge into a legible range.
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { ...dynamicType(typography.bodyEmphasized), color: colors.white },
   stationRow: {
     flexDirection: 'row',
@@ -572,6 +749,12 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  stationRemoveBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stationTextStack: { flex: 1, gap: 2 },
   stationName: { ...dynamicType(typography.bodyRegular), color: colors.black },
