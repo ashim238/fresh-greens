@@ -43,10 +43,12 @@ const REASONS: ReasonOption[] = [
  */
 export default function ShareLocation() {
   const router = useRouter();
-  const { session, startSession, endSession, resendSessionSms } = useShareSession();
+  const shareState = useShareSession();
+  const { startSession, endSession, resendSessionSms } = shareState;
   const { contact } = useTrustedContact();
   const [busy, setBusy] = useState(false);
 
+  const session = shareState.ready ? shareState.session : null;
   const isActive = session?.type === 'share-location';
 
   // Dismiss to /home if we got here cold (deep-link / notification entry)
@@ -88,22 +90,26 @@ export default function ShareLocation() {
         <View style={styles.dragHandleWrap}>
           <DragHandle />
         </View>
-        {isActive && session ? (
-          <ActiveView
-            contactName={contact?.name ?? 'Your contact'}
-            sessionReason={session.reason}
-            onEnd={handleEnd}
-            onResendSms={() => {
-              void resendSessionSms();
-            }}
-          />
-        ) : (
-          <ReasonPicker
-            contactName={contact?.name ?? 'Your contact'}
-            onPick={handlePick}
-            disabled={busy}
-          />
-        )}
+        {shareState.ready
+          ? isActive && session
+            ? (
+              <ActiveView
+                contactName={contact?.name ?? 'Your contact'}
+                sessionReason={session.reason}
+                onEnd={handleEnd}
+                onResendSms={() => {
+                  void resendSessionSms();
+                }}
+              />
+            )
+            : (
+              <ReasonPicker
+                contactName={contact?.name ?? 'Your contact'}
+                onPick={handlePick}
+                disabled={busy}
+              />
+            )
+          : null}
       </SafeAreaView>
     </View>
   );

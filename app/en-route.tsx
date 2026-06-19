@@ -463,7 +463,8 @@ export default function EnRoute() {
   // End-trip button in the sheet AND the bottoms of both columns.
   // Mirrors the same session && contact gate LiveSafetySheet uses to
   // decide whether the pill renders at all. User-flagged 2026-06-01.
-  const { session: shareSession } = useShareSession();
+  const shareState = useShareSession();
+  const shareSession = shareState.ready ? shareState.session : null;
   const { contact: trustedContact } = useTrustedContact();
   const safetyPillShowing = !!shareSession && !!trustedContact;
   // Reserved vertical space for the pill: 16pt inset + 64pt minHeight +

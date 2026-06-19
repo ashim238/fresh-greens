@@ -50,7 +50,9 @@ export function LiveSafetySheet({
 }: {
   bottomInset?: number;
 } = {}) {
-  const { session, endSession, resendSessionSms } = useShareSession();
+  const shareState = useShareSession();
+  const { endSession, resendSessionSms } = shareState;
+  const session = shareState.ready ? shareState.session : null;
   const { contact } = useTrustedContact();
   const [expanded, setExpanded] = useState(false);
   const [tickSeconds, setTickSeconds] = useState(0);

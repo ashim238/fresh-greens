@@ -81,19 +81,20 @@ const DESTINATIONS: DestinationOption[] = [
  */
 export default function Unfamiliar() {
   const router = useRouter();
-  const { session, loading, startSession, endSession, resendSessionSms } =
-    useShareSession();
+  const shareState = useShareSession();
+  const session = shareState.ready ? shareState.session : null;
+  const { startSession, endSession, resendSessionSms } = shareState;
   const { contact } = useTrustedContact();
   // Step initializer reads `session` lazily on mount. While the hook is
-  // still hydrating from AsyncStorage (loading=true), `session` is null —
+  // still hydrating from AsyncStorage (!shareState.ready), `session` is null —
   // we'd land on 'problem' and let the user start a NEW session that
-  // overwrites the existing one's startedAtIso. Guarding on `loading`
+  // overwrites the existing one's startedAtIso. Guarding on ready
   // forces the picker to wait until the hook resolves; once it has, we
   // never re-read here (the useState initializer fires once).
   const [step, setStep] = useState<Step | null>(() =>
-    loading ? null : session?.type === 'unfamiliar' ? 'active' : 'problem',
+    !shareState.ready ? null : session?.type === 'unfamiliar' ? 'active' : 'problem',
   );
-  if (step === null && !loading) {
+  if (step === null && shareState.ready) {
     setStep(session?.type === 'unfamiliar' ? 'active' : 'problem');
   }
   const [lifelineOpen, setLifelineOpen] = useState(false);
