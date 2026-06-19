@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Check } from 'phosphor-react-native/src/icons/Check';
 import { X } from 'phosphor-react-native/src/icons/X';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Pressable,
@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
+import { useMutation } from '../hooks/useMutation';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import {
   addCommunityReport,
@@ -113,6 +114,14 @@ export default function TripSummary() {
     useLocalSearchParams<TripSummaryParams>();
   const { markRegular } = useRegularDestinations();
 
+  const acceptMutation = useMutation(addCommunityReport);
+  const regularMutation = useMutation(markRegular);
+  // Map of inference-id → the Inference object, when its save failed
+  // (used to render an inline "tap to retry" line below the row).
+  const [retryableAccepts, setRetryableAccepts] = useState<
+    Record<string, Inference>
+  >({});
+
   const meters = Number(distanceMeters);
   const minutes = Number(estimatedMinutes);
   const distanceText =
@@ -137,6 +146,13 @@ export default function TripSummary() {
   }, [inferences]);
 
   const [statuses, setStatuses] = useState<Record<string, InferenceStatus>>({});
+  // Ref that mirrors statuses for synchronous reads inside async handlers.
+  // React state updates are batched; without this, the rollback in handleAccept
+  // can't see a Reject the user tapped during the await.
+  const statusesRef = useRef<Record<string, InferenceStatus>>({});
+  useEffect(() => {
+    statusesRef.current = statuses;
+  }, [statuses]);
 
   // Announce the recap on open — the modal carries information a screen-
   // reader user would otherwise hunt for across separate Text nodes.
@@ -161,18 +177,24 @@ export default function TripSummary() {
     // C12c: mark this destination a "regular" — it unlocks the
     // recurring-destination underline on /home (isRegularLocation) and
     // is the first frequency signal feeding the adaptive-personalization
-    // spine (C15). Best-effort; dismiss either way. Needs the name +
-    // coords (carried from the arrival push).
+    // spine (C15). Needs the name + coords (carried from the arrival push).
     const lat = Number(destLat);
     const lng = Number(destLng);
     if (label && Number.isFinite(lat) && Number.isFinite(lng)) {
-      try {
-        await markRegular({ name: label, latitude: lat, longitude: lng });
+      const result = await regularMutation.run({
+        name: label,
+        latitude: lat,
+        longitude: lng,
+      });
+      if (result.ok) {
         AccessibilityInfo.announceForAccessibility(
           `${label} saved as a regular destination.`,
         );
-      } catch {
-        // Best-effort local write; dismiss regardless.
+      } else {
+        // P-A: stay on screen, retry-line near the CTA (rendered
+        // conditionally on regularMutation.status === 'error', see
+        // actions section). User can tap to retry; success dismisses.
+        return;
       }
     }
     router.back();
@@ -182,19 +204,34 @@ export default function TripSummary() {
     const meta = INFERENCE_META[inf.category];
     if (!meta) return;
     setStatuses((s) => ({ ...s, [inf.id]: 'accepted' }));
-    try {
-      // Confirmation → community report. Same pipeline /report uses, so
-      // the validated zone feeds future routing (getCommunityReportsAsZones
-      // → scoring). This is the countermapping loop closing.
-      await addCommunityReport({
-        categoryId: meta.reportCategoryId,
-        location: { latitude: inf.latitude, longitude: inf.longitude },
-        detail: meta.detail,
-      });
-    } catch {
-      // Best-effort local write; the optimistic 'accepted' state stands.
-      // A failed AsyncStorage write is rare and not worth a rollback that
-      // would re-prompt the user mid-recap.
+    // Clear any prior retry-state for this inference (a retry tap should
+    // not leave a stale "tap to retry" if the new attempt succeeds).
+    setRetryableAccepts((r) => {
+      const next = { ...r };
+      delete next[inf.id];
+      return next;
+    });
+    // Confirmation → community report. Same pipeline /report uses, so
+    // the validated zone feeds future routing (getCommunityReportsAsZones
+    // → scoring). This is the countermapping loop closing.
+    const result = await acceptMutation.run({
+      categoryId: meta.reportCategoryId,
+      location: { latitude: inf.latitude, longitude: inf.longitude },
+      detail: meta.detail,
+    });
+    if (!result.ok) {
+      // P-A: snap pip back to unanswered, surface inline retry — but only
+      // if the user hasn't since rejected this inference. If they tapped
+      // Reject during the await, statusesRef will be 'rejected'; rolling
+      // back would clobber their deliberate choice.
+      if (statusesRef.current[inf.id] === 'accepted') {
+        setStatuses((s) => {
+          const next = { ...s };
+          delete next[inf.id];
+          return next;
+        });
+        setRetryableAccepts((r) => ({ ...r, [inf.id]: inf }));
+      }
     }
   }
 
@@ -249,54 +286,68 @@ export default function TripSummary() {
                 const meta = INFERENCE_META[inf.category];
                 const status = statuses[inf.id] ?? 'pending';
                 return (
-                  <View key={inf.id} style={styles.inferenceRow}>
-                    <Text
-                      style={[
-                        styles.inferenceLabel,
-                        status === 'rejected' && styles.inferenceLabelMuted,
-                      ]}
-                    >
-                      {meta.label}
-                    </Text>
-                    {status === 'pending' ? (
-                      <View style={styles.inferenceActions}>
-                        <Pressable
-                          onPress={() => handleReject(inf)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Dismiss: ${meta.label}`}
-                          style={({ pressed }) => [
-                            styles.inferenceBtn,
-                            styles.inferenceBtnReject,
-                            pressed && pressedDim,
-                          ]}
-                        >
-                          <X size={18} color={colors.labelSecondary} weight="bold" />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleAccept(inf)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Confirm: ${meta.label}`}
-                          style={({ pressed }) => [
-                            styles.inferenceBtn,
-                            styles.inferenceBtnAccept,
-                            pressed && pressedDim,
-                          ]}
-                        >
-                          <Check size={18} color={colors.white} weight="bold" />
-                        </Pressable>
-                      </View>
-                    ) : (
+                  <View key={inf.id}>
+                    <View style={styles.inferenceRow}>
                       <Text
-                        accessibilityLiveRegion="polite"
                         style={[
-                          styles.inferenceResult,
-                          status === 'accepted'
-                            ? styles.inferenceResultAccepted
-                            : styles.inferenceResultRejected,
+                          styles.inferenceLabel,
+                          status === 'rejected' && styles.inferenceLabelMuted,
                         ]}
                       >
-                        {status === 'accepted' ? 'Confirmed' : 'Dismissed'}
+                        {meta.label}
                       </Text>
+                      {status === 'pending' ? (
+                        <View style={styles.inferenceActions}>
+                          <Pressable
+                            onPress={() => handleReject(inf)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Dismiss: ${meta.label}`}
+                            style={({ pressed }) => [
+                              styles.inferenceBtn,
+                              styles.inferenceBtnReject,
+                              pressed && pressedDim,
+                            ]}
+                          >
+                            <X size={18} color={colors.labelSecondary} weight="bold" />
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleAccept(inf)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Confirm: ${meta.label}`}
+                            style={({ pressed }) => [
+                              styles.inferenceBtn,
+                              styles.inferenceBtnAccept,
+                              pressed && pressedDim,
+                            ]}
+                          >
+                            <Check size={18} color={colors.white} weight="bold" />
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <Text
+                          accessibilityLiveRegion="polite"
+                          style={[
+                            styles.inferenceResult,
+                            status === 'accepted'
+                              ? styles.inferenceResultAccepted
+                              : styles.inferenceResultRejected,
+                          ]}
+                        >
+                          {status === 'accepted' ? 'Confirmed' : 'Dismissed'}
+                        </Text>
+                      )}
+                    </View>
+                    {retryableAccepts[inf.id] && (
+                      <Pressable
+                        onPress={() => handleAccept(retryableAccepts[inf.id]!)}
+                        style={styles.inferenceRetryLine}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Retry confirming ${meta.label}`}
+                      >
+                        <Text style={styles.inferenceRetryText}>
+                          Didn't save — tap to retry.
+                        </Text>
+                      </Pressable>
                     )}
                   </View>
                 );
@@ -306,6 +357,18 @@ export default function TripSummary() {
         </ScrollView>
 
         <View style={styles.actions}>
+          {regularMutation.status === 'error' && (
+            <Pressable
+              onPress={handleSetDefault}
+              style={styles.setDefaultRetryLine}
+              accessibilityRole="button"
+              accessibilityLabel="Retry saving as default"
+            >
+              <Text style={styles.setDefaultRetryText}>
+                Didn't save — tap to retry.
+              </Text>
+            </Pressable>
+          )}
           <Button
             text="Set as default"
             type="primary"
@@ -435,5 +498,21 @@ const styles = StyleSheet.create({
   },
   action: {
     alignSelf: 'stretch',
+  },
+  inferenceRetryLine: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  inferenceRetryText: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
+  },
+  setDefaultRetryLine: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  setDefaultRetryText: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
   },
 });
