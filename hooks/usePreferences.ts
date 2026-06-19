@@ -52,6 +52,9 @@ export function usePreferences(): PreferencesState {
   // null-then-refetch (consumers saw defaults either way), and avoids a
   // transient null.
   const clearAll = useCallback(async () => {
+    // Optimistic: local state drops to defaults immediately, async clear
+    // follows. (useTrustedContact.clearContact is await-first — each hook
+    // keeps its own prior ordering.)
     hydrated.setData(DEFAULT_PREFERENCES);
     await clearStoredPreferences();
   }, [hydrated.setData]);

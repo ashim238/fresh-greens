@@ -44,6 +44,8 @@ export type ShareSessionState = ShareSessionWrites &
  */
 export function useShareSession(): ShareSessionState {
   const hydrated = useHydratedState<ShareSession | null>(getStoredShareSession);
+  // Derived at render so resendSessionSms can close over an already-narrowed
+  // value (deps on currentSession keep the callback fresh when it changes).
   const currentSession = hydrated.ready ? hydrated.data : null;
 
   const openSmsForSession = useCallback(
