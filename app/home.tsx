@@ -332,7 +332,9 @@ function reportRouteContextLine(
 export default function Home() {
   const router = useRouter();
   const { preferences } = usePreferences();
-  const { home, addSavedPlace } = useSavedPlaces();
+  const savedPlacesState = useSavedPlaces();
+  const { addSavedPlace } = savedPlacesState;
+  const home = savedPlacesState.ready ? savedPlacesState.home : null;
   // Trusted Friend marker — renders only when the trusted contact has a
   // geocoded lat/lng (captured opportunistically during the picker flow
   // in /trusted-contact-setup). Encodes the thesis claim that the app
