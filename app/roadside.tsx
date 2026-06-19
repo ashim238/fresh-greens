@@ -38,6 +38,7 @@ import { useTrustedContact } from '../hooks/useTrustedContact';
 import { getTrustedContact } from '../lib/api/trusted-contact';
 import { notifyTrustedContact } from '../lib/notify-trusted-contact';
 import { type ProblemType } from '../lib/api/roadside';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -583,7 +584,7 @@ function WrongSpotModal({
       const results = await Location.geocodeAsync(query);
       const hit = results[0];
       if (!hit) {
-        setError("Couldn't find that address. Try again.");
+        setError(getErrorMessage('load', 'transient').body);
         setBusy(false);
         return;
       }
@@ -592,7 +593,7 @@ function WrongSpotModal({
       setBusy(false);
     } catch (err) {
       console.warn('wrong-spot geocode failed', err);
-      setError("Couldn't find that address. Try again.");
+      setError(getErrorMessage('load', 'transient', err).body);
       setBusy(false);
     }
   }

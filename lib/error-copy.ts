@@ -50,7 +50,7 @@ export const ERROR_COPY: Record<
     cancelled:     null,
   },
   load: {
-    transient:     { title: "Couldn't load",                  body: 'Reopen this screen to try again.' },
+    transient:     { title: "Couldn't load",                  body: 'Try again in a moment.' },
     permanent:     { title: "Couldn't load this",             body: 'Something went wrong on our side.' },
     'needs-setup': null,
     cancelled:     null,

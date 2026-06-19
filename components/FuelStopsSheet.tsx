@@ -8,6 +8,7 @@ import { type Place } from '../lib/api/places';
 import { fuelPriceLabel } from '../lib/api/fuel-prices';
 import { type FuelType } from '../lib/api/fuel';
 import { ROUTE_PROXIMITY_MILES } from '../hooks/useRouteFuelStops';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -90,7 +91,7 @@ export function FuelStopsSheet({
       return buildSubtitle(fuelType, 0, 0, carName);
     }
     if (error) {
-      return 'We could not load stops near your route. Check your connection and try again.';
+      return getErrorMessage('load', 'transient').body;
     }
     if (stops.length === 0) {
       return `No ${fuelNoun(fuelType, 2)} found within ~${ROUTE_PROXIMITY_MILES} mi of this route. Try another route or search Gas from Home.`;
