@@ -357,7 +357,12 @@ export default function Fuel() {
                           color={selected ? colors.white : colors.labelSecondary}
                           weight={selected ? 'fill' : 'regular'}
                         />
-                        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                        <Text
+                          style={[styles.segmentText, selected && styles.segmentTextSelected]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.8}
+                        >
                           {ft.label}
                         </Text>
                       </Pressable>
@@ -586,7 +591,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
