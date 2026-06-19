@@ -12,6 +12,7 @@ import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import type { SavedPlace } from '../lib/api/saved-places';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -57,10 +58,8 @@ export default function SavedPlaces() {
           onPress: async () => {
             const result = await remove.run(place.id);
             if (!result.ok) {
-              Alert.alert(
-                "Couldn't remove",
-                "We couldn't remove this place. Try again in a moment.",
-              );
+              const { title, body } = getErrorMessage('save', 'transient', result.error);
+              Alert.alert(title, body);
             }
           },
         },

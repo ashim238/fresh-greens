@@ -105,6 +105,7 @@ import {
   PARTIAL_DEBOUNCE_MS,
 } from '../lib/corridor/constants';
 import { maybeWarmZoneTile } from '../lib/corridor/passive-zone-tiles';
+import { getErrorMessage } from '../lib/error-message';
 import { pathLengthMeters } from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
 import {
@@ -1750,8 +1751,9 @@ export default function Home() {
                   await removeCommunityReport(hit.id);
                   const refreshed = await getCommunityReportsAsZones();
                   setReportZones(refreshed);
-                } catch {
-                  Alert.alert('Could not remove', 'Please try again.');
+                } catch (err) {
+                  const { title, body } = getErrorMessage('save', 'transient', err);
+                  Alert.alert(title, body);
                 }
                 if (selectedReport?.zoneId === hit.id) setSelectedReport(null);
               },
@@ -1833,8 +1835,9 @@ export default function Home() {
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success,
               ).catch(() => {});
-            } catch {
-              Alert.alert('Could not clear', 'Please try again.');
+            } catch (err) {
+              const { title, body } = getErrorMessage('save', 'transient', err);
+              Alert.alert(title, body);
             }
           },
         },
@@ -3115,10 +3118,8 @@ export default function Home() {
                     "That moment has already passed. Try picking a new destination.",
                   );
                 } else {
-                  Alert.alert(
-                    'Could not schedule',
-                    'Please try again in a moment.',
-                  );
+                  const { title, body } = getErrorMessage('save', 'transient');
+                  Alert.alert(title, body);
                 }
               }}
               accessibilityRole="button"
