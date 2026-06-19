@@ -24,19 +24,24 @@ Today both collapse into `data === null || data.length === 0`, so "still loading
 
 ## Scope
 
-**5 screens, 4 hooks** (`useTrustedContact` serves two screens):
+**Breaking change, codebase-wide (revised during planning, 2026-06-19).** The discriminated union makes the loaded value unreachable without narrowing on `ready` — that is the whole point, and it is *intrinsic to a breaking change*. There is no non-breaking shape that yields a compiler-enforced narrow. A dependency check (`grep` ground-truth; graphify was mid-rebuild) found the 4 hooks have ~20 call sites across 16 files, not the 6 first assumed. The decision (confirmed with the user) is to go breaking across **all** callers so the bug becomes structurally impossible anywhere — present screens and future ones alike. A contained, convention-only fix was rejected precisely because it cannot prevent the bug on screens that don't exist yet.
 
-| Screen | Hook | Read mode today | Notes |
+**4 hooks migrate to the breaking union:**
+
+| Hook | Read mode today | Caller files | Of which: deliberate flash-gate |
 |---|---|---|---|
-| `saved-places` | `useSavedPlaces` | mount-only | list |
-| `zone-preferences` | `usePreferences` | refocus | settings toggles |
-| `safety-settings` | `useTrustedContact` | refocus | per-row gate (see below) |
-| `trusted-contact-setup` | `useTrustedContact` | refocus | nullable-when-loaded; animation guard reads the hydration flag |
-| `share-location` | `useShareSession` | refocus | `session` nullable-when-loaded |
+| `useSavedPlaces` | mount-only | `saved-places`, `home`, `menu`, `search` (4) | `saved-places` |
+| `usePreferences` | refocus | `zone-preferences`, `home`, `menu`, `en-route`, `components/zoneCategoryContent` (5) | `zone-preferences` |
+| `useShareSession` | refocus | `share-location`, `en-route`, `unfamiliar`, `safety`, `components/LiveSafetySheet` (5) | `share-location` |
+| `useTrustedContact` | refocus | `safety-settings`, `trusted-contact-setup`, `share-location`, `home`, `emergency`, `pulled-over`, `en-route`, `unfamiliar`, `safety`, `roadside`, `menu`, `components/LiveSafetySheet` (12) | `safety-settings`, `trusted-contact-setup` |
 
-**`recordings` deferred to PR #3** (revised during planning, 2026-06-19). Two reasons surfaced while mapping the edits: (1) `useRecordings` + the recordings screen already gate on `loading` with a real Loading state (the PR-K loading→error→empty→list ladder), so there is no empty-state flash to fix here — unlike the 5 screens above, recordings does not conflate the axes. (2) Its `error` path fights the single-axis primitive; migrating it means threading the error catch through the reader. Since PR #3 (`SafetyErrorMessage`) already touches recordings' error branch, migrating it there is a single touch instead of two. See "Recordings" section below.
+**Two kinds of caller edit** (see "Screen consumer pattern" below):
+- **Flash-gate (5 screens):** the screens Phase 1 flagged. These get a *deliberate* gate — render chrome / a placeholder while `!ready`, because showing their empty state during hydration is the actual bug.
+- **Mechanical narrow (~11 callers):** every other caller. These already tolerate null-during-load (e.g. `home` skips the contact marker when there's no contact). They get a 1–2 line narrow (`const cs = useX(); const data = cs.ready ? cs.data : null;`) purely to satisfy the compiler; **behavior is unchanged** (they read null during the brief load window, exactly as before). No redesign.
 
-**Out of scope:** error-state presentation (owned by Sprint 1 PR #3, `SafetyErrorMessage` + error taxonomy); optimistic-write integrity (Sprint 1 PR #2, `useOptimisticMutation`); `recordings` migration (PR #3, per above). This PR is scoped to the loading→ready axis on the 5 screens that genuinely flash.
+**`recordings` deferred to PR #3** (the prior decision stands). `useRecordings` + the recordings screen already gate on `loading` with a real Loading state (the PR-K loading→error→empty→list ladder) — no flash — and its `error` path fights the single-axis primitive. PR #3 (`SafetyErrorMessage`) already touches its error branch, so migrating it there is one coordinated touch. The codebase-wide guarantee becomes complete after PR #3 migrates `useRecordings`; until then `useRecordings` is the one legacy-shaped holdout.
+
+**Out of scope:** error-state presentation (Sprint 1 PR #3, `SafetyErrorMessage` + error taxonomy); optimistic-write integrity (Sprint 1 PR #2, `useOptimisticMutation`); `recordings` migration (PR #3). This PR is scoped to the loading→ready axis.
 
 ---
 
@@ -134,7 +139,21 @@ if (!contactState.ready) return <ScreenChrome />;   // header + back, no body
 
 This is the chrome-only render (no skeleton primitive — a blank body reads honest for a ~100ms window, where a flash reads wrong).
 
-**Exception — `safety-settings`:** it composes the contact read with a *static* SOS row and recordings row. A whole-screen narrow would briefly blank those static rows too. This one screen uses a **per-row gate** (the contact row shows a placeholder until ready; SOS and recordings rows render instantly). Whole-screen narrow remains the default everywhere else.
+In practice the gate is **per-section, not whole-screen**: render everything that doesn't read the loaded data (header, static copy), gate only the data-dependent subtree on `ready`. The gated region varies by screen — a `ScrollView` body (`saved-places`, `zone-preferences`), a preview/empty block (`trusted-contact-setup`), a row `value` (`safety-settings`), or the picker-vs-active branch (`share-location`). `safety-settings` is the tightest case: its SOS and recordings rows are static and render instantly, while only the contact row's `value` waits on `ready`.
+
+**Mechanical narrow (the ~11 non-flash callers).** Every other caller of the 4 hooks must narrow too — but only to compile, not to change behavior. The pattern:
+
+```tsx
+const cs = useTrustedContact();
+const contact = cs.ready ? cs.contact : null;
+// …everything downstream reads `contact` exactly as before — `contact?.latitude`,
+// the marker, the copy fallback. During the brief load window `contact` is null,
+// which is what these callers already saw and already handle.
+```
+
+Crucially: **no redesign, no new gate, no behavior change** for these. `home` still skips the contact marker when there's no contact; `emergency` still falls back to "Set up a contact first"; the only difference is the read is now routed through a `ready` narrow. This is what keeps the breaking change tractable across the safety-critical screens — they get a 1–2 line edit and a re-verify, not a rework.
+
+**Rules-of-hooks note:** never early-return before the screen's other hooks run. Bind `ready` + the derived value right after the hook call, run all remaining hooks (effects, refs, callbacks) against those bindings, then gate the render. `trusted-contact-setup` is the case that needs this — its avatar-spring `useEffect` reads the hydration flag (today's `contactLoading` becomes `!ready`) and must stay above any conditional return.
 
 ---
 
@@ -151,22 +170,35 @@ The project has no test runner (no jest/RTL); the norm is **tsc + node assertion
 ## Files
 
 - **Create:** `hooks/useHydratedState.ts`
-- **Modify (hooks):** `hooks/useSavedPlaces.ts`, `hooks/usePreferences.ts`, `hooks/useTrustedContact.ts`, `hooks/useShareSession.ts`
-- **Modify (screens):** `app/saved-places.tsx`, `app/zone-preferences.tsx`, `app/safety-settings.tsx`, `app/trusted-contact-setup.tsx`, `app/share-location.tsx`
+- **Modify (hooks → breaking union):** `hooks/useSavedPlaces.ts`, `hooks/usePreferences.ts`, `hooks/useShareSession.ts`, `hooks/useTrustedContact.ts`
+- **Modify (flash-gate screens — deliberate gate):** `app/saved-places.tsx`, `app/zone-preferences.tsx`, `app/safety-settings.tsx`, `app/trusted-contact-setup.tsx`, `app/share-location.tsx`
+- **Modify (mechanical narrow — compile-only, no behavior change):** `app/home.tsx`, `app/menu.tsx`, `app/search.tsx`, `app/en-route.tsx`, `app/unfamiliar.tsx`, `app/safety.tsx`, `app/emergency.tsx`, `app/pulled-over.tsx`, `app/roadside.tsx`, `components/LiveSafetySheet.tsx`, `components/zoneCategoryContent.ts`
 - **Deferred to PR #3 (not touched here):** `hooks/useRecordings.ts`, `app/recordings.tsx`
+
+## Atomic-commit constraint
+
+A breaking union change cannot land without all of that hook's callers updated in the **same commit** — tsc is red until every caller narrows. So the commit unit is **one hook + all its callers**, not one screen. Sequence low-blast-first so each commit is independently verifiable, and so the safety-critical screens are touched last, by the hooks they belong to. Hooks that share callers (`useShareSession` and `useTrustedContact` both touch `en-route`/`unfamiliar`/`safety`/`share-location`/`LiveSafetySheet`) will touch those files twice across two commits — each edit isolated to that hook's destructure.
 
 ## Verification (definition of done)
 
-- [ ] `tsc` passes with no errors
-- [ ] All 5 screens narrow on `ready` before accessing loaded data (compile-enforced)
-- [ ] Cold-launch smoke on all 5 screens: no empty-state flash with data present
-- [ ] Empty state still renders correctly with data absent (loaded-but-empty)
-- [ ] `useTrustedContact` refocus walk: contact set in setup appears immediately on pop-back to `safety-settings`
-- [ ] `trusted-contact-setup` avatar-spring animation still fires only on a genuine unset→set transition, not on hydrate of a pre-existing contact
+- [ ] `tsc` passes with no errors after **each** hook+callers commit (every breaking change lands tsc-green)
+- [ ] All ~16 caller files narrow on `ready` before reading loaded data (compile-enforced)
+- [ ] Cold-launch smoke on the 5 flash-gate screens: no empty-state flash with data present; empty state still renders with data absent
+- [ ] `useTrustedContact` refocus walk: contact set in `trusted-contact-setup` appears immediately on pop-back to `safety-settings`
+- [ ] `trusted-contact-setup` avatar-spring still fires only on a genuine unset→set transition, not on hydrate of a pre-existing contact
+- [ ] **Safety-critical re-verify** (no behavior change vs. Phase 1 baseline): `emergency`, `pulled-over`, `en-route`, `unfamiliar`, `safety` — each renders and behaves identically; the mechanical narrow changed only how data is read, not what's shown
 - [ ] Each refactored hook's write methods (add/remove/clear/pick/start/end) still update local state
 - [ ] No domain logic changed — only loading scaffolding replaced
 - [ ] `useRecordings` / `app/recordings.tsx` untouched (confirms scope discipline)
 
 ## Sequencing
 
-PR #1 of the Sprint 1 trio. PR #2 (`useOptimisticMutation`) and PR #3 (`SafetyErrorMessage` + error taxonomy) are separate specs, brainstormed after this lands. `useRecordings` migrates to `useHydratedState` in PR #3, coordinated with the standardization of its `error` branch.
+PR #1 of the Sprint 1 trio. Within it, migrate low-blast-first so risk rises gradually and the safety-critical screens come last:
+
+1. `useHydratedState` primitive (pure-additive, no callers yet)
+2. `useSavedPlaces` + its 4 callers (settings/utility — lowest risk)
+3. `usePreferences` + its 5 callers (display-only reads)
+4. `useShareSession` + its 5 callers (first safety-critical wave — re-verify)
+5. `useTrustedContact` + its 12 callers (highest blast; `emergency`/`pulled-over` here — re-verify each)
+
+PR #2 (`useOptimisticMutation`) and PR #3 (`SafetyErrorMessage` + error taxonomy) are separate specs, brainstormed after this lands. `useRecordings` migrates to `useHydratedState` in PR #3, coordinated with standardizing its `error` branch — at which point the codebase-wide guarantee is complete.
