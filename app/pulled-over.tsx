@@ -1,4 +1,5 @@
 import { usePreventRemove } from '@react-navigation/native';
+import { type NavigationAction } from '@react-navigation/routers';
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // longer note on why we bypass the package's barrel index. SpeakerHigh
 // + Stop align this screen's audio-control register with /recordings
@@ -47,8 +48,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
+import { RecordingSaveErrorBanner } from '../components/RecordingSaveErrorBanner';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
+import { useMutation } from '../hooks/useMutation';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -212,6 +215,19 @@ export default function PulledOver() {
   const [recordingStopped, setRecordingStopped] = useState(false);
 
   const { addRecording } = useRecordings();
+  // Mutation wrapper for the recording-save persist — see
+  // RecordingSaveErrorBanner for the UX rationale. We hold onto the
+  // input that produced the failure (so Retry can replay it) and the
+  // deferred nav action (so success or explicit-dismiss can resume the
+  // back-navigation the user originally requested).
+  const saveRecordingMutation = useMutation(addRecording);
+  const lastRecordingSaveInputRef = useRef<{
+    sourceUri: string;
+    durationMs: number;
+    armed: ArmedAnswer | null;
+    createdAt: number;
+  } | null>(null);
+  const pendingNavRef = useRef<{ action: NavigationAction } | null>(null);
   // State-aware firearm guidance — variant resolved from the device's
   // current state via reverse-geocoding. Defaults to 'duty-to-inform'
   // while loading or on any failure path; see `useDisclosureDuty`
@@ -368,38 +384,59 @@ export default function PulledOver() {
           text: 'Save & leave',
           onPress: () => {
             (async () => {
-              try {
-                if (recorder.isRecording) {
-                  try {
-                    await recorder.stop();
-                  } catch (stopErr) {
-                    console.warn('[pulled-over] recorder.stop() failed', stopErr);
-                  }
+              if (recorder.isRecording) {
+                try {
+                  await recorder.stop();
+                } catch (stopErr) {
+                  console.warn('[pulled-over] recorder.stop() failed', stopErr);
                 }
-                const sourceUri = recorder.uri;
-                if (!sourceUri) {
-                  console.warn('[pulled-over] no recorder uri; skipping save');
-                  return;
-                }
-                const startedAt = recordingStartedAtRef.current ?? Date.now();
-                const durationMs = Date.now() - startedAt;
-                if (durationMs < 2000) {
-                  console.log('[pulled-over] recording <2s; skipping save', { durationMs });
-                  return;
-                }
-                const saved = await addRecording({
-                  sourceUri,
-                  durationMs,
-                  armed: recordingArmedRef.current,
-                  createdAt: startedAt,
-                });
-                console.log('[pulled-over] saved recording', saved.id, 'durationMs=', durationMs);
-              } catch (err) {
-                console.warn('[pulled-over] save failed', err);
-              } finally {
+              }
+              const sourceUri = recorder.uri;
+              if (!sourceUri) {
+                console.warn('[pulled-over] no recorder uri; skipping save');
+                setHasActiveRecording(false);
+                navigation.dispatch(data.action);
+                return;
+              }
+              const startedAt = recordingStartedAtRef.current ?? Date.now();
+              const durationMs = Date.now() - startedAt;
+              if (durationMs < 2000) {
+                console.log('[pulled-over] recording <2s; skipping save', { durationMs });
+                setHasActiveRecording(false);
+                navigation.dispatch(data.action);
+                return;
+              }
+              // Deferred navigation: on success we fire the back-nav
+              // the user requested; on failure we STAY on this screen
+              // so the RecordingSaveErrorBanner can offer Retry. The
+              // input + nav action are stashed in refs so the banner's
+              // Retry handler can replay them after the JSX re-renders
+              // around the mutation.error state.
+              const input = {
+                sourceUri,
+                durationMs,
+                armed: recordingArmedRef.current,
+                createdAt: startedAt,
+              };
+              lastRecordingSaveInputRef.current = input;
+              pendingNavRef.current = { action: data.action };
+
+              const result = await saveRecordingMutation.run(input);
+              // Note: do NOT flip hasActiveRecording yet — keep the
+              // usePreventRemove guard armed if the save failed, so the
+              // user has to explicitly confirm via the banner's Discard
+              // (or retry until success) instead of silently backing
+              // out and losing the recording.
+              if (result.ok) {
+                console.log('[pulled-over] saved recording', result.data.id);
                 setHasActiveRecording(false);
                 navigation.dispatch(data.action);
               }
+              // On failure: stay on screen with active-recording guard
+              // armed — banner renders from
+              // saveRecordingMutation.error !== null. hasActiveRecording
+              // flips false only via the banner's onRetry success path
+              // or its onDismiss (explicit Discard).
             })();
           },
         },
@@ -507,6 +544,35 @@ export default function PulledOver() {
         <View style={styles.dragWrapper}>
           <DragHandle />
         </View>
+
+        {/*
+          Highest-stakes silent-fail surface in the app: the recording
+          save failed and the user is still on /pulled-over (deferred
+          nav). Banner pins until Retry succeeds or explicit dismiss-
+          with-confirm. See RecordingSaveErrorBanner for the P-C
+          pattern rationale (Phase 1's tail).
+        */}
+        {saveRecordingMutation.error !== null && (
+          <RecordingSaveErrorBanner
+            pending={saveRecordingMutation.status === 'pending'}
+            onRetry={async () => {
+              const lastInput = lastRecordingSaveInputRef.current;
+              if (!lastInput) return;
+              const result = await saveRecordingMutation.run(lastInput);
+              if (result.ok && pendingNavRef.current) {
+                setHasActiveRecording(false);
+                navigation.dispatch(pendingNavRef.current.action);
+              }
+            }}
+            onDismiss={() => {
+              saveRecordingMutation.reset();
+              setHasActiveRecording(false);
+              if (pendingNavRef.current) {
+                navigation.dispatch(pendingNavRef.current.action);
+              }
+            }}
+          />
+        )}
 
         {/*
           Persistent recording chip — only on phases where the recording
