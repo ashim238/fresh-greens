@@ -601,7 +601,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
-  fieldLabel: { ...dynamicType(typography.footnoteEmphasized), color: colors.labelSecondary },
+  // Subheadline (15/600), not footnote (13/600): lifts control labels
+  // one rung above the 13pt secondary-metadata tier (status text,
+  // footnotes) so a label reads as a label, not a caption. Matches the
+  // RowGroup title size, so section titles and field labels speak the
+  // same register. No new weight or color — restraint preserved.
+  fieldLabel: { ...dynamicType(typography.subheadlineEmphasized), color: colors.labelSecondary },
   input: {
     ...dynamicType(typography.bodyRegular),
     color: colors.black,
