@@ -51,7 +51,7 @@ export function LiveSafetySheet({
   bottomInset?: number;
 } = {}) {
   const shareState = useShareSession();
-  const { endSession, resendSessionSms } = shareState;
+  const { end, resend } = shareState;
   const session = shareState.ready ? shareState.session : null;
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
@@ -83,7 +83,13 @@ export function LiveSafetySheet({
 
   async function doEnd() {
     setExpanded(false);
-    await endSession();
+    const endResult = await end.run();
+    if (!endResult.ok) {
+      Alert.alert(
+        "Couldn't end sharing",
+        'Try again in a moment.',
+      );
+    }
   }
 
   function handleEnd() {
@@ -102,7 +108,7 @@ export function LiveSafetySheet({
         ],
       );
     } else {
-      doEnd().catch((err) => console.warn('endSession failed', err));
+      void doEnd();
     }
   }
 
@@ -125,7 +131,7 @@ export function LiveSafetySheet({
           label={`${sessionTypeLabel} · ${duration}`}
           align="start"
           onPress={() => {
-            void resendSessionSms();
+            void resend.run(undefined);
           }}
         />
         <CaretUp size={18} color={colors.labelSecondary} weight="bold" />
@@ -193,7 +199,7 @@ export function LiveSafetySheet({
                 <NotifyingPulse
                   contactName={contact.name}
                   onPress={() => {
-                    void resendSessionSms();
+                    void resend.run(undefined);
                   }}
                 />
               </View>

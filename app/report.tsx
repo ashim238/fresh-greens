@@ -35,6 +35,7 @@ import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg'
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { Button } from '../components/Button';
+import { useMutation } from '../hooks/useMutation';
 import { useUser } from '../hooks/useUser';
 import {
   addCommunityReport,
@@ -82,7 +83,9 @@ export default function Report() {
   const [mode, setMode] = useState<Mode>('picker');
   const [category, setCategory] = useState<ReportCategory | null>(null);
   const [detailText, setDetailText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const submitMutation = useMutation(addCommunityReport);
+  const submitting = submitMutation.status === 'pending';
+  const submitError = submitMutation.status === 'error';
   const [submittedReport, setSubmittedReport] = useState<CommunityReport | null>(
     null,
   );
@@ -213,28 +216,29 @@ export default function Report() {
 
   async function handleSubmit() {
     if (!category || !location || submitting) return;
-    setSubmitting(true);
-    try {
-      // Best-effort business-name lookup. The contribution succeeds
-      // either way — if Google has nothing at this coord, we still
-      // persist the report and the marker falls back to subTag-
-      // based naming. Fire-and-await but capture failures silently;
-      // a network blip shouldn't block a real submission.
-      const nearest = await fetchNearestPlace(
-        location.latitude,
-        location.longitude,
-      );
 
-      const report = await addCommunityReport({
-        categoryId: category.id,
-        location,
-        detail: detailText.trim() || undefined,
-        subTag: selectedSubTag,
-        placeName: nearest?.name,
-        googlePlaceId: nearest?.googlePlaceId,
-        submittedBy: category.anonymous ? undefined : user?.id,
-        photoUri,
-      });
+    // Best-effort business-name lookup. The contribution succeeds
+    // either way — if Google has nothing at this coord, we still
+    // persist the report and the marker falls back to subTag-
+    // based naming. Fire-and-await but capture failures silently;
+    // a network blip shouldn't block a real submission.
+    const nearest = await fetchNearestPlace(
+      location.latitude,
+      location.longitude,
+    );
+
+    const result = await submitMutation.run({
+      categoryId: category.id,
+      location,
+      detail: detailText.trim() || undefined,
+      subTag: selectedSubTag,
+      placeName: nearest?.name,
+      googlePlaceId: nearest?.googlePlaceId,
+      submittedBy: category.anonymous ? undefined : user?.id,
+      photoUri,
+    });
+
+    if (result.ok) {
       // Success haptic on submission — the contribution lands as a
       // tactile confirmation, matching the visual transition into the
       // Thank-You frame. Reporting is the active community-building
@@ -242,14 +246,11 @@ export default function Report() {
       Haptics.notificationAsync(
         Haptics.NotificationFeedbackType.Success,
       ).catch(() => {});
-      setSubmittedReport(report);
+      setSubmittedReport(result.data);
       setMode('thank-you');
-    } catch (error) {
-      console.warn('[report] submit failed:', error);
-      Alert.alert('Could not submit', 'Please try again in a moment.');
-    } finally {
-      setSubmitting(false);
     }
+    // failure: the inline error line above the submit button reads
+    // submitMutation.error and surfaces "Couldn't send your report."
   }
 
   async function handleUndo() {
@@ -310,6 +311,7 @@ export default function Report() {
             onClose={handleClose}
             onSubmit={handleSubmit}
             submitting={submitting}
+            submitError={submitError}
             locationKnown={location !== null}
             photoUri={photoUri}
             onPickPhoto={handlePickPhoto}
@@ -477,6 +479,7 @@ function DetailView({
   onClose,
   onSubmit,
   submitting,
+  submitError,
   locationKnown,
   photoUri,
   onPickPhoto,
@@ -491,6 +494,7 @@ function DetailView({
   onClose: () => void;
   onSubmit: () => void;
   submitting: boolean;
+  submitError: boolean;
   locationKnown: boolean;
   photoUri: string | undefined;
   onPickPhoto: () => void;
@@ -718,6 +722,11 @@ function DetailView({
         while the submission is in flight; `disabled` covers the
         no-location case.
       */}
+      {submitError && (
+        <Text style={styles.submitErrorLine}>
+          Couldn&rsquo;t send your report. Try again.
+        </Text>
+      )}
       <Button
         text={submitting ? 'Submitting…' : category.cta}
         onPress={onSubmit}
@@ -1039,6 +1048,15 @@ const styles = StyleSheet.create({
   chipLabelActive: {
     ...typography.subheadlineEmphasized,
     color: colors.white,
+  },
+  // Inline error line shown above the Submit CTA when useMutation lands
+  // in 'error' status. footnoteRegular + colors.red matches the
+  // established error-text pattern in login.tsx, get-started.tsx, and
+  // trusted-contact-setup.tsx (carve-out #8 in .cursorrules).
+  submitErrorLine: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.red,
+    textAlign: 'center',
   },
   // Stretches the v2 `Button` across the popup's content width. Without
   // this, the unified Button picks up its natural width from its label

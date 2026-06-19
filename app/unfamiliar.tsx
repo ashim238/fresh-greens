@@ -83,7 +83,7 @@ export default function Unfamiliar() {
   const router = useRouter();
   const shareState = useShareSession();
   const session = shareState.ready ? shareState.session : null;
-  const { startSession, endSession, resendSessionSms } = shareState;
+  const { start, end, resend } = shareState;
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
   // Step initializer reads `session` lazily on mount. While the hook is
@@ -101,7 +101,14 @@ export default function Unfamiliar() {
   const [lifelineOpen, setLifelineOpen] = useState(false);
 
   async function handleProblemPick(option: ProblemOption) {
-    await startSession({ type: 'unfamiliar', reason: option.title });
+    const startResult = await start.run({ type: 'unfamiliar', reason: option.title });
+    if (!startResult.ok) {
+      Alert.alert(
+        "Couldn't start sharing",
+        "We couldn't start the share session. Try again in a moment.",
+      );
+      return;
+    }
     setStep('destination');
   }
 
@@ -146,18 +153,18 @@ export default function Unfamiliar() {
   }
 
   async function handleSafeNow() {
-    try {
-      await endSession();
-      // Most entries push /unfamiliar over /safety so `back()` works,
-      // but a future notification deep-link could land here cold —
-      // fall back to /home so the user is never stranded on the modal.
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/home');
-      }
-    } catch (err) {
-      console.warn('unfamiliar end failed', err);
+    const endResult = await end.run();
+    if (!endResult.ok) {
+      Alert.alert("Couldn't end sharing", 'Try again in a moment.');
+      return;
+    }
+    // Most entries push /unfamiliar over /safety so `back()` works,
+    // but a future notification deep-link could land here cold —
+    // fall back to /home so the user is never stranded on the modal.
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/home');
     }
   }
 
@@ -193,7 +200,7 @@ export default function Unfamiliar() {
             sessionReason={session.reason}
             onEnd={handleSafeNow}
             onResendSms={() => {
-              void resendSessionSms();
+              void resend.run(undefined);
             }}
           />
         )}

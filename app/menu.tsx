@@ -110,7 +110,7 @@ export default function Menu() {
   const router = useRouter();
   const { user, signOut, updateProfile } = useUser();
   const { clearContact } = useTrustedContact();
-  const { clearAll: clearSavedPlaces } = useSavedPlaces();
+  const { clear: clearSavedPlacesMutation } = useSavedPlaces();
   const { clearAll: clearRegularDestinations } = useRegularDestinations();
   const { clearAll: clearPreferences } = usePreferences();
   const {
@@ -273,10 +273,16 @@ export default function Menu() {
     try {
       // Clear identity-attached state before the sign-out confirmation
       // screen takes over — same hygiene as v1.
+      // clearSavedPlacesMutation.run() resolves to MutationResult instead of
+      // throwing — a clear failure does NOT block sign-out. Cleanup failures
+      // here are transient AsyncStorage hiccups; making the user re-tap
+      // sign-out because of one is worse UX than proceeding with a stale
+      // saved-places list. Other clearAll-style methods in this Promise.all
+      // still throw; this is the only mutation-style one.
       await Promise.all([
         signOut(),
         clearContact(),
-        clearSavedPlaces(),
+        clearSavedPlacesMutation.run(),
         clearRegularDestinations(),
         clearPreferences(),
         clearFuelProfile(),

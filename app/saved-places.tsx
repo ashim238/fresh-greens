@@ -42,7 +42,7 @@ import { typography } from '../theme/typography';
 export default function SavedPlaces() {
   const router = useRouter();
   const savedPlacesState = useSavedPlaces();
-  const { removeSavedPlace } = savedPlacesState;
+  const { remove } = savedPlacesState;
   const savedPlaces = savedPlacesState.ready ? savedPlacesState.savedPlaces : [];
 
   function handleRemove(place: SavedPlace) {
@@ -54,10 +54,14 @@ export default function SavedPlaces() {
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => {
-            removeSavedPlace(place.id).catch((err) =>
-              console.warn('removeSavedPlace failed', err),
-            );
+          onPress: async () => {
+            const result = await remove.run(place.id);
+            if (!result.ok) {
+              Alert.alert(
+                "Couldn't remove",
+                "We couldn't remove this place. Try again in a moment.",
+              );
+            }
           },
         },
       ],

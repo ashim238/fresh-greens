@@ -2,6 +2,7 @@ import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { useMutation } from '../hooks/useMutation';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -42,7 +43,8 @@ export default function RoadsideSetup() {
   const [serviceName, setServiceName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [hydrated, setHydrated] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const saveMutation = useMutation(saveProfile);
+  const saving = saveMutation.status === 'pending';
 
   // Seed the form once, after the profile loads (if one exists). Was
   // a conditional setState during render — works but trips React 19's
@@ -64,14 +66,13 @@ export default function RoadsideSetup() {
 
   async function handleSave() {
     if (!canSave) return;
-    setSaving(true);
-    try {
-      await saveProfile({ serviceName, phoneNumber });
+    const result = await saveMutation.run({ serviceName, phoneNumber });
+    if (result.ok) {
       router.back();
-    } catch (err) {
-      console.warn('roadside saveProfile failed', err);
+    } else {
       Alert.alert('Could not save', 'Please try again in a moment.');
-      setSaving(false);
+      // status === 'error' now; setting it again is unnecessary —
+      // useMutation tracks it. Button re-enables automatically.
     }
   }
 

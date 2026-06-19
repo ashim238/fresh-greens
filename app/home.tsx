@@ -334,7 +334,7 @@ export default function Home() {
   const prefsState = usePreferences();
   const preferences = prefsState.ready ? prefsState.preferences : null;
   const savedPlacesState = useSavedPlaces();
-  const { addSavedPlace } = savedPlacesState;
+  const { add } = savedPlacesState;
   const home = savedPlacesState.ready ? savedPlacesState.home : null;
   // Trusted Friend marker — renders only when the trusted contact has a
   // geocoded lat/lng (captured opportunistically during the picker flow
@@ -1778,22 +1778,31 @@ export default function Home() {
         {
           text: wasFirstHome ? 'Make it home' : 'Update home',
           onPress: () => {
-            void addSavedPlace({ kind: 'home', name: 'Home', latitude, longitude });
-            // Re-check `home` at confirm time — defense in depth
-            // against a hypothetical concurrent save (no current path
-            // creates one, but the snapshot is cheap to harden).
-            if (wasFirstHome && home == null) {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-              // Re-center on the new home so the just-dropped pin
-              // is unambiguously visible. Reduce-Motion path uses
-              // duration=0 so the camera still lands on the pin
-              // (the "where did it land?" question still matters)
-              // but the animation itself is skipped.
-              mapRef.current?.animateToRegion(
-                { latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-                reduceMotion ? 0 : 600,
-              );
-            }
+            void (async () => {
+              const result = await add.run({ kind: 'home', name: 'Home', latitude, longitude });
+              if (!result.ok) {
+                console.warn('home save failed', result.error);
+                // home save is a background nicety — silent failure is acceptable
+                // here (the user can re-save), but the silent path is now EXPLICIT
+                // rather than an uncaught .catch.
+                return;
+              }
+              // Re-check `home` at confirm time — defense in depth
+              // against a hypothetical concurrent save (no current path
+              // creates one, but the snapshot is cheap to harden).
+              if (wasFirstHome && home == null) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                // Re-center on the new home so the just-dropped pin
+                // is unambiguously visible. Reduce-Motion path uses
+                // duration=0 so the camera still lands on the pin
+                // (the "where did it land?" question still matters)
+                // but the animation itself is skipped.
+                mapRef.current?.animateToRegion(
+                  { latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+                  reduceMotion ? 0 : 600,
+                );
+              }
+            })();
           },
         },
       ],
