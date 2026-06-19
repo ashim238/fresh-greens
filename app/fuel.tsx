@@ -1,6 +1,7 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -235,7 +236,24 @@ export default function Fuel() {
     router.back();
   }
 
-  async function handleFilledUp(fillFraction: number) {
+  // Tracks which fill-fraction button was just tapped, so we can show a
+  // brief confirm state (freshgreen filled pill) for ~1.5s. Cleared on
+  // timeout or the next tap.
+  const [recentlyFilledId, setRecentlyFilledId] = useState<string | null>(null);
+  const recentlyFilledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (recentlyFilledTimerRef.current) clearTimeout(recentlyFilledTimerRef.current);
+    };
+  }, []);
+
+  async function handleFilledUp(id: string, fillFraction: number) {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setRecentlyFilledId(id);
+    if (recentlyFilledTimerRef.current) clearTimeout(recentlyFilledTimerRef.current);
+    recentlyFilledTimerRef.current = setTimeout(() => setRecentlyFilledId(null), 1500);
+
     const result = await markFilledUp(fillFraction);
     if (!result.ok) {
       Alert.alert('Could not update', 'Please try again in a moment.');
@@ -493,20 +511,32 @@ export default function Fuel() {
                   <Text style={styles.statusText}>Next reminder: {nextLabel}</Text>
                   <Text style={styles.fieldLabel}>I filled up…</Text>
                   <View style={styles.fillRow}>
-                    {FILL_FRACTIONS.map((f) => (
-                      <Pressable
-                        key={f.id}
-                        onPress={() => handleFilledUp(f.fraction)}
-                        style={({ pressed }) => [
-                          styles.fillBtn,
-                          pressed && pressedDim,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={f.a11yLabel}
-                      >
-                        <Text style={styles.fillBtnText}>{f.label}</Text>
-                      </Pressable>
-                    ))}
+                    {FILL_FRACTIONS.map((f) => {
+                      const recent = recentlyFilledId === f.id;
+                      return (
+                        <Pressable
+                          key={f.id}
+                          onPress={() => handleFilledUp(f.id, f.fraction)}
+                          style={({ pressed }) => [
+                            styles.fillBtn,
+                            recent && styles.fillBtnRecent,
+                            pressed && pressedDim,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={f.a11yLabel}
+                          accessibilityState={{ selected: recent }}
+                        >
+                          {recent && (
+                            <Check size={14} color={colors.white} weight="bold" />
+                          )}
+                          <Text
+                            style={[styles.fillBtnText, recent && styles.fillBtnTextRecent]}
+                          >
+                            {recent ? 'Saved' : f.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 </View>
               </RowGroup>
@@ -592,7 +622,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
@@ -672,17 +702,25 @@ const styles = StyleSheet.create({
   fillBtn: {
     minHeight: 44,
     minWidth: 64,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.freshgreen,
   },
+  fillBtnRecent: {
+    backgroundColor: colors.freshgreen,
+  },
   fillBtnText: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.freshgreen,
+  },
+  fillBtnTextRecent: {
+    color: colors.white,
   },
   saveBtn: {
     minHeight: 50,
