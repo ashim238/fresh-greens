@@ -25,6 +25,7 @@ import { NotifyingPulse } from '../components/NotifyingPulse';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { searchPlaces } from '../lib/api/places';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -103,10 +104,8 @@ export default function Unfamiliar() {
   async function handleProblemPick(option: ProblemOption) {
     const startResult = await start.run({ type: 'unfamiliar', reason: option.title });
     if (!startResult.ok) {
-      Alert.alert(
-        "Couldn't start sharing",
-        "We couldn't start the share session. Try again in a moment.",
-      );
+      const { title, body } = getErrorMessage('sharing', 'transient', startResult.error);
+      Alert.alert(title, body);
       return;
     }
     setStep('destination');
@@ -144,18 +143,16 @@ export default function Unfamiliar() {
         },
       });
     } catch (err) {
-      console.warn('unfamiliar destination search failed', err);
-      Alert.alert(
-        'Search failed',
-        'Could not search for nearby destinations. Try again in a moment.',
-      );
+      const { title: searchTitle, body: searchBody } = getErrorMessage('load', 'transient', err);
+      Alert.alert(searchTitle, searchBody);
     }
   }
 
   async function handleSafeNow() {
     const endResult = await end.run();
     if (!endResult.ok) {
-      Alert.alert("Couldn't end sharing", 'Try again in a moment.');
+      const { title: endTitle, body: endBody } = getErrorMessage('sharing', 'transient', endResult.error);
+      Alert.alert(endTitle, endBody);
       return;
     }
     // Most entries push /unfamiliar over /safety so `back()` works,

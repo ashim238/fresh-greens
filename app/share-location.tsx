@@ -9,6 +9,7 @@ import { DragHandle } from '../components/DragHandle';
 import { NotifyingPulse } from '../components/NotifyingPulse';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -68,10 +69,8 @@ export default function ShareLocation() {
     setBusy(true);
     const startResult = await start.run({ type: 'share-location', reason: option.title });
     if (!startResult.ok) {
-      Alert.alert(
-        "Couldn't start sharing",
-        "We couldn't start the share session. Try again in a moment.",
-      );
+      const { title, body } = getErrorMessage('sharing', 'transient', startResult.error);
+      Alert.alert(title, body);
       setBusy(false);
       return;
     }
@@ -81,7 +80,8 @@ export default function ShareLocation() {
   async function handleEnd() {
     const endResult = await end.run();
     if (!endResult.ok) {
-      Alert.alert("Couldn't end sharing", 'Try again in a moment.');
+      const { title, body } = getErrorMessage('sharing', 'transient', endResult.error);
+      Alert.alert(title, body);
       return;
     }
     dismiss();
