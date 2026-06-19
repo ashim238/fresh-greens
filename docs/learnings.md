@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/use-hydrated-state — discriminated unions for "loading vs empty" + the blast-radius reckoning (2026-06-19)
+
+Two things that bit and clicked.
+
+**The blast-radius reckoning.** Brainstorm assumed `useTrustedContact` had ~5 callers. `grep -rl useTrustedContact app/ components/` returned 12. A breaking discriminated-union change can't land without all callers updated in the *same commit* — tsc stays red until then. So a 4-hook migration that "sounds like 5 screens" became 19 files / 5 atomic commits / sequenced low-blast → high-blast (`useTrustedContact` last, with `emergency`/`pulled-over`/`en-route` re-verified). **Lesson:** before committing to a breaking-type change, run `grep -rl <hook> app/ components/` and let the actual call count shape the PR plan. `graphify affected` returned empty mid-rebuild — grep is the ground truth here, per `CLAUDE.md`.
+
+**The bug-is-elsewhere pattern.** User reported "tapping Trusted Contact row doesn't work" right after merging the hook migration. The instinct is to look at the migration. The actual cause: pre-existing Phase 1 P1 on `trusted-contact-setup` ("no change/remove affordance on preview card") — the tap *does* navigate; the destination is just a dead end. `git diff main...HEAD -- app/safety-settings.tsx` proved `onPress` was byte-for-byte unchanged. **Lesson:** when a bug surfaces during a migration, the diff is the witness — if the tap path is unchanged, the bug isn't in the change.
+
+**Procedural watch-out.** I committed the spec/plan to local `main` and never pushed; the PR branched off included them as ancestors; GitHub's squash absorbed them. After merge, local `main` diverged from origin (4 separate docs commits vs. 1 squash). `git reset --hard origin/main` was the right call — content was preserved in the squash — but the easy alternative was to push docs commits to `origin/main` before opening the PR. Either commit docs to the feature branch from the start, or push them to `main` immediately.
+
+---
+
 ## design-fixes session — the "already-shipped backlog item" pattern (2026-06-17)
 
 Across one session, **four** items framed as open work turned out to be already done: 4a (emergency async sequencing + live regions — only haptics were missing), 4c (orange-sky was already a `.cursorrules` carve-out), the "flagship screens need polish" premise (home/en-route/pulled-over already had `chore/polish-app-wide` + `audit/safety-polish` passes), and the `/trusted-contact-setup` routing footgun (fixed 2026-06-01, backlog entry never struck through). I nearly re-implemented the footgun fix before reading the code.
