@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
@@ -44,7 +44,7 @@ const REASONS: ReasonOption[] = [
 export default function ShareLocation() {
   const router = useRouter();
   const shareState = useShareSession();
-  const { startSession, endSession, resendSessionSms } = shareState;
+  const { start, end, resend } = shareState;
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
   const [busy, setBusy] = useState(false);
@@ -66,22 +66,25 @@ export default function ShareLocation() {
   async function handlePick(option: ReasonOption) {
     if (busy) return;
     setBusy(true);
-    try {
-      await startSession({ type: 'share-location', reason: option.title });
-      dismiss();
-    } catch (err) {
-      console.warn('share-location start failed', err);
+    const startResult = await start.run({ type: 'share-location', reason: option.title });
+    if (!startResult.ok) {
+      Alert.alert(
+        "Couldn't start sharing",
+        "We couldn't start the share session. Try again in a moment.",
+      );
       setBusy(false);
+      return;
     }
+    dismiss();
   }
 
   async function handleEnd() {
-    try {
-      await endSession();
-      dismiss();
-    } catch (err) {
-      console.warn('share-location end failed', err);
+    const endResult = await end.run();
+    if (!endResult.ok) {
+      Alert.alert("Couldn't end sharing", 'Try again in a moment.');
+      return;
     }
+    dismiss();
   }
 
   return (
@@ -99,7 +102,7 @@ export default function ShareLocation() {
                 sessionReason={session.reason}
                 onEnd={handleEnd}
                 onResendSms={() => {
-                  void resendSessionSms();
+                  void resend.run(undefined);
                 }}
               />
             )
