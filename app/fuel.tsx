@@ -1,8 +1,8 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BatteryHigh } from 'phosphor-react-native/src/icons/BatteryHigh';
@@ -236,23 +236,14 @@ export default function Fuel() {
     router.back();
   }
 
-  // Tracks which fill-fraction button was just tapped, so we can show a
-  // brief confirm state (freshgreen filled pill) for ~1.5s. Cleared on
-  // timeout or the next tap.
-  const [recentlyFilledId, setRecentlyFilledId] = useState<string | null>(null);
-  const recentlyFilledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (recentlyFilledTimerRef.current) clearTimeout(recentlyFilledTimerRef.current);
-    };
-  }, []);
+  // The last-logged fill fraction. Persists as a selected state on its
+  // pill (freshgreen fill) so the user can see at a glance what they
+  // last recorded for this cycle, rather than a momentary flash.
+  const [selectedFillId, setSelectedFillId] = useState<string | null>(null);
 
   async function handleFilledUp(id: string, fillFraction: number) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    setRecentlyFilledId(id);
-    if (recentlyFilledTimerRef.current) clearTimeout(recentlyFilledTimerRef.current);
-    recentlyFilledTimerRef.current = setTimeout(() => setRecentlyFilledId(null), 1500);
+    setSelectedFillId(id);
 
     const result = await markFilledUp(fillFraction);
     if (!result.ok) {
@@ -378,8 +369,6 @@ export default function Fuel() {
                         <Text
                           style={[styles.segmentText, selected && styles.segmentTextSelected]}
                           numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.8}
                         >
                           {ft.label}
                         </Text>
@@ -512,27 +501,27 @@ export default function Fuel() {
                   <Text style={styles.fieldLabel}>I filled up…</Text>
                   <View style={styles.fillRow}>
                     {FILL_FRACTIONS.map((f) => {
-                      const recent = recentlyFilledId === f.id;
+                      const selected = selectedFillId === f.id;
                       return (
                         <Pressable
                           key={f.id}
                           onPress={() => handleFilledUp(f.id, f.fraction)}
                           style={({ pressed }) => [
                             styles.fillBtn,
-                            recent && styles.fillBtnRecent,
+                            selected && styles.fillBtnSelected,
                             pressed && pressedDim,
                           ]}
                           accessibilityRole="button"
                           accessibilityLabel={f.a11yLabel}
-                          accessibilityState={{ selected: recent }}
+                          accessibilityState={{ selected }}
                         >
-                          {recent && (
+                          {selected && (
                             <Check size={14} color={colors.white} weight="bold" />
                           )}
                           <Text
-                            style={[styles.fillBtnText, recent && styles.fillBtnTextRecent]}
+                            style={[styles.fillBtnText, selected && styles.fillBtnTextSelected]}
                           >
-                            {recent ? 'Saved' : f.label}
+                            {f.label}
                           </Text>
                         </Pressable>
                       );
@@ -577,12 +566,20 @@ export default function Fuel() {
             <Pressable
               onPress={handleSave}
               disabled={saving}
-              style={({ pressed }) => [styles.saveBtn, pressed && !saving && pressedDim]}
+              style={({ pressed }) => [
+                styles.saveBtn,
+                saving && styles.saveBtnDisabled,
+                pressed && !saving && pressedDim,
+              ]}
               accessibilityRole="button"
               accessibilityLabel="Save refuel reminder settings"
-              accessibilityState={{ disabled: saving }}
+              accessibilityState={{ disabled: saving, busy: saving }}
             >
-              <Text style={styles.saveBtnText}>Save</Text>
+              {saving ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>Save</Text>
+              )}
             </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -614,9 +611,13 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
   },
-  segment: { flexDirection: 'row', gap: spacing.sm },
+  // Pills size to their content (no flex:1) so each fuel type gets the
+  // same horizontal breathing room around its label, rather than equal
+  // widths that crowd the long labels (Electric/Diesel) and over-pad the
+  // short one (Gas). flexWrap lets the four content-sized pills flow onto
+  // a second row on narrower viewports instead of clipping.
+  segment: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   segmentItem: {
-    flex: 1,
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
@@ -642,7 +643,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
   },
@@ -712,23 +713,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.freshgreen,
   },
-  fillBtnRecent: {
+  fillBtnSelected: {
     backgroundColor: colors.freshgreen,
   },
   fillBtnText: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.freshgreen,
   },
-  fillBtnTextRecent: {
+  fillBtnTextSelected: {
     color: colors.white,
   },
   saveBtn: {
     minHeight: 50,
     borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
+    // 1pt wiltedgreen border per DESIGN.md: freshgreen alone is 2.88:1
+    // against the page (below the 3:1 UI-component floor); the border
+    // lifts the button-to-page edge into a legible range.
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { ...dynamicType(typography.bodyEmphasized), color: colors.white },
   stationRow: {
     flexDirection: 'row',
