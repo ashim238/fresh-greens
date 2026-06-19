@@ -88,12 +88,20 @@ export function useRecommendationsBatch(opts: {
     let cancelled = false;
     for (const row of rows) {
       (async () => {
-        const recs = await fetchForRow(row, userLocation);
-        if (cancelled) return;
-        setByKey((prev) => ({
-          ...prev,
-          [row.key]: { key: row.key, recommendations: recs, loading: false },
-        }));
+        try {
+          const recs = await fetchForRow(row, userLocation);
+          if (cancelled) return;
+          setByKey((prev) => ({
+            ...prev,
+            [row.key]: { key: row.key, recommendations: recs, loading: false },
+          }));
+        } catch {
+          if (cancelled) return;
+          setByKey((prev) => ({
+            ...prev,
+            [row.key]: { key: row.key, recommendations: [], loading: false },
+          }));
+        }
       })();
     }
     return () => {

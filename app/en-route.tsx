@@ -84,6 +84,7 @@ import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import { usePreferredStations } from '../hooks/usePreferredStations';
+import { useCoachMark } from '../hooks/useCoachMark';
 import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
@@ -143,7 +144,9 @@ import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { useWeather } from '../hooks/useWeather';
 
@@ -298,6 +301,45 @@ function hazardFullCopy(category: HazardCategory): string {
   }
 }
 
+function SideFabRow({
+  label,
+  showLabel,
+  children,
+}: {
+  label: string;
+  showLabel: boolean;
+  children: React.ReactNode;
+}) {
+  if (!showLabel) return <>{children}</>;
+  return (
+    <View style={sideFabRowStyles.row}>
+      <View style={sideFabRowStyles.labelPill}>
+        <Text style={sideFabRowStyles.labelText}>{label}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+const sideFabRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  labelPill: {
+    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    ...shadows.e1,
+  },
+  labelText: {
+    ...typography.caption2Regular,
+    color: colors.labelSecondary,
+  },
+});
+
 export default function EnRoute() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
@@ -332,6 +374,7 @@ export default function EnRoute() {
   const showZones = preferences?.showZones ?? false;
   const reduceMotion = useReduceMotion();
   const etaPulseAnim = useRef(new Animated.Value(1)).current;
+  const sideFabCoach = useCoachMark('en-route-side-fabs');
 
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const osmZonesRef = useRef<Zone[]>([]);
@@ -343,32 +386,6 @@ export default function EnRoute() {
   useEffect(() => {
     osmZonesRef.current = osmZones;
   }, [osmZones]);
-
-  // ETA pulse animation during OSRM fetch. When arrivalDisplay.time
-  // is '—' (loading) and reduce-motion is not set, pulse the opacity
-  // from 1 → 0.35 → 1 continuously (600ms cycle, 600ms return).
-  useEffect(() => {
-    if (arrivalDisplay.time === '—' && !reduceMotion) {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(etaPulseAnim, {
-            toValue: 0.35,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(etaPulseAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
-    } else {
-      etaPulseAnim.setValue(1);
-    }
-  }, [arrivalDisplay.time, reduceMotion, etaPulseAnim]);
 
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
@@ -1053,6 +1070,32 @@ export default function EnRoute() {
     const isNight = h24 < 6 || h24 >= 18;
     return { time: `${h12}:${minutes}`, isNight };
   }, [activeRoute, params.destEstMinutes]);
+
+  // ETA pulse animation during OSRM fetch. When arrivalDisplay.time
+  // is '—' (loading) and reduce-motion is not set, pulse the opacity
+  // from 1 → 0.35 → 1 continuously (600ms cycle, 600ms return).
+  useEffect(() => {
+    if (arrivalDisplay.time === '—' && !reduceMotion) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(etaPulseAnim, {
+            toValue: 0.35,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(etaPulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      etaPulseAnim.setValue(1);
+    }
+  }, [arrivalDisplay.time, reduceMotion, etaPulseAnim]);
 
   // Distance in miles, derived from the recommended route. Falls back
   // to the primed `destDistanceMeters` from /home until the local
@@ -2017,40 +2060,55 @@ export default function EnRoute() {
             emergency). Distinct from Shield: Shield opens the full
             safety MENU; this jumps straight to the acute SOS control.
           */}
-          <FloatingActionButton
-            size="56"
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              router.push('/emergency');
-            }}
-            accessibilityLabel="Emergency SOS"
-            accessibilityHint="Opens trusted-contact and 911 options"
-          >
-            <SidebtnSos width={32} height={32} />
-          </FloatingActionButton>
-          <FloatingActionButton
-            size="56"
-            onPress={() => router.push('/safety')}
-            accessibilityLabel="Open safety menu"
-            accessibilityHint="Opens the safety menu — pulled-over, roadside, unfamiliar area, share location"
-          >
-            <SidebtnSafety width={32} height={32} />
-          </FloatingActionButton>
-          <FloatingActionButton
-            size="56"
-            onPress={() => router.push('/report')}
-            accessibilityLabel="Report something"
-          >
-            <SidebtnReport width={32} height={32} />
-          </FloatingActionButton>
-          <FloatingActionButton
-            size="56"
-            onPress={handleRecenter}
-            accessibilityLabel="Recenter map on your location"
-          >
-            <SidebtnRecenter width={32} height={32} />
-          </FloatingActionButton>
+          <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
+            <FloatingActionButton
+              size="56"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                router.push('/emergency');
+              }}
+              accessibilityLabel="Emergency SOS"
+              accessibilityHint="Opens trusted-contact and 911 options"
+            >
+              <SidebtnSos width={32} height={32} />
+            </FloatingActionButton>
+          </SideFabRow>
+          <SideFabRow label="Safety" showLabel={sideFabCoach.visible}>
+            <FloatingActionButton
+              size="56"
+              onPress={() => router.push('/safety')}
+              accessibilityLabel="Open safety menu"
+              accessibilityHint="Opens the safety menu — pulled-over, roadside, unfamiliar area, share location"
+            >
+              <SidebtnSafety width={32} height={32} />
+            </FloatingActionButton>
+          </SideFabRow>
+          <SideFabRow label="Report" showLabel={sideFabCoach.visible}>
+            <FloatingActionButton
+              size="56"
+              onPress={() => router.push('/report')}
+              accessibilityLabel="Report something"
+            >
+              <SidebtnReport width={32} height={32} />
+            </FloatingActionButton>
+          </SideFabRow>
+          <SideFabRow label="Recenter" showLabel={sideFabCoach.visible}>
+            <FloatingActionButton
+              size="56"
+              onPress={handleRecenter}
+              accessibilityLabel="Recenter map on your location"
+            >
+              <SidebtnRecenter width={32} height={32} />
+            </FloatingActionButton>
+          </SideFabRow>
         </View>
+      )}
+      {sideFabCoach.visible && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={sideFabCoach.dismiss}
+          accessible={false}
+        />
       )}
 
       {/*

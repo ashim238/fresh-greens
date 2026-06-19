@@ -64,6 +64,7 @@ import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import { usePreferences } from '../hooks/usePreferences';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useCoachMark } from '../hooks/useCoachMark';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
@@ -137,7 +138,9 @@ import {
 import { colors } from '../theme/colors';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { spacing } from '../theme/spacing';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
@@ -810,6 +813,7 @@ export default function Home() {
   // LayoutAnimation transitions the resulting height change so the
   // snap doesn't feel jarring.
   const reduceMotion = useReduceMotion();
+  const mapCoach = useCoachMark('home-map-intro');
   const dragHandleResponder = useMemo(
     () =>
       PanResponder.create({
@@ -3336,6 +3340,25 @@ export default function Home() {
       />
 
       <LiveSafetySheet />
+
+      {mapCoach.visible && (
+        <Pressable
+          style={styles.mapCoachScrim}
+          onPress={mapCoach.dismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss map guide"
+        >
+          <View style={styles.mapCoachCard}>
+            <Text style={styles.mapCoachTitle}>Your safety map</Text>
+            <Text style={styles.mapCoachBody}>
+              Colored overlays show lighting, road conditions, and community alerts.
+              {'\n'}Pins mark places reported by the community.
+              {'\n'}Long-press anywhere to add your own report.
+            </Text>
+            <Text style={styles.mapCoachDismiss}>Tap anywhere to dismiss</Text>
+          </View>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -3468,6 +3491,35 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapCoachScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.modalScrimStrong,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl * 3 + spacing.xl, // clear top chrome (search + chips)
+  },
+  mapCoachCard: {
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.sm + spacing.xs, // 12pt
+    ...shadows.e2,
+    maxWidth: 320,
+  },
+  mapCoachTitle: {
+    ...typography.title3Emphasized,
+    color: colors.black,
+  },
+  mapCoachBody: {
+    ...typography.subheadlineRegular,
+    color: colors.labelSecondary,
+  },
+  mapCoachDismiss: {
+    ...typography.caption2Regular,
+    color: colors.labelTertiary,
+    textAlign: 'center',
   },
   edgeOverlay: {
     position: 'absolute',
