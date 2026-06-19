@@ -30,6 +30,7 @@ export function RouteHazardDetailCard({
   lengthMiles,
   hazardIndex,
   hazardCount,
+  destinationName,
   onPrevious,
   onNext,
   onDismiss,
@@ -38,6 +39,9 @@ export function RouteHazardDetailCard({
   lengthMiles: number;
   hazardIndex: number;
   hazardCount: number;
+  /** Destination the route leads to — kept visible so drilling into a
+      hazard doesn't strip the spatial context (which trip is this?). */
+  destinationName?: string;
   onPrevious?: () => void;
   onNext?: () => void;
   onDismiss: () => void;
@@ -81,7 +85,21 @@ export function RouteHazardDetailCard({
         <DragHandle />
 
         <View style={styles.headerRow}>
-          <View style={styles.headerSpacer} />
+          {destinationName ? (
+            <Pressable
+              onPress={onDismiss}
+              accessibilityRole="button"
+              accessibilityLabel={`Back to route to ${destinationName}`}
+              style={({ pressed }) => [styles.backToRoute, pressed && pressedDim]}
+            >
+              <CaretLeft size={16} color={colors.wiltedgreen} weight="bold" />
+              <Text style={styles.backToRouteText} numberOfLines={1}>
+                {destinationName}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
           <FloatingActionButton
             size="48"
             onPress={onDismiss}
@@ -191,6 +209,19 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     flex: 1,
+  },
+  backToRoute: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingRight: spacing.sm,
+  },
+  backToRouteText: {
+    ...dynamicType(typography.subheadlineEmphasized),
+    color: colors.wiltedgreen,
+    flexShrink: 1,
   },
   pagerRow: {
     flexDirection: 'row',

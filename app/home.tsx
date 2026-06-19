@@ -26,6 +26,7 @@ import {
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ArrowClockwise } from 'phosphor-react-native/src/icons/ArrowClockwise';
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
 import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
@@ -467,6 +468,10 @@ export default function Home() {
   >('idle');
   /** True when getZonesForTrip threw — suppress false "All clear". */
   const [tripZonesFetchFailed, setTripZonesFetchFailed] = useState(false);
+  /** Bumped by the "Couldn't check route" retry chip to re-run the
+      corridor fetch for the same destination (the fetch effect keys on
+      this alongside destLat/destLng). */
+  const [corridorRetryTick, setCorridorRetryTick] = useState(0);
   /** True only after a successful corridor fetch for the current trip. */
   const [tripZonesCorridorComplete, setTripZonesCorridorComplete] =
     useState(false);
@@ -1605,8 +1610,11 @@ export default function Home() {
     };
     // Re-run whenever the destination URL params change, so submitting
     // a new search refetches routes for the new endpoint without
-    // requiring the user to navigate away and back.
-  }, [params.destLat, params.destLng]);
+    // requiring the user to navigate away and back. corridorRetryTick
+    // re-runs it for the SAME destination when the user taps "retry"
+    // on a failed route check.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.destLat, params.destLng, corridorRetryTick]);
 
   // Subscribe to live GPS for the custom UserLocationMarker. Permission
   // was negotiated by /permissions during onboarding; we ask again here
@@ -2686,6 +2694,17 @@ export default function Home() {
                 >
                   <CaretLeft size={22} weight="bold" color={colors.labelSecondary} />
                 </Pressable>
+                {/* Sighted route count — the chevron pair alone doesn't say
+                    how many alternates exist; this anchors "where am I in
+                    the set." VoiceOver already gets it from the ETA label,
+                    so hide this from AT to avoid a double read. */}
+                <Text
+                  style={styles.routeCountLabel}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  {selectedIndex + 1} of {routes.length}
+                </Text>
                 <Pressable
                   onPress={() => cycleRoute(1)}
                   disabled={!canNextRoute}
@@ -2784,12 +2803,17 @@ export default function Home() {
             style={({ pressed }) => [styles.routeDestTitleHit, pressed && pressedDim]}
           >
             <View style={styles.routeDestTitleRow}>
-              {isRegularDestination ? (
-                <SavedPlaceBookmark size={14} variant="selected" />
-              ) : null}
               <Text style={styles.routeDestTitle} numberOfLines={1}>
                 {params.destName ?? 'your destination'}
               </Text>
+              {/* Bookmark is always present as the save affordance — hollow
+                  (default) when not yet saved so the action is discoverable
+                  before the tap, filled (selected) once saved. Trailing,
+                  per the iOS Maps/Reminders save-affordance convention. */}
+              <SavedPlaceBookmark
+                size={16}
+                variant={isRegularDestination ? 'selected' : 'default'}
+              />
             </View>
           </Pressable>
 
@@ -2933,12 +2957,10 @@ export default function Home() {
                   <RouteZonesLoadingChip />
                 </View>
               ) : tripZonesFetchFailed ? (
-                <View
-                  style={styles.routeChipsRow}
-                  accessibilityLabel="Couldn't check route for hazards along this path."
-                  accessibilityLiveRegion="polite"
-                >
-                  <RouteZonesFetchFailedChip />
+                <View style={styles.routeChipsRow} accessibilityLiveRegion="polite">
+                  <RouteZonesFetchFailedChip
+                    onRetry={() => setCorridorRetryTick((t) => t + 1)}
+                  />
                 </View>
               ) : routeHazardChips.length > 0 ? (
                 <>
@@ -3300,6 +3322,7 @@ export default function Home() {
             )}
             hazardIndex={index}
             hazardCount={list.length}
+            destinationName={params.destName}
             onPrevious={
               index > 0
                 ? () =>
@@ -3349,13 +3372,22 @@ export default function Home() {
           accessibilityLabel="Dismiss map guide"
         >
           <View style={styles.mapCoachCard}>
-            <Text style={styles.mapCoachTitle}>Your safety map</Text>
+            <Text style={styles.mapCoachTitle}>Built on community knowledge</Text>
             <Text style={styles.mapCoachBody}>
-              Colored overlays show lighting, road conditions, and community alerts.
-              {'\n'}Pins mark places reported by the community.
-              {'\n'}Long-press anywhere to add your own report.
+              Colored zones show lighting, road conditions, and community alerts
+              along a route.
+              {'\n\n'}Pins are places drivers have flagged for each other — the
+              Green Book tradition, kept current.
+              {'\n\n'}Long-press anywhere on the map to add what you know.
             </Text>
-            <Text style={styles.mapCoachDismiss}>Tap anywhere to dismiss</Text>
+            <Pressable
+              onPress={mapCoach.dismiss}
+              style={({ pressed }) => [styles.mapCoachButton, pressed && pressedDim]}
+              accessibilityRole="button"
+              accessibilityLabel="Got it, dismiss the map guide"
+            >
+              <Text style={styles.mapCoachButtonText}>Got it</Text>
+            </Pressable>
           </View>
         </Pressable>
       )}
@@ -3436,15 +3468,18 @@ function RouteZonesLoadingChip() {
 }
 
 /** Gray chip when corridor OSM fetch failed — not All clear. */
-function RouteZonesFetchFailedChip() {
+function RouteZonesFetchFailedChip({ onRetry }: { onRetry: () => void }) {
   return (
-    <View
-      style={styles.routeZonesLoadingChip}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+    <Pressable
+      onPress={onRetry}
+      style={({ pressed }) => [styles.routeZonesRetryChip, pressed && pressedDim]}
+      accessibilityRole="button"
+      accessibilityLabel="Couldn't check this route for hazards"
+      accessibilityHint="Tap to try the route check again"
     >
-      <Text style={styles.routeZonesLoadingText}>Couldn't check route</Text>
-    </View>
+      <ArrowClockwise size={16} color={colors.labelSecondary} weight="bold" />
+      <Text style={styles.routeZonesLoadingText}>Couldn't check route · Retry</Text>
+    </Pressable>
   );
 }
 
@@ -3516,10 +3551,20 @@ const styles = StyleSheet.create({
     ...typography.subheadlineRegular,
     color: colors.labelSecondary,
   },
-  mapCoachDismiss: {
-    ...typography.caption2Regular,
-    color: colors.labelTertiary,
-    textAlign: 'center',
+  mapCoachButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+    backgroundColor: colors.freshgreen,
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
+    marginTop: spacing.xs,
+  },
+  mapCoachButtonText: {
+    ...typography.footnoteEmphasized,
+    color: colors.white,
   },
   edgeOverlay: {
     position: 'absolute',
@@ -3809,6 +3854,12 @@ const styles = StyleSheet.create({
   routeCycleBtnDisabled: {
     opacity: 0.25,
   },
+  routeCountLabel: {
+    ...typography.caption1Regular,
+    color: colors.labelTertiary,
+    minWidth: 44,
+    textAlign: 'center',
+  },
   // 44pt painted tap target per HIG, same fillsTertiary circular
   // treatment as the recordings delete-confirm modal X for visual
   // consistency across destructive-or-dismissal affordances.
@@ -3874,6 +3925,16 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     backgroundColor: colors.fillsTertiary,
   },
+  routeZonesRetryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: colors.fillsTertiary,
+  },
   routeZonesLoadingText: {
     ...typography.caption1Emphasized,
     color: colors.labelSecondary,
@@ -3887,13 +3948,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   daylightArrivalHint: {
-    // Small muted label showing arrival band (dusk/dark) for colorblind users.
-    // Positioned below the conditions caption, styled subordinate to main info.
-    // Uses caption2 (11pt) and labelSecondary (muted but readable).
-    ...typography.caption2Regular,
+    // Arrival band (dusk/dark) — a redundant NON-COLOR cue for colorblind
+    // drivers, so it must clear the readable floor. footnoteRegular (13pt),
+    // not caption2 (11pt, which tokens.ts flags as below WCAG 1.4.4 for
+    // informational content). labelSecondary stays for the muted register.
+    ...typography.footnoteRegular,
     color: colors.labelSecondary,
-    paddingHorizontal: 24,
-    marginTop: 2,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xs,
   },
   tradeoffRow: {
     // H13: 16 → 24 to match the route card's canonical gutter
