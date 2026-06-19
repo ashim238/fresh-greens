@@ -2,6 +2,28 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Design Health Phase 1 — per-screen critique tail (2026-06-19)
+
+From `docs/superpowers/specs/phase-1-findings/2026-06-19-cross-screen-synthesis.md` Section 5. These are screen-specific issues that cannot be addressed by Phase 2 design-system extraction — each must be fixed in the touched screen. Priority-ordered within tier. Snapshots that ground each entry live in `.impeccable/critique/`.
+
+| Screen Slug | Issue Title | Priority | Note |
+|---|---|---|---|
+| app-recordings-tsx | No share / export path for recordings | P0 | Recordings exist solely as legal protection; no iOS Share Sheet means users cannot get recordings off device. Single most safety-consequential gap in app. Add `Sharing.shareAsync(uri)` per card row. |
+| app-en-route-tsx | SOS button one-tap to emergency — no confirmation | P0 | Accidental brush of top FAB during routine stop opens emergency flow. Needs hold-to-confirm or two-tap pattern with distinct haptic. |
+| app-roadside-tsx | Step 3 dismissal trap — no visible escape | P0 | `usePreventRemove` locks sheet with no visible affordance. Accidental share toggle = trapped. Add X button or require explicit CTA to advance to Step 3. |
+| app-recordings-tsx | Single-row delete has no confirmation for evidence | P0 | Bulk delete is gated; single-row delete is not. Asymmetry backward for legally significant material. |
+| app-unfamiliar-tsx | Silent async during destination search — no loading state | P0 | Safety flow shows no feedback during 2–5s location + POI search. Reads as broken to user in charged moment. |
+| app-fuel-tsx | Save with distance enabled but no range silently misconfigures | P0 | User who enables distance reminders without picking range stores `rangeMiles=null`, gets silent reset loop. Disable Save or surface inline validation when `distanceEnabled && rangeMiles === null`. |
+| app-safety-settings-tsx | Emergency SOS row one tap from emergency flow | P0 | SOS row and configuration rows visually identical in weight; mis-tap routes to /emergency. Separate into own RowGroup. |
+| app-legal-tsx | Tab pills 28pt painted — 36% below floor | P0 (component) | P0 level but component-level fix; legal content is trust-sensitive and broken tabs on legal screen compounding. Fix `paddingVertical` to achieve 44pt painted. |
+| app-en-route-tsx | Auto-expand hazard sheet on zone entry too aggressive | P1 | Sheet expansion during zone entry pulls driver eyes off road. Replace with compact hazard pill; keep expanded panel available by drag. |
+| app-en-route-tsx | Static speed-limit sign permanently shows "—" | P1 | Affordance teaches users to distrust other data signals. Remove until OSM maxspeed is wired, or repurpose element for current speed only. |
+| app-pulled-over-tsx | "Add a contact" mid-stop recovery too subtle | P1 | Unconfigured contact state looks like content, not a call to action. Needs explicit pill-outline button affordance, 44pt minimum. |
+| app-sign-out-tsx | Copy register mismatch — "Thank you for stopping by!" | P1 | Sign-out is last app impression; may follow pulled-over or share-location session. "Drive safe." or "Take care out there." required. One-line fix, high persona impact. |
+| app-trip-summary-tsx | "Set as default" CTA — mental model mismatch | P1 | Label is opaque settings-register language at a trip-completion moment. Replace with "Save [destination] as a regular" or "Remember this destination." |
+| app-zone-preferences-tsx | Silent degradation when all safety flags disabled | P1 | All three routing flags can be off simultaneously with no downstream signal. Add inline status banner when fully disabled. |
+| app-unfamiliar-tsx | Lifeline modal overstates live-location capability | P1 | "Can see your current location" may misrepresent a Messages-draft model as live push. If overcommitting, user may make safety decisions based on false premise. Must audit `useShareSession` and correct copy. |
+
 ## Distance-aware refuel — Phase 2 queued (2026-06-17)
 
 **⚠ Phase 1 device-test still owed** (merged to main `e70ab1c`, NOT yet verified on a real device/sim). Recipe: iOS Simulator (or dev build) → `/fuel` → enable reminders, Tank range = **Custom 2 mi**, fuelType gas → start navigation → Xcode **Features → Location → Freeway Drive** (or a GPX of Clinton Hill / Fort Greene) → after ~2 simulated miles the distance notification should fire (naming a trusted on-route stop) + the `FuelStopsSheet` `refuelDue` banner. Tap "I filled up" → ½ → banner clears, `milesSinceFilled` resets to half-range, next cadence shortens. Zero-movement smoke test: call `addMilesSinceFilled(2)` then `checkRefuelTriggers()` from a temp affordance. The pure logic is verified (tsc + node assertions + 2-reviewer audit); only on-device behavior is unverified. Native module → needs a dev build, not Expo Go.
