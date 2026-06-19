@@ -331,7 +331,8 @@ function reportRouteContextLine(
  */
 export default function Home() {
   const router = useRouter();
-  const { preferences } = usePreferences();
+  const prefsState = usePreferences();
+  const preferences = prefsState.ready ? prefsState.preferences : null;
   const savedPlacesState = useSavedPlaces();
   const { addSavedPlace } = savedPlacesState;
   const home = savedPlacesState.ready ? savedPlacesState.home : null;

@@ -370,7 +370,8 @@ export default function EnRoute() {
   // /menu's Zone Settings accordion. Default off until they flip it,
   // so first-time en-route users see a clean map; toggle persists
   // across sessions and applies on both /home and /en-route.
-  const { preferences } = usePreferences();
+  const prefsState = usePreferences();
+  const preferences = prefsState.ready ? prefsState.preferences : null;
   const showZones = preferences?.showZones ?? false;
   const reduceMotion = useReduceMotion();
   const etaPulseAnim = useRef(new Animated.Value(1)).current;
