@@ -107,8 +107,10 @@ const TABS: SafetyTab[] = [
 
 export default function SafetyModal() {
   const router = useRouter();
-  const { contact } = useTrustedContact();
-  const { session } = useShareSession();
+  const contactState = useTrustedContact();
+  const contact = contactState.ready ? contactState.contact : null;
+  const shareState = useShareSession();
+  const session = shareState.ready ? shareState.session : null;
 
   function handleTabPress(tab: SafetyTab) {
     const isShareFlow = tab.id === 'unfamiliar' || tab.id === 'share-location';

@@ -30,16 +30,8 @@ import { spacing } from '../theme/spacing';
  */
 export default function ZonePreferences() {
   const router = useRouter();
-  const { preferences, setShowZones, setPreference } = usePreferences();
-
-  // Same default ladder as the /menu accordion that this page replaces —
-  // showZones false-by-default (start with a clean map), flag toggles
-  // true-by-default (scoring is the load-bearing feature; opt-out
-  // rather than opt-in).
-  const showZones = preferences?.showZones ?? false;
-  const flagPolice = preferences?.flagPolice ?? true;
-  const flagLowLight = preferences?.flagLowLight ?? true;
-  const flagCommunityReports = preferences?.flagCommunityReports ?? true;
+  const prefsState = usePreferences();
+  const { setShowZones, setPreference } = prefsState;
 
   return (
     <View style={styles.root}>
@@ -56,42 +48,43 @@ export default function ZonePreferences() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <RowGroup>
-            <SettingsRow
-              label="Show zones overlay"
-              trailing="toggle"
-              toggleValue={showZones}
-              onToggle={setShowZones}
-              accessibilityHint="Shows or hides the zone safety overlay on the map"
-            />
-          </RowGroup>
+          {prefsState.ready && (
+            <>
+              <RowGroup>
+                <SettingsRow
+                  label="Show zones overlay"
+                  trailing="toggle"
+                  toggleValue={prefsState.preferences.showZones}
+                  onToggle={setShowZones}
+                  accessibilityHint="Shows or hides the zone safety overlay on the map"
+                />
+              </RowGroup>
 
-          <RowGroup
-            title="What we flag"
-            footer="Affects route scoring and map flags."
-          >
-            <SettingsRow
-              label="Police presence"
-              trailing="toggle"
-              toggleValue={flagPolice}
-              onToggle={(v) => setPreference('flagPolice', v)}
-              accessibilityHint="Routes around mapped police presence when on"
-            />
-            <SettingsRow
-              label="Low-light areas"
-              trailing="toggle"
-              toggleValue={flagLowLight}
-              onToggle={(v) => setPreference('flagLowLight', v)}
-              accessibilityHint="Routes around poorly-lit streets when on"
-            />
-            <SettingsRow
-              label="Community reports"
-              trailing="toggle"
-              toggleValue={flagCommunityReports}
-              onToggle={(v) => setPreference('flagCommunityReports', v)}
-              accessibilityHint="Factors neighbor-submitted reports when on"
-            />
-          </RowGroup>
+              <RowGroup title="What we flag" footer="Affects route scoring and map flags.">
+                <SettingsRow
+                  label="Police presence"
+                  trailing="toggle"
+                  toggleValue={prefsState.preferences.flagPolice}
+                  onToggle={(v) => setPreference('flagPolice', v)}
+                  accessibilityHint="Routes around mapped police presence when on"
+                />
+                <SettingsRow
+                  label="Low-light areas"
+                  trailing="toggle"
+                  toggleValue={prefsState.preferences.flagLowLight}
+                  onToggle={(v) => setPreference('flagLowLight', v)}
+                  accessibilityHint="Routes around poorly-lit streets when on"
+                />
+                <SettingsRow
+                  label="Community reports"
+                  trailing="toggle"
+                  toggleValue={prefsState.preferences.flagCommunityReports}
+                  onToggle={(v) => setPreference('flagCommunityReports', v)}
+                  accessibilityHint="Factors neighbor-submitted reports when on"
+                />
+              </RowGroup>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>

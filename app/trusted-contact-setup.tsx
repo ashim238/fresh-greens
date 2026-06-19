@@ -71,7 +71,10 @@ export default function TrustedContactSetup() {
   // dark brand splash. Default-safe: a forgotten param falls through to
   // back(), not the home-reset bug.
   const embedded = params.from !== 'onboarding';
-  const { contact, loading: contactLoading, pickContact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const contactReady = contactState.ready;
+  const contact = contactReady ? contactState.contact : null;
+  const { pickContact } = contactState;
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reduceMotion = useReduceMotion();
@@ -91,7 +94,7 @@ export default function TrustedContactSetup() {
   const initialContactIdRef = useRef<string | null | undefined>(undefined);
   const lastAnimatedIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (contactLoading) return;
+    if (!contactReady) return;
     if (initialContactIdRef.current === undefined) {
       // First post-hydrate render — capture the baseline and return.
       // A pre-existing contact at mount doesn't fire the animation.
@@ -114,7 +117,7 @@ export default function TrustedContactSetup() {
         useNativeDriver: true,
       }).start();
     }
-  }, [contact?.id, contactLoading, reduceMotion, avatarScale]);
+  }, [contact?.id, contactReady, reduceMotion, avatarScale]);
 
   async function handlePickContact() {
     if (picking) return;
@@ -195,62 +198,64 @@ export default function TrustedContactSetup() {
             </Text>
           </View>
 
-          {contact ? (
-            <View style={[styles.preview, embedded && stylesWhite.preview]}>
-              <Animated.View
-                style={[
-                  styles.avatar,
-                  embedded && stylesWhite.avatar,
-                  { transform: [{ scale: avatarScale }] },
-                ]}
-              >
-                <Text style={styles.avatarInitials}>{contact.initials}</Text>
-              </Animated.View>
-              <View style={styles.previewText}>
-                <Text
+          {contactReady ? (
+            contact ? (
+              <View style={[styles.preview, embedded && stylesWhite.preview]}>
+                <Animated.View
                   style={[
-                    styles.previewName,
-                    embedded && stylesWhite.previewName,
+                    styles.avatar,
+                    embedded && stylesWhite.avatar,
+                    { transform: [{ scale: avatarScale }] },
                   ]}
                 >
-                  {contact.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.previewPhone,
-                    embedded && stylesWhite.previewPhone,
-                  ]}
-                >
-                  {contact.phoneNumber}
-                </Text>
+                  <Text style={styles.avatarInitials}>{contact.initials}</Text>
+                </Animated.View>
+                <View style={styles.previewText}>
+                  <Text
+                    style={[
+                      styles.previewName,
+                      embedded && stylesWhite.previewName,
+                    ]}
+                  >
+                    {contact.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.previewPhone,
+                      embedded && stylesWhite.previewPhone,
+                    ]}
+                  >
+                    {contact.phoneNumber}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ) : (
-            // The whole EmptyState card is tappable — wraps the
-            // StateCard EmptyState component in a Pressable so the
-            // big icon is itself the primary affordance.
-            <Pressable
-              onPress={handlePickContact}
-              disabled={picking}
-              accessibilityRole="button"
-              accessibilityLabel="Pick a contact"
-              accessibilityHint="Opens the contact picker"
-              accessibilityState={{ busy: picking, disabled: picking }}
-              style={({ pressed }) => [pressed && !picking && pressedDim]}
-            >
-              <EmptyState
-                icon={
-                  <UserPlus
-                    size={56}
-                    color={colors.freshgreen}
-                    weight="duotone"
-                  />
-                }
-                headline="No contact set yet."
-                text="Tap to add someone you trust."
-              />
-            </Pressable>
-          )}
+            ) : (
+              // The whole EmptyState card is tappable — wraps the
+              // StateCard EmptyState component in a Pressable so the
+              // big icon is itself the primary affordance.
+              <Pressable
+                onPress={handlePickContact}
+                disabled={picking}
+                accessibilityRole="button"
+                accessibilityLabel="Pick a contact"
+                accessibilityHint="Opens the contact picker"
+                accessibilityState={{ busy: picking, disabled: picking }}
+                style={({ pressed }) => [pressed && !picking && pressedDim]}
+              >
+                <EmptyState
+                  icon={
+                    <UserPlus
+                      size={56}
+                      color={colors.freshgreen}
+                      weight="duotone"
+                    />
+                  }
+                  headline="No contact set yet."
+                  text="Tap to add someone you trust."
+                />
+              </Pressable>
+            )
+          ) : null}
 
           {error && <Text style={styles.errorText}>{error}</Text>}
 

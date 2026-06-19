@@ -370,7 +370,8 @@ export default function EnRoute() {
   // /menu's Zone Settings accordion. Default off until they flip it,
   // so first-time en-route users see a clean map; toggle persists
   // across sessions and applies on both /home and /en-route.
-  const { preferences } = usePreferences();
+  const prefsState = usePreferences();
+  const preferences = prefsState.ready ? prefsState.preferences : null;
   const showZones = preferences?.showZones ?? false;
   const reduceMotion = useReduceMotion();
   const etaPulseAnim = useRef(new Animated.Value(1)).current;
@@ -462,8 +463,10 @@ export default function EnRoute() {
   // End-trip button in the sheet AND the bottoms of both columns.
   // Mirrors the same session && contact gate LiveSafetySheet uses to
   // decide whether the pill renders at all. User-flagged 2026-06-01.
-  const { session: shareSession } = useShareSession();
-  const { contact: trustedContact } = useTrustedContact();
+  const shareState = useShareSession();
+  const shareSession = shareState.ready ? shareState.session : null;
+  const trustedContactState = useTrustedContact();
+  const trustedContact = trustedContactState.ready ? trustedContactState.contact : null;
   const safetyPillShowing = !!shareSession && !!trustedContact;
   // Reserved vertical space for the pill: 16pt inset + 64pt minHeight +
   // 12pt gap above. Columns sit at this offset when the pill shows,

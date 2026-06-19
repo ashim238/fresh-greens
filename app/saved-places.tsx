@@ -41,7 +41,9 @@ import { typography } from '../theme/typography';
  */
 export default function SavedPlaces() {
   const router = useRouter();
-  const { savedPlaces, removeSavedPlace } = useSavedPlaces();
+  const savedPlacesState = useSavedPlaces();
+  const { removeSavedPlace } = savedPlacesState;
+  const savedPlaces = savedPlacesState.ready ? savedPlacesState.savedPlaces : [];
 
   function handleRemove(place: SavedPlace) {
     Alert.alert(
@@ -77,7 +79,7 @@ export default function SavedPlaces() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {savedPlaces.length === 0 ? (
+          {savedPlacesState.ready && (savedPlaces.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No saved places yet</Text>
               <Text style={styles.emptyBody}>
@@ -95,7 +97,7 @@ export default function SavedPlaces() {
                 />
               ))}
             </RowGroup>
-          )}
+          ))}
         </ScrollView>
       </SafeAreaView>
     </View>

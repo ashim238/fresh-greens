@@ -16,7 +16,7 @@ import {
  * store (sign-out hygiene), mirroring useSavedPlaces' `clearAll`.
  *
  * Same shape as useSavedPlaces / useTrustedContact. Deliberately omits a
- * `loading` flag (useSavedPlaces has one): the only consumer treats
+ * `ready` discriminant (useSavedPlaces uses a `{ ready } & union`): the only consumer treats
  * "not yet loaded" identically to "no match" — `isRegularDestination`
  * stays false until the load resolves, which is the desired behavior
  * for the recurring-destination underline (no flash of a wrong

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import {
   addSavedPlace as addSavedPlaceToStore,
@@ -8,63 +8,65 @@ import {
   type SavedPlace,
   type SavedPlaceKind,
 } from '../lib/api/saved-places';
+import { useHydratedState } from './useHydratedState';
+
+type SavedPlacesWrites = {
+  addSavedPlace: (input: {
+    kind: SavedPlaceKind;
+    name: string;
+    latitude: number;
+    longitude: number;
+  }) => Promise<SavedPlace>;
+  removeSavedPlace: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
+};
+
+export type SavedPlacesState = SavedPlacesWrites &
+  (
+    | { ready: false }
+    | { ready: true; savedPlaces: SavedPlace[]; home: SavedPlace | null }
+  );
 
 /**
- * Reactive wrapper around the saved-places adapter. Same shape as
- * useUser / useTrustedContact / useRecordings — load on mount, expose
- * add/remove helpers that update local state alongside AsyncStorage so
- * the UI re-renders without a manual refetch.
+ * Reactive wrapper around the saved-places adapter. Mount-only read
+ * (saved places don't change behind this screen's back the way a
+ * contact set in a pushed-over flow does). Loading is owned by
+ * useHydratedState; write methods mirror the adapter into local state.
  */
-export function useSavedPlaces() {
-  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useSavedPlaces(): SavedPlacesState {
+  const hydrated = useHydratedState<SavedPlace[]>(getSavedPlaces, {
+    mountOnly: true,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const stored = await getSavedPlaces();
-      if (!cancelled) {
-        setSavedPlaces(stored);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const addSavedPlace = useCallback(
-    async (input: {
-      kind: SavedPlaceKind;
-      name: string;
-      latitude: number;
-      longitude: number;
-    }): Promise<SavedPlace> => {
+  const addSavedPlace = useCallback<SavedPlacesWrites['addSavedPlace']>(
+    async (input) => {
       const place = await addSavedPlaceToStore(input);
-      // Mirror the adapter's one-home-at-a-time invariant in local
-      // state: if the new place is a home, drop any prior home before
-      // appending.
-      setSavedPlaces((prev) => {
+      // Mirror the adapter's one-home-at-a-time invariant in local state.
+      hydrated.setData((prev) => {
+        const base = prev ?? [];
         const filtered =
-          input.kind === 'home' ? prev.filter((p) => p.kind !== 'home') : prev;
+          input.kind === 'home' ? base.filter((p) => p.kind !== 'home') : base;
         return [...filtered, place];
       });
       return place;
     },
-    [],
+    [hydrated.setData],
   );
 
   const removeSavedPlace = useCallback(async (id: string) => {
     await removeSavedPlaceFromStore(id);
-    setSavedPlaces((prev) => prev.filter((p) => p.id !== id));
-  }, []);
+    hydrated.setData((prev) => (prev ?? []).filter((p) => p.id !== id));
+  }, [hydrated.setData]);
 
   const clearAll = useCallback(async () => {
     await clearSavedPlacesFromStore();
-    setSavedPlaces([]);
-  }, []);
+    hydrated.setData([]);
+  }, [hydrated.setData]);
 
+  if (!hydrated.ready) {
+    return { ready: false, addSavedPlace, removeSavedPlace, clearAll };
+  }
+  const savedPlaces = hydrated.data;
   const home = savedPlaces.find((p) => p.kind === 'home') ?? null;
-
-  return { savedPlaces, home, loading, addSavedPlace, removeSavedPlace, clearAll };
+  return { ready: true, savedPlaces, home, addSavedPlace, removeSavedPlace, clearAll };
 }

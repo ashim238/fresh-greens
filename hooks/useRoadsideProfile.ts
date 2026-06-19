@@ -21,8 +21,9 @@ export type RoadsideProfileInput = {
  * underlying /roadside or /menu surface sees the freshly-saved profile
  * without a manual refetch).
  *
- * Same shape as useFuelProfile / useTrustedContact. `loading` only flips
- * false (never back to true on refocus) to avoid a flash.
+ * Same shape as useFuelProfile. (useTrustedContact was migrated to a
+ * `ready` discriminated union; this hook retains `loading`.) `loading`
+ * only flips false (never back to true on refocus) to avoid a flash.
  *
  * `profile` is null both when not-yet-loaded AND when the user has never
  * set up a profile — callers treat both identically (show the "Set up"

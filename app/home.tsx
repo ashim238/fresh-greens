@@ -331,8 +331,11 @@ function reportRouteContextLine(
  */
 export default function Home() {
   const router = useRouter();
-  const { preferences } = usePreferences();
-  const { home, addSavedPlace } = useSavedPlaces();
+  const prefsState = usePreferences();
+  const preferences = prefsState.ready ? prefsState.preferences : null;
+  const savedPlacesState = useSavedPlaces();
+  const { addSavedPlace } = savedPlacesState;
+  const home = savedPlacesState.ready ? savedPlacesState.home : null;
   // Trusted Friend marker — renders only when the trusted contact has a
   // geocoded lat/lng (captured opportunistically during the picker flow
   // in /trusted-contact-setup). Encodes the thesis claim that the app
@@ -340,7 +343,8 @@ export default function Home() {
   // graph. Visual is a Phosphor HeartStraight stand-in inside the green
   // LandmarkMarker; the canonical SVG comes from Figma 1133:13245 when
   // it's exported.
-  const { contact: trustedContact } = useTrustedContact();
+  const trustedContactState = useTrustedContact();
+  const trustedContact = trustedContactState.ready ? trustedContactState.contact : null;
   const { user } = useUser();
   // First name for the browse-mode sheet eyebrow ("Jordan's Local
   // Recs"). Pull off displayName since that's what useUser exposes;

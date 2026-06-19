@@ -1,6 +1,4 @@
-import { useCallback, useState } from 'react';
-
-import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
 import { getTrustedContact } from '../lib/api/trusted-contact';
 import {
@@ -15,6 +13,7 @@ import {
   readNotifyCoordinates,
   type NotifyTrustedContactInput,
 } from '../lib/notify-trusted-contact';
+import { useHydratedState } from './useHydratedState';
 
 export type StartShareSessionInput = {
   type: ShareSessionType;
@@ -22,6 +21,17 @@ export type StartShareSessionInput = {
   locationLabel?: string;
   coordinates?: { latitude: number; longitude: number };
 };
+
+type ShareSessionWrites = {
+  startSession: (input: StartShareSessionInput) => Promise<ShareSession>;
+  resendSessionSms: (
+    extras?: Pick<NotifyTrustedContactInput, 'locationLabel' | 'coordinates'>,
+  ) => Promise<void>;
+  endSession: () => Promise<void>;
+};
+
+export type ShareSessionState = ShareSessionWrites &
+  ({ ready: false } | { ready: true; session: ShareSession | null });
 
 /**
  * Reactive wrapper around the share-session adapter. Single global active
@@ -32,25 +42,11 @@ export type StartShareSessionInput = {
  * startSession persists the session then auto-opens Messages with a
  * pre-filled text to the trusted contact (user taps Send in Messages).
  */
-export function useShareSession() {
-  const [session, setSession] = useState<ShareSession | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        const stored = await getStoredShareSession();
-        if (!cancelled) {
-          setSession(stored);
-          setLoading(false);
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, []),
-  );
+export function useShareSession(): ShareSessionState {
+  const hydrated = useHydratedState<ShareSession | null>(getStoredShareSession);
+  // Derived at render so resendSessionSms can close over an already-narrowed
+  // value (deps on currentSession keep the callback fresh when it changes).
+  const currentSession = hydrated.ready ? hydrated.data : null;
 
   const openSmsForSession = useCallback(
     async (
@@ -76,11 +72,11 @@ export function useShareSession() {
         ...active,
         smsOpenedAtIso: result.notifiedAtIso,
       };
-      setSession(withSms);
+      hydrated.setData(withSms);
       await setStoredShareSession(withSms);
       return withSms;
     },
-    [],
+    [hydrated.setData],
   );
 
   const startSession = useCallback(
@@ -91,30 +87,31 @@ export function useShareSession() {
         reason: input.reason,
         startedAtIso: new Date().toISOString(),
       };
-      setSession(next);
+      hydrated.setData(next);
       await setStoredShareSession(next);
       return openSmsForSession(next, {
         locationLabel: input.locationLabel,
         coordinates: input.coordinates,
       });
     },
-    [openSmsForSession],
+    [hydrated.setData, openSmsForSession],
   );
 
   const resendSessionSms = useCallback(
-    async (
-      extras?: Pick<NotifyTrustedContactInput, 'locationLabel' | 'coordinates'>,
-    ) => {
-      if (!session) return;
-      await openSmsForSession(session, extras);
+    async (extras?: Pick<NotifyTrustedContactInput, 'locationLabel' | 'coordinates'>) => {
+      if (!currentSession) return;
+      await openSmsForSession(currentSession, extras);
     },
-    [session, openSmsForSession],
+    [currentSession, openSmsForSession],
   );
 
   const endSession = useCallback(async () => {
-    setSession(null);
+    hydrated.setData(null);
     await clearStoredShareSession();
-  }, []);
+  }, [hydrated.setData]);
 
-  return { session, loading, startSession, resendSessionSms, endSession };
+  if (!hydrated.ready) {
+    return { ready: false, startSession, resendSessionSms, endSession };
+  }
+  return { ready: true, session: currentSession, startSession, resendSessionSms, endSession };
 }

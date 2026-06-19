@@ -310,7 +310,8 @@ function ActionMenu({
 }) {
   const router = useRouter();
   const { profile: roadsideProfile } = useRoadsideProfile();
-  const { contact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const contact = contactState.ready ? contactState.contact : null;
 
   const headline = buildActionHeadline(locationLabel, problem);
 
@@ -477,7 +478,8 @@ function LiveStatus({
   onSwitchToPulledOver: () => void;
 }) {
   const { profile: roadsideProfile } = useRoadsideProfile();
-  const { contact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const contact = contactState.ready ? contactState.contact : null;
 
   const headline = roadsideProfile
     ? `${roadsideProfile.serviceName} should be on the way.`

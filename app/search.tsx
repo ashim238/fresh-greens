@@ -232,7 +232,8 @@ export default function Search() {
   // Saved tile data — saved places + regular destinations, merged into
   // one ranked list (see buildSavedRows). Surfaced inline when the
   // Saved quick-tile is selected.
-  const { savedPlaces } = useSavedPlaces();
+  const savedPlacesState = useSavedPlaces();
+  const savedPlaces = savedPlacesState.ready ? savedPlacesState.savedPlaces : [];
   const { regulars } = useRegularDestinations();
   const savedRows = useMemo(
     () => buildSavedRows(savedPlaces, regulars),
