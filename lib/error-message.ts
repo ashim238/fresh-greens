@@ -30,12 +30,16 @@ export type ErrorDisposition =
 export type ErrorCopy = { title: string; body: string };
 
 /**
- * Side-effect: emits one canonical [domain:disposition] console.warn
- * per failure. Otherwise referentially transparent — no JSX, no React,
- * callable from any handler.
+ * Side-effect: when `error` is supplied (any value including null),
+ * emits one canonical [domain:disposition] console.warn replacing the
+ * ~20 ad-hoc patterns across the codebase. Handler-mode callers (catch
+ * blocks, result.ok narrows) should always pass `error` — the call
+ * itself is the failure event; pass null explicitly if no payload is
+ * available. Render-mode callers (component-internal copy lookup in
+ * JSX) pass no error → no log fires, so re-renders don't spam.
  *
- * Replaces the ~20 ad-hoc `console.warn('[domain] xyz failed', err)`
- * patterns across the codebase.
+ * Otherwise referentially transparent — no JSX, no React, callable
+ * from any handler.
  *
  * Silent dispositions (cancelled, and the few null slots in the table)
  * return empty strings — this is LOAD-BEARING, not just defensive:
@@ -52,8 +56,6 @@ export function getErrorMessage(
 ): ErrorCopy {
   if (error !== undefined) {
     console.warn(`[${domain}:${disposition}]`, error);
-  } else {
-    console.warn(`[${domain}:${disposition}]`);
   }
   const copy = ERROR_COPY[domain][disposition];
   return copy ?? { title: '', body: '' };
