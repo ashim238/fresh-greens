@@ -191,7 +191,8 @@ export default function PulledOver() {
   // the prior unconditional render claimed active notification while
   // none existed — the gated render + forward-looking copy closes the
   // honesty gap.
-  const { contact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const contact = contactState.ready ? contactState.contact : null;
   const [phase, setPhase] = useState<Phase>('armed');
   const [armed, setArmed] = useState<ArmedAnswer | null>(null);
   const [reviewIndex, setReviewIndex] = useState(0);
@@ -941,7 +942,9 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
   // Higher min opacity for the avatar ring (a 160pt surface reads as a
   // strobe at the dot's 0.3 floor). Keeps the rhythm, softens the depth.
   const ringPulse = usePulseOpacity(0.55);
-  const { contact, pickContact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const { pickContact } = contactState;
+  const contact = contactState.ready ? contactState.contact : null;
 
   // Real-contact fields when set; "add a contact" affordance when not.
   // The avatar block itself becomes the tap target in the no-contact

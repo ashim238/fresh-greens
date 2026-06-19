@@ -35,17 +35,24 @@ import { spacing } from '../theme/spacing';
  */
 export default function SafetySettings() {
   const router = useRouter();
-  const { contact } = useTrustedContact();
+  const contactState = useTrustedContact();
   // Trimmed contact name — defends the sub-line value against `contact`
   // existing-but-empty (stale stored contact saved with name=undefined;
   // defensive whitespace strip).
-  const trustedContactName = contact?.name?.trim();
+  const trustedContactName = contactState.ready
+    ? contactState.contact?.name?.trim()
+    : undefined;
   // Value copy: actual name when set, "Add someone you trust" as a warm
   // placeholder otherwise. Mirrors the entry copy on
   // /trusted-contact-setup ("Tap to add someone you trust.") so the
   // user sees continuity between the row value and the screen it pushes
   // to.
-  const trustedContactValue = trustedContactName ?? 'Add someone you trust';
+  // Flash-gate: undefined while hydrating → row shows label + chevron
+  // only (no placeholder). SOS + Recordings rows are static and always
+  // render immediately.
+  const trustedContactValue = contactState.ready
+    ? (trustedContactName ?? 'Add someone you trust')
+    : undefined;
 
   function handleEditTrustedContact() {
     // Default routing returns here via back() on save/skip — that's the

@@ -74,7 +74,8 @@ function dialOrWarn(url: string, failMessage: string) {
 
 export default function Emergency() {
   const router = useRouter();
-  const { contact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const contact = contactState.ready ? contactState.contact : null;
 
   const [mode, setMode] = useState<Mode>({ kind: 'idle' });
   const [countdownSec, setCountdownSec] = useState(COUNTDOWN_SEC);

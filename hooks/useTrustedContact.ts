@@ -1,7 +1,6 @@
 import * as Contacts from 'expo-contacts';
 import * as Location from 'expo-location';
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
 import {
   clearTrustedContact,
@@ -12,6 +11,7 @@ import {
   setTrustedContact,
   type TrustedContact,
 } from '../lib/api/trusted-contact';
+import { useHydratedState } from './useHydratedState';
 
 /**
  * Tries to geocode the first postal address on a Contact. Requests
@@ -65,13 +65,16 @@ async function tryCaptureContactLocation(
 }
 
 /**
- * Reactive wrapper around the trusted-contact adapter. Loads the stored
- * contact on mount (and re-reads on focus) and exposes a picker helper that opens iOS's native
- * contact picker, normalizes the response into our `TrustedContact`
- * shape, and persists it.
+ * Reactive wrapper around the trusted-contact adapter. Hydrates from
+ * AsyncStorage on mount (and re-reads on focus) via useHydratedState.
+ * Returns a discriminated union on the `ready` flag so callers cannot
+ * accidentally read `.contact` before hydration settles — the flash bug
+ * is a compile error rather than a convention.
  *
  * Usage:
- *   const { contact, loading, pickContact, clearContact } = useTrustedContact();
+ *   const state = useTrustedContact();
+ *   if (!state.ready) return; // hydrating
+ *   const { contact, pickContact, clearContact } = state;
  *
  * `pickContact` returns:
  *   - the freshly-stored TrustedContact on success
@@ -85,31 +88,16 @@ async function tryCaptureContactLocation(
  * request CONTACTS permission and roll its own picker UI; not in
  * scope while we're iPhone-first per docs/architecture.md.
  */
-export function useTrustedContact() {
-  const [contact, setContact] = useState<TrustedContact | null>(null);
-  const [loading, setLoading] = useState(true);
+type TrustedContactWrites = {
+  pickContact: () => Promise<TrustedContact | null>;
+  clearContact: () => Promise<void>;
+};
 
-  // Re-read on focus, not just mount: /trusted-contact-setup is pushed
-  // OVER the screens that read the contact (/pulled-over's contact phase,
-  // /safety-settings), so popping back reveals them without remounting —
-  // a mount-only load would show a just-added contact as still-missing
-  // (safety-critical mid-stop). `loading` only flips false (never back
-  // to true on refocus) to avoid a flash.
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        const stored = await getTrustedContact();
-        if (!cancelled) {
-          setContact(stored);
-          setLoading(false);
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, []),
-  );
+export type TrustedContactState = TrustedContactWrites &
+  ({ ready: false } | { ready: true; contact: TrustedContact | null });
+
+export function useTrustedContact(): TrustedContactState {
+  const hydrated = useHydratedState<TrustedContact | null>(getTrustedContact);
 
   const pickContact = useCallback(async (): Promise<TrustedContact | null> => {
     const picked = await Contacts.presentContactPickerAsync();
@@ -150,14 +138,20 @@ export function useTrustedContact() {
       addressLabel: location?.addressLabel,
     });
 
-    setContact(stored);
+    hydrated.setData(stored);
     return stored;
-  }, []);
+  }, [hydrated.setData]);
 
   const clearContact = useCallback(async () => {
+    // Await-first (clear storage, then drop local state) preserves the
+    // original hook's ordering. Note usePreferences.clearAll is optimistic
+    // (setData first) — each hook keeps its own prior order; don't unify.
     await clearTrustedContact();
-    setContact(null);
-  }, []);
+    hydrated.setData(null);
+  }, [hydrated.setData]);
 
-  return { contact, loading, pickContact, clearContact };
+  if (!hydrated.ready) {
+    return { ready: false, pickContact, clearContact };
+  }
+  return { ready: true, contact: hydrated.data, pickContact, clearContact };
 }

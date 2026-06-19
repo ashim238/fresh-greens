@@ -45,7 +45,8 @@ export default function ShareLocation() {
   const router = useRouter();
   const shareState = useShareSession();
   const { startSession, endSession, resendSessionSms } = shareState;
-  const { contact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const contact = contactState.ready ? contactState.contact : null;
   const [busy, setBusy] = useState(false);
 
   const session = shareState.ready ? shareState.session : null;

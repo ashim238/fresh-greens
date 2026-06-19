@@ -84,7 +84,8 @@ export default function Unfamiliar() {
   const shareState = useShareSession();
   const session = shareState.ready ? shareState.session : null;
   const { startSession, endSession, resendSessionSms } = shareState;
-  const { contact } = useTrustedContact();
+  const contactState = useTrustedContact();
+  const contact = contactState.ready ? contactState.contact : null;
   // Step initializer reads `session` lazily on mount. While the hook is
   // still hydrating from AsyncStorage (!shareState.ready), `session` is null —
   // we'd land on 'problem' and let the user start a NEW session that

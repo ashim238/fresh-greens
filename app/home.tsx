@@ -343,7 +343,8 @@ export default function Home() {
   // graph. Visual is a Phosphor HeartStraight stand-in inside the green
   // LandmarkMarker; the canonical SVG comes from Figma 1133:13245 when
   // it's exported.
-  const { contact: trustedContact } = useTrustedContact();
+  const trustedContactState = useTrustedContact();
+  const trustedContact = trustedContactState.ready ? trustedContactState.contact : null;
   const { user } = useUser();
   // First name for the browse-mode sheet eyebrow ("Jordan's Local
   // Recs"). Pull off displayName since that's what useUser exposes;

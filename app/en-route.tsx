@@ -465,7 +465,8 @@ export default function EnRoute() {
   // decide whether the pill renders at all. User-flagged 2026-06-01.
   const shareState = useShareSession();
   const shareSession = shareState.ready ? shareState.session : null;
-  const { contact: trustedContact } = useTrustedContact();
+  const trustedContactState = useTrustedContact();
+  const trustedContact = trustedContactState.ready ? trustedContactState.contact : null;
   const safetyPillShowing = !!shareSession && !!trustedContact;
   // Reserved vertical space for the pill: 16pt inset + 64pt minHeight +
   // 12pt gap above. Columns sit at this offset when the pill shows,
