@@ -64,6 +64,11 @@ iOS HIG 44×44 pt minimum on both axes — **on the visual, not just the hit are
 
 `hitSlop` is for the narrow case where the visual is *genuinely* constrained — a small icon inside a dense row where 44pt would break the layout, or a child target inside an already-compliant larger container. Forgiveness padding on top of compliance, not the compliance mechanism itself.
 
+## Dismissal
+Sheets and overlay cards dismiss via three affordances together: the `DragHandle` (swipe-down), scrim-tap, and a top-right close `X` (Phosphor `X`, `labelSecondary`) in a **≥44pt painted target** — `tapTarget44` on content sheets, or the 48pt `FloatingActionButton` on map-overlay cards (both compliant; pick the one matching the surface's register). The close `X` must clear 44pt painted per the tap-target rule — never `hitSlop` on a bare glyph.
+
+Full-screen modals **may omit** the explicit `X` when dismissal is unambiguous via nav-back or scrim-tap. Sanctioned no-X surfaces: `LiveSafetySheet`, `LifelineModal`, `trip-summary` (nav-back), `HomeBrowseSheet` (swipe/scroll). Don't add close chrome to these — their minimalism is deliberate.
+
 ## Code conventions
 - TypeScript strict mode. No `any` without a comment justifying it.
 - Components live in `app/` (route screens) or `components/` (reusable). One component per file unless tightly coupled.
