@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   iconCirclePreferred: {
+    // reserved-color sanctioned (.cursorrules #9): favorite-gold ring, on-map sibling of PreferredStar
     borderColor: colors.yellow,
     borderWidth: 2,
   },
