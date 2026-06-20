@@ -120,6 +120,7 @@ Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): 
 - ~~**Edge markers match Figma (not placeholders)**~~ — shipped across #134–138 (`EdgeIndicator.tsx` cites Figma `1133:13250`). Component implements the full layered composition (42×62 polygon + 36pt disk + 24pt counter-rotated glyph, per-category routing). The "32pt pill with generic glyph" description here hasn't matched reality since the redesign rounds.
 - ~~**Trusted contact text → body regular, not emphasized**~~ — already there. `ContactView` styles (`pulled-over.tsx:1669-1727`) use `title1Regular`/`subheadlineRegular`/`title2Regular`. No `bodyEmphasized` left to swap.
 - ~~**Guidance flow has 24px padding**~~ — already there, via composition. `guidanceStyles.page` uses `paddingHorizontal: 8` inside the modal's 16pt safe-area gutter → 24pt effective. Inline comment at `pulled-over.tsx:1546-1550` explains the math.
+- **Restore posted speed-limit sign on `/en-route`** — removed in Phase 3 PR E (2026-06-20) because the static '—' affordance taught users to distrust other data signals (Phase 1 P1-10). The current-speed pill above it stays correct and live. When an OSM `maxspeed` adapter ships and posted limits become available per route segment, restore the sign with real data — see the deleted styles in `git log -p -- app/en-route.tsx` for the visual register.
 
 ## Interaction polish
 
