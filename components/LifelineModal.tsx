@@ -177,6 +177,7 @@ const styles = StyleSheet.create({
     // Avatar initials stay at fixed display-scale — the ring is a visual
     // element, not text needing AX5 scaling. The single character won't clip
     // at this size.
+    // dynamic-type exempt (.cursorrules): display-scale avatar identity element
     fontSize: 44,
   },
   name: {
