@@ -18,6 +18,7 @@ import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { SettingsRow } from '../components/settings/SettingsRow';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { useRecordings } from '../hooks/useRecordings';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -54,6 +55,23 @@ export default function SafetySettings() {
     ? (trustedContactName ?? 'Add someone you trust')
     : undefined;
 
+  // Recordings count for the row's value slot. Render-mode useRecordings
+  // call (no error arg per the error-message contract — the /recordings
+  // screen surfaces load errors via its own 3-state ladder). If the read
+  // errored or is mid-hydrate, count falls to 0 → undefined value → the
+  // row shows label + chevron only.
+  const recordingsState = useRecordings();
+  const recordingsCount =
+    recordingsState.ready && recordingsState.ok
+      ? recordingsState.recordings.length
+      : 0;
+  const recordingsValue =
+    recordingsCount === 0
+      ? undefined
+      : recordingsCount === 1
+        ? '1 recording'
+        : `${recordingsCount} recordings`;
+
   function handleEditTrustedContact() {
     // Default routing returns here via back() on save/skip — that's the
     // default since the 2026-06-01 inversion. No `from` param needed.
@@ -79,11 +97,10 @@ export default function SafetySettings() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <RowGroup>
+          <RowGroup footer="Reach a trusted contact or 911.">
             <SettingsRow
               icon={<Asterisk size={24} color={colors.red} weight="bold" />}
               label="Emergency SOS"
-              value="Reach a trusted contact or 911"
               onPress={() => router.push('/emergency')}
               accessibilityHint="Opens the SOS screen to call your trusted contact or 911"
             />
@@ -96,6 +113,7 @@ export default function SafetySettings() {
             <SettingsRow
               icon={<Microphone size={24} color={colors.black} weight="duotone" />}
               label="Recordings"
+              value={recordingsValue}
               onPress={handleRecordings}
             />
           </RowGroup>
