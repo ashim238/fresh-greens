@@ -1098,7 +1098,12 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
           */}
           <View style={contactStyles.avatarStack}>
             <View style={contactStyles.avatarRingMiddle}>
-              <View style={contactStyles.avatarCircle}>
+              <View
+                style={[
+                  contactStyles.avatarCircle,
+                  !hasContact && contactStyles.avatarCircleEmpty,
+                ]}
+              >
                 {hasContact ? (
                   <Text style={contactStyles.avatarInitials}>
                     {contact?.initials}
@@ -1106,7 +1111,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
                 ) : (
                   <UserPlus
                     size={56}
-                    color={colors.white}
+                    color={colors.freshgreen}
                     weight="duotone"
                   />
                 )}
@@ -1122,7 +1127,14 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
               />
             )}
           </View>
-          <Text style={contactStyles.contactName}>{displayName}</Text>
+          <Text
+            style={[
+              contactStyles.contactName,
+              !hasContact && contactStyles.contactNameEmpty,
+            ]}
+          >
+            {displayName}
+          </Text>
         </Pressable>
 
         <View style={contactStyles.buttonsBlock}>
@@ -2025,6 +2037,21 @@ const contactStyles = StyleSheet.create({
   contactName: {
     ...typography.title2Regular,
     color: colors.black,
+    textAlign: 'center',
+  },
+  // Empty-state overrides applied via style array when !hasContact.
+  // Per Phase 1 P1-11: a filled wiltedgreen avatar misframes the empty
+  // slot as a populated identity. The fill→outline register flip reuses
+  // Button's convention (fill = identity / commitment; outline =
+  // invitation / secondary) — no new chrome, just a property flip.
+  avatarCircleEmpty: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: colors.freshgreen,
+  },
+  contactNameEmpty: {
+    ...typography.bodyEmphasized,
+    color: colors.freshgreen,
     textAlign: 'center',
   },
   buttonsBlock: {
