@@ -29,6 +29,7 @@ import { Siren } from 'phosphor-react-native/src/icons/Siren';
 import { Tire } from 'phosphor-react-native/src/icons/Tire';
 import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
+import { X } from 'phosphor-react-native/src/icons/X';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
@@ -41,7 +42,7 @@ import { type ProblemType } from '../lib/api/roadside';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -149,6 +150,15 @@ export default function Roadside() {
     setStep('problem');
   }
 
+  function handleBackToActions() {
+    // Per Phase 1 P0-3: Step 3 was a trap. The "I'm back on the road"
+    // CTA was the only labeled exit but it commits state. This non-
+    // committing path returns to Step 2 so a user who advanced by
+    // accident (e.g. share toggle auto-advance) can recover without
+    // losing their roadside flow.
+    setStep('action');
+  }
+
   function markActionTaken() {
     setActionTaken(true);
     setStep('status');
@@ -206,6 +216,7 @@ export default function Roadside() {
             shareToggledAtIso={shareToggledAtIso}
             onBackOnRoad={() => router.back()}
             onSwitchToPulledOver={() => router.replace('/pulled-over')}
+            onBackToActions={handleBackToActions}
           />
         )}
       </SafeAreaView>
@@ -472,6 +483,7 @@ function LiveStatus({
   shareToggledAtIso,
   onBackOnRoad,
   onSwitchToPulledOver,
+  onBackToActions,
 }: {
   problem: ProblemType | null;
   locationLabel: string;
@@ -479,6 +491,7 @@ function LiveStatus({
   shareToggledAtIso: string | null;
   onBackOnRoad: () => void;
   onSwitchToPulledOver: () => void;
+  onBackToActions: () => void;
 }) {
   const { profile: roadsideProfile } = useRoadsideProfile();
   const contactState = useTrustedContact();
@@ -506,6 +519,16 @@ function LiveStatus({
       contentContainerStyle={styles.stepBody}
       showsVerticalScrollIndicator={false}
     >
+      <View style={styles.statusTopChrome}>
+        <Pressable
+          onPress={onBackToActions}
+          accessibilityRole="button"
+          accessibilityLabel="Back to actions"
+          style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
+        >
+          <X size={24} color={colors.labelSecondary} weight="regular" />
+        </Pressable>
+      </View>
       <Text style={[styles.subtitle, { marginTop: spacing.sm }]}>Hang tight.</Text>
       <Text style={styles.title} accessibilityRole="header">
         {headline}
@@ -663,6 +686,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
     alignItems: 'center',
+  },
+  statusTopChrome: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    // tapTarget44 provides the 44pt painted floor on the Pressable.
+    // The row container right-aligns it per .cursorrules ## Dismissal.
   },
   stepBody: {
     paddingHorizontal: spacing.lg,
