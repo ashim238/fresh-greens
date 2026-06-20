@@ -86,6 +86,7 @@ import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useCoachMark } from '../hooks/useCoachMark';
+import { useHoldToConfirm } from '../hooks/useHoldToConfirm';
 import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
@@ -377,6 +378,18 @@ export default function EnRoute() {
   const reduceMotion = useReduceMotion();
   const etaPulseAnim = useRef(new Animated.Value(1)).current;
   const sideFabCoach = useCoachMark('en-route-side-fabs');
+  // P0-2 safety guard: SOS jumps to /emergency which is a high-stakes
+  // crisis surface. A bare one-tap is too easy to brush accidentally
+  // during routine driving. Hold-to-confirm at 800ms with a visual +
+  // haptic ramp gates the navigation behind explicit intent. VoiceOver
+  // users get a single-tap bypass (they're intentional by definition).
+  // Per .cursorrules ## Safety-critical interactions.
+  const sosHold = useHoldToConfirm({
+    thresholdMs: 800,
+    onConfirm: () => {
+      router.push('/emergency');
+    },
+  });
 
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const osmZonesRef = useRef<Zone[]>([]);
@@ -935,16 +948,12 @@ export default function EnRoute() {
     return null;
   }, [enRouteZones, enteredZoneIds, turnHazards]);
 
-  // Auto-expand on zone entry. Compares enteredZoneIds across renders
-  // and, on any newly-entered zone, expands the sheet so the hazard
-  // panel surfaces immediately — the driver doesn't have to think to
-  // tap the drag handle mid-drive. Auto-collapse 5s later so the
-  // sheet doesn't camp expanded indefinitely. Manual drag-handle taps
-  // cancel the pending auto-collapse (see handleDragHandleToggle).
+  // On any newly-entered zone, fire a light haptic ping so the driver
+  // knows something changed — but DON'T auto-expand the sheet. The v1
+  // auto-expand + 5s auto-collapse yanked driver eyes off the road
+  // (Phase 1 P1-9, 2026-06-19). The DragHandle is the user-controlled
+  // path to surface the hazard panel.
   const prevEnteredZoneIdsRef = useRef<Set<string>>(new Set());
-  const autoCollapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   useEffect(() => {
     let entered = false;
     for (const id of enteredZoneIds) {
@@ -957,33 +966,10 @@ export default function EnRoute() {
     if (!entered) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (!reduceMotion) {
-      setSheetExpanded(true);
-      if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
-      autoCollapseTimerRef.current = setTimeout(() => {
-        setSheetExpanded(false);
-        autoCollapseTimerRef.current = null;
-      }, 5000);
-    }
-  }, [enteredZoneIds, reduceMotion]);
+  }, [enteredZoneIds]);
 
-  // Cleanup the auto-collapse timer on unmount so a pending callback
-  // never fires after the screen is gone.
-  useEffect(() => {
-    return () => {
-      if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
-    };
-  }, []);
-
-  // Drag-handle tap: toggles expansion AND cancels any pending
-  // auto-collapse. Without the cancel, tapping while the timer is
-  // running would re-set sheetExpanded but the timer would still
-  // fire seconds later and override the user's manual choice.
+  // Drag-handle tap: toggles sheet expansion.
   const handleDragHandleToggle = useCallback(() => {
-    if (autoCollapseTimerRef.current) {
-      clearTimeout(autoCollapseTimerRef.current);
-      autoCollapseTimerRef.current = null;
-    }
     setSheetExpanded((v) => !v);
   }, []);
 
@@ -2075,17 +2061,26 @@ export default function EnRoute() {
             </FloatingActionButton>
           </SideFabRow>
           <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
-            <FloatingActionButton
-              size="56"
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                router.push('/emergency');
-              }}
-              accessibilityLabel="Emergency SOS"
-              accessibilityHint="Opens trusted-contact and 911 options"
-            >
-              <SidebtnSos width={32} height={32} />
-            </FloatingActionButton>
+            <View style={styles.sosHoldWrap}>
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.sosHoldRing, { opacity: sosHold.holdProgress }]}
+              />
+              <FloatingActionButton
+                size="56"
+                onPressIn={sosHold.pressHandlers.onPressIn}
+                onPressOut={sosHold.pressHandlers.onPressOut}
+                onPress={sosHold.pressHandlers.onPress}
+                accessibilityLabel="Emergency SOS"
+                accessibilityHint={
+                  sosHold.isVoiceOverOn
+                    ? 'Opens the SOS screen to call your trusted contact or 911'
+                    : 'Press and hold to open SOS'
+                }
+              >
+                <SidebtnSos width={32} height={32} />
+              </FloatingActionButton>
+            </View>
           </SideFabRow>
           <SideFabRow label="Safety" showLabel={sideFabCoach.visible}>
             <FloatingActionButton
@@ -2428,6 +2423,25 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  // P0-2 SOS hold-to-confirm: a 64pt red ring overlaid on the 56pt FAB
+  // whose opacity ramps 0→1 with the hold gesture (useHoldToConfirm).
+  // The ring sits OUTSIDE the FAB so it reads as an expanding glow
+  // without animating size (which would jitter the side-FAB column).
+  // colors.red is the SOS button's sanctioned reserved-color carve-out;
+  // the ring amplifies the existing affordance.
+  sosHoldWrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosHoldRing: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: colors.red,
   },
 
   // --- Turn-sign header ---

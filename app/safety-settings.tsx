@@ -97,13 +97,16 @@ export default function SafetySettings() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <RowGroup footer="Reach a trusted contact or 911.">
+          <RowGroup footer="One-tap path to call your trusted contact or 911.">
             <SettingsRow
               icon={<Asterisk size={24} color={colors.red} weight="bold" />}
               label="Emergency SOS"
               onPress={() => router.push('/emergency')}
               accessibilityHint="Opens the SOS screen to call your trusted contact or 911"
             />
+          </RowGroup>
+
+          <RowGroup footer="Configure your safety options.">
             <SettingsRow
               icon={<UserCircle size={24} color={colors.black} weight="duotone" />}
               label="Trusted Contact"
