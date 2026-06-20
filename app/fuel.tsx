@@ -211,6 +211,13 @@ export default function Fuel() {
     setHydrated(true);
   }, [loading, profile, hydrated]);
 
+  // Block Save when distance reminders are on but no tank range was picked —
+  // otherwise the form persists `rangeMiles: null` + `rangeSource: 'none'`
+  // (the save block coerces them), which silently disables the distance
+  // trigger the user just toggled on. The user thinks they configured
+  // distance reminders; the engine sees a no-op. Surface it instead.
+  const canSave = !saving && !(distanceEnabled && rangeMiles === null);
+
   async function handleSave() {
     if (saving) return;
     setSaving(true);
@@ -568,15 +575,20 @@ export default function Fuel() {
 
             <Pressable
               onPress={handleSave}
-              disabled={saving}
+              disabled={!canSave}
               style={({ pressed }) => [
                 styles.saveBtn,
-                saving && styles.saveBtnDisabled,
-                pressed && !saving && pressedDim,
+                !canSave && styles.saveBtnDisabled,
+                pressed && canSave && pressedDim,
               ]}
               accessibilityRole="button"
               accessibilityLabel="Save refuel reminder settings"
-              accessibilityState={{ disabled: saving, busy: saving }}
+              accessibilityHint={
+                distanceEnabled && rangeMiles === null
+                  ? 'Pick a tank range to enable Save'
+                  : undefined
+              }
+              accessibilityState={{ disabled: !canSave, busy: saving }}
             >
               {saving ? (
                 <ActivityIndicator color={colors.white} />
