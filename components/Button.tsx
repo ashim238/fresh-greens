@@ -46,6 +46,12 @@ type CommonProps = {
    */
   loading?: boolean;
   accessibilityLabel?: string;
+  /**
+   * VoiceOver hint — what tapping *does* (the outcome) when the label
+   * names a noun/title or the consequence isn't obvious. Per `.cursorrules
+   * ## Accessibility`. Self-evident verb+object labels need no hint.
+   */
+  accessibilityHint?: string;
   /** Container style override — most useful for `alignSelf: 'stretch'` in flex layouts. */
   style?: ViewStyle;
 };
@@ -63,6 +69,7 @@ export function Button({
   disabled,
   loading,
   accessibilityLabel,
+  accessibilityHint,
   style,
   type = 'primary',
   fill = 'fill',
@@ -93,6 +100,7 @@ export function Button({
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? text}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         containerStyle,
