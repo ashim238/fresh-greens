@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Sprint 2 closer — a zero-violation audit is still a PR worth shipping (2026-06-20)
+
+PR 10 (reserved-color audit) was specced as "audit + fix off-semantic uses." The `rg "colors\.(orange|red|yellow|pink|navy)"` sweep found **26 use-sites, 0 violations** — the cardinal invariant was already clean (10 carve-outs + cross-link carve-out in `.cursorrules` had it covered). The instinct is "nothing to fix → fold into a docs note." But two use-sites (`SettingsRow` destructive-red, `FuelStopMarker` preferred yellow ring) were compliant *in intent* yet not *named* by any carve-out — so the next `rg` sweep would re-flag them as tribal knowledge. **The PR's real value was codification, not fixing:** new carve-out #11, broadened #9, + inline `// reserved-color sanctioned (.cursorrules #N)` pointers (the `index.tsx:345` precedent). A zero-fix audit that closes the documentation gap is a legitimate, valuable PR — don't collapse it to nothing.
+
+**The bigger pattern, now 4× confirmed (PR 5, 7, 4, 10):** the Phase 1 synthesis *systematically overcounts* scope. Every Sprint 2 PR shrank hard once real geometry/code was read first — PR 4's "7-item MEDIUM, codebase-wide Button blast" became 5 changed lines; PR 10's "audit + fix" became 0 fixes. **Lesson:** the synthesis is a point-in-time estimate written before the intervening polish passes; treat it as a *lead*, not a spec. Always enumerate the actual current state (read the component, run the sweep) *before* the brainstorm questions — the enumeration is what sets the real scope.
+
+**Also:** zero-behavior-change PRs (docs + comments, no color/token/layout delta) need no runtime smoke and can merge straight off a clean `tsc` + a comment-only diff guard (`git diff … | rg '^[+-]' | rg -v 'reserved-color sanctioned'` returning empty). Don't make the user smoke-test a prose change.
+
+---
+
 ## Sprint 2 pipelined cadence — branch hygiene bit me (2026-06-20)
 
 Pipelining (brainstorm PR N+1 while PR N executes) introduced a new failure mode: PR N's execution leaves you ON its feature branch (`feat/settings-value-population`), and the very next pipelined brainstorm commits its spec + plan to *that branch* instead of main. PR #236 silently grew two coach-mark-recoverability doc commits that had nothing to do with settings-value-population, and PR 7's branch (which forks from main) wouldn't have had its own spec/plan.
