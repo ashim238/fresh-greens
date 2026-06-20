@@ -1,5 +1,6 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
@@ -8,6 +9,7 @@ import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Pause } from 'phosphor-react-native/src/icons/Pause';
 import { Play } from 'phosphor-react-native/src/icons/Play';
+import { Share } from 'phosphor-react-native/src/icons/Share';
 import { Trash } from 'phosphor-react-native/src/icons/Trash';
 import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
@@ -45,6 +47,14 @@ import { typography } from '../theme/typography';
  *
  * Route: /recordings
  */
+// Discriminated request for the destructive-confirm Modal: `'all'` (bulk
+// delete) or `'single'` (per-row delete, carries id + createdAt so the
+// dialog can name the recording's date). `null` = modal hidden.
+type ConfirmRequest =
+  | { mode: 'all' }
+  | { mode: 'single'; id: string; createdAt: number }
+  | null;
+
 export default function Recordings() {
   const router = useRouter();
   const state = useRecordings();
@@ -55,7 +65,7 @@ export default function Recordings() {
   // an inline emphasized "cannot" — native iOS Alert doesn't support
   // mid-sentence bold. Tap-outside or the X close in the top-right
   // both dismiss; only "Yes, I'm sure" proceeds.
-  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmRequest>(null);
   // Latched while the deletion is in flight. Keeps the modal open
   // with the confirm button in a loading state, disables the
   // trigger button so a fast double-tap can't re-fire the same
@@ -120,7 +130,67 @@ export default function Recordings() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleShare(uri: string, createdAt: number) {
+    try {
+      await Sharing.shareAsync(uri, {
+        dialogTitle: `Recording from ${formatTimestamp(createdAt)}`,
+        mimeType: 'audio/m4a',
+      });
+    } catch (err) {
+      const { title, body } = getErrorMessage('recordings', 'transient', err);
+      Alert.alert(title, body);
+    }
+  }
+
+  function handleDelete(id: string, createdAt: number) {
+    setConfirm({ mode: 'single', id, createdAt });
+  }
+
+  function handleRequestDeleteAll() {
+    setConfirm({ mode: 'all' });
+  }
+
+  function handleCancelConfirm() {
+    if (isDeletingAll) return;
+    setConfirm(null);
+  }
+
+  async function handleConfirmDelete() {
+    if (!confirm) return;
+    if (confirm.mode === 'all') {
+      if (isDeletingAll) return;
+      setIsDeletingAll(true);
+      if (playingId) {
+        try {
+          player.pause();
+        } catch {
+          /* noop */
+        }
+        setPlayingId(null);
+      }
+      // Iterate the local snapshot — capture before the first run() in case
+      // state.recordings is replaced by an in-flight optimistic.
+      const ids = state.ready && state.ok ? state.recordings.map((r) => r.id) : [];
+      const results = await Promise.all(ids.map((id) => state.remove.run(id)));
+      const anyFailed = results.some((r) => !r.ok);
+      setConfirm(null);
+      setIsDeletingAll(false);
+      if (anyFailed) {
+        const firstFailed = results.find(
+          (r): r is { ok: false; error: Error } => !r.ok,
+        );
+        const firstErr = firstFailed?.error;
+        const { title, body } = getErrorMessage('recordings', 'transient', firstErr);
+        Alert.alert(title, body);
+        return;
+      }
+      setJustDeletedAll(true);
+      return;
+    }
+    // mode === 'single' — single-row delete: pause playback if this row is
+    // playing, then commit. Close the modal first so it doesn't briefly
+    // show after the user confirmed.
+    const { id } = confirm;
     if (playingId === id) {
       try {
         player.pause();
@@ -129,50 +199,13 @@ export default function Recordings() {
       }
       setPlayingId(null);
     }
+    setConfirm(null);
     const result = await state.remove.run(id);
     if (!result.ok) {
       const { title, body } = getErrorMessage('recordings', 'transient', result.error);
       Alert.alert(title, body);
       return;
     }
-  }
-
-  function handleRequestDeleteAll() {
-    setShowDeleteAllConfirm(true);
-  }
-
-  function handleCancelDeleteAll() {
-    setShowDeleteAllConfirm(false);
-  }
-
-  async function handleConfirmDeleteAll() {
-    if (isDeletingAll) return;
-    setIsDeletingAll(true);
-    if (playingId) {
-      try {
-        player.pause();
-      } catch {
-        /* noop */
-      }
-      setPlayingId(null);
-    }
-    // Iterate the local snapshot — capture before the first run() in case
-    // state.recordings is replaced by an in-flight optimistic.
-    const ids = state.ready && state.ok ? state.recordings.map((r) => r.id) : [];
-    const results = await Promise.all(ids.map((id) => state.remove.run(id)));
-    const anyFailed = results.some((r) => !r.ok);
-    setShowDeleteAllConfirm(false);
-    setIsDeletingAll(false);
-    if (anyFailed) {
-      const firstFailed = results.find(
-        (r): r is { ok: false; error: Error } => !r.ok,
-      );
-      const firstErr = firstFailed?.error;
-      const { title, body } = getErrorMessage('recordings', 'transient', firstErr);
-      Alert.alert(title, body);
-      return;
-    }
-    setJustDeletedAll(true);
   }
 
   return (
@@ -233,7 +266,8 @@ export default function Recordings() {
                       isActive={isActive}
                       isPlaying={isPlaying}
                       onTogglePlay={() => handleTogglePlay(recording.id)}
-                      onDelete={() => handleDelete(recording.id)}
+                      onDelete={() => handleDelete(recording.id, recording.createdAt)}
+                      onShare={() => handleShare(recording.uri, recording.createdAt)}
                     />
                     {playbackErrorId === recording.id && (
                       <SafetyErrorMessage
@@ -272,10 +306,10 @@ export default function Recordings() {
         rhythm.
       */}
       <Modal
-        visible={showDeleteAllConfirm}
+        visible={confirm !== null}
         transparent
         animationType={reduceMotion ? 'none' : 'fade'}
-        onRequestClose={handleCancelDeleteAll}
+        onRequestClose={handleCancelConfirm}
         statusBarTranslucent
       >
         {/*
@@ -288,7 +322,7 @@ export default function Recordings() {
         */}
         <Pressable
           style={styles.confirmScrim}
-          onPress={handleCancelDeleteAll}
+          onPress={handleCancelConfirm}
           accessible={false}
           accessibilityViewIsModal
         >
@@ -299,8 +333,8 @@ export default function Recordings() {
           */}
           <Pressable style={styles.confirmCard} onPress={() => {}}>
             <Pressable
-              onPress={handleCancelDeleteAll}
-              disabled={isDeletingAll}
+              onPress={handleCancelConfirm}
+              disabled={confirm?.mode === 'all' && isDeletingAll}
               accessibilityRole="button"
               accessibilityLabel="Cancel"
               // R7: the tap target is a transparent 44pt surface; the
@@ -320,7 +354,11 @@ export default function Recordings() {
               </View>
             </Pressable>
             <Text style={styles.confirmTitle}>
-              Are you sure you want to delete all recordings?
+              {confirm?.mode === 'all'
+                ? 'Are you sure you want to delete all recordings?'
+                : confirm?.mode === 'single'
+                  ? `Delete this recording from ${formatTimestamp(confirm.createdAt)}?`
+                  : ''}
             </Text>
             <Text style={styles.confirmBody}>
               Deleted files{' '}
@@ -329,10 +367,19 @@ export default function Recordings() {
             <Button
               type="primary"
               fill="fill"
-              text="Yes, I'm sure"
-              onPress={handleConfirmDeleteAll}
-              accessibilityLabel="Yes, I'm sure — delete all recordings"
-              loading={isDeletingAll}
+              text={confirm?.mode === 'single' ? 'Yes, delete' : "Yes, I'm sure"}
+              onPress={handleConfirmDelete}
+              accessibilityLabel={
+                confirm?.mode === 'single'
+                  ? 'Yes, delete this recording'
+                  : "Yes, I'm sure — delete all recordings"
+              }
+              accessibilityHint={
+                confirm?.mode === 'single'
+                  ? 'Permanently deletes this recording'
+                  : undefined
+              }
+              loading={confirm?.mode === 'all' && isDeletingAll}
               style={styles.confirmActionBtn}
             />
           </Pressable>
@@ -348,12 +395,14 @@ function RecordingCard({
   isPlaying,
   onTogglePlay,
   onDelete,
+  onShare,
 }: {
   recording: Recording;
   isActive: boolean;
   isPlaying: boolean;
   onTogglePlay: () => void;
   onDelete: () => void;
+  onShare: () => void;
 }) {
   const PlayPauseIcon = isPlaying ? Pause : Play;
   // R6: compose the timestamp + armed-status + duration into a single
@@ -395,6 +444,15 @@ function RecordingCard({
           {formatDuration(recording.durationMs)}
         </Text>
       </View>
+
+      <Pressable
+        onPress={onShare}
+        style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
+        accessibilityRole="button"
+        accessibilityLabel={`Share recording from ${formatTimestamp(recording.createdAt)}`}
+      >
+        <Share size={24} color={colors.labelTertiary} weight="regular" />
+      </Pressable>
 
       <Pressable
         onPress={onDelete}
