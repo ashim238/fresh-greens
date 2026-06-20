@@ -4,6 +4,21 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Sprint 3 — not every audit collapses: compliance-audit vs coverage-audit (2026-06-20)
+
+Sprints 2–3 ran six "audit" PRs back to back. Five collapsed to near-zero (reserved-color: 0 violations; Dynamic Type: 0 misses; dismissal: 1 fix). The reflex by PR 6 was to expect the same and force a "near-zero" narrative. **That would have been wrong.** PR 6 (VoiceOver hint depth) is a *coverage* audit, not a *compliance* audit — and the two right-size differently:
+
+- **Compliance audit** ("does every use of X obey rule R?") — the codebase is usually already clean because the rule was enforced all along, so the real output is *documentation* (codify the convention + carve-outs). Near-zero fixes is the honest answer.
+- **Coverage audit** ("does every control that *should* have Y actually have it?") — Y was never enforced, so there's a genuine, bounded gap. PR 6: 262 labels / 39 hints; the real work was ~6 hints, concentrated in the safety flows that never got them (share/roadside/unfamiliar), while the already-hinted surfaces stayed clean. Not 223, not 0 — a real, modest, *located* set.
+
+**Lesson:** before an audit, classify it. Compliance → expect to document, not fix. Coverage → expect a real (bounded) gap; build the inventory with per-element judgment and don't flatten it to zero for narrative tidiness. The enumeration-first discipline finds the truth either way; the mistake is pre-deciding the shape.
+
+**Tactic that paid off:** for the coverage audit, an Explore subagent built the candidate inventory (per-control: label, what-it-does, NEEDS-HINT vs FINE, proposed copy) across ~14 gap files in one shot — far faster than reading them inline, and the rigor (it rejected most as self-evident) was exactly right. Also: credit the already-good (`emergency.tsx` labels already disambiguated → excluded *with a reason in the spec*, not silently skipped) so reviewers know it was checked.
+
+Also reaffirmed: zero-/low-behavior-change PRs (the docs+comment ones — PR 8/10) merge straight off `tsc` + a marker-only diff guard; PRs with any real UI/a11y change (PR 9 tap-target, PR 6 hints) get left open for the user's device smoke (VoiceOver especially — agents can't test it).
+
+---
+
 ## Sprint 2 closer — a zero-violation audit is still a PR worth shipping (2026-06-20)
 
 PR 10 (reserved-color audit) was specced as "audit + fix off-semantic uses." The `rg "colors\.(orange|red|yellow|pink|navy)"` sweep found **26 use-sites, 0 violations** — the cardinal invariant was already clean (10 carve-outs + cross-link carve-out in `.cursorrules` had it covered). The instinct is "nothing to fix → fold into a docs note." But two use-sites (`SettingsRow` destructive-red, `FuelStopMarker` preferred yellow ring) were compliant *in intent* yet not *named* by any carve-out — so the next `rg` sweep would re-flag them as tribal knowledge. **The PR's real value was codification, not fixing:** new carve-out #11, broadened #9, + inline `// reserved-color sanctioned (.cursorrules #N)` pointers (the `index.tsx:345` precedent). A zero-fix audit that closes the documentation gap is a legitimate, valuable PR — don't collapse it to nothing.
