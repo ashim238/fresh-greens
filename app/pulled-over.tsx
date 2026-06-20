@@ -51,7 +51,6 @@ import { DragHandle } from '../components/DragHandle';
 import { RecordingSaveErrorBanner } from '../components/RecordingSaveErrorBanner';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
-import { useMutation } from '../hooks/useMutation';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -61,6 +60,7 @@ import {
   type DisclosureDuty,
   type SayBullet,
 } from '../lib/api/gun-laws';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -214,13 +214,16 @@ export default function PulledOver() {
   // auto-stop on modal dismiss). Controls the "Recording saved" state.
   const [recordingStopped, setRecordingStopped] = useState(false);
 
-  const { addRecording } = useRecordings();
+  const { add } = useRecordings();
   // Mutation wrapper for the recording-save persist — see
   // RecordingSaveErrorBanner for the UX rationale. We hold onto the
   // input that produced the failure (so Retry can replay it) and the
   // deferred nav action (so success or explicit-dismiss can resume the
   // back-navigation the user originally requested).
-  const saveRecordingMutation = useMutation(addRecording);
+  //
+  // `add` from useRecordings is already a Mutation object (run/status/
+  // error/reset) — aliasing preserves all the banner's existing reads.
+  const saveRecordingMutation = add;
   const lastRecordingSaveInputRef = useRef<{
     sourceUri: string;
     durationMs: number;
@@ -351,7 +354,11 @@ export default function PulledOver() {
         await recorder.prepareToRecordAsync();
         recorder.record();
       } catch (err) {
-        console.warn('expo-audio recorder failed to start', err);
+        // Group B: surface to the user. They think recording is happening; if
+        // it isn't, they need to know NOW. Recordings + permanent maps to
+        // "Couldn't start recording / Try a different microphone or restart."
+        const { title, body } = getErrorMessage('recordings', 'permanent', err);
+        Alert.alert(title, body);
       }
     })();
     // recorder identity is stable from the hook; intentionally not in deps.
