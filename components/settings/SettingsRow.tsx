@@ -168,6 +168,7 @@ const styles = StyleSheet.create({
   },
   destructiveLabel: {
     ...dynamicType(typography.bodyRegular),
+    // reserved-color sanctioned (.cursorrules #11): iOS-universal destructive red
     color: colors.red,
     textAlign: 'center',
     flex: 1,
