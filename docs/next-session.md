@@ -128,6 +128,9 @@ Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): 
 - ~~**Zone preferences dropdown doesn't collapse**~~ — moot as of `8ea29ac`: Zone Preferences moved to its own /zone-preferences page; the accordion no longer exists. The earlier "unanimated collapse is a deliberate workaround" trail-off is also resolved by the move (no collapse to animate).
 - ~~**Map pin on-tap functionality**~~ — shipped. All variants wired: community report → `ReportDetailCard` (`home.tsx:818`), saved-home → recenter + selection haptic (`handleHomeMarkerPress`), trusted-friend → Call/Text Alert (`handleTrustedFriendMarkerPress`), cluster → fit-bounds zoom (`home.tsx:783`).
 - ~~**Hold-to-delete on community-report markers**~~ — shipped. Author-only (`reportSubmittedBy === user.id`) long-press via `MapView.onLongPress` proximity hit-test → heavy haptic → destructive Alert confirm → `removeCommunityReport(id)`. `Zone` gained `reportSubmittedBy` field threaded from `CommunityReport.submittedBy`.
+- **Recordings long-press → context menu / multi-select** — deferred from Phase 3 PR C (2026-06-20). Today: per-row Play / Share / Trash are individual taps. A long-press selection mode would unlock bulk-share alongside the existing bulk-delete and per-row reordering if that ever comes up. Not pilot-blocking; the per-row Share is the high-value half and shipped in #245.
+- **Recordings bulk-share** — deferred from Phase 3 PR C. Bulk-delete exists; bulk-share doesn't. Needs the multi-select gesture above first.
+- **`Sharing.isAvailableAsync` gating on /recordings Share button** — today the try/catch around `Sharing.shareAsync` covers the unavailable case (rare on iOS; the system Share Sheet is always present on supported devices). If user reports confirm a class of devices/configurations where it fails silently, gate the button render on `isAvailableAsync` instead.
 
 ## A18 — Heading wedge on /home user-location dot
 
