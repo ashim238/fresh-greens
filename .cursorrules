@@ -51,6 +51,14 @@ The shadow is a physical-metaphor cue, not a fixed style.
 - Guidance/instruction screens: Title1 **Emphasized** (bold)
 - **In-modal user prompts use Title1 Regular.** When a modal asks the user something — Felt-unsafe "Talk to us. What's going on?", Lighting "Street lights down or dimmer than normal?", Thank-You "Thanks for submitting." — regular weight reads as a held question. Bold would feel imperative on a moment that should feel like an invitation. Same exception covers emotionally charged full-screens (Contact "You're not alone.", Trip Summary arrival).
 
+## Dynamic Type (text scaling)
+All styled text must scale with iOS Settings → Display & Text Size → Larger Text, per WCAG 1.4.4 (Resize Text, Level AA). The mechanism is `dynamicType(typography.X)` from `theme/dynamic-type.ts` — it scales both `fontSize` and `lineHeight` (React Native's `allowFontScaling` alone won't scale an explicit `lineHeight`). Spread it into every text style: `...dynamicType(typography.bodyRegular)`. For stress-state long reads, compose `dynamicType(relaxedLineHeight(typography.X))` (relax first, scale second).
+
+**Raw `fontSize:` in a StyleSheet is forbidden** — it bypasses scaling and excludes low-vision users. Exception: fixed-aspect logo/signage/display text, where scaling would break the metaphor or push fixed-position UI off-screen (per Apple HIG: "unless the text is part of a logo or has a fixed aspect ratio"). Sanctioned exceptions, each tagged in-code with `// dynamic-type exempt`:
+
+1. **Speed-limit sign numbers** (`/en-route` `speedLimitCurrentNumber` 24pt, `speedLimitNumber` 32pt) — US speed-limit signage is fixed-proportion (Overpass Bold on a regulation sign); scaling overflows the sign SVG and breaks the road-sign metaphor.
+2. **Lifeline avatar initials** (`LifelineModal` `avatarText` 44pt) — a display-scale identity element (the ring is visual, not body text); no typography-ramp token reaches 44pt, and a single initial won't clip.
+
 ## Tap targets
 iOS HIG 44×44 pt minimum on both axes — **on the visual, not just the hit area**. iOS HIG takes precedence over Figma when in conflict: if the design specs a 36pt button, build it at 44pt. Don't paper over a sub-44pt visual with `hitSlop` — invisible tap area below the visible affordance is a usability-and-confidence problem (users tap "near" the button hoping it works), not just a measurement one.
 
