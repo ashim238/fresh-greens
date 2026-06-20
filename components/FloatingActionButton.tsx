@@ -27,6 +27,8 @@ export function FloatingActionButton({
   children,
   onPress,
   onLongPress,
+  onPressIn,
+  onPressOut,
   disabled,
   size = '56',
   accessibilityLabel,
@@ -38,6 +40,10 @@ export function FloatingActionButton({
   /** Optional long-press handler. Used for hidden affordances (e.g. the
       menu FAB toggling dev-only chrome) — never the primary action. */
   onLongPress?: () => void;
+  /** Exposed for hold-to-confirm patterns (see hooks/useHoldToConfirm). */
+  onPressIn?: () => void;
+  /** Exposed for hold-to-confirm patterns (see hooks/useHoldToConfirm). */
+  onPressOut?: () => void;
   disabled?: boolean;
   size?: Size;
   accessibilityLabel?: string;
@@ -53,6 +59,8 @@ export function FloatingActionButton({
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}

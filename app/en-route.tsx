@@ -86,6 +86,7 @@ import { useRecentSearches } from '../hooks/useRecentSearches';
 import { useRouteFuelStops } from '../hooks/useRouteFuelStops';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useCoachMark } from '../hooks/useCoachMark';
+import { useHoldToConfirm } from '../hooks/useHoldToConfirm';
 import {
   getCommunityReportsAsZones,
   type ReportCategoryId,
@@ -377,6 +378,18 @@ export default function EnRoute() {
   const reduceMotion = useReduceMotion();
   const etaPulseAnim = useRef(new Animated.Value(1)).current;
   const sideFabCoach = useCoachMark('en-route-side-fabs');
+  // P0-2 safety guard: SOS jumps to /emergency which is a high-stakes
+  // crisis surface. A bare one-tap is too easy to brush accidentally
+  // during routine driving. Hold-to-confirm at 800ms with a visual +
+  // haptic ramp gates the navigation behind explicit intent. VoiceOver
+  // users get a single-tap bypass (they're intentional by definition).
+  // Per .cursorrules ## Safety-critical interactions.
+  const sosHold = useHoldToConfirm({
+    thresholdMs: 800,
+    onConfirm: () => {
+      router.push('/emergency');
+    },
+  });
 
   const [osmZones, setOsmZones] = useState<Zone[]>([]);
   const osmZonesRef = useRef<Zone[]>([]);
@@ -2048,17 +2061,26 @@ export default function EnRoute() {
             </FloatingActionButton>
           </SideFabRow>
           <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
-            <FloatingActionButton
-              size="56"
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                router.push('/emergency');
-              }}
-              accessibilityLabel="Emergency SOS"
-              accessibilityHint="Opens trusted-contact and 911 options"
-            >
-              <SidebtnSos width={32} height={32} />
-            </FloatingActionButton>
+            <View style={styles.sosHoldWrap}>
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.sosHoldRing, { opacity: sosHold.holdProgress }]}
+              />
+              <FloatingActionButton
+                size="56"
+                onPressIn={sosHold.pressHandlers.onPressIn}
+                onPressOut={sosHold.pressHandlers.onPressOut}
+                onPress={sosHold.pressHandlers.onPress}
+                accessibilityLabel="Emergency SOS"
+                accessibilityHint={
+                  sosHold.isVoiceOverOn
+                    ? 'Opens the SOS screen to call your trusted contact or 911'
+                    : 'Press and hold to open SOS'
+                }
+              >
+                <SidebtnSos width={32} height={32} />
+              </FloatingActionButton>
+            </View>
           </SideFabRow>
           <SideFabRow label="Safety" showLabel={sideFabCoach.visible}>
             <FloatingActionButton
@@ -2401,6 +2423,25 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  // P0-2 SOS hold-to-confirm: a 64pt red ring overlaid on the 56pt FAB
+  // whose opacity ramps 0→1 with the hold gesture (useHoldToConfirm).
+  // The ring sits OUTSIDE the FAB so it reads as an expanding glow
+  // without animating size (which would jitter the side-FAB column).
+  // colors.red is the SOS button's sanctioned reserved-color carve-out;
+  // the ring amplifies the existing affordance.
+  sosHoldWrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosHoldRing: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: colors.red,
   },
 
   // --- Turn-sign header ---
