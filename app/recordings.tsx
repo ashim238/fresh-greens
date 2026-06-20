@@ -1,5 +1,6 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
@@ -8,6 +9,7 @@ import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Pause } from 'phosphor-react-native/src/icons/Pause';
 import { Play } from 'phosphor-react-native/src/icons/Play';
+import { Share } from 'phosphor-react-native/src/icons/Share';
 import { Trash } from 'phosphor-react-native/src/icons/Trash';
 import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
@@ -117,6 +119,18 @@ export default function Recordings() {
       player.pause();
     } else {
       player.play();
+    }
+  }
+
+  async function handleShare(uri: string, createdAt: number) {
+    try {
+      await Sharing.shareAsync(uri, {
+        dialogTitle: `Recording from ${formatTimestamp(createdAt)}`,
+        mimeType: 'audio/m4a',
+      });
+    } catch (err) {
+      const { title, body } = getErrorMessage('recordings', 'transient', err);
+      Alert.alert(title, body);
     }
   }
 
@@ -234,6 +248,7 @@ export default function Recordings() {
                       isPlaying={isPlaying}
                       onTogglePlay={() => handleTogglePlay(recording.id)}
                       onDelete={() => handleDelete(recording.id)}
+                      onShare={() => handleShare(recording.uri, recording.createdAt)}
                     />
                     {playbackErrorId === recording.id && (
                       <SafetyErrorMessage
@@ -348,12 +363,14 @@ function RecordingCard({
   isPlaying,
   onTogglePlay,
   onDelete,
+  onShare,
 }: {
   recording: Recording;
   isActive: boolean;
   isPlaying: boolean;
   onTogglePlay: () => void;
   onDelete: () => void;
+  onShare: () => void;
 }) {
   const PlayPauseIcon = isPlaying ? Pause : Play;
   // R6: compose the timestamp + armed-status + duration into a single
@@ -395,6 +412,15 @@ function RecordingCard({
           {formatDuration(recording.durationMs)}
         </Text>
       </View>
+
+      <Pressable
+        onPress={onShare}
+        style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
+        accessibilityRole="button"
+        accessibilityLabel={`Share recording from ${formatTimestamp(recording.createdAt)}`}
+      >
+        <Share size={24} color={colors.labelTertiary} weight="regular" />
+      </Pressable>
 
       <Pressable
         onPress={onDelete}
