@@ -110,7 +110,13 @@ export default function Menu() {
   const router = useRouter();
   const { user, signOut, updateProfile } = useUser();
   const { clearContact } = useTrustedContact();
-  const { clear: clearSavedPlacesMutation } = useSavedPlaces();
+  const savedPlacesState = useSavedPlaces();
+  const { clear: clearSavedPlacesMutation } = savedPlacesState;
+  const savedPlacesCount = savedPlacesState.ready
+    ? savedPlacesState.savedPlaces.length
+    : 0;
+  const savedPlacesValue =
+    savedPlacesCount === 0 ? undefined : `${savedPlacesCount} saved`;
   const { clearAll: clearRegularDestinations } = useRegularDestinations();
   const { clearAll: clearPreferences } = usePreferences();
   const {
@@ -457,6 +463,7 @@ export default function Menu() {
             <SettingsRow
               icon={<Bookmark size={24} color={colors.black} weight="duotone" />}
               label="Saved places"
+              value={savedPlacesValue}
               onPress={handleSavedPlaces}
             />
           </RowGroup>

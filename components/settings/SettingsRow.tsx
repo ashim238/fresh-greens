@@ -25,9 +25,15 @@ type Trailing = 'chevron' | 'toggle' | 'segmented' | 'none';
  *                         distance-units row. Passing 'segmented' in
  *                         Plan 1 renders as 'none' (no crash, no pill).
  *
- * `value` renders right-aligned text before the trailing affordance
- * (e.g. "English (US)"). `destructive` makes the row a centered red
- * label with no icon / no trailing (Sign out).
+ * `value` is iOS-canonical: the current state of the setting this row
+ * owns. Use for:
+ *   - the setting's configured value: "Marcus Williams", "English (US)"
+ *   - a setup-cue when unconfigured: "Add someone you trust", "Set up"
+ *   - a count of related items: "3 recordings"
+ * Don't use it for descriptions or instructions — those go in
+ * `RowGroup.footer` below the card. "Reach a trusted contact or 911"
+ * is footer copy, not value copy. `destructive` makes the row a
+ * centered red label with no icon / no trailing (Sign out).
  *
  * Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
  */
