@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Sprint 2 pipelined cadence — branch hygiene bit me (2026-06-20)
+
+Pipelining (brainstorm PR N+1 while PR N executes) introduced a new failure mode: PR N's execution leaves you ON its feature branch (`feat/settings-value-population`), and the very next pipelined brainstorm commits its spec + plan to *that branch* instead of main. PR #236 silently grew two coach-mark-recoverability doc commits that had nothing to do with settings-value-population, and PR 7's branch (which forks from main) wouldn't have had its own spec/plan.
+
+**The tell:** the `git push` output named the wrong branch (`feat/settings-value-population -> feat/settings-value-population` when I expected `main -> main`). Read the push target, not just the SHA range.
+
+**The fix:** `git checkout main && cherry-pick <doc commits>` onto main, then `git checkout <feature-branch> && reset --hard <last-code-commit>` + `push --force-with-lease`. Clean because docs are separate files from the code commits (no overlap). The force-push only dropped doc commits, so the open PR's code under smoke-test was untouched.
+
+**The rule:** after any subagent-driven execution finishes (it leaves you on the feature branch), `git checkout main` BEFORE starting the next pipelined brainstorm. Docs always commit to main; code always commits to its own branch. This is the second branch-hygiene bite of the program — see also [[the useHydratedState local-main-diverged entry below]]. Both trace to not checking `git branch --show-current` before committing docs.
+
+---
+
 ## feat/use-hydrated-state — discriminated unions for "loading vs empty" + the blast-radius reckoning (2026-06-19)
 
 Two things that bit and clicked.
