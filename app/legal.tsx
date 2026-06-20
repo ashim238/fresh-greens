@@ -368,7 +368,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   tab: {
-    paddingVertical: spacing.xs,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
     borderRadius: 999,
     backgroundColor: colors.systemGroupedBackground,
