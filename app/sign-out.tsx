@@ -44,7 +44,7 @@ export default function SignOut() {
 
           <View style={styles.copy}>
             <Text style={styles.title}>You've been logged out.</Text>
-            <Text style={styles.subtitle}>Thank you for stopping by!</Text>
+            <Text style={styles.subtitle}>Drive safe.</Text>
           </View>
 
           <Button
