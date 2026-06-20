@@ -10,6 +10,7 @@ import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
 import { Gear } from 'phosphor-react-native/src/icons/Gear';
 import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
+import { Question } from 'phosphor-react-native/src/icons/Question';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
 // Legacy API (documentDirectory + copyAsync) — same import the /report
 // photo flow uses; SDK 54 moved the classic surface under /legacy.
@@ -43,6 +44,7 @@ import { usePreferences } from '../hooks/usePreferences';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { resetCoachMarks } from '../hooks/useCoachMark';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
@@ -269,6 +271,11 @@ export default function Menu() {
     router.push('/saved-places');
   }
 
+  async function handleMapGuide() {
+    await resetCoachMarks();
+    router.replace('/home');
+  }
+
   function handleLegal() {
     router.push('/legal');
   }
@@ -465,6 +472,11 @@ export default function Menu() {
               label="Saved places"
               value={savedPlacesValue}
               onPress={handleSavedPlaces}
+            />
+            <SettingsRow
+              icon={<Question size={24} color={colors.black} weight="duotone" />}
+              label="Map guide"
+              onPress={handleMapGuide}
             />
           </RowGroup>
 
