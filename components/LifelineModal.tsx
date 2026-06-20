@@ -7,6 +7,7 @@ import { Button } from './Button';
 import { DragHandle } from './DragHandle';
 import { NotifyingPulse } from './NotifyingPulse';
 import type { TrustedContact } from '../lib/api/trusted-contact';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { spacing } from '../theme/spacing';
@@ -36,10 +37,8 @@ export function LifelineModal({ visible, onClose, contact }: Props) {
 
   async function openOrWarn(url: string, unsupportedMessage: string) {
     if (!dialable) {
-      Alert.alert(
-        'No phone number',
-        'Your trusted contact has no usable phone number. Update their details and try again.',
-      );
+      const { title, body } = getErrorMessage('contact', 'permanent');
+      Alert.alert(title, body);
       return;
     }
     const supported = await Linking.canOpenURL(url);

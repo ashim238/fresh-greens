@@ -12,6 +12,7 @@ import { PageControl } from '../components/PageControl';
 import { EmptyState } from '../components/StateCard';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -126,12 +127,12 @@ export default function TrustedContactSetup() {
     try {
       await pickContact();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not pick contact. Try again.',
-      );
-      console.warn('pickContact failed', err);
+      // getErrorMessage fires the canonical [contact:transient] log
+      // regardless of branch; we prefer err.message for the displayed
+      // copy when present (the hook's phone-number-missing error has
+      // actionable detail), else fall back to the taxonomy body.
+      const fallback = getErrorMessage('contact', 'transient', err).body;
+      setError(err instanceof Error ? err.message : fallback);
     } finally {
       setPicking(false);
     }
