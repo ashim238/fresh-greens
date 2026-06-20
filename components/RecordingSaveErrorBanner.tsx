@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Warning } from 'phosphor-react-native/src/icons/Warning';
 import { X } from 'phosphor-react-native/src/icons/X';
 
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -47,7 +48,7 @@ export function RecordingSaveErrorBanner({
         <Warning size={20} color={colors.white} weight="fill" />
       </View>
       <Text style={styles.message} numberOfLines={2}>
-        Your recording didn't save.
+        {getErrorMessage('recordings', 'transient').title}
       </Text>
       <Pressable
         onPress={onRetry}

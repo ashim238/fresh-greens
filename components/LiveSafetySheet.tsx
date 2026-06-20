@@ -15,6 +15,7 @@ import { DragHandle } from './DragHandle';
 import { NotifyingPulse } from './NotifyingPulse';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { getErrorMessage } from '../lib/error-message';
 import { formatElapsedDuration } from '../lib/format';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
@@ -85,10 +86,8 @@ export function LiveSafetySheet({
     setExpanded(false);
     const endResult = await end.run();
     if (!endResult.ok) {
-      Alert.alert(
-        "Couldn't end sharing",
-        'Try again in a moment.',
-      );
+      const { title, body } = getErrorMessage('sharing', 'transient', endResult.error);
+      Alert.alert(title, body);
     }
   }
 

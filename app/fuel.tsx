@@ -23,6 +23,7 @@ import { Truck } from 'phosphor-react-native/src/icons/Truck';
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { type FuelProfile, type FuelType } from '../lib/api/fuel';
+import { getErrorMessage } from '../lib/error-message';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { colors } from '../theme/colors';
@@ -229,7 +230,8 @@ export default function Fuel() {
           'Turn on notifications for Fresh Greens in Settings to get refuel reminders.',
         );
       } else {
-        Alert.alert('Could not save', 'Please try again in a moment.');
+        const { title, body } = getErrorMessage('save', 'transient');
+        Alert.alert(title, body);
       }
       return;
     }
@@ -247,7 +249,8 @@ export default function Fuel() {
 
     const result = await markFilledUp(fillFraction);
     if (!result.ok) {
-      Alert.alert('Could not update', 'Please try again in a moment.');
+      const { title, body } = getErrorMessage('save', 'transient');
+      Alert.alert(title, body);
     }
   }
 

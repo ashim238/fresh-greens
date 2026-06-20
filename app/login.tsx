@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LogoApple from '../assets/illustrations/logo-apple.svg';
 import { useUser } from '../hooks/useUser';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { typography } from '../theme/typography';
@@ -64,8 +65,7 @@ export default function Login() {
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       if (code !== 'ERR_REQUEST_CANCELED') {
-        setError('Sign-in failed. Please try again.');
-        console.warn('Apple Sign In error', err);
+        setError(getErrorMessage('auth', 'transient', err).body);
       }
     } finally {
       setSigningIn(false);

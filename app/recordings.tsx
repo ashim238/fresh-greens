@@ -11,17 +11,18 @@ import { Play } from 'phosphor-react-native/src/icons/Play';
 import { Trash } from 'phosphor-react-native/src/icons/Trash';
 import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
+import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
 import {
   EmptyState as EmptyStateCard,
-  ErrorState,
   LoadingState,
 } from '../components/StateCard';
 import { useRecordings } from '../hooks/useRecordings';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { getErrorMessage } from '../lib/error-message';
 import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
@@ -46,8 +47,9 @@ import { typography } from '../theme/typography';
  */
 export default function Recordings() {
   const router = useRouter();
-  const { recordings, loading, error, removeRecording } = useRecordings();
+  const state = useRecordings();
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playbackErrorId, setPlaybackErrorId] = useState<string | null>(null);
   // In-app destructive confirm per Figma 1133:12674. Built as an
   // overlay <Modal> rather than `Alert.alert` so the body can render
   // an inline emphasized "cannot" — native iOS Alert doesn't support
@@ -73,19 +75,27 @@ export default function Recordings() {
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
 
+  const isStateReady = state.ready;
+  const isStateOk = state.ready && state.ok;
+
   useEffect(() => {
     if (!playingId) return;
-    const target = recordings.find((r) => r.id === playingId);
+    if (!state.ready || !state.ok) return;
+    const target = state.recordings.find((r) => r.id === playingId);
     if (!target) return;
     try {
       player.replace({ uri: target.uri });
       player.play();
+      setPlaybackErrorId(null);
     } catch (err) {
-      console.warn('Failed to play recording', target.id, err);
+      // Group B: surface to the user. The user tapped play on a specific
+      // row; show an inline error next to THAT row.
+      void getErrorMessage('recordings', 'transient', err); // canonical [recordings:transient] log
+      setPlaybackErrorId(playingId);
       setPlayingId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playingId]);
+  }, [playingId, isStateReady, isStateOk]);
 
   useEffect(() => {
     if (status?.didJustFinish) {
@@ -99,6 +109,7 @@ export default function Recordings() {
 
   function handleTogglePlay(id: string) {
     if (playingId !== id) {
+      setPlaybackErrorId(null);
       setPlayingId(id);
       return;
     }
@@ -118,7 +129,12 @@ export default function Recordings() {
       }
       setPlayingId(null);
     }
-    await removeRecording(id);
+    const result = await state.remove.run(id);
+    if (!result.ok) {
+      const { title, body } = getErrorMessage('recordings', 'transient', result.error);
+      Alert.alert(title, body);
+      return;
+    }
   }
 
   function handleRequestDeleteAll() {
@@ -140,21 +156,24 @@ export default function Recordings() {
       }
       setPlayingId(null);
     }
-    await Promise.all(recordings.map((r) => removeRecording(r.id)));
+    // Iterate the local snapshot — capture before the first run() in case
+    // state.recordings is replaced by an in-flight optimistic.
+    const ids = state.ready && state.ok ? state.recordings.map((r) => r.id) : [];
+    const results = await Promise.all(ids.map((id) => state.remove.run(id)));
+    const anyFailed = results.some((r) => !r.ok);
     setShowDeleteAllConfirm(false);
     setIsDeletingAll(false);
+    if (anyFailed) {
+      const firstFailed = results.find(
+        (r): r is { ok: false; error: Error } => !r.ok,
+      );
+      const firstErr = firstFailed?.error;
+      const { title, body } = getErrorMessage('recordings', 'transient', firstErr);
+      Alert.alert(title, body);
+      return;
+    }
     setJustDeletedAll(true);
   }
-
-  // R1/R2 (PR K): explicit state ladder — loading → error → empty →
-  // list. Previously only `showEmptyState` existed, so the loading and
-  // error windows both fell through to a blank ScrollView. `hasRecordings`
-  // also fixes a latent bug: the delete-all bar was gated on
-  // `!showEmptyState`, which was true DURING loading (recordings empty
-  // but loading still true) — so the destructive button could render
-  // over a blank loading screen.
-  const showEmptyState = !loading && !error && recordings.length === 0;
-  const hasRecordings = !loading && !error && recordings.length > 0;
 
   return (
     <View style={styles.root}>
@@ -182,11 +201,15 @@ export default function Recordings() {
             <Text style={styles.pageTitle}>Recordings</Text>
           </View>
 
-          {loading ? (
+          {!state.ready ? (
             <LoadingState text="Loading recordings…" />
-          ) : error ? (
-            <ErrorState text="We couldn’t load your recordings. Reopen this screen to try again." />
-          ) : showEmptyState ? (
+          ) : !state.ok ? (
+            <SafetyErrorMessage
+              domain="load"
+              disposition="transient"
+              error={state.error}
+            />
+          ) : state.recordings.length === 0 ? (
             <EmptyStateCard
               icon={
                 <Microphone size={56} color={colors.freshgreen} weight="duotone" />
@@ -200,25 +223,32 @@ export default function Recordings() {
             />
           ) : (
             <View style={styles.recordingsList}>
-              {recordings.map((recording) => {
+              {state.recordings.map((recording) => {
                 const isActive = playingId === recording.id;
                 const isPlaying = isActive && (status?.playing ?? false);
                 return (
-                  <RecordingCard
-                    key={recording.id}
-                    recording={recording}
-                    isActive={isActive}
-                    isPlaying={isPlaying}
-                    onTogglePlay={() => handleTogglePlay(recording.id)}
-                    onDelete={() => handleDelete(recording.id)}
-                  />
+                  <View key={recording.id}>
+                    <RecordingCard
+                      recording={recording}
+                      isActive={isActive}
+                      isPlaying={isPlaying}
+                      onTogglePlay={() => handleTogglePlay(recording.id)}
+                      onDelete={() => handleDelete(recording.id)}
+                    />
+                    {playbackErrorId === recording.id && (
+                      <SafetyErrorMessage
+                        domain="recordings"
+                        disposition="transient"
+                      />
+                    )}
+                  </View>
                 );
               })}
             </View>
           )}
         </ScrollView>
 
-        {hasRecordings && (
+        {state.ready && state.ok && state.recordings.length > 0 && (
           <View style={styles.deleteAllWrap}>
             <Button
               type="primary"

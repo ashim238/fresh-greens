@@ -47,6 +47,7 @@ import {
 import { searchPlaces, type Place } from '../lib/api/places';
 import { type RegularDestination } from '../lib/api/regular-destinations';
 import { type SavedPlace } from '../lib/api/saved-places';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -350,7 +351,7 @@ export default function Search() {
         // icon doesn't carry over from a prior search-query error into
         // this location-availability error (icon-copy mismatch).
         setIsNoResultsError(false);
-        setErrorMessage('Locating you… try again in a moment.');
+        setErrorMessage(getErrorMessage('load', 'transient').body);
       }
       return;
     }
@@ -413,9 +414,7 @@ export default function Search() {
       if (isExplicit) {
         setPhase('error');
         setIsNoResultsError(false);
-        setErrorMessage(
-          "We're having trouble connecting to the internet right now.",
-        );
+        setErrorMessage(getErrorMessage('load', 'transient', err).body);
       }
       // Silent autocomplete error — leave UI alone, user can keep typing.
     }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   addRecording as addRecordingToStore,
@@ -7,73 +7,133 @@ import {
   type ArmedAnswer,
   type Recording,
 } from '../lib/api/recordings';
+import { useHydratedResource } from './useHydratedResource';
+import { type Mutation, type MutationResult, useMutation } from './useMutation';
 
-/**
- * Reactive wrapper around the recordings adapter. Loads stored
- * recordings on mount, exposes add/remove helpers that update local
- * state alongside AsyncStorage so the UI re-renders without needing
- * a manual refetch.
- *
- * Usage:
- *   const { recordings, loading, addRecording, removeRecording } =
- *     useRecordings();
- *
- * Same architectural pattern as useUser / useTrustedContact /
- * usePreferences. Local-state-only for now (each consumer reads its
- * own snapshot); when /recordings and /pulled-over need to share live
- * state, this becomes a context provider.
- */
-export function useRecordings() {
-  const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [loading, setLoading] = useState(true);
-  // R2 (PR K): surface a load failure so /recordings can render an
-  // ErrorState instead of hanging on a blank screen forever. Without
-  // the catch, a throwing getRecordings() (corrupt store, quota,
-  // cold-simulator wipe) left `loading` pinned true and the UI empty
-  // with no recovery path. Additive to the return shape — existing
-  // consumers (safety-settings, pulled-over) don't destructure it.
-  const [error, setError] = useState<Error | null>(null);
+export type AddRecordingInput = {
+  sourceUri: string;
+  durationMs: number;
+  armed: ArmedAnswer | null;
+  createdAt?: number;
+};
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const stored = await getRecordings();
-        if (!cancelled) {
-          setRecordings(stored);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err : new Error(String(err)));
-          setLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+type RecordingsMutations = {
+  add: Mutation<AddRecordingInput, Recording>;
+  remove: Mutation<string, void>;
+};
 
-  const addRecording = useCallback(
-    async (input: {
-      sourceUri: string;
-      durationMs: number;
-      armed: ArmedAnswer | null;
-      createdAt?: number;
-    }): Promise<Recording> => {
-      const recording = await addRecordingToStore(input);
-      // Newest-first ordering — match what getRecordings returns.
-      setRecordings((prev) => [recording, ...prev]);
-      return recording;
-    },
-    [],
+export type RecordingsState = RecordingsMutations &
+  (
+    | { ready: false }
+    | { ready: true; ok: false; error: Error }
+    | { ready: true; ok: true; recordings: Recording[] }
   );
 
-  const removeRecording = useCallback(async (id: string) => {
-    await removeRecordingFromStore(id);
-    setRecordings((prev) => prev.filter((r) => r.id !== id));
-  }, []);
+/**
+ * Reactive wrapper around the recordings adapter. Reads through
+ * useHydratedResource (3-state — recordings reads can throw on
+ * corrupt store / quota / cold-simulator wipe). Writes through
+ * useMutation.
+ *
+ * Per-call exact-id reconciliation for add: each call closes over its
+ * own optimistic id so the DATA STORE stays consistent under concurrent
+ * runs (distinct ids, independent rollbacks). The STATUS/ERROR UI state
+ * is single-slot per useMutation's version counter — a second add.run()
+ * while one is pending will cancel the first's status-flip. Same
+ * trade-off as PR #2's useSavedPlaces.add.
+ */
+export function useRecordings(): RecordingsState {
+  const hydrated = useHydratedResource<Recording[]>(getRecordings, {
+    mountOnly: true,
+  });
 
-  return { recordings, loading, error, addRecording, removeRecording };
+  // add — per-call exact-id reconciliation. Each call closes over its
+  // own unique optimistic id so concurrent calls can't collide; rollback
+  // and reconciliation both target the exact id (no version race).
+  const addMutation = useMutation(addRecordingToStore);
+  const addRun = useCallback(
+    async (
+      input: AddRecordingInput,
+    ): Promise<MutationResult<Recording>> => {
+      const optimisticId = `__optimistic-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+      const optimistic: Recording = {
+        id: optimisticId,
+        uri: input.sourceUri,
+        durationMs: input.durationMs,
+        armed: input.armed,
+        createdAt: input.createdAt ?? Date.now(),
+      };
+      // Newest-first ordering — match what getRecordings returns.
+      hydrated.setData((prev) => [optimistic, ...(prev ?? [])]);
+      const result = await addMutation.run(input);
+      if (result.ok) {
+        hydrated.setData((prev) => {
+          const base = prev ?? [];
+          const idx = base.findIndex((r) => r.id === optimisticId);
+          if (idx === -1) return base;
+          const next = [...base];
+          next[idx] = result.data;
+          return next;
+        });
+      } else {
+        // Rollback — remove only our optimistic entry, leave concurrent
+        // ones in place.
+        hydrated.setData((prev) =>
+          (prev ?? []).filter((r) => r.id !== optimisticId),
+        );
+      }
+      return result;
+    },
+    [addMutation.run, hydrated.setData],
+  );
+  const add = useMemo<Mutation<AddRecordingInput, Recording>>(
+    () => ({
+      run: addRun,
+      status: addMutation.status,
+      error: addMutation.error,
+      reset: addMutation.reset,
+    }),
+    [addRun, addMutation.status, addMutation.error, addMutation.reset],
+  );
+
+  // remove — onOptimistic captures original index for splice-restore on rollback.
+  const remove = useMutation(removeRecordingFromStore, {
+    onOptimistic: (id) => {
+      const base = hydrated.ready && hydrated.ok ? hydrated.data : [];
+      const idx = base.findIndex((r) => r.id === id);
+      const removed = idx !== -1 ? base[idx] : undefined;
+      hydrated.setData((prev) => (prev ?? []).filter((r) => r.id !== id));
+      return () => {
+        if (removed !== undefined && idx !== -1) {
+          hydrated.setData((prev) => {
+            const next = [...(prev ?? [])];
+            next.splice(idx, 0, removed);
+            return next;
+          });
+        }
+      };
+    },
+  });
+
+  if (!hydrated.ready) {
+    return { ready: false, add, remove };
+  }
+  if (!hydrated.ok) {
+    return {
+      ready: true,
+      ok: false,
+      error: hydrated.error,
+      add,
+      remove,
+    };
+  }
+  return {
+    ready: true,
+    ok: true,
+    recordings: hydrated.data,
+    add,
+    remove,
+  };
 }

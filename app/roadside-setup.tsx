@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
+import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -70,7 +71,8 @@ export default function RoadsideSetup() {
     if (result.ok) {
       router.back();
     } else {
-      Alert.alert('Could not save', 'Please try again in a moment.');
+      const { title, body } = getErrorMessage('save', 'transient', saveMutation.error);
+      Alert.alert(title, body);
       // status === 'error' now; setting it again is unnecessary —
       // useMutation tracks it. Button re-enables automatically.
     }

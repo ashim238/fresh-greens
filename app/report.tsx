@@ -35,6 +35,7 @@ import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg'
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { Button } from '../components/Button';
+import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
 import { useMutation } from '../hooks/useMutation';
 import { useUser } from '../hooks/useUser';
 import {
@@ -312,6 +313,7 @@ export default function Report() {
             onSubmit={handleSubmit}
             submitting={submitting}
             submitError={submitError}
+            submitErrorPayload={submitMutation.error}
             locationKnown={location !== null}
             photoUri={photoUri}
             onPickPhoto={handlePickPhoto}
@@ -480,6 +482,7 @@ function DetailView({
   onSubmit,
   submitting,
   submitError,
+  submitErrorPayload,
   locationKnown,
   photoUri,
   onPickPhoto,
@@ -495,6 +498,7 @@ function DetailView({
   onSubmit: () => void;
   submitting: boolean;
   submitError: boolean;
+  submitErrorPayload: Error | null;
   locationKnown: boolean;
   photoUri: string | undefined;
   onPickPhoto: () => void;
@@ -723,9 +727,11 @@ function DetailView({
         no-location case.
       */}
       {submitError && (
-        <Text style={styles.submitErrorLine}>
-          Couldn&rsquo;t send your report. Try again.
-        </Text>
+        <SafetyErrorMessage
+          domain="report"
+          disposition="transient"
+          error={submitErrorPayload}
+        />
       )}
       <Button
         text={submitting ? 'Submitting…' : category.cta}
@@ -1048,15 +1054,6 @@ const styles = StyleSheet.create({
   chipLabelActive: {
     ...typography.subheadlineEmphasized,
     color: colors.white,
-  },
-  // Inline error line shown above the Submit CTA when useMutation lands
-  // in 'error' status. footnoteRegular + colors.red matches the
-  // established error-text pattern in login.tsx, get-started.tsx, and
-  // trusted-contact-setup.tsx (carve-out #8 in .cursorrules).
-  submitErrorLine: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
-    textAlign: 'center',
   },
   // Stretches the v2 `Button` across the popup's content width. Without
   // this, the unified Button picks up its natural width from its label
