@@ -935,16 +935,12 @@ export default function EnRoute() {
     return null;
   }, [enRouteZones, enteredZoneIds, turnHazards]);
 
-  // Auto-expand on zone entry. Compares enteredZoneIds across renders
-  // and, on any newly-entered zone, expands the sheet so the hazard
-  // panel surfaces immediately — the driver doesn't have to think to
-  // tap the drag handle mid-drive. Auto-collapse 5s later so the
-  // sheet doesn't camp expanded indefinitely. Manual drag-handle taps
-  // cancel the pending auto-collapse (see handleDragHandleToggle).
+  // On any newly-entered zone, fire a light haptic ping so the driver
+  // knows something changed — but DON'T auto-expand the sheet. The v1
+  // auto-expand + 5s auto-collapse yanked driver eyes off the road
+  // (Phase 1 P1-9, 2026-06-19). The DragHandle is the user-controlled
+  // path to surface the hazard panel.
   const prevEnteredZoneIdsRef = useRef<Set<string>>(new Set());
-  const autoCollapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   useEffect(() => {
     let entered = false;
     for (const id of enteredZoneIds) {
@@ -957,33 +953,10 @@ export default function EnRoute() {
     if (!entered) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (!reduceMotion) {
-      setSheetExpanded(true);
-      if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
-      autoCollapseTimerRef.current = setTimeout(() => {
-        setSheetExpanded(false);
-        autoCollapseTimerRef.current = null;
-      }, 5000);
-    }
-  }, [enteredZoneIds, reduceMotion]);
+  }, [enteredZoneIds]);
 
-  // Cleanup the auto-collapse timer on unmount so a pending callback
-  // never fires after the screen is gone.
-  useEffect(() => {
-    return () => {
-      if (autoCollapseTimerRef.current) clearTimeout(autoCollapseTimerRef.current);
-    };
-  }, []);
-
-  // Drag-handle tap: toggles expansion AND cancels any pending
-  // auto-collapse. Without the cancel, tapping while the timer is
-  // running would re-set sheetExpanded but the timer would still
-  // fire seconds later and override the user's manual choice.
+  // Drag-handle tap: toggles sheet expansion.
   const handleDragHandleToggle = useCallback(() => {
-    if (autoCollapseTimerRef.current) {
-      clearTimeout(autoCollapseTimerRef.current);
-      autoCollapseTimerRef.current = null;
-    }
     setSheetExpanded((v) => !v);
   }, []);
 
