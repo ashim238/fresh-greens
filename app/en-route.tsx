@@ -2624,6 +2624,7 @@ const styles = StyleSheet.create({
     // SF Pro Bold stand-in for Overpass Bold (the canonical US speed-
     // limit-sign typeface). Visually close; swap when Overpass loads.
     fontWeight: '700',
+    // dynamic-type exempt (.cursorrules): fixed-proportion speed-limit signage
     fontSize: 24,
     lineHeight: 28,
     color: colors.white,
@@ -2655,6 +2656,7 @@ const styles = StyleSheet.create({
   },
   speedLimitNumber: {
     fontWeight: '700',
+    // dynamic-type exempt (.cursorrules): fixed-proportion speed-limit signage
     fontSize: 32,
     lineHeight: 36,
     color: colors.black,
