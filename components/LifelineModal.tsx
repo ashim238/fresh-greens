@@ -79,7 +79,7 @@ export function LifelineModal({ visible, onClose, contact }: Props) {
               You&apos;re not alone.
             </Text>
             <Text style={styles.subtitle}>
-              Your Trusted Contact is alerted during emergencies and can see your current location.
+              Your Trusted Contact has a Messages draft with your location. You can call or text them right now.
             </Text>
 
             <View style={styles.avatarRing}>
