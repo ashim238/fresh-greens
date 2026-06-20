@@ -1935,7 +1935,9 @@ const guidanceStyles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   stopRecordingBtn: {
-    paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 12,
   },
   stopRecordingText: {
