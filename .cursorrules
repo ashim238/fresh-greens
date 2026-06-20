@@ -69,6 +69,9 @@ Sheets and overlay cards dismiss via three affordances together: the `DragHandle
 
 Full-screen modals **may omit** the explicit `X` when dismissal is unambiguous via nav-back or scrim-tap. Sanctioned no-X surfaces: `LiveSafetySheet`, `LifelineModal`, `trip-summary` (nav-back), `HomeBrowseSheet` (swipe/scroll). Don't add close chrome to these — their minimalism is deliberate.
 
+## Accessibility (VoiceOver)
+Every interactive control needs an `accessibilityRole` + `accessibilityLabel` (what the control *is*). Add an `accessibilityHint` (what tapping *does* — the outcome) when the label is a noun/title, or the consequence is non-obvious or significant (navigates away, opens an external app, starts/stops sharing or recording, is destructive). House style: present-tense outcome phrase, **no "Tap to" prefix** (VoiceOver already announces "button"), calm and factual — e.g. "Opens Messages with a safety check-in draft", "Routes you there and returns to the map". Self-evident verb+object labels ("Save place", "Delete recording", "Close") need no hint.
+
 ## Code conventions
 - TypeScript strict mode. No `any` without a comment justifying it.
 - Components live in `app/` (route screens) or `components/` (reusable). One component per file unless tightly coupled.

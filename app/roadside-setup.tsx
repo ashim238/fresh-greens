@@ -139,6 +139,7 @@ export default function RoadsideSetup() {
             ]}
             accessibilityRole="button"
             accessibilityLabel="Save"
+            accessibilityHint="Saves your roadside service profile"
             accessibilityState={{ disabled: !canSave }}
           >
             <Text style={styles.ctaLabel}>Save</Text>

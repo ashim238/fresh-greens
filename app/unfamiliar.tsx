@@ -244,6 +244,7 @@ function ProblemPicker({
             style={({ pressed }) => [styles.twoLineRow, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel={`${p.title}. ${p.clarifier}`}
+            accessibilityHint="Reports this and starts sharing your location with your trusted contact"
           >
             <Text style={styles.rowTitle}>{p.title}</Text>
             <Text style={styles.rowClarifier}>{p.clarifier}</Text>
@@ -312,6 +313,7 @@ function DestinationPicker({
             style={({ pressed }) => [styles.iconRow, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel={d.title}
+            accessibilityHint="Routes you there and returns to the map"
           >
             <View style={styles.iconCircle}>
               <d.Icon size={24} color={colors.freshgreen} weight="regular" />

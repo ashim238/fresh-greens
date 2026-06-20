@@ -254,6 +254,7 @@ function ProblemPicker({
             style={({ pressed }) => [styles.row, pressed && pressedDim]}
             accessibilityRole="button"
             accessibilityLabel={p.label}
+            accessibilityHint="Selects this problem and shows roadside actions"
           >
             <View style={styles.iconCircle}>
               <p.Icon size={24} color={colors.freshgreen} weight="regular" />
@@ -405,6 +406,7 @@ function ActionMenu({
           style={({ pressed }) => [styles.row, pressed && pressedDim]}
           accessibilityRole="button"
           accessibilityLabel="Search nearby tow services"
+          accessibilityHint="Opens Apple Maps to find tow services near you"
         >
           <View style={styles.iconCircle}>
             <MapPin size={24} color={colors.freshgreen} weight="regular" />

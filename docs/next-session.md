@@ -187,6 +187,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 
 ## Accessibility gaps
 
+- **VoiceOver hint long-tail sweep (Phase 3)** — PR 6 (2026-06-20) added `accessibilityHint`s to the share / roadside / unfamiliar safety flows and excluded `emergency.tsx` (already disambiguated). A second pass over `home.tsx`, the detail cards, and other partially-hinted surfaces for any remaining noun-labeled icon buttons was deferred to keep PR 6 bounded. Convention is now in `.cursorrules` (`## Accessibility (VoiceOver)`).
 - **ScrollView snap doesn't respect Reduce Motion** — `snapToInterval` + `decelerationRate="fast"` not gated on `useReduceMotion()` in the home browse carousel.
 - **Carousel container has no `accessibilityRole="list"`** — screen readers don't announce "list of N" on entry to the recommendations row.
 - ~~**`cardTitle` doesn't truncate at AX5**~~ — **stale (verified 2026-06-02).** `HomeBrowseSheet.tsx:1039` cardTitle has `numberOfLines={2}` (+ `adjustsFontSizeToFit minimumFontScale={0.85}`). Truncation is handled.
