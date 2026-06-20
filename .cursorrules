@@ -72,6 +72,11 @@ Full-screen modals **may omit** the explicit `X` when dismissal is unambiguous v
 ## Accessibility (VoiceOver)
 Every interactive control needs an `accessibilityRole` + `accessibilityLabel` (what the control *is*). Add an `accessibilityHint` (what tapping *does* — the outcome) when the label is a noun/title, or the consequence is non-obvious or significant (navigates away, opens an external app, starts/stops sharing or recording, is destructive). House style: present-tense outcome phrase, **no "Tap to" prefix** (VoiceOver already announces "button"), calm and factual — e.g. "Opens Messages with a safety check-in draft", "Routes you there and returns to the map". Self-evident verb+object labels ("Save place", "Delete recording", "Close") need no hint.
 
+## Safety-critical interactions
+Driving-surface actions whose consequence is significant — calling 911, navigating to the SOS surface, sharing live location with a contact, ending an active recording — require an **intent gesture**, not a one-tap. The canonical pattern is `useHoldToConfirm` from `hooks/useHoldToConfirm.ts`: 800ms hold + visual ramp (opacity 0→1 on an overlaid ring) + light haptic ramp (200/400/600ms `ImpactFeedbackStyle.Light`) + success haptic on confirm + silent cancel on release (no "denied" buzz — reads as alarming). VoiceOver users get a single-tap bypass (`AccessibilityInfo.isScreenReaderEnabled`) — they're intentional by definition. Two-tap-with-arm-state is a sanctioned alternative when long-press is unavailable (e.g., a map FAB whose long-press already opens a context menu).
+
+Non-driving surfaces (Settings screens, post-trip recaps, in-app modals) do not need the hold — they're not under driver attention budget. The `/safety-settings` "Emergency SOS" row, for example, is one-tap (it's in a Settings context, not on the driving map).
+
 ## Code conventions
 - TypeScript strict mode. No `any` without a comment justifying it.
 - Components live in `app/` (route screens) or `components/` (reusable). One component per file unless tightly coupled.
