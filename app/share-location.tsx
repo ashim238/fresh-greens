@@ -150,6 +150,7 @@ function ReasonPicker({
             ]}
             accessibilityRole="button"
             accessibilityLabel={`${r.title}. ${r.clarifier}`}
+            accessibilityHint={`Opens Messages with a safety check-in draft for ${contactName}`}
             accessibilityState={{ disabled }}
           >
             <Text style={styles.rowTitle}>{r.title}</Text>
