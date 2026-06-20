@@ -920,7 +920,6 @@ export default function EnRoute() {
   // be visible while the sign stayed white — the two read as
   // contradictory. User-flagged 2026-06-01: turn-card marker present ⇒
   // sign yellow.
-  const speedSignCaution = inCautionZone || turnHazards.length > 0;
 
   // What the Full bottom-sheet hazard panel should show. Entered-zone
   // hazards take priority over next-turn hazards — when the driver
@@ -2001,21 +2000,6 @@ export default function EnRoute() {
               {speedMph ?? '—'}
             </Text>
           </View>
-          <View
-            style={[
-              styles.speedLimitSign,
-              speedSignCaution && styles.speedLimitSignCaution,
-            ]}
-            accessible
-            accessibilityLabel="Speed limit unknown"
-          >
-            <Text style={styles.speedLimitNumber} numberOfLines={1}>
-              —
-            </Text>
-            <Text style={styles.speedLimitUnit} numberOfLines={1}>
-              mph
-            </Text>
-          </View>
         </View>
       )}
       {bottomSheetHeight > 0 && (
@@ -2644,43 +2628,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
     letterSpacing: -0.26,
-  },
-  // Speed-limit sign (posted limit from OSM): white normally — the
-  // default US speed-limit sign register — turning yellow inside a
-  // caution zone (school/curve-style warning sign convention).
-  // v1 had this always-yellow, which read as "caution everywhere"
-  // and made the caution-zone state invisible. User-flagged 2026-06-01.
-  speedLimitSign: {
-    backgroundColor: colors.white,
-    borderWidth: 4,
-    borderColor: colors.cardBorderSubtle,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 24,
-    alignItems: 'center',
-    // M3 Elevation 1 — subtle drop shadow so the sign reads as a
-    // physical object on the map. Was inlined byte-for-byte (audit #10
-    // token-drift fix).
-    ...shadows.e1,
-  },
-  // Caution-zone fill flip — yellow background only inside a caution
-  // zone. Mirrors real-world US warning speed-limit signs.
-  speedLimitSignCaution: {
-    backgroundColor: colors.yellow,
-  },
-  speedLimitNumber: {
-    fontWeight: '700',
-    // dynamic-type exempt (.cursorrules): fixed-proportion speed-limit signage
-    fontSize: 32,
-    lineHeight: 36,
-    color: colors.black,
-    textAlign: 'center',
-    letterSpacing: -0.26,
-  },
-  speedLimitUnit: {
-    ...dynamicType(typography.subheadlineRegular),
-    color: colors.black,
-    textAlign: 'center',
   },
 
   // --- Bottom sheet ---
