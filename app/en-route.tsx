@@ -30,6 +30,7 @@ import { ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise
 import { ArrowsMerge } from 'phosphor-react-native/src/icons/ArrowsMerge';
 import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
+import { Question } from 'phosphor-react-native/src/icons/Question';
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
@@ -2063,6 +2064,16 @@ export default function EnRoute() {
             emergency). Distinct from Shield: Shield opens the full
             safety MENU; this jumps straight to the acute SOS control.
           */}
+          <SideFabRow label="Guide" showLabel={sideFabCoach.visible}>
+            <FloatingActionButton
+              size="48"
+              onPress={() => sideFabCoach.show()}
+              accessibilityLabel="Show map controls guide"
+              accessibilityHint="Re-shows the labels for these buttons"
+            >
+              <Question size={24} color={colors.black} weight="duotone" />
+            </FloatingActionButton>
+          </SideFabRow>
           <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
             <FloatingActionButton
               size="56"
