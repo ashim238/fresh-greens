@@ -12,7 +12,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 
 import { type RouteCondition } from '../lib/scoring';
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -61,7 +61,12 @@ export function RouteComparisonSheet({
           <SafeAreaView edges={['bottom']}>
             <View style={styles.header}>
               <Text style={styles.title}>Routes</Text>
-              <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={12}>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
+              >
                 <X size={24} color={colors.labelSecondary} weight="regular" />
               </Pressable>
             </View>
