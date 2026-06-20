@@ -370,7 +370,7 @@ export default function TripSummary() {
             </Pressable>
           )}
           <Button
-            text="Set as default"
+            text="Remember this destination"
             type="primary"
             fill="fill"
             onPress={handleSetDefault}
