@@ -104,13 +104,37 @@ Tabular: every `docs/next-session.md` item added with a 2026-06-20 stamp (the pr
 ### Wave-based dispatch
 **4-wide subagent parallelism** (Phase 1's cap). 25 screens ÷ 4 ≈ 7 waves. Each subagent invokes `/impeccable` for one screen, writes the snapshot to `.impeccable/critique/closeout/<slug>.md`, and returns a one-line status (DONE / INCOMPLETE / NOISY).
 
-### Commit cadence
-Every 5 critiques completed, commit the batch to main:
+### Commit cadence — per-snapshot (changed from Phase 1's per-batch)
+Commit **every completed snapshot** to main, not batched. Each commit:
 ```
-audit(closeout): batch N — critiques for <slug1>, <slug2>, …
+audit(closeout): critique for <slug> (N/25)
 ```
 
-This matches Phase 1's commit rhythm.
+The denser cadence trades a few more commits for **zero-loss durability**: if the session dies mid-wave or hits a token wall, every completed critique is already in `origin/main`. A fresh session resumes cleanly by reading the progress tracker (below).
+
+### Resumability — progress tracker
+Maintain `.impeccable/critique/closeout/PROGRESS.md` updated alongside each snapshot commit. Format:
+
+```markdown
+# Closeout audit progress
+Updated: <timestamp on each commit>
+Status: in-progress | synthesis-pending | complete
+
+## Done (N/25)
+- ✅ app-home-tsx — commit <sha>
+- ✅ app-en-route-tsx — commit <sha>
+...
+
+## Pending
+- ⏳ app-pulled-over-tsx
+- ⏳ app-recordings-tsx
+...
+
+## Retry queue
+- 🔁 app-X-tsx (1st attempt INCOMPLETE; will retry once)
+```
+
+The tracker is committed with each snapshot. A fresh session reads `PROGRESS.md` first, sees the pending list, and resumes dispatch from there. The synthesis subagent runs only when `Pending` is empty (or all pending are exhausted-retry gaps).
 
 ### Failure handling
 - INCOMPLETE → retry once.
