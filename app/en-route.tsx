@@ -312,12 +312,20 @@ function SideFabRow({
   showLabel: boolean;
   children: React.ReactNode;
 }) {
-  if (!showLabel) return <>{children}</>;
+  // Device-smoke 2026-06-21: previously rendered `children` bare when
+  // !showLabel, then wrapped in a flexRow with the labelPill when
+  // showLabel — switching between the two on Guide tap shifted the
+  // FAB's x-position because the row added labelPill+gap width on the
+  // left. The fix: render the same row container in both cases and
+  // position the labelPill ABSOLUTELY so it hangs to the left of the
+  // FAB without participating in flex sizing. The FAB stays anchored.
   return (
     <View style={sideFabRowStyles.row}>
-      <View style={sideFabRowStyles.labelPill}>
-        <Text style={sideFabRowStyles.labelText}>{label}</Text>
-      </View>
+      {showLabel && (
+        <View style={sideFabRowStyles.labelPill}>
+          <Text style={sideFabRowStyles.labelText}>{label}</Text>
+        </View>
+      )}
       {children}
     </View>
   );
@@ -327,9 +335,12 @@ const sideFabRowStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'flex-end',
   },
   labelPill: {
+    position: 'absolute',
+    right: '100%',
+    marginRight: spacing.sm,
     backgroundColor: colors.white,
     borderRadius: radii.sm,
     paddingHorizontal: spacing.sm,
