@@ -4,6 +4,22 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Design Health Program — closed (2026-06-20)
+
+Two-day program: Phase 1 critique (25 screens, 4 cross-screen patterns, Section 5 tail) → Phase 2 (10 PRs across 3 sprints) → Phase 3 (5 fix PRs, 13 items) → closeout audit (25 re-critiques + synthesis). All landed on `main`. Closeout doc at [`docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md).
+
+**Three durable findings worth keeping**:
+
+1. **The codebase grew by 1 file.** The whole program produced exactly one new abstraction (`hooks/useHoldToConfirm.ts`, ~80 LOC). Everything else was conventions + modifications. Quality moved a lot; LOC barely did. Convention work is the cheapest form of leverage when the abstractions are already right; the discriminated-union primitives from Sprint 1 had already done the structural work.
+
+2. **The closeout pass caught a stale-state mistake mid-audit.** The unfamiliar subagent flagged that PR #244 wasn't on `main` — I dismissed it on stale session memory and was wrong; the agent was right. PR #244 was open on GitHub, never merged. Merged it during the audit + redispatched. **Lesson: trust the agent's *file-level* reading of disk state over your own *session-level* memory.** Pipelined cadence can lose track of what's actually merged; the audit's evidentiary lens caught it cleanly.
+
+3. **"Sub-flows are now better than the screen itself" is a real pattern.** Six of 25 screens (home, emergency, safety, search, get-started, report) had delta 0 — Phase 2/3 conventions reached the sub-flows they route into but not the screens themselves. Naming the gap matters: future convention work should explicitly enumerate consumer screens, not just write the rule. Also: emergency's delta 0 was *correct* (deliberate exclusion holds up). Delta-0 doesn't always mean missed work.
+
+**M1.1 (community cloud + RLS) is the next strategic move per the closeout's recommendation and `docs/ROADMAP.md`.** The client (`lib/api/sources/community-cloud.ts`) already exists; what's needed is the server-side Supabase work + the RLS / abuse-moderation thinking. The program touched none of that code region, so M1.1 starts on clean ground.
+
+---
+
 ## Sprint 3 — not every audit collapses: compliance-audit vs coverage-audit (2026-06-20)
 
 Sprints 2–3 ran six "audit" PRs back to back. Five collapsed to near-zero (reserved-color: 0 violations; Dynamic Type: 0 misses; dismissal: 1 fix). The reflex by PR 6 was to expect the same and force a "near-zero" narrative. **That would have been wrong.** PR 6 (VoiceOver hint depth) is a *coverage* audit, not a *compliance* audit — and the two right-size differently:
