@@ -2045,25 +2045,42 @@ export default function EnRoute() {
             </FloatingActionButton>
           </SideFabRow>
           <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
-            <View style={styles.sosHoldWrap}>
-              <Animated.View
+            <View style={styles.sosColumn}>
+              <View style={styles.sosHoldWrap}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.sosHoldRing, { opacity: sosHold.holdProgress }]}
+                />
+                <FloatingActionButton
+                  size="56"
+                  onPressIn={sosHold.pressHandlers.onPressIn}
+                  onPressOut={sosHold.pressHandlers.onPressOut}
+                  onPress={sosHold.pressHandlers.onPress}
+                  accessibilityLabel="Emergency SOS"
+                  accessibilityHint={
+                    sosHold.isVoiceOverOn
+                      ? 'Opens the SOS screen to call your trusted contact or 911'
+                      : 'Press and hold to open SOS'
+                  }
+                >
+                  <SidebtnSos width={32} height={32} />
+                </FloatingActionButton>
+              </View>
+              {/*
+                Device-smoke 2026-06-21: SOS is the only side-FAB whose
+                primary gesture is hold-to-confirm, not tap. Without a
+                visible "Hold" affordance, sighted users tap and assume
+                the button is broken. The caption is aria-hidden because
+                the same instruction is in the FAB's accessibilityHint.
+              */}
+              <Text
+                style={styles.sosHoldHint}
                 pointerEvents="none"
-                style={[styles.sosHoldRing, { opacity: sosHold.holdProgress }]}
-              />
-              <FloatingActionButton
-                size="56"
-                onPressIn={sosHold.pressHandlers.onPressIn}
-                onPressOut={sosHold.pressHandlers.onPressOut}
-                onPress={sosHold.pressHandlers.onPress}
-                accessibilityLabel="Emergency SOS"
-                accessibilityHint={
-                  sosHold.isVoiceOverOn
-                    ? 'Opens the SOS screen to call your trusted contact or 911'
-                    : 'Press and hold to open SOS'
-                }
+                accessibilityElementsHidden
+                importantForAccessibility="no"
               >
-                <SidebtnSos width={32} height={32} />
-              </FloatingActionButton>
+                Hold
+              </Text>
             </View>
           </SideFabRow>
           <SideFabRow label="Safety" showLabel={sideFabCoach.visible}>
@@ -2418,6 +2435,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // SOS column wraps the FAB + the "Hold" caption so the caption hangs
+  // beneath the FAB. Device-smoke 2026-06-21: sighted users had no cue
+  // that the SOS button is hold-to-confirm; tap-and-release made it look
+  // broken. The caption sits inside the column so the rest of the
+  // side-FAB stack is unaffected.
+  sosColumn: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  sosHoldHint: {
+    ...typography.caption2Regular,
+    color: colors.labelSecondary,
   },
   sosHoldRing: {
     position: 'absolute',
