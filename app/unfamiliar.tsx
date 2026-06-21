@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -100,6 +101,11 @@ export default function Unfamiliar() {
     setStep(session?.type === 'unfamiliar' ? 'active' : 'problem');
   }
   const [lifelineOpen, setLifelineOpen] = useState(false);
+  // Tracks the destination row currently fetching (Location + Mapbox
+  // searchPlaces — 2-5s on cold start). Drives an in-row ActivityIndicator
+  // + disables all rows so the safety flow doesn't read as broken or accept
+  // a double-tap mid-flight.
+  const [loadingDestId, setLoadingDestId] = useState<string | null>(null);
 
   async function handleProblemPick(option: ProblemOption) {
     const startResult = await start.run({ type: 'unfamiliar', reason: option.title });
@@ -112,6 +118,8 @@ export default function Unfamiliar() {
   }
 
   async function handleDestinationPick(option: DestinationOption) {
+    if (loadingDestId !== null) return;
+    setLoadingDestId(option.id);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -145,6 +153,11 @@ export default function Unfamiliar() {
     } catch (err) {
       const { title: searchTitle, body: searchBody } = getErrorMessage('load', 'transient', err);
       Alert.alert(searchTitle, searchBody);
+    } finally {
+      // Cleared on both error AND router.replace — the screen unmounts on
+      // replace so this set is harmless there; matters for the error paths
+      // so the user can retry without the rows staying disabled.
+      setLoadingDestId(null);
     }
   }
 
@@ -188,6 +201,7 @@ export default function Unfamiliar() {
             onPick={handleDestinationPick}
             onSafeNow={handleSafeNow}
             onLifeline={() => setLifelineOpen(true)}
+            loadingDestId={loadingDestId}
           />
         )}
         {step === 'active' && session && (
@@ -278,6 +292,7 @@ function DestinationPicker({
   onPick,
   onSafeNow,
   onLifeline,
+  loadingDestId,
 }: {
   contactName: string;
   hasLifeline: boolean;
@@ -285,7 +300,9 @@ function DestinationPicker({
   onPick: (option: DestinationOption) => void;
   onSafeNow: () => void;
   onLifeline: () => void;
+  loadingDestId: string | null;
 }) {
+  const anyLoading = loadingDestId !== null;
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
       <Pressable
@@ -306,21 +323,34 @@ function DestinationPicker({
       </Text>
 
       <View style={styles.destinationList}>
-        {DESTINATIONS.map((d) => (
-          <Pressable
-            key={d.id}
-            onPress={() => onPick(d)}
-            style={({ pressed }) => [styles.iconRow, pressed && pressedDim]}
-            accessibilityRole="button"
-            accessibilityLabel={d.title}
-            accessibilityHint="Routes you there and returns to the map"
-          >
-            <View style={styles.iconCircle}>
-              <d.Icon size={24} color={colors.freshgreen} weight="regular" />
-            </View>
-            <Text style={styles.rowTitle}>{d.title}</Text>
-          </Pressable>
-        ))}
+        {DESTINATIONS.map((d) => {
+          const isLoading = loadingDestId === d.id;
+          return (
+            <Pressable
+              key={d.id}
+              onPress={() => onPick(d)}
+              disabled={anyLoading}
+              style={({ pressed }) => [
+                styles.iconRow,
+                pressed && !anyLoading && pressedDim,
+                anyLoading && !isLoading && { opacity: 0.5 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={d.title}
+              accessibilityHint="Routes you there and returns to the map"
+              accessibilityState={{ disabled: anyLoading, busy: isLoading }}
+            >
+              <View style={styles.iconCircle}>
+                {isLoading ? (
+                  <ActivityIndicator color={colors.freshgreen} />
+                ) : (
+                  <d.Icon size={24} color={colors.freshgreen} weight="regular" />
+                )}
+              </View>
+              <Text style={styles.rowTitle}>{d.title}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <View style={styles.safeNowWrap}>

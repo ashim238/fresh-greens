@@ -48,43 +48,56 @@ export default function ZonePreferences() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {prefsState.ready && (
-            <>
-              <RowGroup>
-                <SettingsRow
-                  label="Show zones overlay"
-                  trailing="toggle"
-                  toggleValue={prefsState.preferences.showZones}
-                  onToggle={setShowZones}
-                  accessibilityHint="Shows or hides the zone safety overlay on the map"
-                />
-              </RowGroup>
+          {prefsState.ready && (() => {
+            // Degraded-state surfacing: when all three flag toggles are off,
+            // route scoring has no safety signals to weigh — routes degrade
+            // to distance/time only. Silent in v1; user-flagged as a P1.
+            // Replace the normal footer caption with an honest note in the
+            // same iOS grouped-settings register (RowGroup footer slot).
+            const { showZones, flagPolice, flagLowLight, flagCommunityReports } =
+              prefsState.preferences;
+            const allFlagsOff = !flagPolice && !flagLowLight && !flagCommunityReports;
+            const flagsFooter = allFlagsOff
+              ? 'All three off — routes are scored on distance and time only. No safety signals factor in.'
+              : 'Affects route scoring and map flags.';
+            return (
+              <>
+                <RowGroup>
+                  <SettingsRow
+                    label="Show zones overlay"
+                    trailing="toggle"
+                    toggleValue={showZones}
+                    onToggle={setShowZones}
+                    accessibilityHint="Shows or hides the zone safety overlay on the map"
+                  />
+                </RowGroup>
 
-              <RowGroup title="What we flag" footer="Affects route scoring and map flags.">
-                <SettingsRow
-                  label="Police presence"
-                  trailing="toggle"
-                  toggleValue={prefsState.preferences.flagPolice}
-                  onToggle={(v) => setPreference('flagPolice', v)}
-                  accessibilityHint="Routes around mapped police presence when on"
-                />
-                <SettingsRow
-                  label="Low-light areas"
-                  trailing="toggle"
-                  toggleValue={prefsState.preferences.flagLowLight}
-                  onToggle={(v) => setPreference('flagLowLight', v)}
-                  accessibilityHint="Routes around poorly-lit streets when on"
-                />
-                <SettingsRow
-                  label="Community reports"
-                  trailing="toggle"
-                  toggleValue={prefsState.preferences.flagCommunityReports}
-                  onToggle={(v) => setPreference('flagCommunityReports', v)}
-                  accessibilityHint="Factors neighbor-submitted reports when on"
-                />
-              </RowGroup>
-            </>
-          )}
+                <RowGroup title="What we flag" footer={flagsFooter}>
+                  <SettingsRow
+                    label="Police presence"
+                    trailing="toggle"
+                    toggleValue={flagPolice}
+                    onToggle={(v) => setPreference('flagPolice', v)}
+                    accessibilityHint="Routes around mapped police presence when on"
+                  />
+                  <SettingsRow
+                    label="Low-light areas"
+                    trailing="toggle"
+                    toggleValue={flagLowLight}
+                    onToggle={(v) => setPreference('flagLowLight', v)}
+                    accessibilityHint="Routes around poorly-lit streets when on"
+                  />
+                  <SettingsRow
+                    label="Community reports"
+                    trailing="toggle"
+                    toggleValue={flagCommunityReports}
+                    onToggle={(v) => setPreference('flagCommunityReports', v)}
+                    accessibilityHint="Factors neighbor-submitted reports when on"
+                  />
+                </RowGroup>
+              </>
+            );
+          })()}
         </ScrollView>
       </SafeAreaView>
     </View>
