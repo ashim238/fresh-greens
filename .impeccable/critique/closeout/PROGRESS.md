@@ -10,11 +10,14 @@
 - Per-snapshot commit to main + this tracker updated for zero-loss durability.
 - 4-wide parallel waves (Phase 1's cap). 7 waves expected.
 
-## Done (1/25)
+## Done (4/25)
 
-- ✅ app-en-route-tsx — 28/40 → 34/40 (+6, 0 P0)
+- ✅ app-en-route-tsx — → 34/40 (0 P0, 1 P1, 3 P2)
+- ✅ app-safety-settings-tsx — → 37/40 (0 P0, 1 P1, 3 P3)
+- ✅ app-pulled-over-tsx — → 32/40 (1 P0, 1 P1, 3 P2) — NEW P0 surfaced: dismissal-lock on recording
+- ✅ app-recordings-tsx — → 33/40 (0 P0, 2 P1, 3 P2, 2 P3)
 
-## Pending (24/25)
+## Pending (21/25)
 
 - ⏳ app-emergency-tsx
 - ⏳ app-fuel-tsx
