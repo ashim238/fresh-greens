@@ -10,7 +10,7 @@
 - Per-snapshot commit to main + this tracker updated for zero-loss durability.
 - 4-wide parallel waves (Phase 1's cap). 7 waves expected.
 
-## Done (11/25)
+## Done (19/25)
 
 - ✅ app-en-route-tsx — 28→34 (+6, 0 P0)
 - ✅ app-safety-settings-tsx — →37 (0 P0)
@@ -23,23 +23,23 @@
 - ✅ app-zone-preferences-tsx — 24→29 (+5, 0 P0)
 - ✅ app-home-tsx — →36 (delta 0; H4 drifted from new conventions)
 - ✅ app-fuel-tsx — 26→28 (+2; P0→new P1)
+- ✅ app-trip-summary-tsx — 32→36 (+4, 0 P0)
+- ✅ app-legal-tsx — 31→33 (+2, 0 P0)
+- ✅ app-menu-tsx — 31→34 (+3)
+- ✅ app-emergency-tsx — →34 (delta 0; exclusions hold)
+- ✅ app-permissions-tsx — 31→32 (+1)
+- ✅ app-onboarding-tsx — 35→36 (+1)
+- ✅ app-sign-out-tsx — 28→30 (+2)
+- ✅ app-trusted-contact-setup-tsx — 28→30 (+2; Sprint 1 type-level fix)
 
-## Pending (14/25)
+## Pending (6/25)
 
-- ⏳ app-emergency-tsx
 - ⏳ app-get-started-tsx
-- ⏳ app-legal-tsx
 - ⏳ app-login-tsx
-- ⏳ app-menu-tsx
-- ⏳ app-onboarding-tsx
-- ⏳ app-permissions-tsx
 - ⏳ app-report-tsx
 - ⏳ app-roadside-setup-tsx
 - ⏳ app-saved-places-tsx
 - ⏳ app-search-tsx
-- ⏳ app-sign-out-tsx
-- ⏳ app-trip-summary-tsx
-- ⏳ app-trusted-contact-setup-tsx
 
 ## Retry queue
 
