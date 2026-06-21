@@ -2,7 +2,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-06-20-design-health-closeout-audit-design.md`](../../../docs/superpowers/specs/2026-06-20-design-health-closeout-audit-design.md)
 **Updated:** 2026-06-20 (initialization)
-**Status:** in-progress
+**Status:** synthesis-pending (all 25 snapshots committed; synthesis subagent dispatched)
 
 ## Method
 - 25 unique screens (one-to-one with Phase 1 critique universe).
@@ -32,14 +32,13 @@
 - ✅ app-sign-out-tsx — 28→30 (+2)
 - ✅ app-trusted-contact-setup-tsx — 28→30 (+2; Sprint 1 type-level fix)
 
-## Pending (6/25)
+## Pending (0/25)
 
-- ⏳ app-get-started-tsx
-- ⏳ app-login-tsx
-- ⏳ app-report-tsx
-- ⏳ app-roadside-setup-tsx
-- ⏳ app-saved-places-tsx
-- ⏳ app-search-tsx
+_(none — all snapshots committed)_
+
+## Synthesis status
+- 25/25 snapshots in `.impeccable/critique/closeout/`
+- Synthesis subagent dispatched to write `docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`
 
 ## Retry queue
 
