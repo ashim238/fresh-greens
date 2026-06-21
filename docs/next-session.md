@@ -9,7 +9,7 @@ Surfaced during real-device smoke immediately after the Design Health Program cl
 | Tier | Item | Surface | Notes |
 |---|---|---|---|
 | 🔴 | **SOS hold has no visible affordance for sighted users** | `/en-route` SOS FAB | PR #246 follow-up. The `"Press and hold to open SOS"` string only fires for VoiceOver via `accessibilityHint`. Sighted users tap and nothing happens. Needs a label-pill, coach-mark, or always-visible "Hold" cue. **Highest-stakes single item — fix soon.** |
-| 🔴 | **Saved places empty even after saves** | `/saved-places` | `useSavedPlaces` uses `useHydratedState(..., { mountOnly: true })` — no refetch after writes. If `addMutation` succeeds, the screen state may not reflect it. Sprint 1 regression candidate; needs investigation. |
+| 🟣 | **Saved places empty even after saves — NOT a regression: no production write-path exists yet** | `/saved-places` | Investigated 2026-06-21. The `useSavedPlaces` hook is well-architected (optimistic + reconcile + rollback). `app/home.tsx`'s `handleLongPress` only removes author-owned community reports — no add-home flow. Zero call sites of `savedPlacesState.add` in `app/home.tsx`. **The empty state is correct.** The Search tap-to-bookmark feature was specced earlier and never built. Promoting from 🔴 to 🟣 — this is a *feature build*, not a fix. |
 | 🔴 | **Coach-mark text vs long-press behavior mismatch** | `/home` map-guide | Copy at `app/home.tsx:3395` reads "Long-press anywhere on the map to add what you know." User reports long-press adds home instead. Either behavior is wrong or coach mark is wrong. |
 | 🔴 | **FAB column shifts out of alignment on Guide tap** | `/en-route` Guide "?" FAB | The side-FAB column's position moves when Guide is tapped. Layout interference from scrim/labels show(). |
 | 🟡 | Safety best-practices scroll has no cue | `/pulled-over` (guidance phase) | Users don't know there's more content below the fold. Scroll indicator or chevron-down nudge. |
@@ -22,7 +22,7 @@ Surfaced during real-device smoke immediately after the Design Health Program cl
 | 🟣 | Insurance number autofill | `/roadside-setup` | Users may not know their insurance number by heart. Lookup-from-policy-photo or saved-credentials integration — feature design. |
 | 🟣 | Why does the app jump to Apple Maps for nearby resources? | `/roadside` tow search, others | Strategic UX: delegate to system Maps vs in-app surface. Tow / fuel / repair findability. Worth a deliberate spec when M1.1 doesn't crowd it out. |
 
-**Recommended cluster for next session:** the four 🔴 real bugs as one PR — SOS affordance + saved-places refetch + coach-mark mismatch + FAB alignment. Then the 🟡 discoverability batch.
+**First cluster shipped (2026-06-21):** SOS Hold affordance + coach-mark honesty + FAB alignment landed as one PR. Saved-places was investigated and promoted to 🟣 (no regression — feature not yet built; awaits Search tap-to-bookmark). Next cluster: 🟡 discoverability batch.
 
 ## Design Health Phase 1 — per-screen critique tail (2026-06-19)
 
