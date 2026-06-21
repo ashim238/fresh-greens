@@ -10,14 +10,13 @@
 - Per-snapshot commit to main + this tracker updated for zero-loss durability.
 - 4-wide parallel waves (Phase 1's cap). 7 waves expected.
 
-## Done (0/25)
+## Done (1/25)
 
-_(none yet)_
+- ✅ app-en-route-tsx — 28/40 → 34/40 (+6, 0 P0)
 
-## Pending (25/25)
+## Pending (24/25)
 
 - ⏳ app-emergency-tsx
-- ⏳ app-en-route-tsx
 - ⏳ app-fuel-tsx
 - ⏳ app-get-started-tsx
 - ⏳ app-home-tsx
