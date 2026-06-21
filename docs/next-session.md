@@ -2,6 +2,28 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Device-smoke punch list (2026-06-21)
+
+Surfaced during real-device smoke immediately after the Design Health Program closeout audit (see [`docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md)). The closeout audit was code-reading; these only surface at the interaction layer. Tier tags: 🔴 real bug / 🟡 discoverability / 🟠 visual-layout / 🟣 feature-strategic.
+
+| Tier | Item | Surface | Notes |
+|---|---|---|---|
+| 🔴 | **SOS hold has no visible affordance for sighted users** | `/en-route` SOS FAB | PR #246 follow-up. The `"Press and hold to open SOS"` string only fires for VoiceOver via `accessibilityHint`. Sighted users tap and nothing happens. Needs a label-pill, coach-mark, or always-visible "Hold" cue. **Highest-stakes single item — fix soon.** |
+| 🔴 | **Saved places empty even after saves** | `/saved-places` | `useSavedPlaces` uses `useHydratedState(..., { mountOnly: true })` — no refetch after writes. If `addMutation` succeeds, the screen state may not reflect it. Sprint 1 regression candidate; needs investigation. |
+| 🔴 | **Coach-mark text vs long-press behavior mismatch** | `/home` map-guide | Copy at `app/home.tsx:3395` reads "Long-press anywhere on the map to add what you know." User reports long-press adds home instead. Either behavior is wrong or coach mark is wrong. |
+| 🔴 | **FAB column shifts out of alignment on Guide tap** | `/en-route` Guide "?" FAB | The side-FAB column's position moves when Guide is tapped. Layout interference from scrim/labels show(). |
+| 🟡 | Safety best-practices scroll has no cue | `/pulled-over` (guidance phase) | Users don't know there's more content below the fold. Scroll indicator or chevron-down nudge. |
+| 🟡 | Trusted Contact tap on "Set your Trusted Contact" page is a no-op | `/trusted-contact-setup` | Tapping the contact slot should do something (open contact picker?), currently inert. |
+| 🟡 | Search icon on destination ETA sheet should be a back-caret | `/en-route` destination/ETA sheet | The button is nav-back styled as search — wrong glyph for the action. |
+| 🟠 | Save button on destination sheet may be sub-44pt | `/en-route` destination sheet | Verify against painted-44 rule. After PR #238's audit, an outlier may have slipped through. |
+| 🟠 | Guide button on ETA page left-justified looks strange | `/en-route` | Alignment review against the FAB column register. |
+| 🟠 | Wrench "Road" icon on ETA page ambiguous | `/en-route` ETA card | What category does Wrench-Road indicate? Roadside? Hazard? Iconography review. |
+| 🟠 | Yellow zone icons should be gray when inactive | route preview / en-route | Active-vs-inactive register flip on zone markers. |
+| 🟣 | Insurance number autofill | `/roadside-setup` | Users may not know their insurance number by heart. Lookup-from-policy-photo or saved-credentials integration — feature design. |
+| 🟣 | Why does the app jump to Apple Maps for nearby resources? | `/roadside` tow search, others | Strategic UX: delegate to system Maps vs in-app surface. Tow / fuel / repair findability. Worth a deliberate spec when M1.1 doesn't crowd it out. |
+
+**Recommended cluster for next session:** the four 🔴 real bugs as one PR — SOS affordance + saved-places refetch + coach-mark mismatch + FAB alignment. Then the 🟡 discoverability batch.
+
 ## Design Health Phase 1 — per-screen critique tail (2026-06-19)
 
 From `docs/superpowers/specs/phase-1-findings/2026-06-19-cross-screen-synthesis.md` Section 5. These are screen-specific issues that cannot be addressed by Phase 2 design-system extraction — each must be fixed in the touched screen. Priority-ordered within tier. Snapshots that ground each entry live in `.impeccable/critique/`.
