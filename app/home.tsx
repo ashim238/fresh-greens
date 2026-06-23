@@ -3411,7 +3411,7 @@ export default function Home() {
               along a route.
               {'\n\n'}Pins are places drivers have flagged for each other — the
               Green Book tradition, kept current.
-              {'\n\n'}Long-press anywhere to save it as your home.
+              {'\n\n'}Long-press anywhere on the map to save that spot as your home.
             </Text>
             <Pressable
               onPress={mapCoach.dismiss}
