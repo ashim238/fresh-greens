@@ -3392,7 +3392,7 @@ export default function Home() {
               along a route.
               {'\n\n'}Pins are places drivers have flagged for each other — the
               Green Book tradition, kept current.
-              {'\n\n'}Long-press your own community pins to remove them.
+              {'\n\n'}Long-press anywhere to save it as your home.
             </Text>
             <Pressable
               onPress={mapCoach.dismiss}

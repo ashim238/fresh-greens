@@ -2079,19 +2079,25 @@ export default function EnRoute() {
               </View>
               {/*
                 Device-smoke 2026-06-21: SOS is the only side-FAB whose
-                primary gesture is hold-to-confirm, not tap. Without a
-                visible "Hold" affordance, sighted users tap and assume
-                the button is broken. The caption is aria-hidden because
-                the same instruction is in the FAB's accessibilityHint.
+                primary gesture is hold-to-confirm, not tap. Gated on the
+                same coach-mark visibility as the column labels — auto-
+                shows on first visit + when the user taps Guide to refresh.
+                Persistent caption read as jarring + low-signal in smoke;
+                tying it to the existing coach-mark reuses a
+                discoverability path the user already learns (PR #237).
+                Aria-hidden because the instruction is also in the FAB's
+                accessibilityHint for VoiceOver users.
               */}
-              <Text
-                style={styles.sosHoldHint}
-                pointerEvents="none"
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-              >
-                Hold
-              </Text>
+              {sideFabCoach.visible && (
+                <Text
+                  style={styles.sosHoldHint}
+                  pointerEvents="none"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                >
+                  Hold
+                </Text>
+              )}
             </View>
           </SideFabRow>
           <SideFabRow label="Safety" showLabel={sideFabCoach.visible}>
