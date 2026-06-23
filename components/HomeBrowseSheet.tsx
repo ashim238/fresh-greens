@@ -1293,7 +1293,7 @@ const styles = StyleSheet.create({
   // contentContainerStyle so the leftmost chip aligns to the sheet's
   // 16pt gutter without double-counting.
   stickyChipsWrap: {
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
     paddingVertical: 8,
   },
   headers: {
