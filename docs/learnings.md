@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Visual Maturity Phase 0 — `program/visual-maturity-phase-0` (2026-06-23)
+
+Three things surprised me:
+
+1. **Expo Router v6 excludes `_`-prefixed files from routing.** The smoke route at `app/_dev-visual-maturity.tsx` was invisible on device — no error, just 404. Renaming to `dev-visual-maturity.tsx` fixed it immediately. In older Expo Router (v2-style), underscore-prefix was a common "hide from nav" pattern; in v6 it's a hard exclusion. If you want a dev-only route, use a normal name and delete before merge.
+
+2. **`theme/radii.ts` already existed on main.** The plan assumed it needed to be created (Task 3). The subagent blocked when it found a conflict. Fix: marked Task 3 OBSOLETE in the plan and corrected all downstream refs (`radii.sm` → `radii.md` for squircle, inline `28` for sheet corners instead of `radii.xl` which is 20pt). **Lesson: always `ls theme/` before adding a new token module.** The token namespace is small enough that collisions are likely.
+
+3. **`easings` as documentation-only strings is a footgun.** The initial `easings.easeOut: 'out'` was an honest "centralization point" but both reviewers flagged it: a consumer reads `easings.easeOut` from IDE autocomplete and reasonably passes it to `Animated.timing({ easing: ... })` — which wants `(t: number) => number`, not a string. Either ship real `Easing.out(Easing.cubic)` values or don't ship the token. Half-shipped tokens rot faster than absent ones.
+
+---
+
 ## Design Health Program — closed (2026-06-20)
 
 Two-day program: Phase 1 critique (25 screens, 4 cross-screen patterns, Section 5 tail) → Phase 2 (10 PRs across 3 sprints) → Phase 3 (5 fix PRs, 13 items) → closeout audit (25 re-critiques + synthesis). All landed on `main`. Closeout doc at [`docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md).
