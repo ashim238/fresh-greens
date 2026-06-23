@@ -870,6 +870,12 @@ function GuidanceView({
         <Text style={guidanceStyles.title}>Read the following</Text>
       </View>
 
+      <ScrollView
+        style={guidanceStyles.scrollArea}
+        contentContainerStyle={guidanceStyles.scrollContent}
+        showsVerticalScrollIndicator
+        bounces={false}
+      >
       {/*
         Structured bullets — flex row with dot + text columns rather than
         an inline `•{"  "}{text}`. Matches the indent and wrap behavior
@@ -905,8 +911,6 @@ function GuidanceView({
           {isSpeaking ? 'Stop' : 'Read aloud'}
         </Text>
       </Pressable>
-
-      <View style={guidanceStyles.spacer} />
 
       {/*
         Recording widget — Figma node 825:4298. Background F2F2F7,
@@ -957,6 +961,7 @@ function GuidanceView({
           </Text>
         </View>
       )}
+      </ScrollView>
 
       <Pressable
         onPress={onContinue}
@@ -1871,8 +1876,11 @@ const guidanceStyles = StyleSheet.create({
     ...typography.subheadlineEmphasized,
     color: colors.labelTertiary,
   },
-  spacer: {
+  scrollArea: {
     flex: 1,
+  },
+  scrollContent: {
+    gap: 24,
   },
   recordingWidget: {
     backgroundColor: colors.systemGroupedBackground,
