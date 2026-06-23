@@ -201,6 +201,15 @@ export default function TrustedContactSetup() {
 
           {contactReady ? (
             contact ? (
+              <Pressable
+                onPress={handlePickContact}
+                disabled={picking}
+                accessibilityRole="button"
+                accessibilityLabel={`Change trusted contact, currently ${contact.name}`}
+                accessibilityHint="Opens the contact picker to choose a different contact"
+                accessibilityState={{ busy: picking, disabled: picking }}
+                style={({ pressed }) => [pressed && !picking && pressedDim]}
+              >
               <View style={[styles.preview, embedded && stylesWhite.preview]}>
                 <Animated.View
                   style={[
@@ -230,6 +239,7 @@ export default function TrustedContactSetup() {
                   </Text>
                 </View>
               </View>
+              </Pressable>
             ) : (
               // The whole EmptyState card is tappable — wraps the
               // StateCard EmptyState component in a Pressable so the
