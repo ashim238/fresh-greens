@@ -20,6 +20,7 @@ Surfaced during real-device smoke immediately after the Design Health Program cl
 | 🟠 | Guide button on ETA page left-justified looks strange | `/en-route` | Alignment review against the FAB column register. |
 | 🟠 | Wrench "Road" icon on ETA page ambiguous | `/en-route` ETA card | What category does Wrench-Road indicate? Roadside? Hazard? Iconography review. |
 | 🟠 | Yellow zone icons should be gray when inactive | route preview / en-route | Active-vs-inactive register flip on zone markers. |
+| 🟣 | Report card contextual overhaul — multi-select subTags + per-category gaps | `/report` | `felt-welcome` mixes place-type and identity-signal into single-select; forces user to choose between "Restaurant" and "Women-owned." Fix: separate dimensions (place-type × identity-tags, multi-select on identity group). Also: some categories (`felt-unsafe`, `incident`, `hazard`, `lighting`) have no subTags at all — may benefit from lightweight context tags. Bounded spec: storage, picker UI, marker glyph dispatch, recommendation routing. |
 | 🟣 | Insurance number autofill | `/roadside-setup` | Users may not know their insurance number by heart. Lookup-from-policy-photo or saved-credentials integration — feature design. |
 | 🟣 | Why does the app jump to Apple Maps for nearby resources? | `/roadside` tow search, others | Strategic UX: delegate to system Maps vs in-app surface. Tow / fuel / repair findability. Worth a deliberate spec when M1.1 doesn't crowd it out. |
 
