@@ -80,7 +80,9 @@ export function SquircleIcon({
 }: {
   categoryId: string;
   variant: SquircleVariant;
-  /** Outer squircle dimension. Glyph renders at 60% of this. Default 40. */
+  /** Outer squircle dimension. Glyph renders at 60% of this. Default 40.
+   *  If rendered inside a Pressable, ensure the container meets the 44pt
+   *  tap-target minimum per .cursorrules. Use 48 for tappable contexts. */
   size?: number;
   style?: ViewStyle;
 }) {

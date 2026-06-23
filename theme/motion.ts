@@ -1,3 +1,5 @@
+import { Easing } from 'react-native';
+
 // Fresh Greens — motion tokens. Spring presets, duration scale, easing
 // curves. Extracted in the Visual Maturity Program from inline animation
 // values scattered across LandmarkMarker (tension 180, friction 12),
@@ -9,15 +11,15 @@
 // Usage:
 //   import { springs, durations, easings } from '../theme/motion';
 //   Animated.spring(value, { ...springs.gentle, toValue: 1, useNativeDriver: true });
-//   Animated.timing(value, { duration: durations.standard, easing: easings.easeOut, ... });
+//   Animated.timing(value, { duration: durations.standard, easing: easings.easeOut, useNativeDriver: true });
 
 /**
  * Spring presets — `useNativeDriver: true`-compatible. Apply via spread:
  *   Animated.spring(v, { ...springs.gentle, toValue: 1, useNativeDriver: true })
  *
- * Calibration: friction ≥ 14 across the board to suppress bounce. The
- * mild overshoot lands as "alive" instead of "Waze-cartoony" — the
- * program's brand-voice line.
+ * Calibration: recalibrated from inline friction 12 to friction ≥ 14
+ * across the board to suppress bounce. The mild overshoot lands as
+ * "alive" instead of "Waze-cartoony" — the program's brand-voice line.
  */
 export const springs = {
   /** Default for content arrival, sheet rise, marker settle. Mild overshoot. */
@@ -50,17 +52,14 @@ export const durations = {
  * cover the rest — reach for these only when a spring would feel
  * wrong (e.g. opacity-only fades).
  *
- * Returned as function names usable with `Easing.bezier(...)` callers
- * — but for the common cases, just import `Easing` from `react-native`
- * and use `Easing.out(Easing.cubic)` / `Easing.inOut(Easing.cubic)`.
- * These tokens exist as documentation + a centralization point should
- * we later move to custom bezier curves.
+ * Each value is a real `(t: number) => number` function, pass-through-
+ * able to `Animated.timing({ easing: easings.easeOut, ... })`.
  */
 export const easings = {
   /** Exits, dismissals, things leaving the screen. */
-  easeOut: 'out',
+  easeOut: Easing.out(Easing.cubic),
   /** Reversible transitions, A↔B state. */
-  easeInOut: 'inOut',
+  easeInOut: Easing.inOut(Easing.cubic),
 } as const;
 
 export type SpringPreset = keyof typeof springs;

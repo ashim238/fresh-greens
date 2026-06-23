@@ -74,8 +74,8 @@ export const colors = {
   // Edge-marker palette per Figma `1133:13250`. Darker, more
   // saturated than the brand orange/green — designed to read
   // crisply against busy map content at the small (36pt) edge-
-  // marker size. Used only by `components/EdgeIndicator.tsx`; the
-  // brand orange/green still cover everything else.
+  // marker size. Consumers: EdgeIndicator, SquircleIcon report
+  // gradient terminus. Brand orange/green cover everything else.
   slightlyDarkOrange: '#D34400',
   slightlyWiltedGreen: '#1F8122',
 

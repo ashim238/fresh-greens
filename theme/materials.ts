@@ -18,6 +18,8 @@
 
 import type { BlurTint } from 'expo-blur';
 
+import { colors } from './colors';
+
 export type MaterialTier = 'chrome' | 'sheet' | 'card' | 'modal';
 
 type MaterialConfig = {
@@ -40,24 +42,24 @@ export const materials: Record<MaterialTier, MaterialConfig> = {
     intensity: 60,
     tint: 'light',
     hairline: 'rgba(255, 255, 255, 0.5)',
-    fallback: '#FFFFFF',
+    fallback: colors.white,
   },
   sheet: {
     intensity: 80,
     tint: 'light',
     hairline: 'rgba(255, 255, 255, 0.6)',
-    fallback: '#FFFFFF',
+    fallback: colors.white,
   },
   card: {
     intensity: 40,
     tint: 'light',
     hairline: 'rgba(0, 0, 0, 0.06)',
-    fallback: '#FFFFFF',
+    fallback: colors.white,
   },
   modal: {
     intensity: 90,
     tint: 'light',
     hairline: 'rgba(255, 255, 255, 0.4)',
-    fallback: '#FFFFFF',
+    fallback: colors.white,
   },
 };
