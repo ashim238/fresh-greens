@@ -28,6 +28,16 @@ Surfaced during real-device smoke immediately after the Design Health Program cl
 
 **Second cluster shipped (2026-06-23):** Pin hit-test radius widened (30→50px), guidance scroll cue (ScrollView), trusted-contact card tappable when populated. Search icon deferred — action is genuinely search, icon may be correct.
 
+## Visual Maturity Phase 0 shipped (2026-06-23)
+
+PR #250: token foundation (`motion.ts`, `materials.ts`) + 3 primitives (`MaterialSurface`, `SquircleIcon`, `useSpringPress`) + surface audit doc (25 screens cataloged). Branch `program/visual-maturity-phase-0`. Device-verified on iPhone — blur over map, Pressables through blur, reduce-transparency fallback all pass.
+
+**Pre-Phase-2 prep items** (from code-review + mobile-ux-optimizer):
+- SquircleIcon `GlyphForCategory` is missing `home` / `trusted-friend` / identity-subTag cases — `default` falls through to Hazard glyph. Must fix before ReportDetailCard migration. Options: shared dispatch module (preferred) or inline expansion.
+- `categoryId: string` prop should become a union type (`CategoryId`) so missing glyph cases are compile errors.
+- `BlurTint` type on `materials.ts` is broader than needed — narrow to `'light' | 'dark'` to prevent drift.
+- Material fallbacks are all `colors.white` — if reduce-transparency users report flattened hierarchy, ramp to gray tints per tier.
+
 ## Design Health Phase 1 — per-screen critique tail (2026-06-19)
 
 From `docs/superpowers/specs/phase-1-findings/2026-06-19-cross-screen-synthesis.md` Section 5. These are screen-specific issues that cannot be addressed by Phase 2 design-system extraction — each must be fixed in the touched screen. Priority-ordered within tier. Snapshots that ground each entry live in `.impeccable/critique/`.
