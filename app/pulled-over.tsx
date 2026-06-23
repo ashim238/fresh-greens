@@ -48,6 +48,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
+import { MaterialSurface } from '../components/MaterialSurface';
 import { RecordingSaveErrorBanner } from '../components/RecordingSaveErrorBanner';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
@@ -544,7 +545,7 @@ export default function PulledOver() {
   }
 
   return (
-    <View style={styles.root}>
+    <MaterialSurface tier="sheet" style={styles.root}>
       <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -650,7 +651,7 @@ export default function PulledOver() {
           phase === 'transition' ||
           phase === 'guidance') && <TrustedContactStatus contact={contact} />}
       </SafeAreaView>
-    </View>
+    </MaterialSurface>
   );
 }
 
@@ -1659,7 +1660,6 @@ function WhatToKnowView() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
   },

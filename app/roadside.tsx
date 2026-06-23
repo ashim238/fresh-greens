@@ -33,6 +33,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
+import { MaterialSurface } from '../components/MaterialSurface';
 import { NotifyingPulse } from '../components/NotifyingPulse';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { useTrustedContact } from '../hooks/useTrustedContact';
@@ -165,7 +166,7 @@ export default function Roadside() {
   }
 
   return (
-    <View style={styles.root}>
+    <MaterialSurface tier="sheet" style={styles.root}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.dragHandleWrap}>
@@ -230,7 +231,7 @@ export default function Roadside() {
           setWrongSpotOpen(false);
         }}
       />
-    </View>
+    </MaterialSurface>
   );
 }
 
@@ -674,7 +675,7 @@ function WrongSpotModal({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1 },
   safe: { flex: 1 },
   // Drag-handle wrapper mirrors /safety's dragHandleWrapper: vertical
   // padding seats the 4pt bar in its own slot rather than slapping it
