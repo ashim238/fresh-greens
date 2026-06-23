@@ -1,9 +1,8 @@
 import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { MaterialSurface } from './MaterialSurface';
 import { pressedDim } from '../theme/interaction';
-import { shadows } from '../theme/shadows';
 
 /**
  * Floating circular icon button — consolidates the `sideBtn`,
@@ -15,10 +14,11 @@ import { shadows } from '../theme/shadows';
  *                  Recenter, Report). 32pt glyph.
  *   - `size="48"`  /home top-row overlays (Menu, Avatar). 24pt glyph.
  *
- * White surface + M3/Elevation/2 shadow + universal `pressedDim`
- * (0.7) for Pressed. Glyph is passed in via `children` — the
- * component is icon-agnostic; consumers pass Phosphor / Ionicons /
- * custom SVG as appropriate.
+ * MaterialSurface `tier="chrome"` surface (blurred glass over the map).
+ * Falls back to solid white when Reduce Transparency is on. Universal
+ * `pressedDim` (0.7) for Pressed state. Glyph is passed in via
+ * `children` — the component is icon-agnostic; consumers pass Phosphor
+ * icons as appropriate.
  */
 
 type Size = '48' | '56';
@@ -54,7 +54,7 @@ export function FloatingActionButton({
   accessibilityHint?: string;
   style?: ViewStyle;
 }) {
-  const dimensions = size === '56' ? styles.size56 : styles.size48;
+  const dim = size === '56' ? styles.size56 : styles.size48;
   return (
     <Pressable
       onPress={onPress}
@@ -67,31 +67,23 @@ export function FloatingActionButton({
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
-        styles.base,
-        dimensions,
+        dim,
         style,
         (pressed || disabled) && pressedDim,
       ]}
     >
-      <View style={styles.iconWrap}>{children}</View>
+      <MaterialSurface tier="chrome" style={[styles.surface, dim]}>
+        <View style={styles.iconWrap}>{children}</View>
+      </MaterialSurface>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
-    backgroundColor: colors.white,
+  surface: {
     borderRadius: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    // A22: was inline (shadowRadius:6, elevation:4) drifting from the
-    // shadows.e2 token (radius:4, elevation:3). Replaced with the
-    // canonical e2 spread per design-system.md §1.3 drift note. Two
-    // visual deltas land with this swap: radius tightens 6→4 (slightly
-    // crisper edge), opacity bumps 0.15→0.18. Net result is a marginally
-    // tighter, marginally darker lift — within Figma M3/Elevation/2
-    // tolerances and consistent with every other e2 surface in the app.
-    ...shadows.e2,
   },
   size56: {
     width: 56,

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
+import { MaterialSurface } from '../components/MaterialSurface';
 import { NotifyingPulse } from '../components/NotifyingPulse';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
@@ -88,7 +89,7 @@ export default function ShareLocation() {
   }
 
   return (
-    <View style={styles.root}>
+    <MaterialSurface tier="sheet" style={styles.root}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.dragHandleWrap}>
@@ -115,7 +116,7 @@ export default function ShareLocation() {
             )
           : null}
       </SafeAreaView>
-    </View>
+    </MaterialSurface>
   );
 }
 
@@ -209,7 +210,7 @@ function ActiveView({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1 },
   safe: { flex: 1 },
   // Drag-handle wrapper mirrors /safety's dragHandleWrapper + /roadside's
   // updated pattern: 16pt above AND below the bar so the breathing room

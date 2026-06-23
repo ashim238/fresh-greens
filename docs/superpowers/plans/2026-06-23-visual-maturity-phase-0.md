@@ -165,26 +165,59 @@ git commit -m "feat(hooks): add useReduceTransparency, mirrors useReduceMotion"
 
 ---
 
-## Task 3: `theme/radii.ts` — SKIP (file already exists on main)
+## Task 3: `theme/radii.ts`
 
-**Status:** OBSOLETE — `theme/radii.ts` was introduced in commit `3faae27` (`chore(theme): introduce radii scale + safetyCardHeight; retrofit rule-of-3 sites`) and has 14 consumers across `app/` and `components/`. The existing scale is:
+**Files:**
+- Create: `theme/radii.ts`
+
+- [ ] **Step 1: Write the module**
 
 ```ts
+// Fresh Greens — border-radius scale.
+//
+// 6/12/16/20/28 + pill. Extracted in the Visual Maturity Program after
+// inline radii (16, 28, 1000, plus ad-hoc 12/20) drifted across cards,
+// sheets, and chips. This module makes the scale explicit.
+//
+// Naming follows the same xs/sm/md/lg/xl pattern as spacing.ts so the
+// two scales read consistently at call sites.
+//
+// Usage:
+//   import { radii } from '../theme/radii';
+//   borderRadius: radii.md,
+
 export const radii = {
-  sm: 8,    // small chips, footer pills
-  md: 12,   // standard cards (default)
-  lg: 16,   // elevated modal cards (LifelineModal, RouteComparisonSheet)
-  xl: 20,   // centered popup modals (/emergency, /report, /pulled-over)
-  pill: 999, // capsule buttons, location chips
+  /** Chips, small pills, micro-rounded edges. */
+  xs: 6,
+  /** Squircle icons, small cards, the friendly "rounded square" shape. */
+  sm: 12,
+  /** Standard cards. Matches the previous inline 16 default. */
+  md: 16,
+  /** Primary content cards — used when md feels too tight on dense content. */
+  lg: 20,
+  /** Sheet top corners. Matches the previous inline 28 used on bottom sheets. */
+  xl: 28,
+  /** Buttons, SearchBar, full pills. Equivalent to the previous `1000`. */
+  pill: 1000,
 } as const;
+
+export type RadiiToken = keyof typeof radii;
 ```
 
-**Use the existing module as-is.** Downstream task mappings (revised):
-- SquircleIcon's squircle radius → `radii.md` (12pt) — exact match for the planned 12pt squircle.
-- Smoke route chrome bar → `radii.pill` (999pt — visually identical to 1000pt).
-- Smoke route sheet top corners → inline `borderRadius: 28` to match existing sheet practice (see `components/ReportDetailCard.tsx:276-277`). The existing `radii.xl` is 20pt (centered modals, not sheets); we do NOT extend the radii module in Phase 0. A `sheet: 28` token can be added in Phase 1 when the sheet migration lands.
+- [ ] **Step 2: Typecheck**
 
-No code changes for this task. Move to Task 4.
+Run:
+```bash
+npx tsc --noEmit 2>&1 | grep -vE "menu\.tsx.*avatar\.png|proxy/api"
+```
+Expected: empty output.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add theme/radii.ts
+git commit -m "feat(theme): add radii scale (xs/sm/md/lg/xl/pill)"
+```
 
 ---
 
@@ -699,7 +732,7 @@ export function SquircleIcon({
         end={{ x: 1, y: 1 }}
         style={[
           styles.squircle,
-          { width: size, height: size, borderRadius: radii.md },
+          { width: size, height: size, borderRadius: radii.sm },
         ]}
       >
         <GlyphForCategory categoryId={categoryId} size={glyphSize} />
@@ -798,7 +831,7 @@ export default function VisualMaturitySmoke() {
 
         <MaterialSurface
           tier="sheet"
-          style={[styles.sheet, { borderTopLeftRadius: 28, borderTopRightRadius: 28 }]}
+          style={[styles.sheet, { borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl }]}
         >
           <Text style={[styles.label, styles.heading]}>Sheet tier</Text>
           <View style={styles.row}>

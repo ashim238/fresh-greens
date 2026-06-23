@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
 
 import { BlurView } from 'expo-blur';
 
@@ -37,6 +37,7 @@ export function MaterialSurface({
   children,
   style,
   hairline = true,
+  ...viewProps
 }: {
   tier: MaterialTier;
   children?: ReactNode;
@@ -44,7 +45,7 @@ export function MaterialSurface({
   /** Set false to suppress the 0.5pt hairline (rare — only when the
    *  consumer is handling its own border). Defaults true. */
   hairline?: boolean;
-}) {
+} & Omit<ViewProps, 'style'>) {
   const reduceTransparency = useReduceTransparency();
   const cfg = materials[tier];
 
@@ -55,6 +56,7 @@ export function MaterialSurface({
   if (reduceTransparency) {
     return (
       <View
+        {...viewProps}
         style={[styles.fallback, { backgroundColor: cfg.fallback }, borderStyle, style]}
       >
         {children}
@@ -64,6 +66,7 @@ export function MaterialSurface({
 
   return (
     <BlurView
+      {...viewProps}
       intensity={cfg.intensity}
       tint={cfg.tint}
       style={[styles.blur, borderStyle, style]}

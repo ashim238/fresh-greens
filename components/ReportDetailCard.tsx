@@ -21,7 +21,6 @@ import {
 } from '../lib/api/community-reports';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -30,6 +29,7 @@ import { pressedDim } from '../theme/interaction';
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
 import { type Variant, variantForCategoryId } from './LandmarkMarker';
+import { MaterialSurface } from './MaterialSurface';
 
 /**
  * Community-report detail bottom sheet — appears when the user taps a
@@ -166,7 +166,8 @@ export function ReportDetailCard({
       accessibilityRole="button"
       accessibilityLabel="Dismiss report detail"
     >
-      <View
+      <MaterialSurface
+        tier="sheet"
         style={styles.sheet}
         accessibilityViewIsModal
         // Stop taps inside the sheet from bubbling to the scrim's
@@ -256,7 +257,7 @@ export function ReportDetailCard({
           </Pressable>
         )}
 
-      </View>
+      </MaterialSurface>
     </Pressable>
   );
 }
@@ -272,7 +273,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: spacing.md,
@@ -281,9 +281,6 @@ const styles = StyleSheet.create({
     // no grid or tab layout, so it's static content.
     paddingBottom: spacing.xl,
     gap: spacing.md,
-    // shadows.sheet bundles the directional upward offset (-4y) used
-    // by every bottom-anchored card in the app.
-    ...shadows.sheet,
   },
   headerRow: {
     flexDirection: 'row',

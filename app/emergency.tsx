@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 
+import { MaterialSurface } from '../components/MaterialSurface';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
@@ -238,7 +239,7 @@ export default function Emergency() {
       />
 
       <View style={styles.centering} pointerEvents="box-none">
-        <View style={styles.card}>
+        <MaterialSurface tier="modal" style={styles.card}>
           {mode.kind === 'idle' ? (
             <IdleView
               contactName={contactName}
@@ -257,7 +258,7 @@ export default function Emergency() {
               onStop={stopCountdown}
             />
           )}
-        </View>
+        </MaterialSurface>
       </View>
     </View>
   );
@@ -457,14 +458,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // Centered card — mirrors /report's popup chrome (20pt edge margin,
-  // 400pt cap, white + shadows.e2). Sized to read as a "focused dialog,"
+  // 400pt cap, MaterialSurface modal tier). Sized to read as a "focused dialog,"
   // not a sheet that takes over the screen. Matches Figma 49-5188 /
   // 49-5388 / 49-197.
   card: {
     alignSelf: 'stretch',
     marginHorizontal: 20,
     maxWidth: 400,
-    backgroundColor: colors.white,
     borderRadius: radii.xl,
     paddingHorizontal: spacing.lg,
     // Symmetric 32pt vertical padding. Earlier rounds tried 16/32 and
@@ -476,7 +476,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     alignItems: 'center',
-    ...shadows.e2,
   },
 
   // --- Header (idle) ---
