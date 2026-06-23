@@ -1721,8 +1721,8 @@ export default function Home() {
     if (mapRegion && mapSize && mapSize.width > 0) {
       const degPerPxLat = mapRegion.latitudeDelta / mapSize.height;
       const degPerPxLng = mapRegion.longitudeDelta / mapSize.width;
-      const hitLat = degPerPxLat * 30;
-      const hitLng = degPerPxLng * 30;
+      const hitLat = degPerPxLat * 50;
+      const hitLng = degPerPxLng * 50;
 
       const hit = enabledReportZones
         .filter((z) => {
