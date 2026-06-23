@@ -2933,17 +2933,6 @@ export default function Home() {
             {routeConditionsText}
           </Text>
 
-          {/*
-            Daylight arrival hint — non-color redundant cue for sighted
-            colorblind users. The daylight strip uses gradient color alone
-            to convey arrival time, but a colorblind user can't distinguish
-            dawn/dusk/night by hue. This small text label makes the arrival
-            band explicit for both sighted and VoiceOver users. Only shown
-            for non-daylight arrivals (dusk/dark) since daylight is obvious.
-          */}
-          {arrivalLabel && !arrivalLabel.includes('daylight') && (
-            <Text style={styles.daylightArrivalHint}>{arrivalLabel}</Text>
-          )}
 
           {recommended && trustedStationOnRoute && (
             <View style={styles.trustedOnRouteRow}>
@@ -3658,19 +3647,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 16,
-    gap: 16,
+    paddingTop: 12,
+    gap: 12,
     // Shadow points UP since the sheet floats above content from the
     // bottom edge — `shadows.sheet` bundles the directional offset.
     ...shadows.sheet,
   },
   bottomSheetContent: {
-    // 24 → 16: with the redesigned route-preview card carrying more rows
-    // (title / hero / distance / via / conditions / chips / actions), a
-    // uniform 24pt between every row read as too much vertical air. 16pt
-    // is the tighter section rhythm; the trip-summary rows cluster even
-    // closer via routeSummaryBlock (4pt).
-    gap: 16,
+    gap: 12,
   },
   // Wraps the LoadingState card rendered inside the route-preview
   // bottom sheet during the calculating state. (The no-route state no
@@ -3960,16 +3944,6 @@ const styles = StyleSheet.create({
   daylightIcons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  daylightArrivalHint: {
-    // Arrival band (dusk/dark) — a redundant NON-COLOR cue for colorblind
-    // drivers, so it must clear the readable floor. footnoteRegular (13pt),
-    // not caption2 (11pt, which tokens.ts flags as below WCAG 1.4.4 for
-    // informational content). labelSecondary stays for the muted register.
-    ...typography.footnoteRegular,
-    color: colors.labelSecondary,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xs,
   },
   tradeoffRow: {
     // H13: 16 → 24 to match the route card's canonical gutter
