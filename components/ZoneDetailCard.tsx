@@ -10,11 +10,11 @@ import {
 } from './zoneCategoryContent';
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
+import { MaterialSurface } from './MaterialSurface';
 import type { Zone } from '../lib/api/zones';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
-import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -68,7 +68,8 @@ export function ZoneDetailCard({
       accessibilityRole="button"
       accessibilityLabel="Dismiss zone detail"
     >
-      <View
+      <MaterialSurface
+        tier="sheet"
         style={styles.sheet}
         accessibilityViewIsModal
         // Stop taps inside the sheet from bubbling to the scrim's
@@ -116,7 +117,7 @@ export function ZoneDetailCard({
             </Pressable>
           )}
         </View>
-      </View>
+      </MaterialSurface>
     </Pressable>
   );
 }
@@ -129,13 +130,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
     gap: spacing.md,
-    ...shadows.sheet,
   },
   headerRow: {
     flexDirection: 'row',
