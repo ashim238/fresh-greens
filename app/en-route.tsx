@@ -2047,7 +2047,7 @@ export default function EnRoute() {
           */}
           <SideFabRow label="Guide" showLabel={sideFabCoach.visible}>
             <FloatingActionButton
-              size="48"
+              size="56"
               onPress={() => sideFabCoach.show()}
               accessibilityLabel="Show map controls guide"
               accessibilityHint="Re-shows the labels for these buttons"
