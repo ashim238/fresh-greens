@@ -2586,9 +2586,9 @@ export default function Home() {
         !selectedReport &&
         !selectedZone &&
         !selectedRouteHazard && <MaterialSurface tier="sheet" style={styles.bottomSheetSurface}>
-        <SafeAreaView
-        style={styles.bottomSheet}
-        edges={['bottom']}
+          <SafeAreaView
+            style={styles.bottomSheet}
+            edges={['bottom']}
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
           setBottomSheetHeight(h);
@@ -3173,7 +3173,7 @@ export default function Home() {
         )}
           </>
         )}
-      </SafeAreaView>
+          </SafeAreaView>
         </MaterialSurface>}
 
       {/*

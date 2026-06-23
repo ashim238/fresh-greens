@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   // Centered card — mirrors /report's popup chrome (20pt edge margin,
-  // 400pt cap, white + shadows.e2). Sized to read as a "focused dialog,"
+  // 400pt cap, MaterialSurface modal tier). Sized to read as a "focused dialog,"
   // not a sheet that takes over the screen. Matches Figma 49-5188 /
   // 49-5388 / 49-197.
   card: {
