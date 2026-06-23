@@ -25,7 +25,7 @@ import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
-import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { pressedDim } from '../theme/interaction';
 
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    ...tapTarget44,
+    minHeight: 44,
     paddingHorizontal: spacing.lg,
   } as const,
   removeText: {
