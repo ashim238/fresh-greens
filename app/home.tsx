@@ -1721,8 +1721,8 @@ export default function Home() {
     if (mapRegion && mapSize && mapSize.width > 0) {
       const degPerPxLat = mapRegion.latitudeDelta / mapSize.height;
       const degPerPxLng = mapRegion.longitudeDelta / mapSize.width;
-      const hitLat = degPerPxLat * 30;
-      const hitLng = degPerPxLng * 30;
+      const hitLat = degPerPxLat * 50;
+      const hitLng = degPerPxLng * 50;
 
       const hit = enabledReportZones
         .filter((z) => {
@@ -3304,6 +3304,36 @@ export default function Home() {
             selectedRoute ?? null,
           )}
           onDismiss={() => setSelectedReport(null)}
+          onRemove={
+            enabledReportZones.find(
+              (z) => z.id === selectedReport.zoneId && z.reportSubmittedBy === user?.id,
+            )
+              ? () => {
+                  Alert.alert(
+                    'Remove report?',
+                    'This will remove your community report from the map.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await removeCommunityReport(selectedReport.zoneId);
+                            const refreshed = await getCommunityReportsAsZones();
+                            setReportZones(refreshed);
+                          } catch (err) {
+                            const { title, body } = getErrorMessage('save', 'transient', err);
+                            Alert.alert(title, body);
+                          }
+                          setSelectedReport(null);
+                        },
+                      },
+                    ],
+                  );
+                }
+              : undefined
+          }
         />
       )}
       {selectedZone && (

@@ -3,6 +3,7 @@ import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // note on why we bypass the package's barrel index.
 import { Export } from 'phosphor-react-native/src/icons/Export';
+import { Trash } from 'phosphor-react-native/src/icons/Trash';
 import { X } from 'phosphor-react-native/src/icons/X';
 
 import BgBlackOwned from '../assets/illustrations/mapmarker-bg-blackowned.svg';
@@ -23,6 +24,8 @@ import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+
+import { pressedDim } from '../theme/interaction';
 
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
@@ -98,6 +101,7 @@ export function ReportDetailCard({
   timestamp,
   routeContextLine,
   onDismiss,
+  onRemove,
 }: {
   categoryId: ReportCategoryId;
   detail?: string;
@@ -121,6 +125,8 @@ export function ReportDetailCard({
   /** One calm line when this report sits on the selected route preview. */
   routeContextLine?: string;
   onDismiss: () => void;
+  /** When provided, shows a "Remove" button — only pass for author-owned reports. */
+  onRemove?: () => void;
 }) {
   const category = CATEGORIES.find((c) => c.id === categoryId);
   if (!category) return null;
@@ -235,6 +241,21 @@ export function ReportDetailCard({
           </View>
         ) : null}
 
+        {onRemove && (
+          <Pressable
+            onPress={onRemove}
+            accessibilityRole="button"
+            accessibilityLabel="Remove this report"
+            style={({ pressed }) => [
+              styles.removeRow,
+              pressed && pressedDim,
+            ]}
+          >
+            <Trash size={24} color={colors.red} weight="bold" />
+            <Text style={styles.removeText}>Remove my report</Text>
+          </Pressable>
+        )}
+
       </View>
     </Pressable>
   );
@@ -326,5 +347,17 @@ const styles = StyleSheet.create({
     color: colors.black,
     textAlign: 'center',
     alignSelf: 'stretch',
+  } as const,
+  removeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: spacing.lg,
+  } as const,
+  removeText: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.red,
   } as const,
 });
