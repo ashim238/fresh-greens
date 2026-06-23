@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
-import { MaterialSurface } from '../components/MaterialSurface';
 import { useMutation } from '../hooks/useMutation';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import {
@@ -241,7 +240,7 @@ export default function TripSummary() {
   }
 
   return (
-    <MaterialSurface tier="sheet" style={styles.root}>
+    <View style={styles.root}>
       <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -386,13 +385,14 @@ export default function TripSummary() {
           />
         </View>
       </SafeAreaView>
-    </MaterialSurface>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: colors.white,
   },
   safe: {
     flex: 1,

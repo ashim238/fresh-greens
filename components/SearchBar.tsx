@@ -7,8 +7,8 @@ import { XCircle } from 'phosphor-react-native/src/icons/XCircle';
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
-import { MaterialSurface } from './MaterialSurface';
 
 /**
  * SearchBar — three states matching Figma `1133:13168`.
@@ -61,22 +61,20 @@ export function SearchBar({
   if (state === 'default') {
     return (
       <Pressable
-        style={({ pressed }) => [styles.containerOuter, style, pressed && pressedDim]}
+        style={({ pressed }) => [styles.container, styles.containerDefault, style, pressed && pressedDim]}
         onPress={onPress}
         accessibilityRole="search"
         accessibilityLabel={placeholder}
       >
-        <MaterialSurface tier="chrome" style={styles.containerChrome}>
-          <MagnifyingGlass size={24} color={colors.labelSecondary} weight="regular" />
-          <Text style={styles.placeholder} numberOfLines={1}>
-            {placeholder}
-          </Text>
-          <PressableIcon
-            name="mic"
-            onPress={onMicPress}
-            accessibilityLabel="Voice search"
-          />
-        </MaterialSurface>
+        <MagnifyingGlass size={24} color={colors.labelSecondary} weight="regular" />
+        <Text style={styles.placeholder} numberOfLines={1}>
+          {placeholder}
+        </Text>
+        <PressableIcon
+          name="mic"
+          onPress={onMicPress}
+          accessibilityLabel="Voice search"
+        />
       </Pressable>
     );
   }
@@ -188,17 +186,14 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 8,
   },
-  containerOuter: {
-    alignSelf: 'stretch',
-    marginHorizontal: 8,
-  },
-  containerChrome: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    height: 56,
-    paddingHorizontal: 16,
-    borderRadius: 1000,
+  containerDefault: {
+    backgroundColor: colors.white,
+    // A22: was inline (shadowRadius:6, elevation:4) — identical to the
+    // FAB pattern that landed alongside this fix. Replaced with the
+    // canonical shadows.e2 spread per design-system.md §1.3 drift note.
+    // SearchBar over the map matches FAB elevation now; previously they
+    // diverged by ~2pt of soft halo.
+    ...shadows.e2,
   },
   containerInset: {
     // S3: canonical inset bg per .cursorrules "Search bar contextual

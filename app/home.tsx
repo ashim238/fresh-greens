@@ -51,7 +51,6 @@ import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
-import { MaterialSurface } from '../components/MaterialSurface';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
@@ -2585,10 +2584,9 @@ export default function Home() {
       {!placingReport &&
         !selectedReport &&
         !selectedZone &&
-        !selectedRouteHazard && <MaterialSurface tier="sheet" style={styles.bottomSheetSurface}>
-          <SafeAreaView
-            style={styles.bottomSheet}
-            edges={['bottom']}
+        !selectedRouteHazard && <SafeAreaView
+        style={styles.bottomSheet}
+        edges={['bottom']}
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
           setBottomSheetHeight(h);
@@ -3173,8 +3171,7 @@ export default function Home() {
         )}
           </>
         )}
-          </SafeAreaView>
-        </MaterialSurface>}
+      </SafeAreaView>}
 
       {/*
         Report button — floats 24pt above the bottom sheet's top edge.
@@ -3661,9 +3658,7 @@ const styles = StyleSheet.create({
   },
   // menuButton + avatarButton style blocks retired — both consume
   // the FloatingActionButton component now (size="48").
-  // MaterialSurface wrapper — carries position, sizing, radius, and
-  // the frosted-glass visual treatment (bg + shadow handled by tier="sheet").
-  bottomSheetSurface: {
+  bottomSheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -3679,16 +3674,14 @@ const styles = StyleSheet.create({
     // than clipped — the user can scroll inside the sheet to reach
     // the bottom of a long card.
     maxHeight: Dimensions.get('window').height * 0.85,
+    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-  },
-  // SafeAreaView inside the MaterialSurface — layout only, no visuals.
-  // flex:1 fills the MaterialSurface; paddingTop/gap give the drag
-  // handle and content their breathing room.
-  bottomSheet: {
     paddingTop: 12,
     gap: 12,
-    flex: 1,
+    // Shadow points UP since the sheet floats above content from the
+    // bottom edge — `shadows.sheet` bundles the directional offset.
+    ...shadows.sheet,
   },
   bottomSheetContent: {
     gap: 12,

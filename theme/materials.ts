@@ -39,7 +39,7 @@ type MaterialConfig = {
 
 export const materials: Record<MaterialTier, MaterialConfig> = {
   chrome: {
-    intensity: 80,
+    intensity: 60,
     tint: 'light',
     hairline: 'rgba(255, 255, 255, 0.5)',
     fallback: colors.white,

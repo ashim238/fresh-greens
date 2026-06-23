@@ -35,7 +35,6 @@ import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg'
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { Button } from '../components/Button';
-import { MaterialSurface } from '../components/MaterialSurface';
 import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
 import { useMutation } from '../hooks/useMutation';
 import { useUser } from '../hooks/useUser';
@@ -295,7 +294,7 @@ export default function Report() {
         visual layer but doesn't enforce a11y containment; this prop
         does. Per Apple HIG modals + WCAG 2.4.3 (Focus Order, Level A).
       */}
-      <MaterialSurface tier="sheet" style={styles.popup} accessibilityViewIsModal>
+      <View style={styles.popup} accessibilityViewIsModal>
         {mode === 'picker' && (
           <PickerView
             onClose={handleClose}
@@ -328,7 +327,7 @@ export default function Report() {
             onClose={handleClose}
           />
         )}
-      </MaterialSurface>
+      </View>
       </KeyboardAvoidingView>
 
       {/*
@@ -840,6 +839,7 @@ const styles = StyleSheet.create({
     // lets the popup honor the cap rather than overflowing the parent.
     maxHeight: '90%',
     flexShrink: 1,
+    backgroundColor: colors.white,
     borderRadius: radii.xl,
     // v2 spec (1112:8900): px-24 py-32 gap-24. Bumped horizontal from
     // 16 → 24 to honor the v2 breathing room while keeping the vertical
@@ -847,6 +847,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 32,
     gap: 24,
+    // Theme tier — content above map but below transparent modal scrim.
+    ...shadows.e2,
   },
   headerRow: {
     flexDirection: 'row',

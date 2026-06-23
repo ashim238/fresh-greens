@@ -10,12 +10,12 @@ import type { HazardCategory } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
-import { MaterialSurface } from './MaterialSurface';
 import {
   formatRouteHazardLength,
   routeHazardDetailContent,
@@ -77,8 +77,7 @@ export function RouteHazardDetailCard({
       accessibilityRole="button"
       accessibilityLabel="Dismiss hazard detail"
     >
-      <MaterialSurface
-        tier="sheet"
+      <View
         style={styles.sheet}
         accessibilityViewIsModal
         onStartShouldSetResponder={() => true}
@@ -184,7 +183,7 @@ export function RouteHazardDetailCard({
             </Pressable>
           </View>
         )}
-      </MaterialSurface>
+      </View>
     </Pressable>
   );
 }
@@ -195,11 +194,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
+    backgroundColor: colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
     gap: spacing.md,
+    ...shadows.sheet,
   },
   headerRow: {
     flexDirection: 'row',
