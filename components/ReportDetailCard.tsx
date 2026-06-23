@@ -251,7 +251,7 @@ export function ReportDetailCard({
               pressed && pressedDim,
             ]}
           >
-            <Trash size={20} color={colors.red} weight="regular" />
+            <Trash size={24} color={colors.red} weight="bold" />
             <Text style={styles.removeText}>Remove my report</Text>
           </Pressable>
         )}
@@ -352,12 +352,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
     ...tapTarget44,
     paddingHorizontal: spacing.lg,
   } as const,
   removeText: {
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.red,
   } as const,
 });
