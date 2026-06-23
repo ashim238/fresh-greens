@@ -312,12 +312,20 @@ function SideFabRow({
   showLabel: boolean;
   children: React.ReactNode;
 }) {
-  if (!showLabel) return <>{children}</>;
+  // Device-smoke 2026-06-21: previously rendered `children` bare when
+  // !showLabel, then wrapped in a flexRow with the labelPill when
+  // showLabel — switching between the two on Guide tap shifted the
+  // FAB's x-position because the row added labelPill+gap width on the
+  // left. The fix: render the same row container in both cases and
+  // position the labelPill ABSOLUTELY so it hangs to the left of the
+  // FAB without participating in flex sizing. The FAB stays anchored.
   return (
     <View style={sideFabRowStyles.row}>
-      <View style={sideFabRowStyles.labelPill}>
-        <Text style={sideFabRowStyles.labelText}>{label}</Text>
-      </View>
+      {showLabel && (
+        <View style={sideFabRowStyles.labelPill}>
+          <Text style={sideFabRowStyles.labelText}>{label}</Text>
+        </View>
+      )}
       {children}
     </View>
   );
@@ -327,9 +335,12 @@ const sideFabRowStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'flex-end',
   },
   labelPill: {
+    position: 'absolute',
+    right: '100%',
+    marginRight: spacing.sm,
     backgroundColor: colors.white,
     borderRadius: radii.sm,
     paddingHorizontal: spacing.sm,
@@ -2045,25 +2056,48 @@ export default function EnRoute() {
             </FloatingActionButton>
           </SideFabRow>
           <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
-            <View style={styles.sosHoldWrap}>
-              <Animated.View
-                pointerEvents="none"
-                style={[styles.sosHoldRing, { opacity: sosHold.holdProgress }]}
-              />
-              <FloatingActionButton
-                size="56"
-                onPressIn={sosHold.pressHandlers.onPressIn}
-                onPressOut={sosHold.pressHandlers.onPressOut}
-                onPress={sosHold.pressHandlers.onPress}
-                accessibilityLabel="Emergency SOS"
-                accessibilityHint={
-                  sosHold.isVoiceOverOn
-                    ? 'Opens the SOS screen to call your trusted contact or 911'
-                    : 'Press and hold to open SOS'
-                }
-              >
-                <SidebtnSos width={32} height={32} />
-              </FloatingActionButton>
+            <View style={styles.sosColumn}>
+              <View style={styles.sosHoldWrap}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.sosHoldRing, { opacity: sosHold.holdProgress }]}
+                />
+                <FloatingActionButton
+                  size="56"
+                  onPressIn={sosHold.pressHandlers.onPressIn}
+                  onPressOut={sosHold.pressHandlers.onPressOut}
+                  onPress={sosHold.pressHandlers.onPress}
+                  accessibilityLabel="Emergency SOS"
+                  accessibilityHint={
+                    sosHold.isVoiceOverOn
+                      ? 'Opens the SOS screen to call your trusted contact or 911'
+                      : 'Press and hold to open SOS'
+                  }
+                >
+                  <SidebtnSos width={32} height={32} />
+                </FloatingActionButton>
+              </View>
+              {/*
+                Device-smoke 2026-06-21: SOS is the only side-FAB whose
+                primary gesture is hold-to-confirm, not tap. Gated on the
+                same coach-mark visibility as the column labels — auto-
+                shows on first visit + when the user taps Guide to refresh.
+                Persistent caption read as jarring + low-signal in smoke;
+                tying it to the existing coach-mark reuses a
+                discoverability path the user already learns (PR #237).
+                Aria-hidden because the instruction is also in the FAB's
+                accessibilityHint for VoiceOver users.
+              */}
+              {sideFabCoach.visible && (
+                <Text
+                  style={styles.sosHoldHint}
+                  pointerEvents="none"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                >
+                  Hold
+                </Text>
+              )}
             </View>
           </SideFabRow>
           <SideFabRow label="Safety" showLabel={sideFabCoach.visible}>
@@ -2418,6 +2452,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // SOS column wraps the FAB + the "Hold" caption so the caption hangs
+  // beneath the FAB. Device-smoke 2026-06-21: sighted users had no cue
+  // that the SOS button is hold-to-confirm; tap-and-release made it look
+  // broken. The caption sits inside the column so the rest of the
+  // side-FAB stack is unaffected.
+  sosColumn: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  sosHoldHint: {
+    ...typography.caption2Regular,
+    color: colors.labelSecondary,
   },
   sosHoldRing: {
     position: 'absolute',
