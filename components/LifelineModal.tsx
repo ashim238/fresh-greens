@@ -5,6 +5,7 @@ import { Phone } from 'phosphor-react-native/src/icons/Phone';
 
 import { Button } from './Button';
 import { DragHandle } from './DragHandle';
+import { MaterialSurface } from './MaterialSurface';
 import { NotifyingPulse } from './NotifyingPulse';
 import type { TrustedContact } from '../lib/api/trusted-contact';
 import { getErrorMessage } from '../lib/error-message';
@@ -71,50 +72,52 @@ export function LifelineModal({ visible, onClose, contact }: Props) {
         accessible={false}
         accessibilityElementsHidden
       >
-        <Pressable style={styles.card} onPress={() => {}}>
-          <DragHandle />
+        <Pressable onPress={() => {}}>
+          <MaterialSurface tier="modal" style={styles.card}>
+            <DragHandle />
 
-          <View style={styles.body}>
-            <Text style={styles.title} accessibilityRole="header">
-              You&apos;re not alone.
-            </Text>
-            <Text style={styles.subtitle}>
-              Your Trusted Contact has a Messages draft with your location. You can call or text them right now.
-            </Text>
+            <View style={styles.body}>
+              <Text style={styles.title} accessibilityRole="header">
+                You&apos;re not alone.
+              </Text>
+              <Text style={styles.subtitle}>
+                Your Trusted Contact has a Messages draft with your location. You can call or text them right now.
+              </Text>
 
-            <View style={styles.avatarRing}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{contact.initials}</Text>
+              <View style={styles.avatarRing}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{contact.initials}</Text>
+                </View>
+              </View>
+              <Text style={styles.name}>{contact.name}</Text>
+
+              <View style={styles.ctaStack}>
+                <Button
+                  text="Call"
+                  type="primary"
+                  fill="fill"
+                  icon={<Phone size={20} color={colors.white} weight="regular" />}
+                  onPress={handleCall}
+                  style={styles.ctaStretch}
+                />
+                <Button
+                  text="Text"
+                  type="primary"
+                  fill="outline"
+                  icon={<ChatCircle size={20} color={colors.freshgreen} weight="regular" />}
+                  onPress={handleText}
+                  style={styles.ctaStretch}
+                />
+              </View>
+
+              <View style={styles.footer}>
+                <NotifyingPulse
+                  contactName={contact.name}
+                  label="Your Trusted Contact is being notified"
+                />
               </View>
             </View>
-            <Text style={styles.name}>{contact.name}</Text>
-
-            <View style={styles.ctaStack}>
-              <Button
-                text="Call"
-                type="primary"
-                fill="fill"
-                icon={<Phone size={20} color={colors.white} weight="regular" />}
-                onPress={handleCall}
-                style={styles.ctaStretch}
-              />
-              <Button
-                text="Text"
-                type="primary"
-                fill="outline"
-                icon={<ChatCircle size={20} color={colors.freshgreen} weight="regular" />}
-                onPress={handleText}
-                style={styles.ctaStretch}
-              />
-            </View>
-
-            <View style={styles.footer}>
-              <NotifyingPulse
-                contactName={contact.name}
-                label="Your Trusted Contact is being notified"
-              />
-            </View>
-          </View>
+          </MaterialSurface>
         </Pressable>
       </Pressable>
     </Modal>
@@ -128,7 +131,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   card: {
-    backgroundColor: colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: spacing.lg,

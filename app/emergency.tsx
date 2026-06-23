@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 
+import { MaterialSurface } from '../components/MaterialSurface';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
@@ -238,7 +239,7 @@ export default function Emergency() {
       />
 
       <View style={styles.centering} pointerEvents="box-none">
-        <View style={styles.card}>
+        <MaterialSurface tier="modal" style={styles.card}>
           {mode.kind === 'idle' ? (
             <IdleView
               contactName={contactName}
@@ -257,7 +258,7 @@ export default function Emergency() {
               onStop={stopCountdown}
             />
           )}
-        </View>
+        </MaterialSurface>
       </View>
     </View>
   );
@@ -464,7 +465,6 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 20,
     maxWidth: 400,
-    backgroundColor: colors.white,
     borderRadius: radii.xl,
     paddingHorizontal: spacing.lg,
     // Symmetric 32pt vertical padding. Earlier rounds tried 16/32 and
@@ -476,7 +476,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
     alignItems: 'center',
-    ...shadows.e2,
   },
 
   // --- Header (idle) ---
