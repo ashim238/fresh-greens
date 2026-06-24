@@ -486,9 +486,6 @@ function PickerView({
       <View style={styles.grid}>
         {PICKER_GROUPS.map((group) => (
           <View key={group.label} style={styles.gridGroup}>
-            <Text style={styles.gridGroupHeader} accessibilityRole="header">
-              {group.label}
-            </Text>
             <View style={styles.gridRow}>
               {CATEGORIES.slice(group.start, group.start + 2).map((c) => (
                 <Pressable
