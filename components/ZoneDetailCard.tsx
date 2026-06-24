@@ -43,7 +43,7 @@ export function ZoneDetailCard({
   onDismiss: () => void;
 }) {
   const router = useRouter();
-  const content = zoneCategoryContent(zone.category);
+  const content = zoneCategoryContent(zone.category, zone.type);
   // Sibling chrome to ReportDetailCard / RouteHazardDetailCard:
   // tapping a zone polygon should morph this card up from the
   // bottom edge, not snap it in. Same 220ms ease-out family;

@@ -47,9 +47,21 @@ export type ZoneContent = {
  */
 export function zoneCategoryContent(
   category: ZoneCategory | undefined,
+  zoneType?: ZoneType,
 ): ZoneContent | null {
   switch (category) {
     case 'lighting':
+      if (zoneType === 'safe') {
+        return {
+          title: 'Lit street',
+          Glyph: Lightbulb,
+          dataSource:
+            'Streets here are tagged as well-lit in OpenStreetMap data (lit=yes or always-on).',
+          affectsRoutes:
+            'Fresh Greens favors lit corridors in its routing — this is a positive signal on your route.',
+          preferenceLink: true,
+        };
+      }
       return {
         title: 'Low lighting',
         Glyph: Lightbulb,
