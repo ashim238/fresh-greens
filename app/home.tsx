@@ -418,6 +418,8 @@ export default function Home() {
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
+    heading: number | null;
+    speed: number | null;
   } | null>(null);
   // Bottom-sheet camera offset. The route-preview sheet covers ~40% of
   // the screen, so a camera centered on the user's coord puts the GPS
@@ -1658,6 +1660,8 @@ export default function Home() {
           setUserLocation({
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
+            heading: pos.coords.heading ?? null,
+            speed: pos.coords.speed ?? null,
           });
         },
       );
@@ -2323,6 +2327,8 @@ export default function Home() {
           <UserLocationMarker
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
+            heading={userLocation.heading}
+            speed={userLocation.speed}
           />
         )}
       </MapView>

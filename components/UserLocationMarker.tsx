@@ -7,40 +7,22 @@ import { colors } from '../theme/colors';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 
-/**
- * Custom user-location marker — replaces react-native-maps'
- * `showsUserLocation` because that prop renders the iOS-native
- * MKUserLocation annotation, which can't be assigned a `zIndex`
- * and ends up sitting *under* custom markers when both occupy the
- * same coordinate (the case here when a community report lands
- * near the user's GPS — the LandmarkMarker pin would cover the
- * blue dot).
- *
- * Visual: iOS-style blue dot — outer white ring + inner systemBlue
- * circle, with a subtle pulsing accuracy ring behind it. Anchored
- * at center (the GPS coord sits at the dot's middle), `zIndex={1000}`
- * keeps it above any LandmarkMarker (which uses default zIndex).
- *
- * The component takes the GPS coord as a prop; the parent screen
- * is responsible for subscribing to `expo-location.watchPositionAsync`
- * and feeding fresh coords down. Keeps this component pure +
- * cheap; no useEffect/no permission negotiation here.
- */
+const WEDGE_LENGTH = 28;
+const WEDGE_HALF_WIDTH = 16;
+const FRAME_SIZE = 80;
+const MIN_SPEED_MPS = 0.5;
+
 export function UserLocationMarker({
   latitude,
   longitude,
+  heading,
+  speed,
 }: {
   latitude: number;
   longitude: number;
+  heading?: number | null;
+  speed?: number | null;
 }) {
-  // Pulse on the outer accuracy ring — gentle "this is live" cue
-  // without overwhelming the dot. Scale 1 → 1.4, opacity 0.35 → 0,
-  // 1.6s loop, native driver. Gated on Reduce Motion: when on, the
-  // pulse is pinned to value=1 (end-of-cycle = scale 1.4, opacity 0),
-  // which renders as no visible ring at all. The dot itself is the
-  // load-bearing "you-are-here" affordance; pinning to value=0
-  // instead would leave a frozen semi-visible (opacity 0.35) ring
-  // that reads as a rendering artifact.
   const reduceMotion = useReduceMotion();
   const pulse = useRef(new Animated.Value(0)).current;
 
@@ -70,26 +52,16 @@ export function UserLocationMarker({
     outputRange: [0.35, 0],
   });
 
-  // tracksViewChanges stays TRUE permanently. We cycled through the
-  // tracksViewChanges={false} perf optimizations — snapshot-once-on-mount,
-  // state-in-key remount, re-track-in-place — and each one regressed
-  // *something* (vanishes on zoom, vanishes on route-switch, or the dot
-  // drops under a co-located heart pin because a remount loses zIndex on
-  // iOS). The only option that keeps the dot reliably visible AND honors
-  // its zIndex in every state is to never let MapKit cache a stale bitmap:
-  // keep rendering live. This is one small marker (and it's animated — the
-  // pulse needs live rendering anyway), so the cost is negligible; Apple
-  // Maps keeps its user dot always-live for the same reason. See
-  // docs/learnings.md — "the must-never-vanish markers always track."
+  const showWedge =
+    heading != null &&
+    heading >= 0 &&
+    speed != null &&
+    speed >= MIN_SPEED_MPS;
+
   return (
     <Marker
       coordinate={{ latitude, longitude }}
       anchor={{ x: 0.5, y: 0.5 }}
-      // High zIndex so the dot draws above LandmarkMarker pins
-      // (default zIndex 0). 1000 leaves room for any future markers
-      // that legitimately need to draw above the user dot (e.g. a
-      // turn-by-turn next-step arrow). Honored because the marker never
-      // remounts — a remount is what loses zIndex on iOS.
       zIndex={1000}
       tracksViewChanges
       accessibilityRole="image"
@@ -102,6 +74,16 @@ export function UserLocationMarker({
             { transform: [{ scale: pulseScale }], opacity: pulseOpacity },
           ]}
         />
+        {showWedge && (
+          <View
+            style={[
+              styles.wedgeAnchor,
+              { transform: [{ rotate: `${heading}deg` }] },
+            ]}
+          >
+            <View style={styles.wedge} />
+          </View>
+        )}
         <View style={styles.outerRing}>
           <View style={styles.innerDot} />
         </View>
@@ -111,14 +93,9 @@ export function UserLocationMarker({
 }
 
 const styles = StyleSheet.create({
-  // 40×40 frame so the pulsing ring has room to expand without
-  // getting clipped by the marker's bounding box. Bumped from 32×32
-  // alongside the dot/ring resize so the user-location marker reads
-  // at proportional weight to LandmarkMarker (~52pt visible) and the
-  // 48pt placement pin — was getting visually lost between them.
   frame: {
-    width: 40,
-    height: 40,
+    width: FRAME_SIZE,
+    height: FRAME_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -143,5 +120,22 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: radii.sm,
     backgroundColor: colors.systemBlue,
+  },
+  wedgeAnchor: {
+    position: 'absolute',
+    width: FRAME_SIZE,
+    height: FRAME_SIZE,
+    alignItems: 'center',
+  },
+  wedge: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: WEDGE_HALF_WIDTH,
+    borderRightWidth: WEDGE_HALF_WIDTH,
+    borderTopWidth: WEDGE_LENGTH,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(0, 122, 255, 0.35)',
+    marginTop: FRAME_SIZE / 2 - WEDGE_LENGTH,
   },
 });

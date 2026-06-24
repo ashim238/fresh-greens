@@ -1966,18 +1966,13 @@ export default function EnRoute() {
 
         <View style={styles.thenFooter}>
           <Text style={styles.thenText}>Then</Text>
-          {/*
-            "Then" footer arrow — same duotone Phosphor register as
-            the main turn-card arrow above. ArrowBendUpRight reads
-            as "next-turn direction" (curving right-and-up) without
-            committing to a specific direction since the next-next
-            turn isn't known yet.
-          */}
-          <ArrowBendUpRight
-            size={20}
-            color={colors.fadedgreen}
-            weight="duotone"
-          />
+          {maneuverIcon(
+            activeRoute?.steps?.[
+              (nextStepInfo?.index ?? -1) + 1
+            ]?.kind,
+            20,
+            colors.fadedgreen,
+          )}
         </View>
       </SafeAreaView>
 
