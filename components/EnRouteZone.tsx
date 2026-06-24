@@ -172,7 +172,6 @@ const styles = StyleSheet.create({
   defaultFrame: {
     width: 62,
     height: 50,
-    opacity: 0.5,
   },
   extendedFrame: {
     width: 158,
