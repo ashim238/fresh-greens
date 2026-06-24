@@ -2468,7 +2468,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sosHoldHint: {
-    ...typography.caption2Regular,
+    ...typography.caption1Regular,
     color: colors.labelSecondary,
   },
   sosHoldRing: {

@@ -8,6 +8,7 @@ import { type NavigationAction } from '@react-navigation/routers';
 // docs/architecture.md (contact phase) and matches /trusted-contact-setup.
 import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
+import { Lock } from 'phosphor-react-native/src/icons/Lock';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
 import { Phone } from 'phosphor-react-native/src/icons/Phone';
 import { SpeakerHigh } from 'phosphor-react-native/src/icons/SpeakerHigh';
@@ -550,6 +551,11 @@ export default function PulledOver() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.dragWrapper}>
           <DragHandle />
+          {hasActiveRecording && (
+            <View style={styles.lockBadge} accessibilityLabel="Sheet locked while recording">
+              <Lock size={14} color={colors.labelTertiary} weight="bold" />
+            </View>
+          )}
         </View>
 
         {/*
@@ -1672,6 +1678,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     alignItems: 'center',
   },
+  lockBadge: {
+    position: 'absolute',
+    right: spacing.lg,
+    top: spacing.md,
+  },
   phaseContainer: {
     flex: 1,
     paddingTop: spacing.lg,
@@ -1958,12 +1969,15 @@ const guidanceStyles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.labelTertiary,
   },
   stopRecordingText: {
-    ...typography.footnoteRegular,
-    color: colors.labelTertiary,
-    textDecorationLine: 'underline',
+    ...typography.footnoteEmphasized,
+    color: colors.labelSecondary,
   },
   stateAttribution: {
     ...typography.caption1Regular,

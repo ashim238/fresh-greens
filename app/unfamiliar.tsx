@@ -107,6 +107,7 @@ export default function Unfamiliar() {
   // + disables all rows so the safety flow doesn't read as broken or accept
   // a double-tap mid-flight.
   const [loadingDestId, setLoadingDestId] = useState<string | null>(null);
+  const [destError, setDestError] = useState<string | null>(null);
 
   async function handleProblemPick(option: ProblemOption) {
     const startResult = await start.run({ type: 'unfamiliar', reason: option.title });
@@ -120,14 +121,12 @@ export default function Unfamiliar() {
 
   async function handleDestinationPick(option: DestinationOption) {
     if (loadingDestId !== null) return;
+    setDestError(null);
     setLoadingDestId(option.id);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Location needed',
-          'Allow location access so we can find nearby safe destinations.',
-        );
+        setDestError('Allow location access so we can find nearby safe destinations.');
         return;
       }
       const pos = await Location.getCurrentPositionAsync({});
@@ -137,10 +136,7 @@ export default function Unfamiliar() {
       });
       const hit = results[0];
       if (!hit) {
-        Alert.alert(
-          'No results',
-          `Couldn't find a ${option.nounSingular} nearby. Try a different option.`,
-        );
+        setDestError(`Couldn't find a ${option.nounSingular} nearby. Try a different option.`);
         return;
       }
       router.replace({
@@ -152,12 +148,9 @@ export default function Unfamiliar() {
         },
       });
     } catch (err) {
-      const { title: searchTitle, body: searchBody } = getErrorMessage('load', 'transient', err);
-      Alert.alert(searchTitle, searchBody);
+      const { body } = getErrorMessage('load', 'transient', err);
+      setDestError(body);
     } finally {
-      // Cleared on both error AND router.replace — the screen unmounts on
-      // replace so this set is harmless there; matters for the error paths
-      // so the user can retry without the rows staying disabled.
       setLoadingDestId(null);
     }
   }
@@ -203,6 +196,7 @@ export default function Unfamiliar() {
             onSafeNow={handleSafeNow}
             onLifeline={() => setLifelineOpen(true)}
             loadingDestId={loadingDestId}
+            error={destError}
           />
         )}
         {step === 'active' && session && (
@@ -294,6 +288,7 @@ function DestinationPicker({
   onSafeNow,
   onLifeline,
   loadingDestId,
+  error,
 }: {
   contactName: string;
   hasLifeline: boolean;
@@ -302,6 +297,7 @@ function DestinationPicker({
   onSafeNow: () => void;
   onLifeline: () => void;
   loadingDestId: string | null;
+  error: string | null;
 }) {
   const anyLoading = loadingDestId !== null;
   return (
@@ -353,6 +349,12 @@ function DestinationPicker({
           );
         })}
       </View>
+
+      {error && (
+        <Text style={styles.destError} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      )}
 
       <View style={styles.safeNowWrap}>
         <Button
@@ -481,6 +483,11 @@ const styles = StyleSheet.create({
     color: colors.labelSecondary,
     marginTop: -spacing.sm,
     marginBottom: spacing.lg,
+  },
+  destError: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.red,
+    marginTop: spacing.sm,
   },
   // Card list mirrors /pulled-over's armed picker (armedStyles
   // answersWrapper): flex 1 + justifyContent center vertically centers

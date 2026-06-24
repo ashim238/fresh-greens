@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
@@ -49,14 +49,12 @@ export default function ShareLocation() {
   const { start, end, resend } = shareState;
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
-  const [busy, setBusy] = useState(false);
+  const [busyReasonId, setBusyReasonId] = useState<string | null>(null);
+  const [endError, setEndError] = useState<string | null>(null);
 
   const session = shareState.ready ? shareState.session : null;
   const isActive = session?.type === 'share-location';
 
-  // Dismiss to /home if we got here cold (deep-link / notification entry)
-  // — never strand the user with no exit. router.canGoBack() is true for
-  // the usual /safety → /share-location push path.
   function dismiss() {
     if (router.canGoBack()) {
       router.back();
@@ -66,23 +64,24 @@ export default function ShareLocation() {
   }
 
   async function handlePick(option: ReasonOption) {
-    if (busy) return;
-    setBusy(true);
+    if (busyReasonId !== null) return;
+    setBusyReasonId(option.id);
     const startResult = await start.run({ type: 'share-location', reason: option.title });
     if (!startResult.ok) {
       const { title, body } = getErrorMessage('sharing', 'transient', startResult.error);
       Alert.alert(title, body);
-      setBusy(false);
+      setBusyReasonId(null);
       return;
     }
     dismiss();
   }
 
   async function handleEnd() {
+    setEndError(null);
     const endResult = await end.run();
     if (!endResult.ok) {
-      const { title, body } = getErrorMessage('sharing', 'transient', endResult.error);
-      Alert.alert(title, body);
+      const { body } = getErrorMessage('sharing', 'transient', endResult.error);
+      setEndError(body);
       return;
     }
     dismiss();
@@ -102,6 +101,7 @@ export default function ShareLocation() {
                 contactName={contact?.name ?? 'Your contact'}
                 sessionReason={session.reason}
                 onEnd={handleEnd}
+                endError={endError}
                 onResendSms={() => {
                   void resend.run(undefined);
                 }}
@@ -111,7 +111,7 @@ export default function ShareLocation() {
               <ReasonPicker
                 contactName={contact?.name ?? 'Your contact'}
                 onPick={handlePick}
-                disabled={busy}
+                busyReasonId={busyReasonId}
               />
             )
           : null}
@@ -123,41 +123,49 @@ export default function ShareLocation() {
 function ReasonPicker({
   contactName,
   onPick,
-  disabled,
+  busyReasonId,
 }: {
   contactName: string;
   onPick: (option: ReasonOption) => void;
-  disabled: boolean;
+  busyReasonId: string | null;
 }) {
+  const anyBusy = busyReasonId !== null;
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
       {/* Phantom-chevron slot — keeps title y-position aligned with
           the chevron-bearing views in sibling safety flows. */}
       <View style={styles.backChevronPlaceholder} />
-      <Text style={styles.subtitle}>On it. Sharing your location now.</Text>
+      <Text style={styles.subtitle}>You choose. We&apos;ll tell them.</Text>
       <Text style={styles.title} accessibilityRole="header">
         What&apos;s the situation?
       </Text>
 
       <View style={styles.rowList}>
-        {REASONS.map((r) => (
-          <Pressable
-            key={r.id}
-            onPress={() => onPick(r)}
-            disabled={disabled}
-            style={({ pressed }) => [
-              styles.twoLineRow,
-              pressed && !disabled && pressedDim,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${r.title}. ${r.clarifier}`}
-            accessibilityHint={`Opens Messages with a safety check-in draft for ${contactName}`}
-            accessibilityState={{ disabled }}
-          >
-            <Text style={styles.rowTitle}>{r.title}</Text>
-            <Text style={styles.rowClarifier}>{r.clarifier}</Text>
-          </Pressable>
-        ))}
+        {REASONS.map((r) => {
+          const isLoading = busyReasonId === r.id;
+          return (
+            <Pressable
+              key={r.id}
+              onPress={() => onPick(r)}
+              disabled={anyBusy}
+              style={({ pressed }) => [
+                styles.twoLineRow,
+                pressed && !anyBusy && pressedDim,
+                anyBusy && !isLoading && { opacity: 0.5 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`${r.title}. ${r.clarifier}`}
+              accessibilityHint={`Opens Messages with a safety check-in draft for ${contactName}`}
+              accessibilityState={{ disabled: anyBusy, busy: isLoading }}
+            >
+              <View style={styles.rowTitleRow}>
+                <Text style={styles.rowTitle}>{r.title}</Text>
+                {isLoading && <ActivityIndicator size="small" color={colors.freshgreen} />}
+              </View>
+              <Text style={styles.rowClarifier}>{r.clarifier}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <View style={styles.pulseFooter}>
@@ -174,11 +182,13 @@ function ActiveView({
   contactName,
   sessionReason,
   onEnd,
+  endError,
   onResendSms,
 }: {
   contactName: string;
   sessionReason: string;
   onEnd: () => void;
+  endError: string | null;
   onResendSms: () => void;
 }) {
   return (
@@ -191,6 +201,12 @@ function ActiveView({
         Sharing your location.
       </Text>
       <Text style={styles.aspirationalNote}>Reason: {sessionReason}</Text>
+
+      {endError && (
+        <Text style={styles.errorNote} accessibilityLiveRegion="polite">
+          {endError} Tap below to retry.
+        </Text>
+      )}
 
       <View style={styles.endWrap}>
         <Button
@@ -263,6 +279,11 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.lg,
   },
+  errorNote: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.red,
+    marginBottom: spacing.sm,
+  },
   // Card list mirrors /pulled-over's armed picker (and the matching
   // pass on /unfamiliar): flex 1 + justifyContent center vertically
   // centers the cards, gap 48 between them. With 4 reasons at height
@@ -286,6 +307,11 @@ const styles = StyleSheet.create({
     height: safetyCardHeight,
     justifyContent: 'center',
     ...shadows.e1,
+  },
+  rowTitleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
   },
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),

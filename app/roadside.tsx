@@ -880,8 +880,9 @@ const styles = StyleSheet.create({
     color: colors.labelSecondary,
   },
   sectionLabel: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelSecondary,
+    ...dynamicType(typography.subheadlineEmphasized),
+    color: colors.black,
+    marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
   primaryCtaWrap: {

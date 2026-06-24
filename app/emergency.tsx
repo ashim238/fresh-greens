@@ -394,6 +394,7 @@ function CountdownView({
         accessibilityLiveRegion="polite"
       >
         <Text style={styles.countdownNumber}>{seconds}</Text>
+        <Text style={styles.countdownUnit}>sec</Text>
       </View>
 
       {/* Exit cluster — Stop and the pivot link read as one "ways out"
@@ -581,16 +582,17 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   countdownNumber: {
-    // Big tabular-nums numeral so the digit doesn't shift the disc's
-    // visual center as the count steps down. NO lineHeight override —
-    // sosCountdown's natural 60pt lineHeight flows through, and the
-    // flex-centered parent disc handles the vertical position. The
-    // prior `lineHeight: 56` override created an asymmetric tight
-    // line-box that iOS SF Pro renders glyph-low (visible off-center).
     ...typography.sosCountdown,
     color: colors.white,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
+    lineHeight: 40,
+  },
+  countdownUnit: {
+    ...typography.caption1Regular,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginTop: -spacing.xs,
   },
   exitCluster: {
     alignItems: 'center',
