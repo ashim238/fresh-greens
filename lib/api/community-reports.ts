@@ -99,6 +99,13 @@ export type ReportCategory = {
     /** Whitelist subset for this group, in chip-render order. */
     tags: string[];
   }>;
+  /**
+   * Per-subTag zone severity override. When set, `reportToZone` uses the
+   * matched entry instead of `zoneType` so a "Pitch black" lighting report
+   * scores as `avoid` while a "Dim area" report scores as `caution`, rather
+   * than both inheriting the category's single fallback zoneType.
+   */
+  severityMap?: Record<string, ZoneType>;
 };
 
 export const CATEGORIES: ReportCategory[] = [
@@ -111,15 +118,37 @@ export const CATEGORIES: ReportCategory[] = [
     anonymous: true,
     hasPhoto: true,
     cta: 'Submit report',
+    subTags: ['Accident', 'Confrontation', 'Suspicious activity', 'Police presence', 'Near miss'],
+    subTagGroups: [
+      { label: 'What happened?', tags: ['Accident', 'Confrontation', 'Suspicious activity', 'Police presence', 'Near miss'] },
+    ],
+    severityMap: {
+      'Accident': 'avoid',
+      'Confrontation': 'avoid',
+      'Suspicious activity': 'avoid',
+      'Police presence': 'avoid',
+      'Near miss': 'caution',
+    },
   },
   {
     id: 'felt-unsafe',
     label: 'Felt unsafe',
-    subtitle: 'Talk to us. What’s going on?',
+    subtitle: "Talk to us. What’s going on?",
     zoneType: 'avoid',
     anonymous: true,
     hasPhoto: false,
     cta: 'Submit report',
+    subTags: ['Threatened', 'Followed', 'Harassed', 'Uncomfortable', 'Uneasy vibe'],
+    subTagGroups: [
+      { label: 'What was it?', tags: ['Threatened', 'Followed', 'Harassed', 'Uncomfortable', 'Uneasy vibe'] },
+    ],
+    severityMap: {
+      'Threatened': 'avoid',
+      'Followed': 'avoid',
+      'Harassed': 'avoid',
+      'Uncomfortable': 'caution',
+      'Uneasy vibe': 'caution',
+    },
   },
   // Row 2: caution (functional / heads-up)
   {
@@ -130,6 +159,17 @@ export const CATEGORIES: ReportCategory[] = [
     anonymous: false,
     hasPhoto: true,
     cta: 'Submit report',
+    subTags: ['Pitch black', 'No streetlights', 'Broken light', 'Flickering', 'Dim area'],
+    subTagGroups: [
+      { label: 'How dark is it?', tags: ['Pitch black', 'No streetlights', 'Broken light', 'Flickering', 'Dim area'] },
+    ],
+    severityMap: {
+      'Pitch black': 'avoid',
+      'No streetlights': 'avoid',
+      'Broken light': 'caution',
+      'Flickering': 'caution',
+      'Dim area': 'caution',
+    },
   },
   {
     id: 'hazard',
@@ -139,6 +179,17 @@ export const CATEGORIES: ReportCategory[] = [
     anonymous: false,
     hasPhoto: true,
     cta: 'Submit report',
+    subTags: ['Road blocked', 'Flooding', 'Construction', 'Pothole / damage', 'Debris'],
+    subTagGroups: [
+      { label: "What's the hazard?", tags: ['Road blocked', 'Flooding', 'Construction', 'Pothole / damage', 'Debris'] },
+    ],
+    severityMap: {
+      'Road blocked': 'avoid',
+      'Flooding': 'avoid',
+      'Construction': 'caution',
+      'Pothole / damage': 'caution',
+      'Debris': 'caution',
+    },
   },
   // Row 3: safe (affirming)
   {
@@ -148,7 +199,7 @@ export const CATEGORIES: ReportCategory[] = [
     zoneType: 'safe',
     anonymous: false,
     hasPhoto: false,
-    cta: 'Submit review',
+    cta: 'Share your experience',
     // subTags here mix two kinds of "why this felt welcome":
     //   1. Place-type tags (Restaurant, Bar/Cafe, …) — what kind of
     //      place it is.
@@ -207,7 +258,7 @@ export const CATEGORIES: ReportCategory[] = [
     zoneType: 'safe',
     anonymous: false,
     hasPhoto: false,
-    cta: 'Submit review',
+    cta: 'Add to directory',
     subTags: [
       'Restaurant',
       'Bar/Cafe',
@@ -245,6 +296,13 @@ export type CommunityReport = {
    * type-system migration.
    */
   subTag?: string;
+  /**
+   * Google Places primary type (e.g. "restaurant", "park") returned by
+   * the `/api/nearby` lookup at submit time. Stored alongside `placeName`
+   * and `googlePlaceId` so future UI can differentiate marker glyphs by
+   * place type without re-querying Places.
+   */
+  placeType?: string;
   /**
    * Auto-resolved business name at the report's coordinates, looked
    * up at submit time via the proxy's `/api/nearby` endpoint (Google
@@ -341,7 +399,7 @@ function reportToZone(report: CommunityReport): Zone {
   return {
     id: report.id,
     source: 'community-report',
-    type: category.zoneType,
+    type: category.severityMap?.[report.subTag ?? ''] ?? category.zoneType,
     // Marker accessibilityLabel — leads with the resolved business
     // name when we have it ("Wintzell's Oyster House: felt welcome")
     // so VoiceOver users hear what kind of place the report is
