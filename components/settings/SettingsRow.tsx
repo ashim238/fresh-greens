@@ -35,7 +35,7 @@ type Trailing = 'chevron' | 'toggle' | 'segmented' | 'none';
  * is footer copy, not value copy. `destructive` makes the row a
  * centered red label with no icon / no trailing (Sign out).
  *
- * Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
+ * Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
  */
 export function SettingsRow({
   icon,

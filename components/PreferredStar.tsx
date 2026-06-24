@@ -11,7 +11,7 @@ import { pressedDim } from '../theme/interaction';
  * wiltedgreen when trusted, hollow labelTertiary otherwise. Compact
  * glyph with hitSlop for a 44pt effective tap target.
  *
- * Spec: docs/superpowers/specs/2026-06-02-preferred-stations-design.md
+ * Spec: docs/archive/superpowers/specs/2026-06-02-preferred-stations-design.md
  */
 export function PreferredStar({
   preferred,

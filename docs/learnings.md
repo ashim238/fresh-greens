@@ -38,7 +38,7 @@ Three things:
 
 ## Design Health Program — closed (2026-06-20)
 
-Two-day program: Phase 1 critique (25 screens, 4 cross-screen patterns, Section 5 tail) → Phase 2 (10 PRs across 3 sprints) → Phase 3 (5 fix PRs, 13 items) → closeout audit (25 re-critiques + synthesis). All landed on `main`. Closeout doc at [`docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md).
+Two-day program: Phase 1 critique (25 screens, 4 cross-screen patterns, Section 5 tail) → Phase 2 (10 PRs across 3 sprints) → Phase 3 (5 fix PRs, 13 items) → closeout audit (25 re-critiques + synthesis). All landed on `main`. Closeout doc at [`docs/archive/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](docs/archive/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md).
 
 **Three durable findings worth keeping**:
 
@@ -584,7 +584,7 @@ The shape generalizes: any v1 surface promising "the app does X for you" that ac
 
 ## audit/app-wide-fidelity — the methodology, not the findings
 
-The audit itself shipped at `docs/audits/2026-05-31-app-wide-fidelity-audit.md`; this entry captures what the *methodology* taught.
+The audit itself shipped at `docs/archive/audits/2026-05-31-app-wide-fidelity-audit.md`; this entry captures what the *methodology* taught.
 
 **A+synthesis was right for the per-surface judgment, wrong without the synthesis re-grade pass.** Per-surface subagents hold the whole surface in context, which is exactly what concept-execution and reliability need. But each ran independent severity calls; the same pattern got tiered Critical on one surface and Minor on another. The synthesis re-grade pass is load-bearing — three findings flipped tier in this audit alone (`/recordings` Ionicons Minor→Important; `/trusted-contact-setup` honesty Important→Critical; `/home` SearchBar held at Critical for blast-radius). Worth keeping: never let per-task severity calls stand without a normalization pass.
 

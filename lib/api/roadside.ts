@@ -10,7 +10,7 @@
 // the service identity so we can dial directly and address the user's
 // service by name on the live-status step.
 //
-// See docs/superpowers/specs/2026-05-31-roadside-assistance-design.md.
+// See docs/archive/superpowers/specs/2026-05-31-roadside-assistance-design.md.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

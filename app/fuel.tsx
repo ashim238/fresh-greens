@@ -151,12 +151,12 @@ function BucketPill({
  * Time-based by design (no fuel sensing): the user sets a cadence and an
  * optional car profile; saving schedules a recurring local notification
  * via useFuelProfile. "I filled up" resets the cadence clock. See
- * docs/superpowers/specs/2026-05-30-refuel-reminders-design.md.
+ * docs/archive/superpowers/specs/2026-05-30-refuel-reminders-design.md.
  *
  * Settings register: SettingsHeader (back + close) over a grouped-gray
  * page; the form's controls are grouped into RowGroups (Your car /
  * Reminder / current-state) with the Save CTA full-width below them.
- * Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
+ * Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
  */
 export default function Fuel() {
   const router = useRouter();

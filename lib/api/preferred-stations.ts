@@ -10,7 +10,7 @@
 // within PREFERRED_MATCH_DELTA, the same technique regular-destinations.ts
 // and the /search saved-row merge already use.
 //
-// Spec: docs/superpowers/specs/2026-06-02-preferred-stations-design.md
+// Spec: docs/archive/superpowers/specs/2026-06-02-preferred-stations-design.md
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

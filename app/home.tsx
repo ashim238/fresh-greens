@@ -570,7 +570,7 @@ export default function Home() {
   // Tapped zone-overlay state — mirrors selectedReport. The two are
   // mutually exclusive (opening one clears the other); both clear on
   // map tap. Spec:
-  // docs/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md
+  // docs/archive/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
 
   /** Active hazard chip session — index into `routeHazardsOnPath` for that type. */
@@ -2797,15 +2797,9 @@ export default function Home() {
           {isCalculatingRoute ? (
             <LoadingState text="Calculating route…" style={styles.routePreviewState} />
           ) : routeFetchSource === 'no-route' ? (
-            // A21 interim: render the no-route state inline on the
-            // sheet's own white surface, mirroring the populated route-
-            // preview card's left-aligned hierarchy (wiltedgreen
-            // headline + labelTertiary supporting line + 24pt gutter)
-            // instead of the generic gray EmptyState card. The bespoke
-            // "road trailing off" illustration is queued in
-            // docs/figma-mockup-queue.md; this uses the existing Path
-            // glyph recolored to the brand accent in the meantime. The
-            // wrapping View is the single a11y node (icon is decorative;
+            // Interim no-route empty state: wiltedgreen Path glyph until a
+            // bespoke illustration lands (see next-session if revisiting).
+            // The wrapping View is the single a11y node (icon is decorative;
             // the label carries the meaning).
             <View
               style={styles.noRouteState}

@@ -55,10 +55,8 @@ yarn-error.*
 # `graphify update .`; not part of the source tree.
 graphify-out/
 
-# Superpowers per-workflow implementation plans. Ephemera — generated
-# fresh each workflow run, most go stale within days of shipping. The
-# canonical "what we decided and why" lives in `docs/learnings.md` and
-# the git history. Specs (decision records) still commit.
+# Superpowers ephemeral plans (if regenerated) — canonical shipped plans live in
+# docs/archive/superpowers/plans/
 docs/superpowers/plans/
 
 # Superpowers session observation logs. Local plugin telemetry.

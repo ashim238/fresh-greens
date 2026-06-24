@@ -9,8 +9,11 @@ template and write a fresh overlay like this one — don't fork this file.
 **Where this sits:** the per-PR layer. Above it, [`ROADMAP.md`](ROADMAP.md) holds the
 milestones; below it, [`next-session.md`](next-session.md) is the backlog and
 [`learnings.md`](learnings.md) the journal; [`architecture.md`](architecture.md) is
-the code map. `CLAUDE.md` indexes all of these (and holds the canonical graphify/fgq
-rules — see there rather than re-stating).
+the code map. Design: [`DESIGN.md`](../DESIGN.md) (canonical human doc) +
+[`.cursorrules`](../.cursorrules) (enforceable law) + `theme/` (runtime). Historical
+specs and superseded references live in [`docs/archive/`](archive/README.md).
+`CLAUDE.md` indexes all of these (and holds the canonical graphify/fgq rules — see
+there rather than re-stating).
 
 ## Placeholder bindings (template → Fresh Greens)
 
@@ -24,7 +27,7 @@ rules — see there rather than re-stating).
 | `{{TYPECHECK_CMD}}` | `npx tsc --noEmit 2>&1 \| grep -vE "menu\.tsx.*avatar\.png\|proxy/api"` — the filtered output must be empty (4 known env-level errors filtered). |
 | `{{BLAST_RADIUS_TOOL}}` | `graphify affected "<symbol>"` (sub-second; static-import only). |
 | `{{MEMORY_TOOL}}` | `fgq query "<short-seed>"` against the merged code+chats+thesis graph. |
-| `{{DESIGN_RULEBOOK}}` | [`.cursorrules`](../.cursorrules) — color tokens + reserved-color rule, typography, tap-target rule, anti-slop checks. Reserved-color rule is *use-granular*, so graphify can't enforce it: `rg "colors\.(orange\|red\|yellow\|pink\|navy)"`. |
+| `{{DESIGN_RULEBOOK}}` | [`.cursorrules`](../.cursorrules) (enforceable law) + [`DESIGN.md`](../DESIGN.md) (voice, named rules, component catalog). Chain: `theme/` → `.impeccable/design.json` → `DESIGN.md`. Exhaustive token tables archived at [`docs/archive/design-system-reference.md`](archive/design-system-reference.md). Reserved-color rule is *use-granular*, so graphify can't enforce it: `rg "colors\.(orange\|red\|yellow\|pink\|navy)"`. |
 | `{{REVIEW_AGENTS}}` | the five project-relevant subagents below (the rest of `~/.claude/agents/` is GSD's 33-agent fleet — unused here, see §14). |
 | `{{ARCH_AUDIT_CHECKLIST}}` | [`architecture.md`](architecture.md) three-layer boundary (adapters / scoring / screens) + §12b paragraph: adapter purity (no UI in `lib/api`), theme discipline, orphan cleanup. |
 
@@ -142,6 +145,10 @@ Figma node, check against:
 3. **[`DESIGN.md`](../DESIGN.md)** + **`theme/`**
 4. Impeccable **critique** + **technical audit** on the route
 
+For deep Figma-vs-code token tables or per-screen inventories, see
+[`docs/archive/design-system-reference.md`](archive/design-system-reference.md) — not
+the default pre-merge path.
+
 Capture every finding before fixing; fix in the same branch; append a learnings entry
 for *recurring* misses. Track cadence: `git log --oneline | grep audit`.
 
@@ -205,5 +212,6 @@ vs retry, when to escalate to the human).
   sanity-check is the always-on minimum; grill-me is the deeper version.)
 - **GSD** — only the roadmap layer adopted ([`ROADMAP.md`](ROADMAP.md), 2026-06-17);
   its `spec→plan→execute` pipeline + agent fleet stay shelved (they'd duplicate the
-  superpowers flow). Borrow GSD's *questions* (did we meet the goal? is it verified in
-  the runtime? — now baked into template §10/§12), never its machinery.
+  superpowers flow). Shipped specs/plans archived under [`docs/archive/superpowers/`](archive/superpowers/).
+  Borrow GSD's *questions* (did we meet the goal? is it verified in the runtime? — now
+  baked into template §10/§12), never its machinery.

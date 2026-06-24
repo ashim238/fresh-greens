@@ -1,10 +1,12 @@
-# Fresh Greens — Design System Reference
+# Fresh Greens — Design System Reference (archived)
+
+> **Superseded 2026-06-24.** Canonical design doc is [`DESIGN.md`](../../DESIGN.md) at the repo root. Keep this file for exhaustive token tables, Figma drift callouts, and the per-screen inventory (Section 3).
 
 Retroactive documentation of the design tokens, components, and conventions already shipped in the codebase. Intended for designers cross-referencing the Figma file (`7DDh6c7tk7OKF4WiA7pEkp`) against what's actually built.
 
 This is a reference, not a spec. The Figma file leads; the codebase follows. Where the two diverge, **Drift** callouts flag the gap.
 
-For runtime rules, see [`.cursorrules`](../.cursorrules). For the per-PR rhythm, see [`docs/workflow.md`](workflow.md). For architecture, see [`docs/architecture.md`](architecture.md).
+For runtime rules, see [`.cursorrules`](../../.cursorrules). For the per-PR rhythm, see [`docs/workflow.md`](../workflow.md). For architecture, see [`docs/architecture.md`](../architecture.md).
 
 ---
 
@@ -574,7 +576,7 @@ Bottom-sheet detail card shown when the user taps a community-report pin.
 
 Apple Maps-style lane guidance row shown at the top of the en-route turn card.
 
-- **Spec:** `docs/superpowers/specs/2026-05-27-lane-guidance-design.md`
+- **Spec:** `docs/archive/superpowers/specs/2026-05-27-lane-guidance-design.md`
 - **Visual:** Row of lane cells; active lanes get `whiteFill12` background (subtle glow on the dark turn-card surface)
 - **Sizing:** Cells `minWidth: 32`, `height: 40`, `borderRadius: 6`. Container `maxHeight: 64` when visible (8pt vertical breathing above the maneuver row below).
 - **Cell content:** Lane direction glyphs (24pt for single-direction, 16pt for multi-direction). Active matching direction = 1.0 opacity, non-matching direction in multi-dir lane = 0.5, inactive lane = 0.3.
@@ -874,19 +876,20 @@ Likewise, **search before creating** (anti-slop check 1): before creating a new 
 
 | Path | Purpose |
 |---|---|
-| [`.cursorrules`](../.cursorrules) | Design rulebook: color tokens, reserved-color rule, typography, tap-target rule, code conventions, anti-slop checks, out-of-scope items |
-| [`docs/architecture.md`](architecture.md) | Project orientation: three-layer architecture (adapters / scoring / screens), tech stack, design rules, shipped-vs-deferred status |
-| [`docs/workflow.md`](workflow.md) | Per-PR rhythm: Step 1–13 recipe covering branch → Figma fetch → scope → commit → audit → merge |
-| [`docs/learnings.md`](learnings.md) | Running journal of decisions and gotchas, newest at top. Append per PR that taught something non-obvious |
-| [`docs/next-session.md`](next-session.md) | Current punch list — open items grouped by visual fidelity, interaction polish, named rounds, accessibility |
-| [`docs/figma-mockup-queue.md`](figma-mockup-queue.md) | Pending mockup queue for Figma sync |
+| [`.cursorrules`](../../.cursorrules) | Design rulebook: color tokens, reserved-color rule, typography, tap-target rule, code conventions, anti-slop checks, out-of-scope items |
+| [`DESIGN.md`](../../DESIGN.md) | Canonical human design doc (supersedes this archive) |
+| [`docs/architecture.md`](../architecture.md) | Project orientation: three-layer architecture (adapters / scoring / screens), tech stack, design rules, shipped-vs-deferred status |
+| [`docs/workflow.md`](../workflow.md) | Per-PR rhythm: Step 1–13 recipe covering branch → Figma fetch → scope → commit → audit → merge |
+| [`docs/learnings.md`](../learnings.md) | Running journal of decisions and gotchas, newest at top. Append per PR that taught something non-obvious |
+| [`docs/next-session.md`](../next-session.md) | Current punch list — open items grouped by visual fidelity, interaction polish, named rounds, accessibility |
+| [`docs/archive/README.md`](README.md) | Index of archived specs and audits |
 | Figma file | `7DDh6c7tk7OKF4WiA7pEkp`, root canvas `825:3161` ("Flow tab"). Use Figma MCP server (`get_design_context`) to pull live nodes. The Figma file leads; this codebase follows. |
-| `CLAUDE.md` (project root) | Agent orientation map pointing to all three rulebooks |
+| `CLAUDE.md` (project root) | Agent orientation map pointing to all rulebooks |
 | `~/.claude/projects/-Users-mylesashitey-code-fresh-greens/memory/` | Per-session feedback memory: durable rules from past sessions, auto-loaded via `MEMORY.md` |
 
 For a new component or surface, the typical entry sequence is:
 1. Read `.cursorrules` (rules)
-2. Read this doc (existing tokens + components)
+2. Read [`DESIGN.md`](../../DESIGN.md) (voice + named rules + component catalog)
 3. Pull the Figma node via MCP (canonical visual)
 4. Search `components/` for adjacency (anti-slop check 1)
 5. Read `docs/learnings.md` for context on related past decisions

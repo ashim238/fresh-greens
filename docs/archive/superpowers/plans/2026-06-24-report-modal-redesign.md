@@ -10,7 +10,7 @@
 
 **Testing:** No test runner in this project. Verification is `npx tsc --noEmit` + device smoke test via Expo Go.
 
-**Spec:** `docs/superpowers/specs/2026-06-24-report-modal-redesign.md`
+**Spec:** `docs/archive/superpowers/specs/2026-06-24-report-modal-redesign.md`
 
 ---
 

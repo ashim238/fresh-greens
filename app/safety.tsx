@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   title: {
     // SAF1: Title1 Regular (not Emphasized). /safety ASKS the user a
-    // question ("What's going on?"), and per design-system.md the
+    // question ("What's going on?"), and per DESIGN.md Held-Question Rule the
     // in-modal-prompt register is regular weight — a held question, not
     // a directive (bold read as a command on a stress-state screen).
     //

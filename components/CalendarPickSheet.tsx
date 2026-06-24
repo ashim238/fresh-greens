@@ -29,7 +29,7 @@ import { typography } from '../theme/typography';
  * pre-filled with the event's location text. The user searches (via
  * searchPlaces) and picks the right place; the parent persists it.
  *
- * Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
+ * Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
  */
 export function CalendarPickSheet({
   initialQuery,

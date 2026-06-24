@@ -39,7 +39,7 @@ Surfaced during the `polish/impeccable-pass` critique sweep (clarify + typeset +
 
 ## Device-smoke punch list (2026-06-21)
 
-Surfaced during real-device smoke immediately after the Design Health Program closeout audit (see [`docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md)). The closeout audit was code-reading; these only surface at the interaction layer. Tier tags: 🔴 real bug / 🟡 discoverability / 🟠 visual-layout / 🟣 feature-strategic.
+Surfaced during real-device smoke immediately after the Design Health Program closeout audit (see [`docs/archive/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](archive/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md)). The closeout audit was code-reading; these only surface at the interaction layer. Tier tags: 🔴 real bug / 🟡 discoverability / 🟠 visual-layout / 🟣 feature-strategic.
 
 | Tier | Item | Surface | Notes |
 |---|---|---|---|
@@ -65,7 +65,7 @@ Surfaced during real-device smoke immediately after the Design Health Program cl
 
 ## Design Health Phase 1 — per-screen critique tail (2026-06-19)
 
-From `docs/superpowers/specs/phase-1-findings/2026-06-19-cross-screen-synthesis.md` Section 5. These are screen-specific issues that cannot be addressed by Phase 2 design-system extraction — each must be fixed in the touched screen. Priority-ordered within tier. Snapshots that ground each entry live in `.impeccable/critique/`.
+From `docs/archive/superpowers/specs/phase-1-findings/2026-06-19-cross-screen-synthesis.md` Section 5. These are screen-specific issues that cannot be addressed by Phase 2 design-system extraction — each must be fixed in the touched screen. Priority-ordered within tier. Snapshots that ground each entry live in `.impeccable/critique/`.
 
 | Screen Slug | Issue Title | Priority | Note |
 |---|---|---|---|
@@ -89,7 +89,7 @@ From `docs/superpowers/specs/phase-1-findings/2026-06-19-cross-screen-synthesis.
 
 **⚠ Phase 1 device-test still owed** (merged to main `e70ab1c`, NOT yet verified on a real device/sim). Recipe: iOS Simulator (or dev build) → `/fuel` → enable reminders, Tank range = **Custom 2 mi**, fuelType gas → start navigation → Xcode **Features → Location → Freeway Drive** (or a GPX of Clinton Hill / Fort Greene) → after ~2 simulated miles the distance notification should fire (naming a trusted on-route stop) + the `FuelStopsSheet` `refuelDue` banner. Tap "I filled up" → ½ → banner clears, `milesSinceFilled` resets to half-range, next cadence shortens. Zero-movement smoke test: call `addMilesSinceFilled(2)` then `checkRefuelTriggers()` from a temp affordance. The pure logic is verified (tsc + node assertions + 2-reviewer audit); only on-device behavior is unverified. Native module → needs a dev build, not Expo Go.
 
-Phase 1 shipped on `feat/distance-aware-refuel-phase1` (route-progress odometer + earliest-of(time, distance) + tier-bucket range + fraction-button fill-up + station-aware distance notification). **Phase 2** is fully specced in `docs/superpowers/specs/2026-06-12-distance-aware-refuel-design.md` (the `# PHASE 2` section) but NOT built: the EPA fueleconomy.gov proxy endpoint (`proxy/api/vehicles.ts`, cascading year→make→model + class-tank range), the generic `OptionPickSheet` extraction (refactor `CalendarPickSheet` to consume it), `hooks/useVehicleLookup.ts`, and the **dollar-input → "about ⅓ tank" subtext** fill-up register for gas/diesel (gated on real station prices; EVs + Phase 1 keep fraction buttons). Writes the same `rangeMiles`/`rangeSource` fields Phase 1 already owns — pure enrichment of the range-input step, the trigger engine is untouched. Also open (design decision, separate spec): **pull `felt-welcome`/`black-owned` out of `scoreRoute`'s path scoring** — they're destination signals, not passage safety (Jacobs "whose eyes" thread, 2026-06-17); fixes an existing score-vs-chip divergence where felt-welcome gives +2 to the path but never shows on the safe-chips.
+Phase 1 shipped on `feat/distance-aware-refuel-phase1` (route-progress odometer + earliest-of(time, distance) + tier-bucket range + fraction-button fill-up + station-aware distance notification). **Phase 2** is fully specced in `docs/archive/superpowers/specs/2026-06-12-distance-aware-refuel-design.md` (the `# PHASE 2` section) but NOT built: the EPA fueleconomy.gov proxy endpoint (`proxy/api/vehicles.ts`, cascading year→make→model + class-tank range), the generic `OptionPickSheet` extraction (refactor `CalendarPickSheet` to consume it), `hooks/useVehicleLookup.ts`, and the **dollar-input → "about ⅓ tank" subtext** fill-up register for gas/diesel (gated on real station prices; EVs + Phase 1 keep fraction buttons). Writes the same `rangeMiles`/`rangeSource` fields Phase 1 already owns — pure enrichment of the range-input step, the trigger engine is untouched. Also open (design decision, separate spec): **pull `felt-welcome`/`black-owned` out of `scoreRoute`'s path scoring** — they're destination signals, not passage safety (Jacobs "whose eyes" thread, 2026-06-17); fixes an existing score-vs-chip divergence where felt-welcome gives +2 to the path but never shows on the safe-chips.
 
 ## Audit-10 follow-up — `tapTarget44` migration sweep (2026-06-04)
 
@@ -124,7 +124,7 @@ Final-review minors, non-blocking (the one Important — SettingsRow value/label
 - **`/menu` onClose uses `router.back()` vs children's `router.replace('/home')`.** Works today (menu is always entered via push from /home), but for symmetry + resilience-against-a-second-entry-point, consider aligning menu's onClose to `router.replace('/home')`.
 - **RowGroup Fragment index keys.** Rows keyed by array index inside RowGroup; fine for static groups, and `/saved-places`' dynamic rows are mitigated by `SavedPlaceRow`'s own `key={place.id}`. Revisit only if RowGroup ever hosts stateful dynamic children directly.
 - **RowGroup separator inset assumes icon-bearing rows.** Icon-less groups (e.g. `/zone-preferences` toggles, `/fuel` Reminder group) get a separator inset past where the label starts. Accepted per the primitive's comment; revisit if it reads off in the simulator.
-- ~~**Settings register = Plan 1 of 2.** Plan 2 (Connect-calendar feature: expo-calendar dep, 2 adapters, 2 hooks, /search Upcoming section, pick-sheet, carousel 2nd tile) is specced in `docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md` — write its plan + execute after this lands + simulator-verifies.~~ — ✅ **Done (2026-06-04).** Plan 2 shipped in the Connect-calendar arc (section above); core path verified on-device 2026-06-02. Remaining work is deferred minors only, not "write plan + execute."
+- ~~**Settings register = Plan 1 of 2.** Plan 2 (Connect-calendar feature: expo-calendar dep, 2 adapters, 2 hooks, /search Upcoming section, pick-sheet, carousel 2nd tile) is specced in `docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md` — write its plan + execute after this lands + simulator-verifies.~~ — ✅ **Done (2026-06-04).** Plan 2 shipped in the Connect-calendar arc (section above); core path verified on-device 2026-06-02. Remaining work is deferred minors only, not "write plan + execute."
 
 ## Zone-overlay tap-info — post-merge follow-ups (2026-06-01)
 
@@ -169,7 +169,7 @@ Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): 
 **Triage decisions (2026-05-30) — status:**
 - ~~**HIDE now:** /en-route voice (mic) + Volume buttons~~ — ✅ done (`74c2d98`); buttons + orphaned imports/style removed.
 - **Feature track — Voice-guided navigation + en-route voice search (STILL OPEN):** spoken turn-by-turn (gates a future Volume control) + speech-to-text destination input (gates a future mic). Requires an Expo dev build, a speech library, and a mic-for-dictation permission. Own brainstorm→spec→build cycle.
-- ~~**BUILD — Alternate-route comparison (/en-route alternate-paths FAB)**~~ — ✅ shipped (`457f3ef`). Comparison sheet + switch + condition chips + map duration badges; `recommended`→`activeRoute` refactor. Anchored to Figma `2:9033`. Spec + plan in `docs/superpowers/`.
+- ~~**BUILD — Alternate-route comparison (/en-route alternate-paths FAB)**~~ — ✅ shipped (`457f3ef`). Comparison sheet + switch + condition chips + map duration badges; `recommended`→`activeRoute` refactor. Anchored to Figma `2:9033`. Spec + plan in `docs/archive/superpowers/`.
 - ~~**BUILD — Refuel reminders (/search Fuel card)**~~ — ✅ shipped (Plan 1 `d9cb709` core + Plan 2 `1997010` on-route stops). Time-based reminder + car profile + /fuel screen + on-route fuel stops in /en-route.
 
 ## Visual fidelity / Figma drift
@@ -308,7 +308,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 5. **Restart Expo** so env vars load.
 6. **QA** — same keys on two simulators/devices: submit on A → focus `/home` on B → orange eye pin should appear. Photos stay **local-only** in v1 (`photo_uri` in cloud is usually null until an upload PR exists).
 
-**Code map:** `lib/api/sources/community-cloud.ts` (fetch / push / queue), `docs/superpowers/plans/2026-06-04-corridor-data-richness.md` Task B1, `docs/learnings.md` → `feat/community-cloud-b1`.
+**Code map:** `lib/api/sources/community-cloud.ts` (fetch / push / queue), `docs/archive/superpowers/plans/2026-06-04-corridor-data-richness.md` Task B1, `docs/learnings.md` → `feat/community-cloud-b1`.
 
 **Don't want Supabase at all?** Stay local-only for the thesis; corridor B0/B4/B5 are unrelated. Alternative later: `/api/reports` on the existing Vercel proxy (no second vendor) — not specced yet.
 - ~~**Real photo capture in /report**~~ — **stale, shipped (verified 2026-06-02).** `app/report.tsx` uses `expo-image-picker` — `requestCameraPermissionsAsync` + `launchCameraAsync` (camera capture only, copied out of the picker's cache), with a `photoUri` state. Real, not a stub.
@@ -324,7 +324,7 @@ The `v1.0-thesis` tag marks the submitted state. Any of these items can land in 
 
 ## Audit 2026-05-31 — backlog flow-in
 
-Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Important + Minor only (Notes live in the audit doc). Strike through on landing per workflow Step 11.5.
+Findings from `docs/archive/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Important + Minor only (Notes live in the audit doc). Strike through on landing per workflow Step 11.5.
 
 ### Project-wide
 

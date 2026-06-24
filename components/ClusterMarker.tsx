@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     // A22: was inline (elevation:3) drifting from shadows.e3 (elevation:4).
     // All other map-pin markers (LandmarkMarker, DestinationMarker) use
     // shadows.e3 — ClusterMarker is brought into the same tier per
-    // design-system.md §1.3 drift note.
+    // DESIGN.md §4 shadows.e2.
     ...shadows.e3,
   },
   count: {

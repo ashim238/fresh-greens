@@ -9,7 +9,7 @@
 // mileage tracking, so the reminder is an explicit user-set cadence — not
 // a fake gauge. `lastFilledAt` + `cadenceDays` derive `nextReminderAt`;
 // `notificationId` is the scheduled recurring reminder (so it can be
-// cancelled/rescheduled). See docs/superpowers/specs/2026-05-30-refuel-
+// cancelled/rescheduled). See docs/archive/superpowers/specs/2026-05-30-refuel-
 // reminders-design.md.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';

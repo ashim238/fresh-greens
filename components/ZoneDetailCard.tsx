@@ -33,7 +33,7 @@ import { typography } from '../theme/typography';
  * content (community-report, unknown) return null, so the card never
  * renders for surfaces that have their own detail flow.
  *
- * Spec: docs/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md
+ * Spec: docs/archive/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md
  */
 export function ZoneDetailCard({
   zone,

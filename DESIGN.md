@@ -104,6 +104,10 @@ components:
 
 # Design System: Fresh Greens
 
+**Canonical human design doc.** Runtime values live in `theme/`; machine catalog in `.impeccable/design.json`; enforceable rules in `.cursorrules`. Exhaustive token tables and per-screen inventories moved to [`docs/archive/design-system-reference.md`](docs/archive/design-system-reference.md) (2026-06-24).
+
+**Chain:** `theme/` → `.impeccable/design.json` → **this file** → `.cursorrules` (law)
+
 ## 1. Overview
 
 **Creative North Star: "The Steady Companion"**
@@ -265,3 +269,43 @@ Both hooks short-circuit under Reduce Motion: the entrance resolves to its end s
 - **Don't** use Caption 2 (11pt) for anything a reader could miss and lose meaning from.
 - **Don't** use bounce, elastic, or spring-with-overshoot easing. The project is `Easing.out` cubic / quad only — no theatrical motion in a task-focused app (The Calm-Physics Rule).
 - **Don't** animate a surface without a Reduce-Motion fallback. Reveal animations must enhance an already-visible default, not gate it.
+
+## 7. Component catalog
+
+Reusable UI lives in `components/`. One file per component unless tightly coupled. Search here before creating a parallel.
+
+| Component | Role |
+|---|---|
+| `FloatingActionButton` | White circular map chrome — 48pt (/home overlays) or 56pt (/en-route side column) |
+| `Button` | Pill CTA — primary/secondary × fill/outline/transparent |
+| `SearchBar` | Map-floating (white + e2) vs flat-surface (fills tertiary, no shadow) |
+| `StateCard` | `EmptyState` / `LoadingState` / `ErrorState` — one rounded shape family |
+| `DragHandle` | 32×4 pill atop every bottom sheet |
+| `LandmarkMarker` | Community / saved-place map pins with category glyphs |
+| `DestinationMarker` | Route destination pin |
+| `EnRouteCarMarker` | User vehicle on /en-route |
+| `UserLocationMarker` | Pulsing location dot |
+| `ClusterMarker` | Browse-map cluster badge |
+| `EdgeIndicator` | Off-viewport compass pill |
+| `EnRouteZone` | Yellow hazard teardrop + extended "For X mi." pill |
+| `Hazard` | Turn-card hazard glyph |
+| `LaneStrip` | Lane guidance row on /en-route |
+| `HomeBrowseSheet` | Browse + recommendation cards over /home map |
+| `ReportDetailCard` / `RouteHazardDetailCard` / `ZoneDetailCard` | Map-tap detail cards |
+| `RowGroup` / `SettingsRow` | iOS grouped-settings register |
+| `PageControl` | Onboarding dot indicator |
+
+**Map markers:** custom SVG markers use the `tracksViewChanges` lifecycle — start `true`, flip to `false` after ~50ms so MapKit snapshots after paint. Copy from `LandmarkMarker` or `EnRouteCarMarker` when adding a new pin.
+
+**Live-updating numbers:** use `fontVariant: ['tabular-nums']` on any digit that updates in place (ETA, distance, recording timer).
+
+## 8. Where to read more
+
+| Path | Purpose |
+|---|---|
+| [`.cursorrules`](.cursorrules) | Enforceable design law — reserved colors, tap targets, anti-slop, accessibility |
+| [`theme/`](theme/) | Colors, typography, shadows, spacing, radii, motion — what the app imports |
+| [`.impeccable/design.json`](.impeccable/design.json) | Impeccable machine catalog (regenerate via `document` when tokens change) |
+| [`docs/archive/design-system-reference.md`](docs/archive/design-system-reference.md) | Archived exhaustive reference — full token tables, Figma drift callouts, per-screen §3 inventory |
+| [`docs/workflow.md`](docs/workflow.md) | Off-Figma fidelity ladder (§12b) points here + `theme/` |
+| Figma `7DDh6c7tk7OKF4WiA7pEkp` | Visual source of truth for on-Figma surfaces — pull via Figma MCP |

@@ -7,7 +7,7 @@
 // auto-resolves thereafter. Same adapter shape as the other lib/api
 // stores.
 //
-// Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
+// Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

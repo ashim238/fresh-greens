@@ -3,7 +3,7 @@
 The strategic layer **above** the per-PR rhythm. `docs/workflow.md` is how a single
 PR gets built; this is *which* big chunks stand between now and the next real
 goal, and in what order. A milestone here decomposes into specs
-(`docs/superpowers/specs/`) → plans (`docs/superpowers/plans/`) → PRs, which in
+(`docs/archive/superpowers/specs/`) → plans (`docs/archive/superpowers/plans/`) → PRs, which in
 turn spawn tactical items in `docs/next-session.md`. Don't put punch-list minutiae
 here; don't put strategic milestones in next-session.md. (This is the one
 "roadmap layer" piece worth adopting from GSD — see workflow.md §14.)

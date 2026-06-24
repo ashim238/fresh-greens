@@ -5,7 +5,7 @@
 // v1: deterministic demo quotes (honest disclosure in /search).
 // v2: `mode: 'live'` can call a proxy route when a provider exists.
 //
-// Spec: docs/superpowers/specs/2026-06-04-gas-search-prices-design.md
+// Spec: docs/archive/superpowers/specs/2026-06-04-gas-search-prices-design.md
 
 import type { Place } from './places';
 

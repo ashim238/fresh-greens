@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // A22: was inline (shadowRadius:6, elevation:4) drifting from the
     // shadows.e2 token (radius:4, elevation:3). Replaced with the
-    // canonical e2 spread per design-system.md §1.3 drift note. Two
+    // canonical e2 spread per DESIGN.md §4. Two
     // visual deltas land with this swap: radius tightens 6→4 (slightly
     // crisper edge), opacity bumps 0.15→0.18. Net result is a marginally
     // tighter, marginally darker lift — within Figma M3/Elevation/2

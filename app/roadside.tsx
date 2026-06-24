@@ -73,7 +73,7 @@ const PROBLEMS: ProblemMeta[] = [
  * back nav (not sheet dismissal); Step 3 traps dismissal via
  * usePreventRemove (added in a later task). Matches /pulled-over.
  *
- * Spec: docs/superpowers/specs/2026-05-31-roadside-assistance-design.md
+ * Spec: docs/archive/superpowers/specs/2026-05-31-roadside-assistance-design.md
  */
 export default function Roadside() {
   const router = useRouter();

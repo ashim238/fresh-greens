@@ -11,7 +11,7 @@
 // The other categories (park, landuse, wildlife, road-condition) are
 // always-on contributors to route scoring; their cards explain *why*
 // they factor in without implying they can be toggled. Spec:
-// docs/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md.
+// docs/archive/superpowers/specs/2026-06-01-zone-overlay-tap-info-design.md.
 
 import type { ComponentType } from 'react';
 

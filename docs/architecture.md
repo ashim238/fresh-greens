@@ -308,7 +308,8 @@ These have been earned through iteration; preserve them.
 
 ## Where to read for more
 
-- `.cursorrules` — design system rules (read every session).
+- `.cursorrules` — enforceable design law (read every session).
+- `DESIGN.md` — canonical human design doc (voice, rules, component catalog).
 - `docs/workflow.md` — per-PR rhythm and recipe.
 - `docs/learnings.md` — running journal, newest at top. Re-read entries for recent PRs to refresh on accumulated context.
 - `docs/react-basics.md` — quick-flip reference for React/RN syntax I've explained over the project.

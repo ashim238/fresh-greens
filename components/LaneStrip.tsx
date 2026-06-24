@@ -29,7 +29,7 @@ import type { Lane, LaneDirection } from '../lib/api/routes';
  * `useReduceMotion()` gates the tween; reduce-motion users get an
  * instant present/absent toggle via setValue.
  *
- * Spec: docs/superpowers/specs/2026-05-27-lane-guidance-design.md
+ * Spec: docs/archive/superpowers/specs/2026-05-27-lane-guidance-design.md
  */
 export function LaneStrip({
   lanes,

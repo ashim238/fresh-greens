@@ -7,7 +7,7 @@
 // fuel.ts: typed surface, AsyncStorage internals, backend swap-in
 // preserved. Read-only: this module never creates or edits events.
 //
-// Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
+// Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Calendar from 'expo-calendar';

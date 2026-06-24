@@ -16,7 +16,7 @@ import { typography } from '../../theme/typography';
  * settings pattern). RowGroup owns the inter-row hairline separators
  * so SettingsRow stays position-agnostic.
  *
- * Spec: docs/superpowers/specs/2026-06-01-settings-register-refresh-design.md
+ * Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
  */
 export function RowGroup({
   title,

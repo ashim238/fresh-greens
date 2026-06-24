@@ -829,7 +829,7 @@ export default function EnRoute() {
 
   // Lane strip visibility — gated on multiple conditions so the strip
   // only appears when it represents a real lane *decision* for the
-  // driver. See docs/superpowers/specs/2026-05-27-lane-guidance-design.md
+  // driver. See docs/archive/superpowers/specs/2026-05-27-lane-guidance-design.md
   // §"Trigger logic" for rationale.
   const showLaneStrip = useMemo(() => {
     const lanes = nextStepInfo?.step.lanes;

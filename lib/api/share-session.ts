@@ -9,7 +9,7 @@
 // in Messages). No silent SMS and no live GPS feed to the contact — continuous
 // location sharing needs a backend. Roadside uses the same SMS helper.
 //
-// See docs/superpowers/specs/2026-05-31-unfamiliar-and-share-location-design.md.
+// See docs/archive/superpowers/specs/2026-05-31-unfamiliar-and-share-location-design.md.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

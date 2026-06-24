@@ -208,7 +208,7 @@ export default function PulledOver() {
   );
   // P6: reduce-motion gates the live waveform animation. Was the only
   // animation in the app NOT gated; now respects the system preference.
-  // Per design-system.md §4.5.
+  // Per DESIGN.md Reduce-Motion-Honest Rule.
   const reduceMotion = useReduceMotion();
   // Mic permission state — optimistic default (true) since we don't know
   // the status until after requesting. Set to false if permission denied.
@@ -760,7 +760,7 @@ function Waveform({
   // P6: when reduce-motion is on, render every bar at the floor height
   // (flat baseline) instead of the live dB values. usePulseOpacity
   // already gates correctly elsewhere; this brings the only un-gated
-  // animation in the app into the same pattern. Per design-system.md §4.5.
+  // animation in the app into the same pattern. Per DESIGN.md Reduce-Motion-Honest Rule.
   return (
     <View style={guidanceStyles.waveformRow}>
       {history.map((db, i) => (
@@ -1776,7 +1776,7 @@ const armedStyles = StyleSheet.create({
     justifyContent: 'center',
     // A22 / P1: was inline (height:1, opacity:0.15, radius:3, elevation:2)
     // — exact match to shadows.e1. Replaced with the canonical spread per
-    // design-system.md §1.3 drift note.
+    // DESIGN.md §4 shadows.e2 (FAB drift note).
     ...shadows.e1,
   },
   answerContent: {
@@ -1784,7 +1784,7 @@ const armedStyles = StyleSheet.create({
     // viewport and under large Dynamic Type. flex: 1 fills the card's
     // available content area (parent is width: '100%' with 16pt
     // padding) responsively at any viewport, which is the real fix —
-    // not a grid alignment concern. Per design-system.md §4.8
+    // not a grid alignment concern. Per DESIGN.md §5 (every state designed).
     // (every state designed) + §1.6 (avoid magic constants).
     //
     // justifyContent: 'center' centers the title+subtitle block vertically
@@ -1818,7 +1818,7 @@ const transitionStyles = StyleSheet.create({
   title: {
     // P3: dynamicType on transition title — sets emotional tone after
     // armed check; users with Large Accessibility type need scaled
-    // copy. Skip relaxedLineHeight (header per design-system.md §1.4
+    // copy. Skip relaxedLineHeight (header per DESIGN.md Held-Question Rule;
     // guidance — relaxed is for stress-state long-reads).
     ...dynamicType(typography.title1Regular),
     color: colors.black,
@@ -1899,7 +1899,7 @@ const guidanceStyles = StyleSheet.create({
     // P5: paddingVertical 8 → 12 brings the painted height to 56pt
     // (32pt icon + 12×2 = 56). Earlier value (8) produced ~35pt
     // painted, with hitSlop:12 papering over the visual-to-touch gap.
-    // .cursorrules + design-system.md §4.3 explicitly forbid papering
+    // .cursorrules tap-target rule explicitly forbid papering
     // a sub-44pt visual with hitSlop — drop the hitSlop now that the
     // painted area is comfortable on its own.
     paddingVertical: spacing.md,
@@ -2028,7 +2028,7 @@ const contactStyles = StyleSheet.create({
     // below WCAG AA for normal text. This is reassuring informational copy
     // user needs to read, not decorative metadata — labelTertiary (#3D3D3D)
     // is the intended token for tertiary-text-that-still-must-read. Per
-    // design-system.md §1.1.
+    // .cursorrules reserved-color rule.
     color: colors.labelTertiary,
   },
   avatarBlock: {
@@ -2115,7 +2115,7 @@ const contactStyles = StyleSheet.create({
     borderRadius: radii.pill,
     // A22 / P8: was inline (height:1, opacity:0.15, radius:3, elevation:2)
     // — exact match to shadows.e1. Same fix class as the armed answer
-    // card (P1). Per design-system.md §1.3.
+    // card (P1). Per DESIGN.md §4 shadows.e2.
     ...shadows.e1,
   },
   callBtnText: {
@@ -2161,7 +2161,7 @@ const contactStyles = StyleSheet.create({
     ...typography.footnoteRegular,
     // P10: instructional copy ("Swipe down on the gray slider...") at
     // 13pt + 70% gray = ~3.5:1 contrast. Same fix class as P9 — promote
-    // to labelTertiary for readable instruction. Per design-system.md §1.1.
+    // to labelTertiary for readable instruction. Per .cursorrules reserved-color rule.
     color: colors.labelTertiary,
     textAlign: 'center',
   },
@@ -2299,7 +2299,7 @@ const officerStyles = StyleSheet.create({
     // dynamicType(relaxedLineHeight(...)). OfficerTrooper was the lone
     // 16pt static outlier; users flipping through review views saw
     // bullets visibly shrink on the first sub-view. Promote to match
-    // the GuidanceBullet / Bullet pattern. Per design-system.md §1.4, §4.12.
+    // the GuidanceBullet / Bullet pattern. Per DESIGN.md Relaxed-Read Rule + dynamicType.
     ...dynamicType(relaxedLineHeight(typography.title3Regular)),
     color: colors.black,
   },
@@ -2336,7 +2336,7 @@ const contentStyles = StyleSheet.create({
     // with 16pt horizontal padding leaves only 288pt for content, causing
     // the 320pt illustration to overflow. width:'100%' + aspectRatio:1
     // makes the box fluid; maxWidth caps the square proportion on larger
-    // viewports so the visual stays as designed. Per design-system.md §4.2.
+    // viewports so the visual stays as designed. Per theme/spacing 4pt ramp.
     width: '100%',
     aspectRatio: 1,
     maxWidth: 320,

@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     // A22: was inline (shadowRadius:6, elevation:4) — identical to the
     // FAB pattern that landed alongside this fix. Replaced with the
-    // canonical shadows.e2 spread per design-system.md §1.3 drift note.
+    // canonical shadows.e2 spread per DESIGN.md §4.
     // SearchBar over the map matches FAB elevation now; previously they
     // diverged by ~2pt of soft halo.
     ...shadows.e2,
