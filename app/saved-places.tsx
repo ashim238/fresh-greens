@@ -22,11 +22,9 @@ import { typography } from '../theme/typography';
 /**
  * /saved-places — review and remove the user's saved spatial anchors.
  *
- * Pushed from /menu's "Saved places" row. Until this surface existed,
- * the only way to add a saved place was from /search or /home's
- * "Save as Home" affordance, and the only way to REMOVE one was to
- * overwrite-by-saving-again — there was no review-or-remove surface
- * in settings.
+ * Pushed from /menu's "Saved places" row. Add paths: /search result-row
+ * bookmark (landmarks) and /home long-press → Save as home. Remove
+ * path: this screen's per-row Trash + confirm.
  *
  * Thesis-relevant: data transparency. The user should see what the
  * app keeps about their navigation (saved anchors persist locally

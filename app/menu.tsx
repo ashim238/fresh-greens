@@ -40,6 +40,7 @@ import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { SettingsRow } from '../components/settings/SettingsRow';
 import { useCalendarConnection } from '../hooks/useCalendarConnection';
 import { useFuelProfile } from '../hooks/useFuelProfile';
+import { useInsuranceProfile } from '../hooks/useInsuranceProfile';
 import { usePreferences } from '../hooks/usePreferences';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
@@ -126,6 +127,7 @@ export default function Menu() {
     loading: fuelLoading,
     clearAll: clearFuelProfile,
   } = useFuelProfile();
+  const { clearAll: clearInsuranceProfile } = useInsuranceProfile();
   const [signingOut, setSigningOut] = useState(false);
 
   const {
@@ -323,6 +325,7 @@ export default function Menu() {
         clearRegularDestinations(),
         clearPreferences(),
         clearFuelProfile(),
+        clearInsuranceProfile(),
         clearCalendarConnection(),
         clearResolutions(),
         clearPreferredStations(),

@@ -343,18 +343,12 @@ function ActionMenu({
     onCallPlaced();
   }
 
-  async function handleTowSearch() {
-    const sll = locationCoords
-      ? `&sll=${locationCoords.latitude},${locationCoords.longitude}`
-      : '';
-    const url = `maps://?q=tow+truck${sll}`;
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) {
-      Alert.alert('Cannot open Maps', 'Apple Maps is not available.');
-      return;
-    }
-    await Linking.openURL(url);
+  function handleTowSearch() {
     onTowSearchOpened();
+    router.push({
+      pathname: '/search',
+      params: { q: 'tow truck' },
+    });
   }
 
   function handleShareToggle(next: boolean) {
@@ -417,7 +411,7 @@ function ActionMenu({
           style={({ pressed }) => [styles.row, pressed && pressedDim]}
           accessibilityRole="button"
           accessibilityLabel="Search nearby tow services"
-          accessibilityHint="Opens Apple Maps to find tow services near you"
+          accessibilityHint="Opens in-app search for tow services near you"
         >
           <View style={styles.iconCircle}>
             <MapPin size={24} color={colors.freshgreen} weight="regular" />

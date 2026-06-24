@@ -13,6 +13,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'fresh-greens.saved-places.v1';
 
+/**
+ * Per-axis bounding-box half-width in degrees — same convention as
+ * `regular-destinations.ts` MATCH_DELTA_DEG (~±200m). Keeps saved-
+ * place proximity checks aligned across /search, /home, and adapters.
+ */
+export const SAVED_PLACE_MATCH_DELTA_DEG = 0.002;
+
 export type SavedPlaceKind = 'home' | 'landmark';
 
 export type SavedPlace = {
@@ -46,6 +53,22 @@ export async function getSavedPlaces(): Promise<SavedPlace[]> {
 export async function getSavedHome(): Promise<SavedPlace | null> {
   const all = await getSavedPlaces();
   return all.find((p) => p.kind === 'home') ?? null;
+}
+
+/**
+ * Returns a saved place within ~200m of the coordinate, if any. Pure —
+ * pass the list from `getSavedPlaces` or `useSavedPlaces`.
+ */
+export function findSavedPlaceNear(
+  latitude: number,
+  longitude: number,
+  list: SavedPlace[],
+): SavedPlace | undefined {
+  return list.find(
+    (p) =>
+      Math.abs(p.latitude - latitude) < SAVED_PLACE_MATCH_DELTA_DEG &&
+      Math.abs(p.longitude - longitude) < SAVED_PLACE_MATCH_DELTA_DEG,
+  );
 }
 
 /**

@@ -11,6 +11,7 @@ import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 // the cross shape conflicted with the protected Red Cross emblem.
 // See app/emergency.tsx for the full rationale.
 import { Asterisk } from 'phosphor-react-native/src/icons/Asterisk';
+import { IdentificationCard } from 'phosphor-react-native/src/icons/IdentificationCard';
 import { UserCircle } from 'phosphor-react-native/src/icons/UserCircle';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +19,9 @@ import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { SettingsRow } from '../components/settings/SettingsRow';
 import { useTrustedContact } from '../hooks/useTrustedContact';
+import { useInsuranceProfile } from '../hooks/useInsuranceProfile';
 import { useRecordings } from '../hooks/useRecordings';
+import { maskPolicyNumber } from '../lib/api/insurance';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -28,9 +31,9 @@ import { spacing } from '../theme/spacing';
  * Settings register: SettingsHeader (back + close) over a grouped-gray
  * page, one RowGroup white card holding three rows — Emergency SOS
  * (red Asterisk → /emergency), Trusted Contact (the contact name as a
- * right-aligned value → /trusted-contact-setup), and Recordings
- * (→ /recordings). Matches /menu and /zone-preferences. Future safety
- * prefs slot in as additional rows.
+ * right-aligned value → /trusted-contact-setup), Recordings
+ * (→ /recordings). Auto insurance lives in its own RowGroup
+ * (→ /insurance-setup). Matches /menu and /zone-preferences.
  *
  * Route: /safety-settings
  */
@@ -72,6 +75,14 @@ export default function SafetySettings() {
         ? '1 recording'
         : `${recordingsCount} recordings`;
 
+  const { profile: insuranceProfile, loading: insuranceLoading } =
+    useInsuranceProfile();
+  const insuranceValue = insuranceLoading
+    ? undefined
+    : insuranceProfile
+      ? `${insuranceProfile.carrierName} · ${maskPolicyNumber(insuranceProfile.policyNumber)}`
+      : 'Add carrier and policy';
+
   function handleEditTrustedContact() {
     // Default routing returns here via back() on save/skip — that's the
     // default since the 2026-06-01 inversion. No `from` param needed.
@@ -80,6 +91,10 @@ export default function SafetySettings() {
 
   function handleRecordings() {
     router.push('/recordings');
+  }
+
+  function handleInsurance() {
+    router.push('/insurance-setup');
   }
 
   return (
@@ -118,6 +133,18 @@ export default function SafetySettings() {
               label="Recordings"
               value={recordingsValue}
               onPress={handleRecordings}
+            />
+          </RowGroup>
+
+          <RowGroup footer="Carrier and policy number for What to Have during a stop. Scan your card or type it in.">
+            <SettingsRow
+              icon={
+                <IdentificationCard size={24} color={colors.black} weight="duotone" />
+              }
+              label="Auto insurance"
+              value={insuranceValue}
+              onPress={handleInsurance}
+              accessibilityHint="Opens insurance setup to save carrier and policy number"
             />
           </RowGroup>
         </ScrollView>

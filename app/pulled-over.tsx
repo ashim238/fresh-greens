@@ -52,6 +52,7 @@ import { DragHandle } from '../components/DragHandle';
 import { RecordingSaveErrorBanner } from '../components/RecordingSaveErrorBanner';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
+import { useInsuranceProfile } from '../hooks/useInsuranceProfile';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useRecordings } from '../hooks/useRecordings';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -61,6 +62,7 @@ import {
   type DisclosureDuty,
   type SayBullet,
 } from '../lib/api/gun-laws';
+import { maskPolicyNumber } from '../lib/api/insurance';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
@@ -1414,10 +1416,12 @@ function ContentView({
   illustration,
   title,
   bullets,
+  supplement,
 }: {
   illustration: ReactNode;
   title: string;
   bullets: ReactNode[];
+  supplement?: ReactNode;
 }) {
   // ScrollView (not plain View) because the bullet count varies across
   // sub-views — Know now has 6 bullets, which combined with the 320pt
@@ -1435,6 +1439,7 @@ function ContentView({
       <View style={contentStyles.body}>
         <Text style={contentStyles.title}>{title}</Text>
         <View style={contentStyles.bullets}>{bullets}</View>
+        {supplement}
       </View>
     </ScrollView>
   );
@@ -1511,6 +1516,21 @@ function WhatToDoView() {
 }
 
 function WhatToHaveView() {
+  const { profile: insuranceProfile } = useInsuranceProfile();
+  const supplement = insuranceProfile ? (
+    <View
+      style={contentStyles.onFileBlock}
+      accessible
+      accessibilityLabel={`Saved in Fresh Greens. ${insuranceProfile.carrierName}, policy ${maskPolicyNumber(insuranceProfile.policyNumber)}`}
+    >
+      <Text style={contentStyles.onFileLabel}>Saved in Fresh Greens</Text>
+      <Text style={contentStyles.onFileValue}>
+        {insuranceProfile.carrierName}{' '}
+        {maskPolicyNumber(insuranceProfile.policyNumber)}
+      </Text>
+    </View>
+  ) : undefined;
+
   return (
     <ContentView
       illustration={
@@ -1535,6 +1555,7 @@ function WhatToHaveView() {
           Proof of <Strong>insurance</Strong>
         </Bullet>,
       ]}
+      supplement={supplement}
     />
   );
 }
@@ -2332,6 +2353,20 @@ const contentStyles = StyleSheet.create({
   },
   bullets: {
     gap: spacing.md,
+  },
+  onFileBlock: {
+    gap: spacing.xs,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.dividerNeutral,
+  },
+  onFileLabel: {
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.labelSecondary,
+  },
+  onFileValue: {
+    ...dynamicType(typography.subheadlineRegular),
+    color: colors.black,
   },
   bulletRow: {
     flexDirection: 'row',

@@ -46,11 +46,15 @@ import {
 } from '../lib/api/fuel-prices';
 import { searchPlaces, type Place } from '../lib/api/places';
 import { type RegularDestination } from '../lib/api/regular-destinations';
-import { type SavedPlace } from '../lib/api/saved-places';
+import {
+  findSavedPlaceNear,
+  SAVED_PLACE_MATCH_DELTA_DEG,
+  type SavedPlace,
+} from '../lib/api/saved-places';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -128,12 +132,6 @@ type SavedRow = {
   longitude: number;
 };
 
-// ~200m bounding-box half-width (degrees) for de-duping a regular
-// destination against a saved place at the same spot. Mirrors
-// regular-destinations.ts's MATCH_DELTA_DEG so the two stores agree on
-// "the same place."
-const SAVED_MATCH_DELTA = 0.002;
-
 /**
  * Merges saved places + regular destinations into one ranked list for
  * the Saved tile. Saved places first (home before other saved, then
@@ -165,8 +163,8 @@ function buildSavedRows(
   for (const r of sortedRegulars) {
     const coveredBySaved = rows.some(
       (row) =>
-        Math.abs(row.latitude - r.latitude) < SAVED_MATCH_DELTA &&
-        Math.abs(row.longitude - r.longitude) < SAVED_MATCH_DELTA,
+        Math.abs(row.latitude - r.latitude) < SAVED_PLACE_MATCH_DELTA_DEG &&
+        Math.abs(row.longitude - r.longitude) < SAVED_PLACE_MATCH_DELTA_DEG,
     );
     if (coveredBySaved) continue;
     rows.push({
@@ -225,8 +223,10 @@ export default function Search() {
   // /home. /en-route handles missing destination gracefully (renders
   // empty polyline; user can back out). No defensive gate needed
   // today; revisit if new producers of this param land.
-  const params = useLocalSearchParams<{ from?: string }>();
+  const params = useLocalSearchParams<{ from?: string; q?: string }>();
   const fromEnRoute = params.from === 'enroute';
+  const seedQuery =
+    typeof params.q === 'string' ? decodeURIComponent(params.q).trim() : '';
   // S4: destructure `loading` so we can gate the empty-state branch
   // and avoid the flash of "Your recent destinations will show up here"
   // during the AsyncStorage read on first mount.
@@ -236,6 +236,7 @@ export default function Search() {
   // one ranked list (see buildSavedRows). Surfaced inline when the
   // Saved quick-tile is selected.
   const savedPlacesState = useSavedPlaces();
+  const { add: addSavedPlace, remove: removeSavedPlace } = savedPlacesState;
   const savedPlaces = savedPlacesState.ready ? savedPlacesState.savedPlaces : [];
   const { regulars } = useRegularDestinations();
   const savedRows = useMemo(
@@ -262,7 +263,26 @@ export default function Search() {
       });
     }
   }
+
+  function handleToggleSavedPlace(place: Place) {
+    const existing = findSavedPlaceNear(
+      place.latitude,
+      place.longitude,
+      savedPlaces,
+    );
+    if (existing) {
+      void removeSavedPlace.run(existing.id);
+      return;
+    }
+    void addSavedPlace.run({
+      kind: 'landmark',
+      name: place.name,
+      latitude: place.latitude,
+      longitude: place.longitude,
+    });
+  }
   const [query, setQuery] = useState('');
+  const [seedApplied, setSeedApplied] = useState(false);
   const [phase, setPhase] = useState<Phase>('landing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // S8: distinguish "no results" (search query problem) from network
@@ -325,6 +345,15 @@ export default function Search() {
       cancelled = true;
     };
   }, []);
+
+  // Deep-link seed (e.g. /roadside → "tow truck"). Waits until location
+  // is available so runSearch's debounce effect can fire immediately.
+  useEffect(() => {
+    if (!seedQuery || seedApplied) return;
+    setQuery(seedQuery);
+    setPhase('typing');
+    setSeedApplied(true);
+  }, [seedQuery, seedApplied]);
 
   const searchBarState = phase === 'landing' ? 'on-tap' : 'typing';
 
@@ -967,6 +996,11 @@ export default function Search() {
             ) : null}
             {results.map((place, idx) => {
               const isGasRow = selectedToolId === 'gas';
+              const savedMatch = findSavedPlaceNear(
+                place.latitude,
+                place.longitude,
+                savedPlaces,
+              );
               return (
               <Pressable
                 key={place.id}
@@ -1024,6 +1058,29 @@ export default function Search() {
                     preferred={isPreferredStation(place)}
                     onToggle={() => handleToggleStation(place)}
                   />
+                )}
+                {!isGasRow && (
+                  <Pressable
+                    onPress={() => handleToggleSavedPlace(place)}
+                    style={tapTarget44}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      savedMatch
+                        ? `Remove ${savedMatch.name} from saved places`
+                        : `Save ${place.name}`
+                    }
+                    accessibilityHint={
+                      savedMatch
+                        ? 'Removes this place from your saved list'
+                        : 'Adds this place to your saved list without navigating'
+                    }
+                    accessibilityState={{ selected: savedMatch != null }}
+                  >
+                    <SavedPlaceBookmark
+                      size={22}
+                      variant={savedMatch ? 'selected' : 'default'}
+                    />
+                  </Pressable>
                 )}
                 {idx < results.length - 1 && (
                   <View style={styles.resultSeparator} />
