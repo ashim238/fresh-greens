@@ -2,6 +2,29 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Safety flow critique sweep (2026-06-24)
+
+Surfaced from `/impeccable` critique passes on all six safety screens (`/en-route`, `/emergency`, `/pulled-over`, `/share-location`, `/unfamiliar`, `/roadside`). All 12 tasks shipped in two commits on `main` (`a5f1b67` + `03e57fb`). Critiques at `.impeccable/critique/2026-06-24T01-57-*.md`.
+
+| Tier | Item | Surface | Notes |
+|---|---|---|---|
+| ~~P0~~ | ~~**`sosHoldHint` below 12pt floor (caption2Regular 11pt)**~~ | `/en-route` | ~~Fixed 2026-06-24: bumped to `caption1Regular` (12pt). Clears the Floor Rule.~~ |
+| ~~P0~~ | ~~**Countdown disc shows bare numeral with no unit**~~ | `/emergency` | ~~Fixed 2026-06-24: "sec" label added below numeral (`countdownUnit` style, `caption1Regular`, 70% white). `lineHeight:40` on numeral gives room. emergency.tsx:119-120.~~ |
+| ~~P1~~ | ~~**No sheet-lock signal during active recording**~~ | `/pulled-over` | ~~Fixed 2026-06-24: `Lock` badge (Phosphor, size 14, `labelTertiary`) at absolute-right of `dragWrapper` when `hasActiveRecording`. accessibilityLabel: "Sheet locked while recording". pulled-over.tsx.~~ |
+| ~~P1~~ | ~~**"Stop recording" rendered as underlined text — below 44pt floor**~~ | `/pulled-over` | ~~Fixed 2026-06-24: promoted to pill button (`footnoteEmphasized`, `radii.pill`, 1pt `labelTertiary` border, `minHeight:44`). pulled-over.tsx.~~ |
+| ~~P0~~ | ~~**No per-row loading state after reason tap**~~ | `/share-location` | ~~Fixed 2026-06-24: `busyReasonId: string | null` pattern; ActivityIndicator on matching row, 0.5 opacity on others. Mirrors /unfamiliar's `loadingDestId` pattern. share-location.tsx:161-165.~~ |
+| ~~P0~~ | ~~**`handleEnd` failure shows Alert — interrupts calm companion register**~~ | `/share-location` | ~~Fixed 2026-06-24: `endError: string | null` state; Alert removed; inline `footnoteRegular/red` error + "Tap below to retry." `accessibilityLiveRegion="polite"`. share-location.tsx:205-209.~~ |
+| ~~P1~~ | ~~**Eyebrow copy premature ("On it. Sharing your location now.") before pick**~~ | `/share-location` | ~~Fixed 2026-06-24: "You choose. We'll tell them." (picker register) vs "Already on it." (active register). share-location.tsx:138.~~ |
+| ~~P0~~ | ~~**No loading state during destination search**~~ | `/unfamiliar` | ~~Confirmed pre-existing fix 2026-06-24: `loadingDestId` + ActivityIndicator already wired (unfamiliar.tsx:106). Task closed.~~ |
+| ~~P0~~ | ~~**`handleDestinationPick` errors surface as Alert.alert**~~ | `/unfamiliar` | ~~Fixed 2026-06-24: three Alert.alert calls replaced with `setDestError()`; inline `destError` renders below destination list (`footnoteRegular/red`, `accessibilityLiveRegion="polite"`). unfamiliar.tsx.~~ |
+| ~~P0~~ | ~~**Step 3 has no visible escape affordance**~~ | `/roadside` | ~~Confirmed pre-existing fix 2026-06-24: X button (line 522-531) calls `onBackToActions` → `handleBackToActions` (non-committing). Task closed.~~ |
+| ~~P1~~ | ~~**"If this gets worse" section label too light**~~ | `/roadside` | ~~Fixed 2026-06-24: `sectionLabel` bumped from `subheadlineRegular/labelSecondary` to `subheadlineEmphasized/black` + `marginTop:spacing.lg`. roadside.tsx.~~ |
+| ~~P1~~ | ~~**WrongSpotModal missing Cancel button**~~ | `/roadside` | ~~Stale finding — WrongSpotModal does not exist in current codebase. Closed as non-issue.~~ |
+| ~~P1~~ | ~~**"What you shared" past-tense for a live moment**~~ | `/roadside` Step 3 | ~~Fixed 2026-06-24: title → "What they know"; bullet string → labeled `Problem / Location / Contact` rows (`sharedRow/sharedRowLabel/sharedRowValue` styles). roadside.tsx:508-536.~~ |
+| ~~P1~~ | ~~**Weather card shows `—°` during load (identical to error state)**~~ | `/home` WeatherDrivingCard | ~~Fixed 2026-06-24: `loading && !weather` branch now shows `ActivityIndicator` (freshgreen, minHeight 44). `—°` now unambiguously means "broken + tap to retry." HomeBrowseSheet.tsx:828-835.~~ |
+
+**En-route search icon (🟡 from device-smoke list):** Investigated 2026-06-24 — magnifying glass is correct. The action is `router.push('/search?from=enroute')` (mid-trip destination change). Icon matches intent. Closed as non-issue.
+
 ## Impeccable arc punch list (2026-06-23)
 
 Surfaced during the `polish/impeccable-pass` critique sweep (clarify + typeset + bolder + animate + 4 layout restructures). All four restructured screens (home/en-route/report/menu) PASS the critique; these are follow-up findings worth tracking but not blockers. Snapshots at `.impeccable/critique/2026-06-24T01-57-*.md`.
@@ -27,7 +50,7 @@ Surfaced during real-device smoke immediately after the Design Health Program cl
 | ~~🔴~~ | ~~**Long-press on own community pin doesn't trigger Remove Alert**~~ | `/home` | ~~Fixed 2026-06-23: widened hit-test radius from 30px→50px.~~ |
 | ~~🟡~~ | ~~Safety best-practices scroll has no cue~~ | `/pulled-over` (guidance phase) | ~~Fixed 2026-06-23: wrapped guidance content in ScrollView with visible indicator; Continue button pinned below.~~ |
 | ~~🟡~~ | ~~Trusted Contact tap on "Set your Trusted Contact" page is a no-op~~ | `/trusted-contact-setup` | ~~Fixed 2026-06-23: populated contact card now wrapped in Pressable→handlePickContact (was only the empty state).~~ |
-| 🟡 | Search icon on destination ETA sheet should be a back-caret | `/en-route` destination/ETA sheet | Investigated 2026-06-23: the FAB action IS `router.push('/search?from=enroute')` (mid-trip destination change), so the magnifying glass is semantically correct. May be a different issue — re-evaluate on next smoke. |
+| ~~🟡~~ | ~~Search icon on destination ETA sheet should be a back-caret~~ | `/en-route` destination/ETA sheet | ~~Confirmed non-issue 2026-06-24: action is `router.push('/search?from=enroute')` (mid-trip destination change). Magnifying glass is semantically correct. Closed.~~ |
 | ~~🟠~~ | ~~Save button on destination sheet may be sub-44pt~~ | `/en-route` destination sheet | ~~Investigated 2026-06-23: no save button exists on the destination sheet. Fuel stops entry row already has minHeight:44. Closing as non-issue.~~ |
 | ~~🟠~~ | ~~Guide button on ETA page left-justified looks strange~~ | `/en-route` | ~~Fixed 2026-06-23: Guide FAB was size 48 while the other 4 column FABs were 56. Bumped to 56 so the column aligns.~~ |
 | ~~🟠~~ | ~~Wrench "Road" icon on ETA page ambiguous~~ | `/en-route` ETA card | ~~Investigated 2026-06-23: icon is a car on rocky terrain, not a wrench. Reads correctly as "road condition." Punch list description was inaccurate. Closing.~~ |
