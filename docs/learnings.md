@@ -4,6 +4,20 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Impeccable arc — `polish/impeccable-pass` (2026-06-23)
+
+Four things:
+
+1. **Layout via /grill-me + inline beats subagent dispatch.** Layout is per-screen, decision-heavy, and easy to misfire. Earlier in the same session, dispatching impeccable subcommands to subagents produced terse "Acknowledged" mid-stream returns — fine for mechanical passes (clarify, typeset), risky for structural ones (bolder, layout). For the 4-screen layout pass we ran /grill-me inline first to drain intent (which tension matters? which sub-option? which copy?), THEN dispatched a subagent for the mechanical edits with the user-approved decisions baked into the prompt. Result: zero misfires across 4 screens. The grill is the cheap part; the edits are the expensive part — putting the grill upstream guarded the entire pass.
+
+2. **Subagent return summaries are unreliable; verify in the working tree.** Multiple subagents in this arc returned mid-stream commentary instead of final summaries (the typeset agent said "Let me also verify"; the animate agent said "Acknowledged. Now home — Via line, conditions caption..."; the document agent died with the process exit). In every case the actual work was complete and in the working tree. The pattern: ignore the subagent's text return, always run `git status -s` + `git diff --stat` to see what actually shipped. Trust the filesystem, not the prose.
+
+3. **theme/motion.ts ships the second time when it didn't ship the first.** The earlier Visual Maturity Phase 0 shipped `theme/easings.ts` with string values (`'out'`) — both reviewers flagged that as a footgun because `Animated.timing` wants `(t: number) => number`, not a string. The animate pass in this arc shipped `theme/motion.ts` with real `Easing.out(Easing.cubic)` values — which is exactly what the prior rejection said to do. Lesson: a token file that didn't land the first time isn't blacklisted forever — sometimes the rejection feedback IS the spec for the second attempt.
+
+4. **A polish arc's punch list is bigger than the arc itself.** The critique sweep on the post-arc state flagged 5 items (caption2 below 12pt floor on en-route, missing sign-out confirmation, AX5 overflow, FAB magic numbers, no discard confirm) — none of which the arc was scoped to fix, but all of which the critique surfaced because we just finished looking at the screens. The arc closed clean (all PASS) AND generated 5 follow-ups. Polish doesn't terminate; it just gets handed off to a different scope.
+
+---
+
 ## Spacing + radii polish pass — `polish/spacing-radii-pass` (2026-06-23)
 
 Three things:

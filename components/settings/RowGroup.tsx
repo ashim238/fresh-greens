@@ -60,9 +60,15 @@ const styles = StyleSheet.create({
   // all-caps register read too utilitarian). Bumped to subheadline-
   // Emphasized so the heading carries weight without the caps. Sits
   // above the card with a small inset to align to the card's content.
+  // Bolder pass: color shifted from labelSecondary → wiltedgreen so
+  // RowGroup section titles read as brand-confident waypoints in the
+  // settings tree rather than neutral iOS-gray captions. The deep
+  // wiltedgreen is one of the brand greens already used for atmospheric
+  // headers; on a grouped-gray surface it lifts the section name into
+  // brand voice without introducing a new color.
   eyebrow: {
     ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.labelSecondary,
+    color: colors.wiltedgreen,
     paddingHorizontal: spacing.md,
   },
   // Outer wrapper carries the shadow. It must NOT set overflow:'hidden'

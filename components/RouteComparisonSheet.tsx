@@ -12,6 +12,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 
 import { type RouteCondition } from '../lib/scoring';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: spacing.sm,
   },
-  title: { ...typography.title3Emphasized, color: colors.black },
+  title: { ...dynamicType(typography.title3Emphasized), color: colors.black },
   row: {
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
@@ -149,11 +150,11 @@ const styles = StyleSheet.create({
   },
   rowActive: {},
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  duration: { ...typography.title2Emphasized, color: colors.black },
-  descriptor: { ...typography.subheadlineRegular, color: colors.labelSecondary },
-  descriptorSafe: { ...typography.subheadlineEmphasized, color: colors.freshgreen },
-  meta: { ...typography.footnoteRegular, color: colors.labelSecondary },
+  duration: { ...dynamicType(typography.title2Emphasized), color: colors.black },
+  descriptor: { ...dynamicType(typography.subheadlineRegular), color: colors.labelSecondary },
+  descriptorSafe: { ...dynamicType(typography.subheadlineEmphasized), color: colors.freshgreen },
+  meta: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 4 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  chipText: { ...typography.caption1Regular, color: colors.labelSecondary },
+  chipText: { ...dynamicType(typography.caption1Regular), color: colors.labelSecondary },
 });

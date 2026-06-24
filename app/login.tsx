@@ -19,6 +19,7 @@ import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -181,7 +182,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...typography.title1Emphasized,
+    // Bolder pass: 28pt → 34pt (largeTitleEmphasized). Mirrors the
+    // /get-started title bump — "Welcome back" is the hero moment for
+    // returning users and earns the largest brand voice.
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
     textAlign: 'center',
   },
@@ -204,11 +208,11 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   outlinedButtonText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
   },
   errorText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.red,
     textAlign: 'center',
   },
@@ -224,7 +228,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.wiltedgreen,
   },
   dividerLabel: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: colors.freshgreen,
   },
   loginRow: {
@@ -235,7 +239,7 @@ const styles = StyleSheet.create({
     // Mirrors /get-started's loginPrompt bump (2026-06-01 text-size
     // audit) — auth-screen inline link, 13pt → 15pt for the auth-
     // screen prompt register.
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.white,
     textAlign: 'center',
   },

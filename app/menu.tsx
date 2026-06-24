@@ -322,7 +322,7 @@ export default function Menu() {
     showFuelTile && {
       key: 'fuel',
       label: 'Set up refuel reminders',
-      subtitle: "Add your fuel cadence so you don't run low in an unsafe spot.",
+      subtitle: "Tell us how often you fill up so you don't run low in an unsafe spot.",
       icon: <FuelIcon width={32} height={32} />,
       onPress: () => {
         Haptics.selectionAsync().catch(() => {});
@@ -333,7 +333,7 @@ export default function Menu() {
       key: 'calendar',
       label: 'Connect your calendar',
       subtitle:
-        'Turn upcoming appointments into one-tap safe-routed destinations.',
+        'Route to your next appointment from the home screen — no typing required.',
       icon: <CalendarBlank size={32} color={colors.wiltedgreen} weight="duotone" />,
       onPress: () => {
         Haptics.selectionAsync().catch(() => {});
@@ -356,7 +356,7 @@ export default function Menu() {
         <SettingsHeader
           title="Settings"
           large
-          icon={<Gear size={28} color={colors.black} weight="bold" />}
+          icon={<Gear size={28} color={colors.wiltedgreen} weight="bold" />}
           onClose={handleBack}
         />
 
@@ -418,38 +418,6 @@ export default function Menu() {
             </Pressable>
           </View>
 
-          {/* Progressive carousel — only renders while at least one
-              high-impact setting is unset. Two candidate tiles (Refuel
-              reminders, Connect calendar); each disappears once its
-              setting is configured. With ≥2 eligible tiles it scrolls
-              horizontally; with 1 it's a full-width card; with 0 the
-              section is gone. */}
-          {carouselTiles.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.carouselContent}
-            >
-              {carouselTiles.map((tile) => (
-                <Pressable
-                  key={tile.key}
-                  style={({ pressed }) => [
-                    styles.tileCard,
-                    styles.tileCardCarousel,
-                    pressed && pressedDim,
-                  ]}
-                  onPress={tile.onPress}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${tile.label}. ${tile.subtitle}`}
-                >
-                  <View style={styles.tileIcon}>{tile.icon}</View>
-                  <Text style={styles.tileTitle}>{tile.label}</Text>
-                  <Text style={styles.tileSubtitle}>{tile.subtitle}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
-
           {/* App-config group */}
           <RowGroup>
             <SettingsRow
@@ -480,8 +448,41 @@ export default function Menu() {
             />
           </RowGroup>
 
-          {/* About group */}
-          <RowGroup>
+          {/* Progressive setup tiles — placed BELOW the primary app-config
+              RowGroup so substantive settings lead. The carousel is
+              onboarding/discovery content (it disappears once both settings
+              are configured), not primary navigation. Each tile mirrors an
+              unset row in app-config above; users can tap either path. */}
+          {carouselTiles.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carouselContent}
+            >
+              {carouselTiles.map((tile) => (
+                <Pressable
+                  key={tile.key}
+                  style={({ pressed }) => [
+                    styles.tileCard,
+                    styles.tileCardCarousel,
+                    pressed && pressedDim,
+                  ]}
+                  onPress={tile.onPress}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${tile.label}. ${tile.subtitle}`}
+                >
+                  <View style={styles.tileIcon}>{tile.icon}</View>
+                  <Text style={styles.tileTitle}>{tile.label}</Text>
+                  <Text style={styles.tileSubtitle}>{tile.subtitle}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+
+          {/* About group — eyebrow added per layout pass so this 1-row group
+              reads as semantically distinct from the (also 1-row, also
+              chrome-identical) destructive Sign-out group below. */}
+          <RowGroup title="About">
             <SettingsRow
               icon={<FileText size={24} color={colors.black} weight="duotone" />}
               label="Privacy & Terms"
@@ -581,7 +582,13 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   profileName: {
-    ...dynamicType(typography.title2Emphasized),
+    // Bolder pass: 22pt → 28pt (title1Emphasized). The name is the
+    // identity anchor on /menu — at 22pt it sat as a peer to the
+    // app-config row labels below, at 28pt it owns the profile card
+    // and reads as "this is who you are in this app." The Regular-vs-
+    // Emphasized weight contrast against the 20pt Regular greeting
+    // above stays the structural cue.
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
   },
   carouselContent: {

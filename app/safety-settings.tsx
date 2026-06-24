@@ -97,7 +97,7 @@ export default function SafetySettings() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <RowGroup footer="One-tap path to call your trusted contact or 911.">
+          <RowGroup footer="One tap to reach your trusted contact or 911.">
             <SettingsRow
               icon={<Asterisk size={24} color={colors.red} weight="bold" />}
               label="Emergency SOS"
@@ -106,7 +106,7 @@ export default function SafetySettings() {
             />
           </RowGroup>
 
-          <RowGroup footer="Configure your safety options.">
+          <RowGroup footer="The person Fresh Greens reaches for you, and the audio it captures during a stop.">
             <SettingsRow
               icon={<UserCircle size={24} color={colors.black} weight="duotone" />}
               label="Trusted Contact"

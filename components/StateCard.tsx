@@ -1,9 +1,11 @@
 import { type ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 
+import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 
@@ -44,12 +46,19 @@ export function EmptyState({
   style?: ViewStyle;
 }) {
   const selected = state === 'selected';
+  // Pure fade-in (no slide) — these cards live INSIDE flows where a
+  // vertical translate would compete with the surrounding layout
+  // (browse-sheet row, search-result list). 220ms ease-out softens
+  // the "loading vanished → empty appeared" hand-off so it reads as
+  // a state transition, not a hard cut. Reduce Motion → instant.
+  const entrance = useEntranceAnimation(0);
   return (
-    <View
+    <Animated.View
       style={[
         styles.card,
         selected ? styles.cardSelected : styles.cardEmptyDefault,
         style,
+        entrance.style,
       ]}
       accessibilityRole="text"
       accessibilityLabel={`${headline}. ${text}`}
@@ -70,7 +79,7 @@ export function EmptyState({
           </Text>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -83,9 +92,14 @@ export function LoadingState({
   text?: string;
   style?: ViewStyle;
 }) {
+  // 220ms fade-in. The native ActivityIndicator is already animated
+  // (it spins regardless of Reduce Motion — that's iOS-native); this
+  // adds a soft entrance for the card frame so the wait feels gentle,
+  // not abrupt. Skip slide — see EmptyState's note.
+  const entrance = useEntranceAnimation(0);
   return (
-    <View
-      style={[styles.card, style]}
+    <Animated.View
+      style={[styles.card, style, entrance.style]}
       accessibilityRole="progressbar"
       accessibilityLabel={text}
       accessibilityState={{ busy: true }}
@@ -96,7 +110,7 @@ export function LoadingState({
         </View>
         <Text style={[styles.body, styles.bodyMuted]}>{text}</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -112,15 +126,19 @@ export function ErrorState({
   text?: string;
   style?: ViewStyle;
 }) {
+  // Same 220ms fade as Empty / Loading — the loading → error
+  // hand-off should feel like a state shift, not a hard cut. The
+  // alert role still announces immediately for VoiceOver users.
+  const entrance = useEntranceAnimation(0);
   return (
-    <View style={[styles.card, style]} accessibilityRole="alert" accessibilityLabel={text}>
+    <Animated.View style={[styles.card, style, entrance.style]} accessibilityRole="alert" accessibilityLabel={text}>
       <View style={[styles.content, styles.contentVertical]}>
         <View style={styles.iconWrap}>
           {icon ?? <WifiSlash size={56} color={colors.labelTertiary} weight="duotone" />}
         </View>
         <Text style={[styles.body, styles.bodyMuted]}>{text}</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -172,11 +190,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headline: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     textAlign: 'center',
   },
   body: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     textAlign: 'center',
   },
   textFresh: {

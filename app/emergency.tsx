@@ -315,7 +315,7 @@ function IdleView({
         accessibilityLabel={
           hasContact
             ? `Call ${contactName}. Three-second cancel window.`
-            : 'Set up a trusted contact first'
+            : 'Set a trusted contact first'
         }
         style={({ pressed }) => [
           styles.actionBtn,
@@ -325,7 +325,7 @@ function IdleView({
       >
         <Phone size={20} color={colors.white} weight="fill" />
         <Text style={styles.actionBtnText}>
-          {hasContact ? `Call ${contactName}` : 'Set up a contact first'}
+          {hasContact ? `Call ${contactName}` : 'Set a trusted contact'}
         </Text>
       </Pressable>
 

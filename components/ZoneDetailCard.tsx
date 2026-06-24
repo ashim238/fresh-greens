@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { X } from 'phosphor-react-native/src/icons/X';
+
+import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
 
 import {
   glyphColorForZoneType,
@@ -42,6 +44,11 @@ export function ZoneDetailCard({
 }) {
   const router = useRouter();
   const content = zoneCategoryContent(zone.category);
+  // Sibling chrome to ReportDetailCard / RouteHazardDetailCard:
+  // tapping a zone polygon should morph this card up from the
+  // bottom edge, not snap it in. Same 220ms ease-out family;
+  // Reduce Motion skips the slide+fade.
+  const entrance = useEntranceAnimation();
 
   // Announce the card's new content to VoiceOver users on open so the
   // sheet's appearance is unambiguous — without it, a non-sighted user
@@ -69,8 +76,8 @@ export function ZoneDetailCard({
       accessibilityRole="button"
       accessibilityLabel="Dismiss zone detail"
     >
-      <View
-        style={styles.sheet}
+      <Animated.View
+        style={[styles.sheet, entrance.style]}
         accessibilityViewIsModal
         // Stop taps inside the sheet from bubbling to the scrim's
         // dismiss handler. Without this, tapping anywhere on the
@@ -117,7 +124,7 @@ export function ZoneDetailCard({
             </Pressable>
           )}
         </View>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }

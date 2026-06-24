@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { TrustedContact } from '../lib/api/trusted-contact';
 import { colors } from '../theme/colors';
+import { dynamicType } from '../theme/dynamic-type';
 import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   text: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.mutedTertiary,
     textAlign: 'center',
   },

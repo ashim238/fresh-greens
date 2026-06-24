@@ -10,6 +10,7 @@ import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -207,12 +208,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsTertiary,
   },
   placeholder: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     flex: 1,
     color: colors.mutedSecondary,
   },
   input: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     flex: 1,
     color: colors.black,
     paddingVertical: 0,

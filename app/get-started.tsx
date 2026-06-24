@@ -20,6 +20,7 @@ import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -212,7 +213,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...typography.title1Emphasized,
+    // Bolder pass: 28pt → 34pt (largeTitleEmphasized). "Get started" is
+    // the hero moment on the auth entry screen — at title1 it sat as a
+    // mid-screen page header, at largeTitle it commits as the brand
+    // greeting it actually is. Keeps the existing 88pt gap to the
+    // action group so the title gets the space it deserves.
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
     textAlign: 'center',
   },
@@ -238,12 +244,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   errorText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.red,
     textAlign: 'center',
   },
   outlinedButtonText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
   },
   divider: {
@@ -258,7 +264,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.wiltedgreen,
   },
   dividerLabel: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: colors.freshgreen,
   },
   loginRow: {
@@ -271,7 +277,7 @@ const styles = StyleSheet.create({
     // matches Apple's auth-screen prompt register (15pt). 13pt sat
     // at caption tier, which read as auxiliary metadata rather than
     // the navigation affordance it is.
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.white,
     textAlign: 'center',
   },

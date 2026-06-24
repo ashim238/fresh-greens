@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+
+import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
 
 import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
@@ -50,6 +52,11 @@ export function RouteHazardDetailCard({
   const router = useRouter();
   const content = routeHazardDetailContent(category);
   const showPager = hazardCount > 1;
+  // Detail-card morph-in — same family-wide 220ms slide+fade
+  // ReportDetailCard uses, so tapping any map-pin → detail-card
+  // transition reads as one consistent system. Reduce Motion users
+  // see the resolved state immediately.
+  const entrance = useEntranceAnimation();
 
   useEffect(() => {
     const position =
@@ -78,8 +85,8 @@ export function RouteHazardDetailCard({
       accessibilityRole="button"
       accessibilityLabel="Dismiss hazard detail"
     >
-      <View
-        style={styles.sheet}
+      <Animated.View
+        style={[styles.sheet, entrance.style]}
         accessibilityViewIsModal
         onStartShouldSetResponder={() => true}
       >
@@ -184,7 +191,7 @@ export function RouteHazardDetailCard({
             </Pressable>
           </View>
         )}
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }

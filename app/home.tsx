@@ -7,6 +7,7 @@ import {
   useRouter,
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -23,6 +24,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -66,6 +68,7 @@ import { usePreferences } from '../hooks/usePreferences';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useCoachMark } from '../hooks/useCoachMark';
+import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
@@ -2870,9 +2873,97 @@ export default function Home() {
               {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
             </Animated.Text>
             {arrivalTime && <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>}
+            {distanceLabel && (
+              <Text style={styles.routeDistance}>
+                {arrivalTime ? `· ${distanceLabel}` : distanceLabel}
+              </Text>
+            )}
           </View>
-          {distanceLabel && <Text style={styles.routeDistance}>{distanceLabel}</Text>}
           </View>
+
+          {recommended &&
+            (tripZonesFetchFailed ||
+              routeHazardChips.length > 0 ||
+              (tripZonesStatus === 'ready' && tripZonesCorridorComplete)) && (
+            <>
+            <RouteChipsAnimatedWrap style={styles.routeChipsBlock}>
+              {tripZonesFetchFailed ? (
+                <View style={styles.routeChipsRow} accessibilityLiveRegion="polite">
+                  <RouteZonesFetchFailedChip
+                    onRetry={() => setCorridorRetryTick((t) => t + 1)}
+                  />
+                </View>
+              ) : routeHazardChips.length > 0 ? (
+                <>
+                  <Text style={styles.routeChipsHeader}>Along this route:</Text>
+                  <View
+                    style={styles.routeChipsRow}
+                    // Hazards then safes in one sentence — VoiceOver gets
+                    // the full picture instead of just the negative half.
+                    accessibilityLabel={[
+                      ...routeHazardChips.map((c) => `${c.count} ${c.label}`),
+                      ...routeSafeChips.map((c) => `${c.count} ${c.label}`),
+                    ]
+                      .join(', ')
+                      .concat(' along this route.')}
+                  >
+                    {routeHazardChips.map((c) => (
+                      <RouteWarningChip
+                        key={c.type}
+                        count={c.count}
+                        label={c.label}
+                        onPress={() => handleRouteHazardChipPress(c.type)}
+                      />
+                    ))}
+                    {/* Safe-zone chips render AFTER the hazards — they're
+                        the offset that lets a hazard-heavier route win on
+                        net score (e.g. Franklin Ave's many lit-street
+                        stretches outweigh its 2 community flags). Showing
+                        the negative half alone made the recommendation
+                        feel wrong (user-flagged 2026-06-04). */}
+                    {routeSafeChips.map((c) => (
+                      <RouteSafeChip
+                        key={c.type}
+                        count={c.count}
+                        label={c.label}
+                        onPress={() => handleRouteSafeChipPress(c.type)}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <View
+                  style={styles.routeChipsRow}
+                  accessibilityLabel={
+                    selectedRoute &&
+                    pathLengthMeters(selectedRoute.coordinates) >
+                      LONG_TRIP_COPY_METERS
+                      ? ALL_CLEAR_A11Y_LONG_TRIP
+                      : 'No reported hazards or flagged zones along this route.'
+                  }
+                >
+                  <RouteAllClearChip />
+                </View>
+              )}
+            </RouteChipsAnimatedWrap>
+            {selectedRoute &&
+              pathLengthMeters(selectedRoute.coordinates) >
+                LONG_TRIP_COPY_METERS &&
+              tripZonesStatus === 'ready' &&
+              tripZonesCorridorComplete &&
+              !tripZonesFetchFailed && (
+                <Text
+                  style={[
+                    styles.routeChipsFootnote,
+                    dynamicType(typography.footnoteRegular),
+                  ]}
+                  accessibilityRole="text"
+                >
+                  {LONG_TRIP_FOOTNOTE_COPY}
+                </Text>
+              )}
+            </>
+          )}
 
           {/*
             Via + daylight share a row — both secondary context. The
@@ -2920,20 +3011,6 @@ export default function Home() {
             </View>
           </View>
 
-          {/*
-            Conditions caption — "Safest route…" framing is real (the
-            recommended route IS the safest). arrivalLabel (day/dusk/dark)
-            is promoted here so VoiceOver and sighted users both see the
-            arrival-light context without relying on the decorative strip.
-          */}
-          <Text
-            style={styles.routeConditionsCaption}
-            accessibilityLabel={routeConditionsA11y}
-          >
-            {routeConditionsText}
-          </Text>
-
-
           {recommended && trustedStationOnRoute && (
             <View style={styles.trustedOnRouteRow}>
               <Star size={16} color={colors.burntgreen} weight="fill" />
@@ -2941,102 +3018,6 @@ export default function Home() {
                 A {trustedNoun} you trust is on this route.
               </Text>
             </View>
-          )}
-
-          {recommended && tripZonesStatus !== 'idle' && (
-            <>
-            <View style={styles.routeChipsBlock}>
-              {/*
-                Three render paths:
-                  - OSM corridor still loading → gray "Checking route…"
-                    chip (never All-clear while data is in flight).
-                  - Warnings present → "Along this route:" + orange chips.
-                  - Checks complete, no hazards → All-clear chip alone.
-              */}
-              {tripZonesStatus === 'loading' ? (
-                <View
-                  style={styles.routeChipsRow}
-                  accessibilityLabel="Checking route for hazards along this path."
-                  accessibilityLiveRegion="polite"
-                >
-                  <RouteZonesLoadingChip />
-                </View>
-              ) : tripZonesFetchFailed ? (
-                <View style={styles.routeChipsRow} accessibilityLiveRegion="polite">
-                  <RouteZonesFetchFailedChip
-                    onRetry={() => setCorridorRetryTick((t) => t + 1)}
-                  />
-                </View>
-              ) : routeHazardChips.length > 0 ? (
-                <>
-                  <Text style={styles.routeChipsHeader}>Along this route:</Text>
-                  <View
-                    style={styles.routeChipsRow}
-                    // Hazards then safes in one sentence — VoiceOver gets
-                    // the full picture instead of just the negative half.
-                    accessibilityLabel={[
-                      ...routeHazardChips.map((c) => `${c.count} ${c.label}`),
-                      ...routeSafeChips.map((c) => `${c.count} ${c.label}`),
-                    ]
-                      .join(', ')
-                      .concat(' along this route.')}
-                  >
-                    {routeHazardChips.map((c) => (
-                      <RouteWarningChip
-                        key={c.type}
-                        count={c.count}
-                        label={c.label}
-                        onPress={() => handleRouteHazardChipPress(c.type)}
-                      />
-                    ))}
-                    {/* Safe-zone chips render AFTER the hazards — they're
-                        the offset that lets a hazard-heavier route win on
-                        net score (e.g. Franklin Ave's many lit-street
-                        stretches outweigh its 2 community flags). Showing
-                        the negative half alone made the recommendation
-                        feel wrong (user-flagged 2026-06-04). */}
-                    {routeSafeChips.map((c) => (
-                      <RouteSafeChip
-                        key={c.type}
-                        count={c.count}
-                        label={c.label}
-                        onPress={() => handleRouteSafeChipPress(c.type)}
-                      />
-                    ))}
-                  </View>
-                </>
-              ) : tripZonesStatus === 'ready' && tripZonesCorridorComplete ? (
-                <View
-                  style={styles.routeChipsRow}
-                  accessibilityLabel={
-                    selectedRoute &&
-                    pathLengthMeters(selectedRoute.coordinates) >
-                      LONG_TRIP_COPY_METERS
-                      ? ALL_CLEAR_A11Y_LONG_TRIP
-                      : 'No reported hazards or flagged zones along this route.'
-                  }
-                >
-                  <RouteAllClearChip />
-                </View>
-              ) : null}
-            </View>
-            {selectedRoute &&
-              pathLengthMeters(selectedRoute.coordinates) >
-                LONG_TRIP_COPY_METERS &&
-              tripZonesStatus === 'ready' &&
-              tripZonesCorridorComplete &&
-              !tripZonesFetchFailed && (
-                <Text
-                  style={[
-                    styles.routeChipsFootnote,
-                    dynamicType(typography.footnoteRegular),
-                  ]}
-                  accessibilityRole="text"
-                >
-                  {LONG_TRIP_FOOTNOTE_COPY}
-                </Text>
-              )}
-            </>
           )}
 
           {suggestedDeparture && (
@@ -3437,6 +3418,17 @@ export default function Home() {
  * VoiceOver reads "1 police zone and 1 low-light zone along this
  * route" once, not per-chip).
  */
+function RouteChipsAnimatedWrap({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const entrance = useEntranceAnimation(0);
+  return <Animated.View style={[style, entrance.style]}>{children}</Animated.View>;
+}
+
 function RouteWarningChip({
   count,
   label,
@@ -3778,7 +3770,10 @@ const styles = StyleSheet.create({
   routeDistance: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
-    paddingHorizontal: spacing.lg,
+    // Lives inside routeHeroRow now — parent owns the 24pt gutter.
+    // paddingBottom: spacing.sm baseline-aligns with the arrival text
+    // when both sit next to the 34pt hero number.
+    paddingBottom: spacing.sm,
   },
   routeMinutes: {
     // H12: title2Emphasized (22pt) → largeTitleEmphasized (34pt). The
@@ -3807,8 +3802,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   routeViaLabel: {
+    // Bolder pass: color shifted from labelTertiary → labelSecondary.
+    // The via line carries the road-name signal (Google/Waze convention)
+    // and reads with more confidence at the secondary tier — tertiary
+    // gray was washed out enough to look like an afterthought beside
+    // the 34pt headline. Weight stays Regular so it remains subordinate
+    // to the headline and destination title.
     ...dynamicType(typography.subheadlineRegular),
-    color: colors.labelTertiary,
+    color: colors.labelSecondary,
     // flex into the left column so the daylight strip on the right
     // gets its fixed 96pt while the via text takes whatever's left.
     flex: 1,

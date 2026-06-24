@@ -27,6 +27,7 @@ import DrivingGlyph from '../assets/illustrations/driving-glyph.svg';
 import WeatherGlyph from '../assets/illustrations/weather-glyph.svg';
 
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
+import { usePressScale } from '../hooks/usePressScale';
 import { useRecommendationsBatch, type BrowseRowSpec } from '../hooks/useRecommendationsBatch';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useWeather } from '../hooks/useWeather';
@@ -960,6 +961,12 @@ function RecommendationCard({
   onPress: () => void;
   topline?: CardTopline;
 }) {
+  // Subtle squeeze on press — pairs with the universal pressedDim
+  // opacity. The cards are the most-tapped surface in the app; the
+  // 0.98 scale gives the touch a physical "absorbed" cue that the
+  // opacity alone reads as too flat. Reduce Motion → scale stays at 1
+  // (the dim still carries the press signal).
+  const press = usePressScale();
   const r = recommendation;
   const quoteText = r.curatorQuote ?? r.reportDetail;
   // When the rec is a multi-vouch same-place group (Trusted row only),
@@ -1014,11 +1021,14 @@ function RecommendationCard({
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={press.handlePressIn}
+      onPressOut={press.handlePressOut}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel}
       accessibilityHint="Routes to this destination"
-      style={({ pressed }) => [styles.card, pressed && pressedDim]}
+      style={({ pressed }) => [pressed && pressedDim]}
     >
+      <Animated.View style={[styles.card, press.style]}>
       <View style={styles.photoWrap}>
         {showPhoto ? (
           <Image
@@ -1149,6 +1159,7 @@ function RecommendationCard({
           </View>
         ))}
       </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -1412,11 +1423,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   showAllText: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelSecondary,
   },
   browseEmptyLine: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.mutedTertiary,
     // H11: paddingVertical 4 → 12 so the Open Now empty line gets
     // minimum row breathing room. Earlier 4pt left it flush against
@@ -1562,8 +1573,11 @@ const styles = StyleSheet.create({
     // content. The quote is a primary qualitative signal on the
     // card (the curator voice — see the Green Book editorial
     // parallel in the README) and shouldn't sit at the minimum
-    // allowed size when one tier up is available.
-    ...typography.footnoteRegular,
+    // allowed size when one tier up is available. Wrap in
+    // dynamicType so the curator voice scales with Larger Text
+    // — primary qualitative content has to remain readable when
+    // a user bumps the system font scale.
+    ...dynamicType(typography.footnoteRegular),
     color: colors.black,
     flex: 1,
   },
@@ -1663,12 +1677,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
     textAlign: 'center',
   },
   emptyBody: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     textAlign: 'center',
   },

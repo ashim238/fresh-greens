@@ -33,6 +33,7 @@ import { colors } from '../theme/colors';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { Button } from '../components/Button';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -388,11 +389,11 @@ const styles = StyleSheet.create({
     marginBottom: 160,
   },
   title: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.white,
   },
   subtitle: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.white,
   },
   actions: {
@@ -422,7 +423,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   termsText: {
-    ...typography.caption2Regular,
+    // caption2Regular is the ornamental tier (11pt, below WCAG 12pt floor)
+    // per typography.ts. Legal terms-of-service copy belongs there, but
+    // since it's still text the user reads, scale it with Dynamic Type so
+    // a user at AX-large can resize it past the floor.
+    ...dynamicType(typography.caption2Regular),
     color: colors.white,
   },
   link: {

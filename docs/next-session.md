@@ -2,6 +2,18 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Impeccable arc punch list (2026-06-23)
+
+Surfaced during the `polish/impeccable-pass` critique sweep (clarify + typeset + bolder + animate + 4 layout restructures). All four restructured screens (home/en-route/report/menu) PASS the critique; these are follow-up findings worth tracking but not blockers. Snapshots at `.impeccable/critique/2026-06-24T01-57-*.md`.
+
+| Tier | Item | Surface | Notes |
+|---|---|---|---|
+| P1 | **Side-FAB label tier below 12pt Floor Rule** | `/en-route` SideFabRow | `sideFabRowStyles.labelText` uses `caption2Regular` (11pt). The 12pt Floor reserves that tier for ornament. Bump to `caption1Regular` (12pt) or `footnoteRegular` (13pt). Trivial. |
+| P1 | **Sign-out has no confirmation dialog** | `/menu` | Pre-existing (called out 2026-06-19, not addressed in this arc). One mis-tap cascades clearAll across 7+ stores. Add iOS Action Sheet with destructive style. |
+| P2 | **Long route-preview stack overflows at AX5** | `/home` | Title + hero + chips header + chip row + safe chips + via + trustedOnRouteRow + suggestedDeparture stacks beyond viewport at largest Dynamic Type. Consider folding trusted-station + suggested-departure into a composed sentence, or putting both behind an "Extras" disclosure. |
+| P2 | **FAB-stack bottom math uses magic numbers** | `/home` | The `fabAnchorHeight + 24 + 56 + 12` math hard-codes the side-column geometry. Extract named tokens (e.g. `FAB_STACK_HEIGHT`, `FAB_GAP`) so changing one is one edit. |
+| P2 | **No discard-report confirmation on mid-flow X-tap** | `/report` | Partial form state (sub-tag + chars + photo) discards silently. Confirm only when fields are non-empty (don't pop on an empty form). |
+
 ## Device-smoke punch list (2026-06-21)
 
 Surfaced during real-device smoke immediately after the Design Health Program closeout audit (see [`docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md)). The closeout audit was code-reading; these only surface at the interaction layer. Tier tags: 🔴 real bug / 🟡 discoverability / 🟠 visual-layout / 🟣 feature-strategic.

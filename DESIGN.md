@@ -118,7 +118,9 @@ This system explicitly rejects four neighbors. It is **not** generic ride-share 
 - Calm, grounded, earthy — composure as the primary safety signal.
 - Reserved-color discipline: greens for UI, signals for meaning, never decoration.
 - iOS HIG-native: system typeface, grouped surfaces, 44pt painted tap targets.
-- Token-driven: every value pulled from `theme/`, never inlined.
+- Token-driven: every value pulled from `theme/`, never inlined — including `theme/motion.ts`.
+- Confident, not loud: full-screen hero moments take the larger Large Title voice; settings eyebrows shift to Wilted Green so the brand carries the chrome.
+- Motion is part of the component, not a coat of paint: entrance morphs on detail cards, a 0.98 press-scale on large tap targets, all gated by Reduce Motion.
 - Auditable by design: the UI surfaces *why*, it doesn't just assert.
 
 ## 2. Colors
@@ -155,6 +157,8 @@ A muted, earthy green family carries the entire interactive surface; a sharp res
 
 **The One-Voice Rule.** The greens carry the interactive surface; the signals never decorate it. If a color is doing mood instead of meaning, it is the wrong color.
 
+**The Wilted-Eyebrow Rule.** Settings-style group eyebrow labels — section captions above `RowGroup`s app-wide — render in Wilted Green, not Label Secondary. The shift takes a label that read as gray chrome and re-tags it as "this is the brand speaking, calmly." Same applies to atmospheric secondary glyphs (the menu Gear, the home Calendar tile): Wilted Green is the quieter brand voice, used wherever Fresh Green would shout.
+
 ## 3. Typography
 
 **Display / Body / Label Font:** System (San Francisco) — `-apple-system, 'SF Pro Text/Display', system-ui`. One typeface, the platform's own, across every register.
@@ -177,6 +181,8 @@ A muted, earthy green family carries the entire interactive surface; a sharp res
 
 **The Relaxed-Read Rule.** Stress-state long reads (the /pulled-over guidance bullets) bump line-height to 1.6× via `relaxedLineHeight()`, above the native 1.29× body ratio — wider leading reduces line-tracking errors when the reader is under load.
 
+**The Hero-Title Rule.** Page-anchor titles that own a full screen — the get-started welcome, login prompt, sign-out goodbye line — set in **Large Title Emphasized** (34pt). Reserved for the moment that *is* the screen; never the in-modal register, never a card header. Title 1 (28pt) is the normal screen title; Large Title is the larger voice when the screen has nothing competing for attention.
+
 ## 4. Elevation
 
 Shadows are functional, not decorative: a surface's shadow encodes how far it floats above the map. The system is a three-tier ramp (plus two special cases), consolidated into `theme/shadows.ts` so elevation reads as systematic rather than hand-tuned per component. Surfaces that aren't lifting off the basemap stay flat.
@@ -193,7 +199,7 @@ Shadows are functional, not decorative: a surface's shadow encodes how far it fl
 
 ## 5. Components
 
-Components are HIG-native and consolidated — one `Button`, one `SearchBar`, one `FloatingActionButton`, replacing styles that were once duplicated per screen. The feel is calm and confident: capsule geometry, generous tap targets, the universal 0.7 press-dim as the single feedback gesture.
+Components are HIG-native and consolidated — one `Button`, one `SearchBar`, one `FloatingActionButton`, replacing styles that were once duplicated per screen. The feel is calm and confident: capsule geometry, generous tap targets, the universal 0.7 press-dim as the single feedback gesture. Motion is part of the component, not an afterthought: tokens live in `theme/motion.ts` and are consumed through two hooks (`useEntranceAnimation`, `usePressScale`) so the calm-companion physics stays consistent across surfaces.
 
 ### Buttons
 - **Shape:** Full capsule (pill, 999px radius), 44pt tall, 16pt horizontal padding, 24pt icon + 8pt gap.
@@ -223,15 +229,31 @@ Components are HIG-native and consolidated — one `Button`, one `SearchBar`, on
 - **The bottom-sheet system** (browse, route-comparison, fuel-stops, live-safety): the primary content vehicle, rising over a persistent map with the directional `sheet` shadow.
 - **The en-route side column:** a vertical stack of 56pt FABs (Volume, SOS, Shield, Recenter, Report) — thumb-reachable safety controls during the drive.
 
+### Motion
+A three-duration ramp (`instant` 120ms · `quick` 220ms · `calm` 320ms) paired with iOS-native deceleration easing (`Easing.out(cubic)` default, `Easing.out(quad)` for press releases). Lives in `theme/motion.ts` so a future timing change lands in one place. Two hooks consume it:
+
+- **`useEntranceAnimation(slideFromY = 16)`** — mount-time opacity 0→1 + optional upward translate. Used by the detail-card family (`ReportDetailCard`, `RouteHazardDetailCard`, `ZoneDetailCard`) so tapping a map marker morphs the card up from the bottom edge; state cards (`EmptyState`, `LoadingState`, `ErrorState`) pass `0` for a pure fade so the entrance doesn't compete with surrounding layout.
+- **`usePressScale(targetScale = 0.98)`** — paired with `pressedDim` for larger touch targets (the HomeBrowseSheet recommendation card is the canonical case). 120ms grab, 220ms release — fast in, slower out, matching how a finger actually lifts.
+
+Both hooks short-circuit under Reduce Motion: the entrance resolves to its end state on first commit; the scale stays at 1 (the existing `pressedDim` opacity carries the press signal alone).
+
+### Named Rules
+**The Calm-Physics Rule.** No bounce, no elastic, no overshoot. Motion uses `Easing.out` curves only (cubic by default, quad for snappier press feedback). Anything longer than 320ms is theatrical for a task-focused app; anything shorter than 120ms feels like a glitch. The 100/300/500 envelope, snapped to the project's instant/quick/calm steps.
+
+**The Reduce-Motion-Honest Rule.** Every animated surface branches on `useReduceMotion()` and falls back to the resolved end state — never a "subtle" half-motion. Reduce Motion isn't a degraded experience; it's a valid render of the same UI.
+
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** pull every value from `theme/` — `colors`, `typography`, `shadows`, `spacing` (4pt ramp), `radii`. Never inline a design value.
+- **Do** pull every value from `theme/` — `colors`, `typography`, `shadows`, `spacing` (4pt ramp), `radii`, `motion`. Never inline a design value.
 - **Do** keep interactive surfaces Fresh Green / Wilted Green. Reserved colors only where they carry safety meaning.
 - **Do** paint 44×44pt tap targets on the *visual* (use the `tapTarget44` token). `hitSlop` is forgiveness on top of compliance, never the compliance mechanism.
 - **Do** set charged-moment prompts in Title 1 **Regular** — the held question, not the command (The Held-Question Rule).
+- **Do** set full-screen hero titles in **Large Title Emphasized** (34pt) — get-started, login, sign-out. Title 1 (28pt) is for ordinary screen titles (The Hero-Title Rule).
+- **Do** render settings-group eyebrow labels in Wilted Green — same applies to atmospheric secondary glyphs like the menu Gear (The Wilted-Eyebrow Rule).
 - **Do** pair the daylight gradient with a redundant non-color cue (dash/width pattern + inline legend). Color alone fails WCAG 1.4.1 for colorblind drivers — this is a known, tracked gap.
 - **Do** wrap long-read copy in `dynamicType()` so Dynamic Type scales the line box, not just the glyphs.
+- **Do** consume motion via the project hooks (`useEntranceAnimation`, `usePressScale`) — and always branch on `useReduceMotion()` so the surface still renders, just without the tween.
 
 ### Don't:
 - **Don't** drift toward **generic ride-share / SaaS**: no glossy dark-mode maps, neon route lines, or aggressive conversion CTAs.
@@ -241,3 +263,5 @@ Components are HIG-native and consolidated — one `Button`, one `SearchBar`, on
 - **Don't** use `border-left`/`border-right` greater than 1px as a colored accent stripe on cards or callouts. Full borders, background tints, or nothing.
 - **Don't** ship the Transparent button variant on a white surface — its white label is invisible there.
 - **Don't** use Caption 2 (11pt) for anything a reader could miss and lose meaning from.
+- **Don't** use bounce, elastic, or spring-with-overshoot easing. The project is `Easing.out` cubic / quad only — no theatrical motion in a task-focused app (The Calm-Physics Rule).
+- **Don't** animate a surface without a Reduce-Motion fallback. Reveal animations must enhance an already-visible default, not gate it.

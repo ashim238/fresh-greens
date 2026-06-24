@@ -17,7 +17,6 @@ export const colors = {
   orange: '#FF9500',       // hazard / speed limit / construction
   red: '#FF3B30',          // alert
   yellow: '#FFCC00',       // caution
-  pink: '#FF2D55',         // role TBD — ask before use
   navy: '#041E49',         // safety affordances (en-route shield button, etc.)
 
   // Neutrals
@@ -86,7 +85,6 @@ export const colors = {
   photoDismissChip: 'rgba(0, 0, 0, 0.6)',    // /report photo remove control on image preview
   cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',    // input/card outlines
   separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers on light bg
-  separatorOnFlat: 'rgba(0, 0, 0, 0.08)',    // search bar outline on tap-state
   dividerOnDark: 'rgba(160, 214, 164, 0.25)',// hairline dividers on wiltedgreen
   dragHandleBar: 'rgba(128, 128, 128, 0.55)',// the gray bar atop modal sheets
   dividerNeutral: 'rgba(202, 196, 208, 1)',  // vertical/horizontal card dividers

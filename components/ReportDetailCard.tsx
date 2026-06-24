@@ -1,4 +1,6 @@
-import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+
+import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
 
 // Phosphor deep-imports — see app/trusted-contact-setup.tsx for the
 // note on why we bypass the package's barrel index.
@@ -129,6 +131,13 @@ export function ReportDetailCard({
   /** When provided, shows a "Remove" button — only pass for author-owned reports. */
   onRemove?: () => void;
 }) {
+  // Detail-card morph-in: tapping a community-report pin on /home (or
+  // a report on the /en-route hazard layer) now slides this card up
+  // from the bottom edge with a 220ms ease-out fade, instead of
+  // snapping it on instantly. Pairs with the calm-companion voice —
+  // the card *arrives* (it answers a tap) rather than barging in.
+  // Reduce Motion users see the resolved state immediately.
+  const entrance = useEntranceAnimation();
   const category = CATEGORIES.find((c) => c.id === categoryId);
   if (!category) return null;
 
@@ -167,8 +176,8 @@ export function ReportDetailCard({
       accessibilityRole="button"
       accessibilityLabel="Dismiss report detail"
     >
-      <View
-        style={styles.sheet}
+      <Animated.View
+        style={[styles.sheet, entrance.style]}
         accessibilityViewIsModal
         // Stop taps inside the sheet from bubbling to the scrim's
         // dismiss handler. Without this, tapping anywhere on the
@@ -257,7 +266,7 @@ export function ReportDetailCard({
           </Pressable>
         )}
 
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }

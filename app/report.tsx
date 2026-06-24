@@ -363,6 +363,16 @@ export default function Report() {
 // `inputAccessoryViewID` and the InputAccessoryView's `nativeID`.
 const DETAIL_INPUT_ACCESSORY_ID = 'report-detail-accessory';
 
+// Picker grouping per layout pass — exposes the sentiment register that
+// the categories' position-in-CATEGORIES already encodes. Copy chosen to
+// match the calm-companion voice (plainspoken, not signal-words). The
+// slice offsets follow CATEGORIES' canonical avoid → caution → safe order.
+const PICKER_GROUPS = [
+  { label: 'Something off', start: 0 },     // felt-unsafe, incident
+  { label: 'Something useful', start: 2 },  // hazard, lighting
+  { label: 'Something good', start: 4 },    // black-owned, felt-welcome
+];
+
 // --- Category glyph ------------------------------------------------------
 
 /**
@@ -444,24 +454,27 @@ function PickerView({
       </View>
 
       <View style={styles.grid}>
-        {/* Render in 3 rows of 2. CATEGORIES is already in the right
-            order (avoid → caution → safe) — slice into rows. */}
-        {[0, 2, 4].map((rowStart) => (
-          <View style={styles.gridRow} key={rowStart}>
-            {CATEGORIES.slice(rowStart, rowStart + 2).map((c) => (
-              <Pressable
-                key={c.id}
-                style={({ pressed }) => [styles.tile, pressed && pressedDim]}
-                onPress={() => onPick(c)}
-                accessibilityRole="button"
-                accessibilityLabel={c.label}
-              >
-                <View style={styles.tileIconBox}>
-                  <CategoryGlyph categoryId={c.id} size={48} />
-                </View>
-                <Text style={styles.tileLabel}>{c.label}</Text>
-              </Pressable>
-            ))}
+        {PICKER_GROUPS.map((group) => (
+          <View key={group.label} style={styles.gridGroup}>
+            <Text style={styles.gridGroupHeader} accessibilityRole="header">
+              {group.label}
+            </Text>
+            <View style={styles.gridRow}>
+              {CATEGORIES.slice(group.start, group.start + 2).map((c) => (
+                <Pressable
+                  key={c.id}
+                  style={({ pressed }) => [styles.tile, pressed && pressedDim]}
+                  onPress={() => onPick(c)}
+                  accessibilityRole="button"
+                  accessibilityLabel={c.label}
+                >
+                  <View style={styles.tileIconBox}>
+                    <CategoryGlyph categoryId={c.id} size={48} />
+                  </View>
+                  <Text style={styles.tileLabel}>{c.label}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         ))}
       </View>
@@ -542,52 +555,17 @@ function DetailView({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-      <View style={styles.titleBlock}>
-        <View style={styles.detailIdentityIcon}>
-          <CategoryGlyph categoryId={category.id} size={48} />
-        </View>
-        {/*
-          v2 Figma (1112:8900) specs Title1 Emphasized (28pt bold) for
-          the category title — the category names ("Incident", "Hazard",
-          etc.) read as labels rather than questions, so the emphasized
-          weight fits. The picker's "Report" title is also titleEmphasized;
-          consistent across both report-modal phases.
-        */}
-        <Text style={styles.titleEmphasized}>{category.label}</Text>
-        {/*
-          v2 Figma (1114:8811 — canonical Report Modal component): single
-          shared subtitle across all category variants. Per-category
-          subtitles in CATEGORIES are no longer consumed by the detail
-          view — kept on the type in case a future revision wants to
-          surface them again. Only icon + title vary per category.
-        */}
-        <Text style={styles.subtitle}>
-          Reports like yours keep Fresh Greens fresh.
-        </Text>
-        {category.anonymous && (
-          <Text style={styles.anonymousNote}>
-            Note: All reports are anonymous
-          </Text>
-        )}
+      <View style={styles.detailTitleRow}>
+        <CategoryGlyph categoryId={category.id} size={32} />
+        <Text style={styles.detailTitleLabel}>{category.label}</Text>
       </View>
+      {category.anonymous && (
+        <Text style={styles.anonymousNote}>
+          Note: All reports are anonymous
+        </Text>
+      )}
 
       <View style={styles.formBlock}>
-        <Text style={styles.fieldLabel}>(Optional) Your note</Text>
-        <TextInput
-          style={styles.textInput}
-          value={detailText}
-          onChangeText={onChangeDetail}
-          placeholder=""
-          multiline
-          maxLength={280}
-          editable={!submitting}
-          accessibilityLabel="Report details"
-          accessibilityState={{ disabled: submitting }}
-          inputAccessoryViewID={
-            Platform.OS === 'ios' ? DETAIL_INPUT_ACCESSORY_ID : undefined
-          }
-        />
-
         {/*
           SubTag chips — only render for categories that define a
           `subTags` whitelist (the place categories: black-owned,
@@ -657,6 +635,22 @@ function DetailView({
             </>
           );
         })()}
+
+        <Text style={styles.fieldLabel}>(Optional) Your note</Text>
+        <TextInput
+          style={styles.textInput}
+          value={detailText}
+          onChangeText={onChangeDetail}
+          placeholder=""
+          multiline
+          maxLength={280}
+          editable={!submitting}
+          accessibilityLabel="Report details"
+          accessibilityState={{ disabled: submitting }}
+          inputAccessoryViewID={
+            Platform.OS === 'ios' ? DETAIL_INPUT_ACCESSORY_ID : undefined
+          }
+        />
 
         {category.hasPhoto && (
           <>
@@ -886,16 +880,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
   },
-  detailIdentityIcon: {
-    // Detail-view variant — v2 Figma (1112:8900) renders the category
-    // glyph at a larger 48pt inside the 56pt container, giving the
-    // category its own visual weight separate from the picker's
-    // smaller alert-circle.
-    width: 56,
-    height: 56,
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-  },
   titleEmphasized: {
     ...typography.title1Emphasized,
     color: colors.black,
@@ -915,6 +899,23 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
     marginTop: spacing.xs,
     alignSelf: 'stretch',
+    paddingHorizontal: spacing.lg,
+  },
+  // Detail title row — glyph + category name in a single tight row.
+  // Replaces the v1 vertical block (48pt glyph + label + generic subtitle).
+  // The generic subtitle "Reports like yours keep Fresh Greens fresh" was
+  // pure filler — identical on every category — so the C3 collapse cut it.
+  // Glyph shrunk from 48pt to 32pt to fit the row register cleanly.
+  detailTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  detailTitleLabel: {
+    ...dynamicType(typography.title1Emphasized),
+    color: colors.black,
+    flex: 1,
   },
 
   // --- Picker grid ---
@@ -945,6 +946,21 @@ const styles = StyleSheet.create({
     color: colors.black,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  // Picker group wrapper — bundles a sentiment header with its 2-tile
+  // row. The 3 groups are separated by the parent `grid` style's existing
+  // gap; each group's own `gap` ties header tightly to its tiles.
+  gridGroup: {
+    gap: spacing.sm,
+  },
+  // Sentiment header above each picker-group row. wiltedgreen
+  // footnoteEmphasized — the bolder-pass RowGroup eyebrow voice, one
+  // tier down from the 15pt tile labels so the header reads as context,
+  // not as a competing affordance.
+  gridGroupHeader: {
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.wiltedgreen,
+    paddingHorizontal: spacing.lg,
   },
 
   // --- Detail form ---

@@ -2262,6 +2262,16 @@ export default function EnRoute() {
             </FloatingActionButton>
           </View>
 
+          <View style={styles.secondaryRow}>
+            <Text style={styles.secondaryDistance}>
+              {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
+            </Text>
+            <Text style={styles.secondarySeparator}>·</Text>
+            <Text style={styles.secondaryDuration}>
+              {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
+            </Text>
+          </View>
+
           {/*
             Refuel reminders entry — Full state only, gated on the user
             having reminders enabled. Same `sheetExpanded` conditional
@@ -2269,7 +2279,12 @@ export default function EnRoute() {
             "Due" badge surfaces when the reminder's next-fire time has
             passed.
           */}
-          {sheetExpanded && fuelProfile?.remindersEnabled && (
+          {/*
+            Hide fuel entry when a hazard panel is showing — the 96pt yellow
+            diamond is designed to grab attention; a utility row right above
+            it dilutes the warning. Fuel reappears when the hazard clears.
+          */}
+          {sheetExpanded && fuelProfile?.remindersEnabled && !displayedHazard && (
             <Pressable
               style={({ pressed }) => [styles.fuelStopsEntry, pressed && pressedDim]}
               onPress={() => setShowFuelStops(true)}
@@ -2342,16 +2357,6 @@ export default function EnRoute() {
               </View>
             </View>
           )}
-
-          <View style={styles.secondaryRow}>
-            <Text style={styles.secondaryDistance}>
-              {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
-            </Text>
-            <Text style={styles.secondarySeparator}>·</Text>
-            <Text style={styles.secondaryDuration}>
-              {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
-            </Text>
-          </View>
 
           {/*
             End trip — always visible on both Collapsed and Full,

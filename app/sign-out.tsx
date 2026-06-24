@@ -104,7 +104,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    // Bolder pass: 28pt → 34pt (largeTitleEmphasized). The goodbye line
+    // is the screen's emotional anchor — a confident largeTitle on the
+    // wiltedgreen surface reads as a deliberate farewell rather than a
+    // utility confirmation. Pairs with the existing 15pt subtitle so
+    // the type ladder still has clear hierarchy.
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
   },
   subtitle: {
