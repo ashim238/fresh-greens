@@ -348,7 +348,12 @@ const sideFabRowStyles = StyleSheet.create({
     ...shadows.e1,
   },
   labelText: {
-    ...typography.caption2Regular,
+    // Bumped from caption2Regular (11pt) → footnoteRegular (13pt). The
+    // 12pt Floor Rule reserves the caption2 tier for ornament; these
+    // are informational labels that name the SOS / Safety / Report /
+    // Recenter FABs, so they need to clear the floor. Wrapped in
+    // dynamicType so Larger Text scales them like other reading copy.
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
   },
 });

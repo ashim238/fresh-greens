@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Follow-up sweep — `polish/follow-up-sweep` (2026-06-23)
+
+One thing: **A polish arc's critique is a punch list, not a closing statement.** The previous impeccable arc closed with all 4 restructured screens scoring PASS — but the critique sweep flagged 5 follow-up items that were trivially actionable in a single follow-up branch. All 5 landed in ~30 minutes of inline work, no subagent dispatches needed: caption2 → footnote bump (Floor Rule), sign-out confirm (destructive cascade guard), home FAB-stack named constants, report discard-confirm, sticky Go button via ScrollView + flexShrink. The right rhythm: ship the arc → critique → punch-list sweep → critique again. The critique-to-sweep loop is where genuine quality lives, not in the arc itself.
+
+---
+
 ## Impeccable arc — `polish/impeccable-pass` (2026-06-23)
 
 Four things:

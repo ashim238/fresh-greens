@@ -280,6 +280,30 @@ export default function Menu() {
     router.push('/legal');
   }
 
+  function confirmSignOut() {
+    if (signingOut) return;
+    // Destructive confirm — handleSignOut cascades 8 clearAll* calls
+    // across 7+ stores plus the auth signOut. A single mis-tap on the
+    // /menu row would wipe saved places, regulars, preferences, fuel
+    // profile, calendar connection, resolutions, preferred stations.
+    // Alert.alert with destructive style matches the iOS convention
+    // and gives the user one undo opportunity before the cascade fires.
+    Alert.alert(
+      'Sign out?',
+      "You'll need to sign back in to use Fresh Greens again.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign out',
+          style: 'destructive',
+          onPress: () => {
+            void handleSignOut();
+          },
+        },
+      ],
+    );
+  }
+
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
@@ -495,7 +519,7 @@ export default function Menu() {
             <SettingsRow
               label="Sign out"
               destructive
-              onPress={handleSignOut}
+              onPress={confirmSignOut}
             />
           </RowGroup>
         </ScrollView>

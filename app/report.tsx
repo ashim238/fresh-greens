@@ -120,6 +120,36 @@ export default function Report() {
     router.back();
   }
 
+  /**
+   * Detail-mode close handler — confirms discard when the form has
+   * partial content. Empty form (no note, no sub-tag, no photo) closes
+   * silently, matching the picker-stage X behavior. Triggered by the
+   * detail header's X tap only; the back caret (handleBackFromDetail)
+   * is a deliberate retreat, not a discard.
+   */
+  function handleCloseFromDetail() {
+    const hasContent =
+      detailText.trim().length > 0 ||
+      selectedSubTag !== undefined ||
+      photoUri !== undefined;
+    if (!hasContent) {
+      handleClose();
+      return;
+    }
+    Alert.alert(
+      'Discard report?',
+      "Your note and any selections will be lost.",
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: handleClose,
+        },
+      ],
+    );
+  }
+
   // Place-type sub-tag for categories that define a `subTags` whitelist.
   // Reset on category change so a sub-tag from a previous selection
   // can't bleed across a back-and-forth navigation.
@@ -309,7 +339,7 @@ export default function Report() {
             selectedSubTag={selectedSubTag}
             onChangeSubTag={setSelectedSubTag}
             onBack={handleBackFromDetail}
-            onClose={handleClose}
+            onClose={handleCloseFromDetail}
             onSubmit={handleSubmit}
             submitting={submitting}
             submitError={submitError}

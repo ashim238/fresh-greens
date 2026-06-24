@@ -8,11 +8,11 @@ Surfaced during the `polish/impeccable-pass` critique sweep (clarify + typeset +
 
 | Tier | Item | Surface | Notes |
 |---|---|---|---|
-| P1 | **Side-FAB label tier below 12pt Floor Rule** | `/en-route` SideFabRow | `sideFabRowStyles.labelText` uses `caption2Regular` (11pt). The 12pt Floor reserves that tier for ornament. Bump to `caption1Regular` (12pt) or `footnoteRegular` (13pt). Trivial. |
-| P1 | **Sign-out has no confirmation dialog** | `/menu` | Pre-existing (called out 2026-06-19, not addressed in this arc). One mis-tap cascades clearAll across 7+ stores. Add iOS Action Sheet with destructive style. |
-| P2 | **Long route-preview stack overflows at AX5** | `/home` | Title + hero + chips header + chip row + safe chips + via + trustedOnRouteRow + suggestedDeparture stacks beyond viewport at largest Dynamic Type. Consider folding trusted-station + suggested-departure into a composed sentence, or putting both behind an "Extras" disclosure. |
-| P2 | **FAB-stack bottom math uses magic numbers** | `/home` | The `fabAnchorHeight + 24 + 56 + 12` math hard-codes the side-column geometry. Extract named tokens (e.g. `FAB_STACK_HEIGHT`, `FAB_GAP`) so changing one is one edit. |
-| P2 | **No discard-report confirmation on mid-flow X-tap** | `/report` | Partial form state (sub-tag + chars + photo) discards silently. Confirm only when fields are non-empty (don't pop on an empty form). |
+| ~~P1~~ | ~~**Side-FAB label tier below 12pt Floor Rule**~~ | `/en-route` SideFabRow | ~~Fixed 2026-06-23 (`polish/follow-up-sweep`): caption2Regular 11pt → dynamicType(footnoteRegular) 13pt. Clears the Floor + scales with Larger Text.~~ |
+| ~~P1~~ | ~~**Sign-out has no confirmation dialog**~~ | `/menu` | ~~Fixed 2026-06-23 (`polish/follow-up-sweep`): added confirmSignOut wrapper with Alert.alert destructive style. Cancel default; Sign out destructive.~~ |
+| ~~P2~~ | ~~**Long route-preview stack overflows at AX5**~~ | `/home` | ~~Fixed 2026-06-23 (`polish/follow-up-sweep`): wrapped bottomSheetContent in a ScrollView with flexShrink:1. Content scrolls within the sheet at AX5; Go button stays sticky-pinned at the bottom as the actionsRow sibling.~~ |
+| ~~P2~~ | ~~**FAB-stack bottom math uses magic numbers**~~ | `/home` | ~~Fixed 2026-06-23 (`polish/follow-up-sweep`): extracted FAB_ANCHOR_GAP, FAB_HEIGHT, FAB_STACK_GAP at module scope. Bottom expressions now read as composition rather than magic arithmetic.~~ |
+| ~~P2~~ | ~~**No discard-report confirmation on mid-flow X-tap**~~ | `/report` | ~~Fixed 2026-06-23 (`polish/follow-up-sweep`): added handleCloseFromDetail wrapper. Empty form closes silently; partial form triggers Alert.alert ('Discard report?' / 'Keep editing' / 'Discard'-destructive).~~ |
 
 ## Device-smoke punch list (2026-06-21)
 

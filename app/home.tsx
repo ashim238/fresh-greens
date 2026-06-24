@@ -20,6 +20,7 @@ import {
   Linking,
   PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -196,6 +197,19 @@ const ROUTE_SAFE_LABEL: Record<RouteSafeType, readonly [string, string]> = {
   litStreet: ['lit street', 'lit streets'],
   residential: ['residential block', 'residential blocks'],
 };
+
+// --- FAB-stack geometry ---------------------------------------------------
+// Named so the bottom-offset math reads as composition instead of magic
+// arithmetic. Earlier the Recenter FAB's bottom was `fabAnchorHeight + 24
+// + 56 + 12` — readable only by someone who knew which 56 + 12 + 24 was
+// which. Layout's the same, the names just say what the numbers mean.
+
+/** Vertical gap between the collapsed sheet's top edge and the first (Report) FAB. */
+const FAB_ANCHOR_GAP = 24;
+/** FloatingActionButton size="56" — the FAB height we stack against. */
+const FAB_HEIGHT = 56;
+/** Inter-FAB gap when two FABs stack vertically (Recenter above Report). */
+const FAB_STACK_GAP = 12;
 
 /**
  * Which safe chip a zone contributes to, or null if the zone isn't a
@@ -2684,7 +2698,11 @@ export default function Home() {
           many steps. Same fillsTertiary circular pattern as the
           recordings delete-confirm modal X.
         */}
-        <View style={styles.bottomSheetContent}>
+        <ScrollView
+          style={styles.bottomSheetScroll}
+          contentContainerStyle={styles.bottomSheetContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/*
             Clear-destination row — right-aligned 44pt X plus, when
             there's more than one route, a chevron pair to switch
@@ -3035,7 +3053,7 @@ export default function Home() {
           )}
             </>
           )}
-        </View>
+        </ScrollView>
 
         {/*
           Actions row — Schedule (outline wiltedgreen) on the left,
@@ -3198,7 +3216,13 @@ export default function Home() {
             style={{
               position: 'absolute',
               right: 16,
-              bottom: fabAnchorHeight + 24 + 56 + 12,
+              // Recenter sits above Report in the stack: clear the sheet
+              // anchor + Report FAB height + the inter-FAB gap.
+              bottom:
+                fabAnchorHeight +
+                FAB_ANCHOR_GAP +
+                FAB_HEIGHT +
+                FAB_STACK_GAP,
             }}
           >
             <SidebtnRecenter width={32} height={32} />
@@ -3210,7 +3234,9 @@ export default function Home() {
             style={{
               position: 'absolute',
               right: 16,
-              bottom: fabAnchorHeight + 24,
+              // Report FAB sits closest to the sheet — just clear the
+              // sheet-anchor gap.
+              bottom: fabAnchorHeight + FAB_ANCHOR_GAP,
             }}
           >
             <SidebtnReport width={32} height={32} />
@@ -3674,6 +3700,15 @@ const styles = StyleSheet.create({
     // Shadow points UP since the sheet floats above content from the
     // bottom edge — `shadows.sheet` bundles the directional offset.
     ...shadows.sheet,
+  },
+  // ScrollView wrapper around the route-mode body content. flexShrink: 1
+  // lets the scroller cede space to the always-visible actionsRow when
+  // total content (chips + via + trusted-on-route + tradeoff at AX5)
+  // exceeds the sheet's maxHeight. Without it the Go button would push
+  // off-screen at largest Dynamic Type — the v2-default behavior the
+  // 2026-06-23 critique flagged as P2 on /home.
+  bottomSheetScroll: {
+    flexShrink: 1,
   },
   bottomSheetContent: {
     gap: spacing.md,
