@@ -586,7 +586,7 @@ function DetailView({
         showsVerticalScrollIndicator={false}
       >
       <View style={styles.detailTitleRow}>
-        <CategoryGlyph categoryId={category.id} size={32} />
+        <CategoryGlyph categoryId={category.id} size={40} />
         <Text style={styles.detailTitleLabel}>{category.label}</Text>
       </View>
       {category.anonymous && (
@@ -623,7 +623,7 @@ function DetailView({
                 >
                   {group.label && (
                     <Text
-                      style={styles.fieldLabel}
+                      style={styles.subTagGroupLabel}
                       accessibilityRole="header"
                     >
                       {group.label}
@@ -929,7 +929,6 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
     marginTop: spacing.xs,
     alignSelf: 'stretch',
-    paddingHorizontal: spacing.lg,
   },
   // Detail title row — glyph + category name in a single tight row.
   // Replaces the v1 vertical block (48pt glyph + label + generic subtitle).
@@ -940,7 +939,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
   },
   detailTitleLabel: {
     ...dynamicType(typography.title1Emphasized),
@@ -1065,6 +1063,11 @@ const styles = StyleSheet.create({
   // collide with the photo dropzone below).
   subTagGroup: {
     gap: spacing.sm,
+  },
+  subTagGroupLabel: {
+    ...dynamicType(typography.subheadlineEmphasized),
+    color: colors.wiltedgreen,
+    alignSelf: 'stretch',
   },
   // Wraps so the 6-item chip set lays out across two rows on a
   // narrow 351pt popup. 8pt gap matches the field-label-to-control

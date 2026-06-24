@@ -64,17 +64,17 @@ const BG_FOR_VARIANT: Record<Variant, typeof BgReport> = {
 function GlyphForCategory({ categoryId }: { categoryId: ReportCategoryId }) {
   switch (categoryId) {
     case 'black-owned':
-      return <GlyphBlackOwned width={24} height={24} />;
+      return <GlyphBlackOwned width={32} height={32} />;
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={24} height={24} />;
+      return <GlyphFeltWelcome width={32} height={32} />;
     case 'felt-unsafe':
-      return <GlyphFeltUnsafe width={24} height={24} />;
+      return <GlyphFeltUnsafe width={32} height={32} />;
     case 'incident':
-      return <GlyphIncident width={24} height={24} />;
+      return <GlyphIncident width={32} height={32} />;
     case 'lighting':
-      return <GlyphLighting width={24} height={24} />;
+      return <GlyphLighting width={32} height={32} />;
     case 'hazard':
-      return <GlyphHazard width={24} height={24} />;
+      return <GlyphHazard width={32} height={32} />;
     default:
       return null;
   }
@@ -207,7 +207,7 @@ export function ReportDetailCard({
 
           <View style={styles.headerCenter}>
             <View style={styles.iconWrap} accessibilityIgnoresInvertColors>
-              <BgSvg width={36} height={36} />
+              <BgSvg width={48} height={48} />
               <View style={styles.iconGlyph}>
                 <GlyphForCategory categoryId={categoryId} />
               </View>
@@ -307,15 +307,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   iconWrap: {
-    width: 36,
-    height: 36,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconGlyph: {
     position: 'absolute',
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
