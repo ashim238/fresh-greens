@@ -4,7 +4,7 @@ import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
 import { Star } from 'phosphor-react-native/src/icons/Star';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, LayoutAnimation, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, LayoutAnimation, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import CommunitySignalGlyph from '../assets/illustrations/trustedbycommunity-empty.svg';
 // Bespoke category glyphs — multi-color illustrative SVGs that
@@ -825,6 +825,14 @@ function WeatherDrivingCard({
 }) {
   const { weather, loading, error, retry } = useWeather(userLocation);
 
+  if (loading && !weather) {
+    return (
+      <View style={[styles.weatherCard, styles.weatherCardLoading]} accessibilityLabel="Loading weather">
+        <ActivityIndicator size="small" color={colors.freshgreen} />
+      </View>
+    );
+  }
+
   if (error && !loading) {
     return (
       <Pressable
@@ -1331,6 +1339,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+  },
+  weatherCardLoading: {
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    minHeight: 44,
   },
   weatherRow: {
     flexDirection: 'row',

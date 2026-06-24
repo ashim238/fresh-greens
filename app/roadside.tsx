@@ -505,14 +505,13 @@ function LiveStatus({
     ? PROBLEMS.find((p) => p.id === problem)?.label ?? 'Need help'
     : 'Need help';
 
-  const sharedFacts: string[] = [problemLabel, locationLabel];
-  if (shareOn && shareToggledAtIso && contact) {
-    const time = new Date(shareToggledAtIso).toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-    sharedFacts.push(`Messages opened for ${contact.name} at ${time}`);
-  }
+  const contactNotifiedTime =
+    shareOn && shareToggledAtIso
+      ? new Date(shareToggledAtIso).toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : null;
 
   return (
     <ScrollView
@@ -535,8 +534,21 @@ function LiveStatus({
       </Text>
 
       <View style={styles.sharedCard}>
-        <Text style={styles.sharedCardTitle}>What you shared</Text>
-        <Text style={styles.sharedCardBody}>{sharedFacts.join(' • ')}</Text>
+        <Text style={styles.sharedCardTitle}>What they know</Text>
+        <View style={styles.sharedRow}>
+          <Text style={styles.sharedRowLabel}>Problem</Text>
+          <Text style={styles.sharedRowValue}>{problemLabel}</Text>
+        </View>
+        <View style={styles.sharedRow}>
+          <Text style={styles.sharedRowLabel}>Location</Text>
+          <Text style={styles.sharedRowValue}>{locationLabel}</Text>
+        </View>
+        {shareOn && contact && contactNotifiedTime && (
+          <View style={styles.sharedRow}>
+            <Text style={styles.sharedRowLabel}>Contact</Text>
+            <Text style={styles.sharedRowValue}>{contact.name} · {contactNotifiedTime}</Text>
+          </View>
+        )}
       </View>
 
       <Text style={styles.sectionLabel}>If this gets worse</Text>
@@ -875,9 +887,19 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteEmphasized),
     color: colors.black,
   },
-  sharedCardBody: {
-    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
+  sharedRow: {
+    flexDirection: 'row' as const,
+    gap: spacing.sm,
+  },
+  sharedRowLabel: {
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.labelTertiary,
+    width: 64,
+  },
+  sharedRowValue: {
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
+    flex: 1,
   },
   sectionLabel: {
     ...dynamicType(typography.subheadlineEmphasized),
