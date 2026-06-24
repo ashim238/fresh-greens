@@ -2143,15 +2143,10 @@ const reviewStyles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: spacing.sm,
   },
-  // 44pt visible tap target — paddingVertical:13 brings the ~18pt
-  // footnoteRegular "Back" link to a 44pt painted height per HIG.
-  // Earlier this leaned on hitSlop, but .cursorrules' tap-target rule
-  // is explicit: hitSlop is for the *genuinely constrained* case, not
-  // a workaround for sub-44pt visuals. The footer has room for the
-  // paint; promote the visual.
   closeBtn: {
     alignSelf: 'flex-end',
-    paddingVertical: 13,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: spacing.xs,
   },
   closeText: {
@@ -2167,7 +2162,7 @@ const reviewStyles = StyleSheet.create({
   },
   dotStrip: {
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   dot: {

@@ -169,6 +169,8 @@ export function ReportDetailCard({
     }
   }
 
+  const hasBody = Boolean(routeContextLine || detail || photoUri);
+
   return (
     <Pressable
       style={styles.scrim}
@@ -179,20 +181,10 @@ export function ReportDetailCard({
       <Animated.View
         style={[styles.sheet, entrance.style]}
         accessibilityViewIsModal
-        // Stop taps inside the sheet from bubbling to the scrim's
-        // dismiss handler. Without this, tapping anywhere on the
-        // sheet's contents would close it — Pressable on the scrim
-        // catches the press first if we don't intercept.
         onStartShouldSetResponder={() => true}
       >
         <DragHandle />
 
-        {/*
-          Symmetric header per Figma 1133:13853 — Share FAB left,
-          centered category copy, Close FAB right. The category icon
-          sits above the title (vs. inline) so the row's left/right
-          weights stay balanced.
-        */}
         <View style={styles.headerRow}>
           <FloatingActionButton
             size="48"
@@ -204,32 +196,7 @@ export function ReportDetailCard({
           >
             <Export size={24} color={colors.labelSecondary} weight="regular" />
           </FloatingActionButton>
-
-          <View style={styles.headerCenter}>
-            <View style={styles.iconWrap} accessibilityIgnoresInvertColors>
-              <BgSvg width={48} height={48} />
-              <View style={styles.iconGlyph}>
-                <GlyphForCategory categoryId={categoryId} />
-              </View>
-            </View>
-            <Text
-              style={styles.categoryLabel}
-              accessibilityRole="header"
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            <Text style={styles.subline} numberOfLines={1}>
-              {subline}
-            </Text>
-            {routeContextLine ? (
-              <Text style={styles.routeContext}>{routeContextLine}</Text>
-            ) : null}
-            {detail ? (
-              <Text style={styles.detail}>{detail}</Text>
-            ) : null}
-          </View>
-
+          <View style={styles.headerSpacer} />
           <FloatingActionButton
             size="48"
             onPress={onDismiss}
@@ -239,17 +206,44 @@ export function ReportDetailCard({
           </FloatingActionButton>
         </View>
 
-        {photoUri ? (
-          <View style={styles.photoWrap}>
-            <Image
-              source={{ uri: photoUri }}
-              style={styles.photo}
-              accessibilityIgnoresInvertColors
-              accessibilityRole="image"
-              accessibilityLabel="Photo attached to this report"
-            />
+        <View style={styles.identityBlock}>
+          <View style={styles.iconWrap} accessibilityIgnoresInvertColors>
+            <BgSvg width={48} height={48} />
+            <View style={styles.iconGlyph}>
+              <GlyphForCategory categoryId={categoryId} />
+            </View>
           </View>
-        ) : null}
+          <Text
+            style={styles.categoryLabel}
+            accessibilityRole="header"
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Text style={styles.subline} numberOfLines={1}>
+            {subline}
+          </Text>
+        </View>
+
+        {hasBody && (
+          <View style={styles.bodyWrap}>
+            {routeContextLine ? (
+              <Text style={styles.routeContext}>{routeContextLine}</Text>
+            ) : null}
+            {detail ? (
+              <Text style={styles.detail}>{detail}</Text>
+            ) : null}
+            {photoUri ? (
+              <Image
+                source={{ uri: photoUri }}
+                style={styles.photo}
+                accessibilityIgnoresInvertColors
+                accessibilityRole="image"
+                accessibilityLabel="Photo attached to this report"
+              />
+            ) : null}
+          </View>
+        )}
 
         {onRemove && (
           <Pressable
@@ -298,12 +292,14 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
-  headerCenter: {
+  headerSpacer: {
     flex: 1,
+  },
+  identityBlock: {
     alignItems: 'center',
+    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
   iconWrap: {
@@ -329,35 +325,24 @@ const styles = StyleSheet.create({
     color: colors.mutedSecondary,
     textAlign: 'center',
   } as const,
-  // Photo attachment — 4:3 within the same 24pt gutter as the detail
-  // copy. resizeMode 'cover' so portrait phone photos crop to the
-  // panel's landscape rectangle without letterboxing. Border-radius
-  // 12pt matches the RecommendationCard photo treatment.
-  photoWrap: {
+  bodyWrap: {
     paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
-  photo: {
-    width: '100%',
-    aspectRatio: 4 / 3,
-    borderRadius: 12,
-    backgroundColor: colors.fadedgreen, // shows during image load
-  },
-  // Route-preview context — meta under the centered title stack, not a
-  // left-aligned orphan between centered chrome and body copy.
   routeContext: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.wiltedgreen,
-    textAlign: 'center',
   } as const,
-  // Optional note from /report — lives in the centered stack (same
-  // column as title + route context), not a left-aligned orphan below
-  // the photo. Matches the symmetric marker-sheet chrome.
   detail: {
     ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
-    color: colors.black,
-    textAlign: 'center',
-    alignSelf: 'stretch',
+    color: colors.labelSecondary,
   } as const,
+  photo: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: radii.md,
+    backgroundColor: colors.fadedgreen,
+  },
   removeRow: {
     flexDirection: 'row',
     alignItems: 'center',
