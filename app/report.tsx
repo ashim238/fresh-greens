@@ -131,6 +131,7 @@ export default function Report() {
     const hasContent =
       detailText.trim().length > 0 ||
       selectedSubTag !== undefined ||
+      selectedPlaceType !== undefined ||
       photoUri !== undefined;
     if (!hasContent) {
       handleClose();
@@ -157,6 +158,13 @@ export default function Report() {
     undefined,
   );
 
+  // Place-type selection for categories that have a two-section chip split
+  // (currently: felt-welcome). Tracks the first group's selection separately
+  // from selectedSubTag so each section has independent toggle state.
+  const [selectedPlaceType, setSelectedPlaceType] = useState<string | undefined>(
+    undefined,
+  );
+
   // Optional photo URI from expo-image-picker (camera capture only —
   // library picks would let a user attach a photo from anywhere,
   // which breaks the implicit "this is where I am" contract of a
@@ -168,6 +176,7 @@ export default function Report() {
     setCategory(c);
     setDetailText('');
     setSelectedSubTag(undefined);
+    setSelectedPlaceType(undefined);
     setPhotoUri(undefined);
     setMode('detail');
   }
@@ -175,6 +184,7 @@ export default function Report() {
   function handleBackFromDetail() {
     setCategory(null);
     setSelectedSubTag(undefined);
+    setSelectedPlaceType(undefined);
     setPhotoUri(undefined);
     setMode('picker');
   }
@@ -263,6 +273,7 @@ export default function Report() {
       location,
       detail: detailText.trim() || undefined,
       subTag: selectedSubTag,
+      placeType: selectedPlaceType,
       placeName: nearest?.name,
       googlePlaceId: nearest?.googlePlaceId,
       submittedBy: category.anonymous ? undefined : user?.id,
@@ -338,6 +349,8 @@ export default function Report() {
             onChangeDetail={setDetailText}
             selectedSubTag={selectedSubTag}
             onChangeSubTag={setSelectedSubTag}
+            selectedPlaceType={selectedPlaceType}
+            onChangePlaceType={setSelectedPlaceType}
             onBack={handleBackFromDetail}
             onClose={handleCloseFromDetail}
             onSubmit={handleSubmit}
@@ -509,6 +522,35 @@ function PickerView({
   );
 }
 
+// --- Severity chip helper ------------------------------------------------
+
+function severityChipStyles(
+  category: ReportCategory,
+  tag: string,
+): {
+  base?: object;
+  active?: object;
+  label?: object;
+} {
+  if (!category.severityMap) return {};
+  const zone = category.severityMap[tag];
+  if (zone === 'avoid') {
+    return {
+      base: styles.chipAvoid,
+      active: styles.chipAvoidActive,
+      label: styles.chipAvoidLabel,
+    };
+  }
+  if (zone === 'caution') {
+    return {
+      base: styles.chipCaution,
+      active: styles.chipCautionActive,
+      label: styles.chipCautionLabel,
+    };
+  }
+  return {};
+}
+
 // --- Detail view ---------------------------------------------------------
 
 function DetailView({
@@ -517,6 +559,8 @@ function DetailView({
   onChangeDetail,
   selectedSubTag,
   onChangeSubTag,
+  selectedPlaceType,
+  onChangePlaceType,
   onBack,
   onClose,
   onSubmit,
@@ -533,6 +577,8 @@ function DetailView({
   onChangeDetail: (text: string) => void;
   selectedSubTag: string | undefined;
   onChangeSubTag: (subTag: string | undefined) => void;
+  selectedPlaceType: string | undefined;
+  onChangePlaceType: (placeType: string | undefined) => void;
   onBack: () => void;
   onClose: () => void;
   onSubmit: () => void;
@@ -613,71 +659,91 @@ function DetailView({
           ];
           return (
             <>
-              {groups.map((group, groupIdx) => (
-                <View
-                  key={group.label ?? `group-${groupIdx}`}
-                  style={styles.subTagGroup}
-                >
-                  {group.label && (
-                    <Text
-                      style={styles.subTagGroupLabel}
-                      accessibilityRole="header"
-                    >
-                      {group.label}
-                    </Text>
-                  )}
-                  <View style={styles.chipsWrap}>
-                    {group.tags.map((tag) => {
-                      const active = selectedSubTag === tag;
-                      return (
-                        <Pressable
-                          key={tag}
-                          onPress={() =>
-                            onChangeSubTag(active ? undefined : tag)
-                          }
-                          disabled={submitting}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: active }}
-                          accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
-                          style={({ pressed }) => [
-                            styles.chip,
-                            active && styles.chipActive,
-                            pressed && !submitting && pressedDim,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.chipLabel,
-                              active && styles.chipLabelActive,
+              {groups.map((group, groupIdx) => {
+                const isSplitSelect = category.id === 'felt-welcome' && groups.length > 1;
+                const usePlaceType = isSplitSelect && groupIdx === 0;
+                const selectedValue = usePlaceType ? selectedPlaceType : selectedSubTag;
+                const onChangeValue = usePlaceType ? onChangePlaceType : onChangeSubTag;
+                return (
+                  <View
+                    key={group.label ?? `group-${groupIdx}`}
+                    style={styles.subTagGroup}
+                  >
+                    {group.label && (
+                      <Text
+                        style={styles.subTagGroupLabel}
+                        accessibilityRole="header"
+                      >
+                        {group.label}
+                      </Text>
+                    )}
+                    <View style={styles.chipsWrap}>
+                      {group.tags.map((tag) => {
+                        const active = selectedValue === tag;
+                        const sev = severityChipStyles(category, tag);
+                        return (
+                          <Pressable
+                            key={tag}
+                            onPress={() =>
+                              onChangeValue(active ? undefined : tag)
+                            }
+                            disabled={submitting}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
+                            style={({ pressed }) => [
+                              styles.chip,
+                              sev.base,
+                              active && (sev.active ?? styles.chipActive),
+                              pressed && !submitting && pressedDim,
                             ]}
                           >
-                            {tag}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                            <Text
+                              style={[
+                                styles.chipLabel,
+                                sev.label,
+                                active && styles.chipLabelActive,
+                              ]}
+                            >
+                              {tag}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </>
           );
         })()}
 
-        <Text style={styles.fieldLabel}>(Optional) Your note</Text>
-        <TextInput
-          style={styles.textInput}
-          value={detailText}
-          onChangeText={onChangeDetail}
-          placeholder=""
-          multiline
-          maxLength={280}
-          editable={!submitting}
-          accessibilityLabel="Report details"
-          accessibilityState={{ disabled: submitting }}
-          inputAccessoryViewID={
-            Platform.OS === 'ios' ? DETAIL_INPUT_ACCESSORY_ID : undefined
-          }
-        />
+        {category.id !== 'lighting' && (
+          <>
+            <Text style={styles.fieldLabel}>
+              {category.id === 'incident' ? '(Optional) What happened?'
+                : category.id === 'felt-unsafe' ? '(Optional) Want to say more?'
+                : category.id === 'hazard' ? '(Optional) Details'
+                : category.id === 'felt-welcome' ? '(Optional) Share your experience'
+                : category.id === 'black-owned' ? '(Optional) Know the name?'
+                : '(Optional) Your note'}
+            </Text>
+            <TextInput
+              style={styles.textInput}
+              value={detailText}
+              onChangeText={onChangeDetail}
+              placeholder=""
+              multiline
+              maxLength={280}
+              editable={!submitting}
+              accessibilityLabel="Report details"
+              accessibilityState={{ disabled: submitting }}
+              inputAccessoryViewID={
+                Platform.OS === 'ios' ? DETAIL_INPUT_ACCESSORY_ID : undefined
+              }
+            />
+          </>
+        )}
 
         {category.hasPhoto && (
           <>
@@ -1100,6 +1166,28 @@ const styles = StyleSheet.create({
   chipLabelActive: {
     ...typography.subheadlineEmphasized,
     color: colors.white,
+  },
+  chipAvoid: {
+    borderColor: colors.red,
+    backgroundColor: 'rgba(255, 59, 48, 0.08)',
+  },
+  chipAvoidActive: {
+    backgroundColor: colors.red,
+    borderColor: colors.red,
+  },
+  chipAvoidLabel: {
+    color: colors.red,
+  },
+  chipCaution: {
+    borderColor: colors.orange,
+    backgroundColor: 'rgba(255, 149, 0, 0.08)',
+  },
+  chipCautionActive: {
+    backgroundColor: colors.orange,
+    borderColor: colors.orange,
+  },
+  chipCautionLabel: {
+    color: colors.orange,
   },
   // Stretches the v2 `Button` across the popup's content width. Without
   // this, the unified Button picks up its natural width from its label
