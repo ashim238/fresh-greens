@@ -17,6 +17,9 @@ const TRAIL_1_SIZE = 7;
 const TRAIL_2_OFFSET = 35;
 const TRAIL_2_SIZE = 4;
 
+const TILT_PERSPECTIVE = 300;
+const TILT_ANGLE = '40deg';
+
 export function EnRouteCarMarker({
   latitude,
   longitude,
@@ -45,16 +48,28 @@ export function EnRouteCarMarker({
       <View
         style={[styles.frame, { transform: [{ rotate: `${rotation}deg` }] }]}
       >
-        <View style={styles.trail1} />
-        <View style={styles.trail2} />
-        <View style={styles.puck}>
-          <View style={styles.core}>
-            <View style={styles.crescent} />
-            <NavigationArrow
-              size={ARROW_SIZE}
-              color={colors.white}
-              weight="fill"
-            />
+        <View
+          style={[
+            styles.tilt,
+            {
+              transform: [
+                { perspective: TILT_PERSPECTIVE },
+                { rotateX: TILT_ANGLE },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.trail1} />
+          <View style={styles.trail2} />
+          <View style={styles.puck}>
+            <View style={styles.core}>
+              <View style={styles.crescent} />
+              <NavigationArrow
+                size={ARROW_SIZE}
+                color={colors.white}
+                weight="fill"
+              />
+            </View>
           </View>
         </View>
       </View>
@@ -64,6 +79,12 @@ export function EnRouteCarMarker({
 
 const styles = StyleSheet.create({
   frame: {
+    width: FRAME_SIZE,
+    height: FRAME_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tilt: {
     width: FRAME_SIZE,
     height: FRAME_SIZE,
     alignItems: 'center',
