@@ -220,7 +220,7 @@ Components are HIG-native and consolidated — one `Button`, one `SearchBar`, on
 - **EmptyState / LoadingState / ErrorState:** One rounded shape (16px radius, 32pt padding, centered). Empty = translucent gray + border; Loading/Error = no fill (parent shows through). Copy carries personality ("Charting course…"), not "Nothing here."
 
 ### Chips
-- **Style:** Translucent neutral fills (the four-tier `fills` ramp) for rating/category/tag pills; reserved-signal fills *only* on route-warning chips where the color means hazard.
+- **Style:** Translucent neutral fills (the four-tier `fills` ramp) for rating/category/tag pills; reserved-signal fills on route-warning chips and report severity chips where the color encodes hazard class (see `.cursorrules` exceptions #7, #12).
 
 ### Drag Handle
 - A 32×4 pill in translucent gray, centered atop every bottom sheet. The one universal "this surface moves" affordance.
