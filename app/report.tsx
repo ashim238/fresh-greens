@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
     // 351). On 430pt Pro Max → 390pt (proportional). On 600pt+ →
     // capped at 400pt so the popup stays "focused dialog" not "page."
     alignSelf: 'stretch',
-    marginHorizontal: 20,
+    marginHorizontal: spacing.md,
     maxWidth: 400,
     // Cap the popup at 90% of available height so KeyboardAvoidingView
     // can lift it cleanly when the detail TextInput focuses, and so
@@ -844,9 +844,9 @@ const styles = StyleSheet.create({
     // v2 spec (1112:8900): px-24 py-32 gap-24. Bumped horizontal from
     // 16 → 24 to honor the v2 breathing room while keeping the vertical
     // and gap unchanged.
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    gap: 24,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    gap: spacing.lg,
     // Theme tier — content above map but below transparent modal scrim.
     ...shadows.e2,
   },
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
   // children — moving them inside ScrollView's contentContainer means
   // the gap has to live here instead.
   detailScrollContent: {
-    gap: 24,
+    gap: spacing.lg,
   },
   titleBlock: {
     // Left-aligned title stack (icon + title + subtitle + optional
@@ -919,11 +919,11 @@ const styles = StyleSheet.create({
 
   // --- Picker grid ---
   grid: {
-    gap: 24,
+    gap: spacing.lg,
   },
   gridRow: {
     flexDirection: 'row',
-    gap: 24,
+    gap: spacing.lg,
   },
   tile: {
     flex: 1,
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
   tileIconBox: {
     width: '100%',
     height: 96,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     backgroundColor: colors.systemGroupedBackground,
     alignItems: 'center',
     justifyContent: 'center',
@@ -944,7 +944,7 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.black,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
 
   // --- Detail form ---
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
   // rounded-16, more in line with the popup's 20pt corner radius than
   // the earlier 8pt boxy feel.
   formBlock: {
-    gap: 16,
+    gap: spacing.md,
   },
   fieldLabel: {
     ...dynamicType(typography.subheadlineRegular),
@@ -964,9 +964,9 @@ const styles = StyleSheet.create({
     minHeight: 61,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     ...dynamicType(typography.bodyRegular),
     color: colors.black,
     textAlignVertical: 'top',
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
     borderStyle: 'dashed',
-    borderRadius: 16,
+    borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
   // clear X can absolute-position over the image's top-right corner.
   photoPreviewWrap: {
     height: 120,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -1005,7 +1005,7 @@ const styles = StyleSheet.create({
     right: 8,
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: radii.md,
     backgroundColor: colors.photoDismissChip,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1026,16 +1026,16 @@ const styles = StyleSheet.create({
   chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
   },
   // Pill shape per the design system's pill register. minHeight: 44
   // paints the HIG tap-target floor; visual label centers inside the
   // larger painted area. Outlined freshgreen (unselected) / filled
   // wiltedgreen (selected) — the content treatment is unchanged.
   chip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.md,
     minHeight: 44,
-    borderRadius: 1000,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.freshgreen,
     backgroundColor: colors.white,
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
   // aligned Title1 Regular version was a different visual register;
   // v2 consolidates the three phases to one consistent layout family.
   thankYouTitleBlock: {
-    gap: 16,
+    gap: spacing.md,
     alignItems: 'flex-start',
   },
   thankYouTitle: {
@@ -1087,7 +1087,7 @@ const styles = StyleSheet.create({
   // and is the platform-conventional dismiss target.
   inputAccessory: {
     backgroundColor: colors.systemGroupedBackground,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
     // No vertical padding — the Done button's minHeight: 44 sizes the bar
     // to ~44pt total, matching the native iOS keyboard toolbar. Earlier
     // had paddingVertical: 8 which stacked with the new 44pt button to
@@ -1100,7 +1100,7 @@ const styles = StyleSheet.create({
   inputAccessoryDone: {
     ...typography.bodyEmphasized,
     color: colors.freshgreen,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   // 44pt painted tap floor for the Done button — the bodyEmphasized
   // Text alone is ~22pt and needs a compliant hit area. minWidth gives
@@ -1109,7 +1109,7 @@ const styles = StyleSheet.create({
   inputAccessoryDoneBtn: {
     minHeight: 44,
     minWidth: 44,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

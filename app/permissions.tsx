@@ -19,6 +19,8 @@ import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -256,8 +258,8 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 32, // matches Figma — works directly on SafeAreaView now that we use react-native-safe-area-context
-    paddingBottom: 34,
+    paddingHorizontal: spacing.xl, // matches Figma — works directly on SafeAreaView now that we use react-native-safe-area-context
+    paddingBottom: spacing.xl,
   },
   content: {
     flex: 1,
@@ -267,13 +269,13 @@ const styles = StyleSheet.create({
     // within the padded safe area. Explicitly setting flex-start collapses
     // wrappers to text intrinsic width and visually swallows the padding.
     justifyContent: 'center',
-    gap: 32,
+    gap: spacing.xl,
   },
   visualAndCopy: {
-    gap: 32,
+    gap: spacing.xl,
   },
   visual: {
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'flex-start',
   },
   locationWrap: {
@@ -291,10 +293,10 @@ const styles = StyleSheet.create({
     height: 40,
   },
   copy: {
-    gap: 32, // gap between mainBody and subDirections
+    gap: spacing.xl, // gap between mainBody and subDirections
   },
   mainBody: {
-    gap: 16, // gap between body and "Tap Settings below:"
+    gap: spacing.md, // gap between body and "Tap Settings below:"
   },
   body: {
     // bodyEmphasized (17pt) per the 2026-06-01 text-size audit. This
@@ -315,17 +317,17 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   subDirections: {
-    gap: 16,
+    gap: spacing.md,
   },
   subRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
   },
   thumb: {
     width: 24,
     height: 24,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -353,7 +355,7 @@ const styles = StyleSheet.create({
   // around the ~14pt footnote text — clears the iOS HIG 44pt minimum
   // without going so wide that the link visually competes with Continue.
   settingsLinkRow: {
-    paddingVertical: 16,
+    paddingVertical: spacing.md,
   },
   settingsLinkPrompt: {
     ...typography.footnoteRegular,

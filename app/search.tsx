@@ -51,6 +51,8 @@ import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -1056,30 +1058,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchBarRow: {
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
   },
   scrollContent: {
-    gap: 16,
-    paddingBottom: 32,
+    gap: spacing.md,
+    paddingBottom: spacing.xl,
   },
   quickToolsRow: {
-    gap: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
   quickTool: {
     width: 144,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    paddingTop: 24,
-    paddingBottom: 12,
-    paddingHorizontal: 40,
+    gap: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   // Selected state per Figma `1133:13314`. Same outline and shape;
   // the bg flips from white → iOS system fillsTertiary so the
@@ -1092,7 +1094,7 @@ const styles = StyleSheet.create({
   },
   quickToolLabelWrap: {
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xs,
   },
   quickToolLabel: {
     ...dynamicType(typography.subheadlineEmphasized),
@@ -1106,12 +1108,12 @@ const styles = StyleSheet.create({
   // a 12pt left/right padding to match Figma 1105:6502.
   resultsInsetDivider: {
     height: 1,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.md,
     backgroundColor: colors.separatorSubtle,
   },
   fuelSection: {
-    paddingHorizontal: 24,
-    gap: 8,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
   fuelTitle: {
     ...dynamicType(typography.subheadlineEmphasized),
@@ -1122,8 +1124,8 @@ const styles = StyleSheet.create({
     color: colors.wiltedgreen,
   },
   recentSection: {
-    paddingHorizontal: 24,
-    gap: 8,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
   recentHeader: {
     flexDirection: 'row',
@@ -1145,17 +1147,17 @@ const styles = StyleSheet.create({
   recentEmpty: {
     ...dynamicType(relaxedLineHeight(typography.subheadlineRegular)),
     color: colors.mutedSecondary,
-    paddingVertical: 10,
+    paddingVertical: spacing.md,
   },
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     // S5: 10 → 12pt. Brings row to 48pt (24pt icon + 12pt × 2 padding),
     // aligned to the 4pt grid (10 wasn't) and matching iOS table-row
     // density. Recents is a primary affordance; generous row height
     // signals quality and improves scan-ability.
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
   // The text column wraps name + address so the Clock icon stays
   // vertically centered against the full row block, not just the
@@ -1164,7 +1166,7 @@ const styles = StyleSheet.create({
   recentTextColumn: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: spacing.xs,
   },
   recentText: {
     ...dynamicType(typography.subheadlineEmphasized),
@@ -1178,17 +1180,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 32,
+    paddingTop: spacing.xl,
   },
   resultsContent: {
-    paddingBottom: 32,
+    paddingBottom: spacing.xl,
   },
   resultsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   resultsHeaderText: {
     ...dynamicType(typography.footnoteRegular),
@@ -1198,8 +1200,8 @@ const styles = StyleSheet.create({
   demoPriceFootnote: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   resultMeta: {
     ...dynamicType(typography.caption1Regular),
@@ -1208,15 +1210,15 @@ const styles = StyleSheet.create({
   resultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
-    paddingLeft: 48,
-    paddingRight: 24,
-    paddingVertical: 12,
+    gap: spacing.lg,
+    paddingLeft: spacing.xxl,
+    paddingRight: spacing.lg,
+    paddingVertical: spacing.md,
     position: 'relative',
   },
   resultText: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   resultName: {
     ...dynamicType(typography.subheadlineEmphasized),

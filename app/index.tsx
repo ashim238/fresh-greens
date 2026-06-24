@@ -30,6 +30,8 @@ import WelcomeWindMed from '../assets/illustrations/welcome-wind-med.svg';
 import WelcomeWindSm from '../assets/illustrations/welcome-wind-sm.svg';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { Button } from '../components/Button';
 import { typography } from '../theme/typography';
 
@@ -374,15 +376,15 @@ const styles = StyleSheet.create({
   // --- Foreground content ---
   content: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingBottom: 24,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
   },
   illustrationContainer: {
     flex: 1,
   },
   titleBlock: {
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
     marginBottom: 160,
   },
   title: {
@@ -395,12 +397,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     alignItems: 'stretch',
-    gap: 16,
+    gap: spacing.md,
   },
   terms: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
     alignSelf: 'stretch',
   },
   checkbox: {
@@ -411,13 +413,13 @@ const styles = StyleSheet.create({
     height: 24,
     borderWidth: 2,
     borderColor: colors.freshgreen,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
   termsTextColumn: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   termsText: {
     ...typography.caption2Regular,

@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     backgroundColor: colors.systemGroupedBackground,
   },
   tabActive: {

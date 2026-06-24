@@ -2460,7 +2460,7 @@ const styles = StyleSheet.create({
   // side-FAB stack is unaffected.
   sosColumn: {
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   sosHoldHint: {
     ...typography.caption2Regular,
@@ -2489,23 +2489,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.wiltedgreen,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: radii.sheet,
+    borderBottomRightRadius: radii.sheet,
     overflow: 'hidden',
   },
   turnSign: {
     backgroundColor: colors.wiltedgreen,
     flexDirection: 'row',
-    gap: 24,
+    gap: spacing.lg,
     alignItems: 'flex-start',
     // 16pt of additional top padding on top of SafeAreaView's
     // status-bar inset. Without it the turn arrow + instruction sit
     // visually flush with the status bar — readable but cramped on
     // device. The 16pt gives the turn-card content room to breathe
     // below the time/battery icons.
-    paddingTop: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   // Direction column per Figma 825:3754 — turn arrow at top, distance
   // at bottom, stretched to the turnSign row's full content height
@@ -2519,7 +2519,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: spacing.sm,
   },
   // Distance "0.5" in Title3/Emphasized per Figma 364:2853 — bumped
   // from Title3/Regular so the number reads with the prominence the
@@ -2534,7 +2534,7 @@ const styles = StyleSheet.create({
   },
   turnText: {
     flex: 1,
-    gap: 16,
+    gap: spacing.md,
   },
   turnInstruction: {
     // dynamicType + relaxedLineHeight — turn instructions are the most
@@ -2559,7 +2559,7 @@ const styles = StyleSheet.create({
   hazardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   // "Offline route" pill — surfaced on the turn card when route
   // source is 'cache' or 'mock'. Translucent dark backing reads as
@@ -2569,9 +2569,9 @@ const styles = StyleSheet.create({
   offlinePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: 100,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignSelf: 'flex-start',
@@ -2586,11 +2586,11 @@ const styles = StyleSheet.create({
   thenFooter: {
     backgroundColor: colors.burntgreen,
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     // Rounded bottom + clipping lives on the parent `headerCard`,
     // not here — see the comment there for why.
   },
@@ -2612,7 +2612,7 @@ const styles = StyleSheet.create({
     // column height, which on iPhone SE (667pt viewport) left near-zero
     // clearance from the turn card's bottom edge. 12pt gaps trim 16pt
     // total → ~37pt clearance on SE without breaking visual rhythm.
-    gap: 12,
+    gap: spacing.md,
   },
   // sideBtn style block retired — the 5 side-column buttons consume
   // the FloatingActionButton component now (size="56").
@@ -2645,8 +2645,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    paddingHorizontal: 8,
-    paddingTop: 10,
+    paddingHorizontal: spacing.sm,
+    paddingTop: 10, // optical value — preserve; see note above
     // 22, not 10: the digit is bottom-aligned (justifyContent flex-end),
     // and the pill's bottom 12pt are hidden behind the speed-limit sign
     // (marginBottom -12 overlap). At paddingBottom 10 the digit's baseline
@@ -2684,13 +2684,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
     // Top padding lives on `dragHandleTapTarget` now (the first
     // child) so the tap region extends to the sheet's top edge.
     // Without that move, the top 16pt of the sheet was visual
     // dead-space outside the Pressable.
-    gap: 16,
+    gap: spacing.md,
     ...shadows.sheet,
   },
   sheetContent: {
@@ -2699,15 +2699,15 @@ const styles = StyleSheet.create({
     // of 16pt (handle → eta) → 8pt (eta → secondary → endtrip) read as
     // an oversight, especially when the hazard panel inserted into the
     // 8pt rhythm on sheet expansion.
-    gap: 16,
-    paddingBottom: 8,
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
   },
   // Drag handle tap target — 8+4+8=20pt of vertical paint; the
   // remaining HIG 44pt floor comes from `hitSlop` on the Pressable.
   // Painting the full 44pt of padding left too much dead space
   // above the ETA row.
   dragHandleTapTarget: {
-    paddingVertical: 20,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   // Hazard panel (Full state) — yellow diamond hazard marker on the
@@ -2719,8 +2719,8 @@ const styles = StyleSheet.create({
   hazardPanel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 16,
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
     // W2 of PR D review: dropped paddingTop: 8. With sheetContent's
     // gap now at 16 (F8), the extra 8pt here turned the slot above
     // the hazard panel into 24pt while everything else in the sheet
@@ -2732,7 +2732,7 @@ const styles = StyleSheet.create({
   // sentence above an optional Subheadline/Regular "For X mi." line.
   hazardCopyColumn: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   hazardCopy: {
     ...dynamicType(relaxedLineHeight(typography.title3Emphasized)),
@@ -2744,18 +2744,16 @@ const styles = StyleSheet.create({
   },
   // Refuel reminders entry — Full bottom sheet row. Icon + label that
   // opens FuelStopsSheet, with an optional "Due" badge on the right.
-  // Raw spacing values (8/16) match the file's local convention rather
-  // than importing the spacing token, which en-route doesn't use.
   fuelStopsEntry: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     minHeight: 44,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
   },
   fuelStopsEntryText: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xs,
   },
   fuelStopsEntryLabel: {
     ...dynamicType(typography.subheadlineEmphasized),
@@ -2766,8 +2764,8 @@ const styles = StyleSheet.create({
     color: colors.labelSecondary,
   },
   fuelStopsDueBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: 100,
     backgroundColor: colors.freshgreen,
   },
@@ -2782,11 +2780,12 @@ const styles = StyleSheet.create({
   etaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
     // 20pt (not 16pt) so the right FAB's column center aligns with
     // the side-button column above it. Side buttons are 56pt at
     // right:16 → center at right:44. Bottom-sheet FABs are 48pt;
     // center at right:44 puts the outer edge at right:20.
+    // Figma-specified alignment offset — preserve numeric literal.
     paddingHorizontal: 20,
   },
   etaCluster: {
@@ -2817,7 +2816,7 @@ const styles = StyleSheet.create({
   // separator stays Subheadline/Regular gray for a quiet beat.
   secondaryRow: {
     flexDirection: 'row',
-    gap: 4,
+    gap: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2838,8 +2837,8 @@ const styles = StyleSheet.create({
   routeBadge: {
     backgroundColor: colors.white,
     borderRadius: 100,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
   },
@@ -2849,7 +2848,7 @@ const styles = StyleSheet.create({
 
   // --- End trip pill ---
   endTripBtn: {
-    marginHorizontal: 16,
+    marginHorizontal: spacing.md,
     // F11: height 44 → 52. 44pt is the HIG floor; End Trip is the most
     // consequential destructive action on the driving surface and a
     // driver under stress should hit it first try. 52pt brings it into

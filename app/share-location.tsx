@@ -13,6 +13,7 @@ import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { safetyCardHeight, spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
   // answerCard (was flat systemGroupedBackground at minHeight 76).
   twoLineRow: {
     backgroundColor: colors.white,
-    borderRadius: 12,
+    borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
     height: safetyCardHeight,

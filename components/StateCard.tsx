@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View, type ViewStyle } from 'react
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 
 /**
@@ -127,7 +128,7 @@ const styles = StyleSheet.create({
   card: {
     width: 326,
     padding: 32,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',

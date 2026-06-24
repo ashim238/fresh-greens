@@ -20,6 +20,7 @@ import { formatElapsedDuration } from '../lib/format';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
     bottom: spacing.lg,
     minHeight: 64,
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   // Detail card
   detailCard: {
     backgroundColor: colors.systemGroupedBackground,
-    borderRadius: 12,
+    borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
   activeDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     backgroundColor: colors.freshgreen,
   },
   activelyLabel: {

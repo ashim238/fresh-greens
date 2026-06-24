@@ -60,7 +60,7 @@ Phase 1 shipped on `feat/distance-aware-refuel-phase1` (route-progress odometer 
 
 ~~**9 pre-existing bare-form duplicates remain**~~ — ✅ **Done** (`chore/polish-app-wide` / impeccable polish pass 2026-06): emergency close, home route-cycle chevrons, pulled-over review chevrons, recordings back/delete/confirm-close, saved-places remove, trusted-contact back, CalendarPickSheet close, SettingsHeader controls. Removed redundant `hitSlop` where the painted target is now 44pt.
 
-**Decorated variants to LEAVE local** (have `borderRadius` / `backgroundColor` beyond the bare shape): `app/emergency.tsx:598` `stopChrome`, `app/home.tsx:3009` `routeClearBtn`, `app/trip-summary.tsx:410`. If a second token like `tapTarget44Circle` (44pt + `borderRadius:22` + neutral fill) ever gets extracted, these three are its consumers — but not yet (rule-of-three on the circular variant isn't hit).
+**Decorated variants to LEAVE local** (have `borderRadius` / `backgroundColor` beyond the bare shape): `app/emergency.tsx` `stopChrome`, `app/home.tsx` `routeClearBtn`, `app/trip-summary.tsx` `inferenceBtn`. All three previously had `borderRadius: 22`; `polish/spacing-radii-pass` (2026-06-23) snapped them to `radii.xl` (20pt — 2pt visual delta, sub-perception). If a second token like `tapTarget44Circle` (44pt + `radii.xl` + neutral fill) ever gets extracted, these three are its consumers — but not yet (rule-of-three on the circular variant isn't hit).
 
 ## Session arc closures (2026-06-04)
 
@@ -109,7 +109,7 @@ Minor findings from the focused static audit of the surfaces this session touche
 - **Quick a11y nits** — ~~Saved-row period label~~ (fixed `57055bf`). ~~Shield FAB hint~~ / ~~safety-settings SOS hint~~ / ~~daylight strip hidden from AX tree~~ — verified present in code (2026-06 polish grep). Re-open only if device testing finds a gap.
 - **`/en-route` SOS haptic** — `selectionAsync`, identical to the Report tap; consider `notificationAsync(Warning)` so the emergency trigger feels distinct.
 - **`/menu` "What we flag" hierarchy** — sub-header vs toggle-label distinction rests on font-weight alone (`labelSecondary` #3C3C43 ≈ `labelTertiary` #3D3D3D). Approved for now; if it ever reads ambiguous, drop to `caption1Regular` or a genuinely lighter gray.
-- **Spacing-token discipline (pervasive, pre-existing)** — raw `gap: 16/24` instead of `spacing.*` across several screens. Codebase-wide convention drift, not a session regression; worth a sweep someday.
+- ~~**Spacing-token discipline (pervasive, pre-existing)**~~ — ✅ **Done 2026-06-23** (`polish/spacing-radii-pass`). Inline `padding/margin/gap` swept to `spacing.*` tokens across 15 screens + components; off-grid values snapped to nearest ramp step. Figma-specified outliers (`gap:88`, `marginLeft:10.71`, optical pill paddings) preserved with inline notes.
 - **`/search` tile toggle (pre-existing)** — deselecting a query tile (Food/Gas/Parking) leaves the search query set; minor interaction ambiguity, predates this work.
 - **`/roadside` file split (post-`feat/roadside-assistance`)** — `app/roadside.tsx` is ~817 lines hosting `Roadside` + 4 step components + helper + const + type + one styles block. Internally cohesive today (one route, one state machine, components only used by their sibling steps), but if a Step 4 or a major addition lands, split into `app/roadside/{ProblemPicker,WrongSpotModal,ActionMenu,LiveStatus}.tsx`.
 - ~~**`/roadside-setup` hydration via `useEffect`**~~ — ✅ done (`audit/safety-polish`); both `/roadside-setup` and `/fuel` swept to `useEffect` on `[loading, profile, hydrated]`.
@@ -296,7 +296,7 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 - ~~**[PROJECT] Ionicons leak across 8 surfaces (Phosphor-only rule)**~~ — **stale, done (verified 2026-06-02).** Zero non-Phosphor icon imports remain anywhere (`rg` for `@expo/vector-icons` / `Ionicons` / `react-native-vector-icons` imports → empty; the only "Ionicons" hits are docblock comments saying "was previously Ionicons"). The per-surface closures (`a481cff` et al.) completed the sweep.
 - ~~**[PROJECT] Missing `dynamicType()` on 8 non-/safety surfaces**~~ — **stale, done (verified 2026-06-02).** 140 `dynamicType()` invocations across 27 files; every named surface (/home, /en-route, /menu, /search, /recordings, /trip-summary, /trusted-contact-setup, /fuel) has its per-surface closure struck below.
 - **[PROJECT] Honesty-of-disclosure overpromise across 7 surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-C, Critical] per-surface copy tightening + render-gating. Anchor instances: /pulled-over F1, /trusted-contact-setup F3, /legal F1.
-- **[PROJECT] Raw spacing integers / token-discipline drift across 4 surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-D, Important] /search (25+), /safety (SOSBar, documented), /en-route (`rgba()` + `#000` literals), /menu (verify).
+- **[PROJECT] Raw spacing integers / token-discipline drift across 4 surfaces** — [Audit 2026-05-31 §Cross-cutting PROJECT-D, Important] /search (25+), /safety (SOSBar, documented), /en-route (`rgba()` + `#000` literals), /menu (verify). **Partial 2026-06-23** (`polish/spacing-radii-pass`): /search + /en-route spacing tokenized. Remaining: /safety + SOSBar spacing, /menu spacing verify, and the cross-cutting `rgba()` / `#000` color-literal drift on /en-route (separate dimension from this pass).
 - **[PROJECT] Stale or missing v2-deltas docblocks (emerging)** — [Audit 2026-05-31 §Cross-cutting PROJECT-E, Important] /home `app/home.tsx:1516` cites stale Figma `1133:13690`; /en-route `app/en-route.tsx:101-118` lacks consolidated deltas block.
 
 ### /pulled-over
@@ -343,7 +343,7 @@ Findings from `docs/audits/2026-05-31-app-wide-fidelity-audit.md`. Critical + Im
 
 - **[/search] Results-phase search-bar mismatches Figma `1105:6462` left-icon variant** — [Audit 2026-05-31 §/search F1, Important] intentional but not disclosed in docblock.
 - **[/search] "More results for X" affordance from Figma results node absent** — [Audit 2026-05-31 §/search F2, Important] Mapbox Search Box pages; surface it.
-- **[/search] 25+ raw integer spacings** — [Audit 2026-05-31 §/search F3, Important] `app/search.tsx:826-1021`, `SearchBar.tsx:147-198`, `StateCard.tsx:126-195`.
+- ~~**[/search] 25+ raw integer spacings**~~ — ✅ **Done 2026-06-23** (`polish/spacing-radii-pass`). All three files swept (search.tsx 24 sites, SearchBar.tsx 3 sites; StateCard borderRadius:16 also tokenized to radii.lg in the radii pass).
 - ~~**[/search] SearchBar uses Ionicons**~~ — ✅ closed `a481cff` (Same SearchBar fix as /home F3). Original audit context: [Audit 2026-05-31 §/search F4, Important] `SearchBar.tsx:1, 65, 130`. Folds into PROJECT-A.
 - ~~**[/search] Zero `dynamicType()` calls across the three files**~~ — ✅ closed `a916e6a` (search.tsx + SearchBar + StateCard swept). Original audit context: [Audit 2026-05-31 §/search F5, Important] folds into PROJECT-B.
 - **[/search] Quick Tools horizontal ScrollView lacks `tablist` semantics** — [Audit 2026-05-31 §/search F6, Minor] `app/search.tsx:520-569`.

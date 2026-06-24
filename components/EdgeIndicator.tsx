@@ -15,6 +15,7 @@ import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg'
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   circle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

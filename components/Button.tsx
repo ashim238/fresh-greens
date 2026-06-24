@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, type ViewStyle, View } 
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
@@ -137,7 +138,7 @@ export function Button({
 const styles = StyleSheet.create({
   base: {
     height: 44,
-    borderRadius: 1000,
+    borderRadius: radii.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

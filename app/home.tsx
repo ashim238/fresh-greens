@@ -3614,8 +3614,8 @@ const styles = StyleSheet.create({
     // SafeAreaView's edges=['top'] adds the system inset (~47pt on
     // iPhone X+). Adding 23pt on top of that brings the search bar to
     // ~70pt from screen top, matching Figma's pt-[70px].
-    paddingTop: 24,
-    gap: 24,
+    paddingTop: spacing.lg,
+    gap: spacing.lg,
     alignItems: 'center',
     // No horizontal padding — children set their own widths so the menu
     // button can left-align with the search bar's left edge (both 374pt).
@@ -3625,7 +3625,7 @@ const styles = StyleSheet.create({
     // touchable region is ~40pt tall — comfortable to grab mid-drive.
     // The DragHandle itself stays visually 4pt; this only expands
     // the gesture's hit area.
-    paddingVertical: 16,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   menuRow: {
@@ -3635,7 +3635,7 @@ const styles = StyleSheet.create({
     // build), the chip is gone and the menu still aligns to start —
     // space-between with one child collapses to flex-start behavior.
     alignSelf: 'stretch',
-    marginHorizontal: 16,
+    marginHorizontal: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -3646,7 +3646,7 @@ const styles = StyleSheet.create({
   devResetChip: {
     minHeight: 32,
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     borderRadius: 16,
     backgroundColor: colors.systemGroupedBackground,
     borderWidth: 1,
@@ -3675,16 +3675,16 @@ const styles = StyleSheet.create({
     // the bottom of a long card.
     maxHeight: Dimensions.get('window').height * 0.85,
     backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
     paddingTop: 12,
-    gap: 12,
+    gap: spacing.md,
     // Shadow points UP since the sheet floats above content from the
     // bottom edge — `shadows.sheet` bundles the directional offset.
     ...shadows.sheet,
   },
   bottomSheetContent: {
-    gap: 12,
+    gap: spacing.md,
   },
   // Wraps the LoadingState card rendered inside the route-preview
   // bottom sheet during the calculating state. (The no-route state no
@@ -3694,7 +3694,7 @@ const styles = StyleSheet.create({
   // fixed-width state card horizontally centered against the wider
   // sheet content padding.
   routePreviewState: {
-    marginTop: -8,
+    marginTop: -spacing.sm,
     alignSelf: 'center',
   },
   // A21 interim no-route state. Mirrors the populated route-preview
@@ -3704,13 +3704,13 @@ const styles = StyleSheet.create({
   // Left-aligned (like the headline/via/caption stack), icon above the
   // text block.
   noRouteState: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    gap: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
     alignItems: 'flex-start',
   },
   noRouteText: {
-    gap: 4,
+    gap: spacing.xs,
   },
   noRouteHeadline: {
     // title3Emphasized (not the 34pt largeTitle of "12 min") — a
@@ -3727,7 +3727,7 @@ const styles = StyleSheet.create({
   // now owns its own ScrollView so the category chips can pin via
   // stickyHeaderIndices.)
   headers: {
-    gap: 8,
+    gap: spacing.sm,
   },
   // v1 route-preview styles removed in Round 5 (greeting / greetingRow
   // / daylightStrip / mainCopyRow / mainCopy / minutes). See git blame.
@@ -3738,7 +3738,7 @@ const styles = StyleSheet.create({
   // as one unit, so they cluster at 4pt instead of the card's 16pt
   // inter-row gap. Children keep their own 24pt horizontal gutter.
   routeSummaryBlock: {
-    gap: 4,
+    gap: spacing.xs,
   },
   // Wraps the destination-title Text so the tappable save-as-regular
   // affordance meets the 44pt painted floor — the 20pt title alone is
@@ -3751,8 +3751,8 @@ const styles = StyleSheet.create({
   routeDestTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 24,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   // Destination title — card title + tappable save-as-regular toggle.
   routeDestTitle: {
@@ -3765,20 +3765,20 @@ const styles = StyleSheet.create({
   routeHeroRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 12,
-    paddingHorizontal: 24,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   // Arrival clock time — sits baseline-aligned with the duration headline.
   routeArrival: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelSecondary,
-    paddingBottom: 6,
+    paddingBottom: spacing.sm,
   },
   // Distance line below the hero row.
   routeDistance: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
   },
   routeMinutes: {
     // H12: title2Emphasized (22pt) → largeTitleEmphasized (34pt). The
@@ -3796,15 +3796,15 @@ const styles = StyleSheet.create({
   routeViaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 24,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   daylightStripInline: {
     // Fixed 96pt right-column width per Figma. The width is shared
     // with the v1 standalone placement — only the parent row context
     // changed (now paired with via, not the headline).
     width: 96,
-    gap: 4,
+    gap: spacing.xs,
   },
   routeViaLabel: {
     ...dynamicType(typography.subheadlineRegular),
@@ -3820,31 +3820,31 @@ const styles = StyleSheet.create({
     // only in the VoiceOver a11y label.
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
   },
   trustedOnRouteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-    paddingHorizontal: 24,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
   },
   trustedOnRouteText: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.burntgreen,
   },
   routeChipsBlock: {
-    gap: 8,
+    gap: spacing.sm,
     // H16: lifted paddingHorizontal from each child (routeChipsHeader,
     // routeChipsRow) to the parent. Earlier pattern had each child
     // re-declare 24 independently — fragile coupling that would break
     // if a new chip type was added without copying the value.
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
   },
   routeChipsFootnote: {
     color: colors.labelTertiary,
-    marginTop: 6,
-    paddingHorizontal: 24,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   routeChipsHeader: {
     // Briefing-framing header above the chips ("Along this route:")
@@ -3856,7 +3856,7 @@ const styles = StyleSheet.create({
   routeChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
   },
   // Clear-destination row — dedicated top slot so the 44pt X doesn't
   // overlap the daylight strip's moon glyph below. Also houses the
@@ -3869,8 +3869,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 24,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
   },
   // Disabled state — route-cycle chevrons use shared tapTarget44. — chevron stays visible but the whole control dims
   // so users see "you've reached the end of the list, this direction is
@@ -3894,7 +3894,7 @@ const styles = StyleSheet.create({
   routeClearBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: radii.xl,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3902,10 +3902,10 @@ const styles = StyleSheet.create({
   routeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.slightlyDarkOrange,
     backgroundColor: colors.white,
@@ -3931,10 +3931,10 @@ const styles = StyleSheet.create({
   routeAllClearChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
     backgroundColor: colors.fadedgreen,
   },
   routeAllClearText: {
@@ -3947,10 +3947,10 @@ const styles = StyleSheet.create({
   routeZonesLoadingChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
     backgroundColor: colors.fillsTertiary,
   },
   routeZonesRetryChip: {
@@ -3969,7 +3969,7 @@ const styles = StyleSheet.create({
   },
   daylightBar: {
     height: 4,
-    borderRadius: 100,
+    borderRadius: radii.pill,
   },
   daylightIcons: {
     flexDirection: 'row',
@@ -3981,7 +3981,7 @@ const styles = StyleSheet.create({
     // routeChipsHeader, routeChipsRow, routeTopRow all use 24).
     // Tradeoff copy was indenting 8pt shallower than everything
     // else — visible left-gutter misalignment.
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
   },
   tradeoffCopy: {
     ...typography.footnoteRegular,
@@ -3989,19 +3989,19 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: spacing.md,
     // H14: 16 → 24 to align Schedule/Go button edges with the
     // route-card content gutter above (Via text + daylight strip end
     // at 24pt from edge; buttons were ending at 16pt, leaving the Go
     // pill's right edge 8pt short of the daylight strip's moon glyph).
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   scheduleBtn: {
     flex: 1,
     // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
     height: 44,
-    borderRadius: 100, // pill
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
     alignItems: 'center',
@@ -4015,7 +4015,7 @@ const styles = StyleSheet.create({
     flex: 1,
     // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
     height: 44,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     // freshgreen — primary CTA brand exception (cursorrules). White text
     // at bodyEmphasized (17pt bold) on freshgreen = 2.9:1, defensible at
     // large-text threshold. goBtn is the screen's one primary action.
@@ -4023,7 +4023,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
     // e1 = chrome over map per shadows.ts. Previously inlined as an
     // exact duplicate of e1's values.
     ...shadows.e1,
@@ -4057,22 +4057,22 @@ const styles = StyleSheet.create({
     // reads as consistent across phases.
     zIndex: 11,
     backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
     ...shadows.sheet,
   },
   placementDragHandleWrap: {
     // Centered drag handle, matching the home browse sheet and the
     // safety modal. Decorative — placement bar dismissal is via the
     // X cancel button, not a swipe gesture.
-    paddingTop: 16,
+    paddingTop: spacing.md,
     alignItems: 'center',
   },
   placementBarInner: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    gap: 16,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
   },
   placementHint: {
     // Quiet footnote instruction above the Confirm/cancel row. Tertiary
@@ -4088,7 +4088,7 @@ const styles = StyleSheet.create({
   },
   placementActions: {
     flexDirection: 'row',
-    gap: 16,
+    gap: spacing.md,
     alignItems: 'center',
   },
   placementCancel: {
@@ -4106,7 +4106,7 @@ const styles = StyleSheet.create({
   placementConfirm: {
     flex: 1,
     height: 44,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     // freshgreen — primary CTA brand exception (cursorrules). Confirm
     // placement is the one primary action in this mode.
     backgroundColor: colors.freshgreen,

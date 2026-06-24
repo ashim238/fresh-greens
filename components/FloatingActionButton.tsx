@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 
 /**
@@ -81,7 +82,7 @@ export function FloatingActionButton({
 const styles = StyleSheet.create({
   base: {
     backgroundColor: colors.white,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     // A22: was inline (shadowRadius:6, elevation:4) drifting from the

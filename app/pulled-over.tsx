@@ -1660,21 +1660,21 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   dragWrapper: {
-    paddingTop: 16,
+    paddingTop: spacing.md,
     alignItems: 'center',
   },
   phaseContainer: {
     flex: 1,
-    paddingTop: 24,
+    paddingTop: spacing.lg,
   },
 });
 
@@ -1683,13 +1683,13 @@ const chipStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingTop: 4,
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
   },
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     backgroundColor: colors.red,
   },
   label: {
@@ -1712,10 +1712,10 @@ const chipStyles = StyleSheet.create({
 const armedStyles = StyleSheet.create({
   page: {
     flex: 1,
-    gap: 40,
+    gap: spacing.xl,
   },
   titleBlock: {
-    gap: 8,
+    gap: spacing.sm,
   },
   eyebrow: {
     // Drops to title3Regular (20pt) so the size-step against the 28pt
@@ -1734,12 +1734,12 @@ const armedStyles = StyleSheet.create({
     flex: 1,
     gap: spacing.xxl,
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   answerCard: {
     height: safetyCardHeight,
-    padding: 16,
-    borderRadius: 12,
+    padding: spacing.md,
+    borderRadius: radii.md,
     backgroundColor: colors.white,
     justifyContent: 'center',
     // A22 / P1: was inline (height:1, opacity:0.15, radius:3, elevation:2)
@@ -1761,7 +1761,7 @@ const armedStyles = StyleSheet.create({
     // user-flagged 2026-06-01.
     flex: 1,
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   answerTitle: {
     ...typography.bodyEmphasized,
@@ -1780,7 +1780,7 @@ const transitionStyles = StyleSheet.create({
     alignItems: 'center',
   },
   textBlock: {
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   title: {
@@ -1807,7 +1807,7 @@ const transitionStyles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: spacing.lg,
     opacity: 0.7,
   },
 });
@@ -1815,16 +1815,16 @@ const transitionStyles = StyleSheet.create({
 const guidanceStyles = StyleSheet.create({
   page: {
     flex: 1,
-    gap: 24,
+    gap: spacing.lg,
     // +8pt additional horizontal padding on top of the modal-level 16pt
     // (styles.safe), bringing the guidance phase's effective gutter to
     // 24pt. The bullet-heavy register reads tighter than the rest of
     // the modal phases (armed cards, contact avatar block, review hero
     // illustrations) and benefits from extra breathing room.
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
   titleBlock: {
-    gap: 8,
+    gap: spacing.sm,
   },
   eyebrow: {
     // Drops to title3Regular (20pt) so the size-step against the 28pt
@@ -1842,12 +1842,12 @@ const guidanceStyles = StyleSheet.create({
   bullets: {
     // Figma uses gap-[8px] between <li>s; we mirror that here. Bullets
     // are now rendered as flex rows (dot + text columns) below.
-    gap: 8,
+    gap: spacing.sm,
     paddingLeft: 18, // matches Figma's ms-[30px] (page padding 16 + 14 ≈ 30)
   },
   bulletRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
     alignItems: 'flex-start',
   },
   bulletDot: {
@@ -1863,14 +1863,14 @@ const guidanceStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
     // P5: paddingVertical 8 → 12 brings the painted height to 56pt
     // (32pt icon + 12×2 = 56). Earlier value (8) produced ~35pt
     // painted, with hitSlop:12 papering over the visual-to-touch gap.
     // .cursorrules + design-system.md §4.3 explicitly forbid papering
     // a sub-44pt visual with hitSlop — drop the hitSlop now that the
     // painted area is comfortable on its own.
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
   readAloudText: {
     ...typography.subheadlineEmphasized,
@@ -1880,17 +1880,17 @@ const guidanceStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    gap: 24,
+    gap: spacing.lg,
   },
   recordingWidget: {
     backgroundColor: colors.systemGroupedBackground,
     borderRadius: radii.xl,
-    padding: 16,
-    gap: 8,
+    padding: spacing.md,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   recordingTextBlock: {
-    gap: 2,
+    gap: spacing.xs,
     alignItems: 'center',
   },
   recordingLabel: {
@@ -1914,14 +1914,14 @@ const guidanceStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: spacing.xs,
     height: WAVEFORM_MAX_HEIGHT + 8,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     width: '100%',
   },
   waveformBar: {
     width: 3,
-    borderRadius: 2,
+    borderRadius: radii.xs,
     backgroundColor: colors.red,
   },
   recordingFootnote: {
@@ -1937,9 +1937,9 @@ const guidanceStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
     height: 48,
-    borderRadius: 1000,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
     backgroundColor: colors.white,
@@ -1952,13 +1952,13 @@ const guidanceStyles = StyleSheet.create({
     ...typography.footnoteRegular,
     color: colors.labelTertiary,
     textAlign: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
   stopRecordingBtn: {
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
   },
   stopRecordingText: {
     ...typography.footnoteRegular,
@@ -1968,20 +1968,20 @@ const guidanceStyles = StyleSheet.create({
   stateAttribution: {
     ...typography.caption1Regular,
     color: colors.labelTertiary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
 });
 
 const contactStyles = StyleSheet.create({
   page: {
     flex: 1,
-    gap: 40,
+    gap: spacing.xl,
   },
   topContent: {
     gap: spacing.xxl,
   },
   titleBlock: {
-    gap: 8,
+    gap: spacing.sm,
   },
   title: {
     ...typography.title1Regular,
@@ -1997,7 +1997,7 @@ const contactStyles = StyleSheet.create({
     color: colors.labelTertiary,
   },
   avatarBlock: {
-    gap: 16,
+    gap: spacing.md,
     alignItems: 'center',
   },
   // 160×160 box that hosts both the static middle-ring stack (a flow
@@ -2063,21 +2063,21 @@ const contactStyles = StyleSheet.create({
     textAlign: 'center',
   },
   buttonsBlock: {
-    gap: 16,
+    gap: spacing.md,
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
   },
   callBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
     height: 48,
     width: '100%',
     // wiltedgreen for WCAG AA contrast on the white "Call" text
     // (matches the post-#148 primary-CTA register).
     backgroundColor: colors.wiltedgreen,
-    borderRadius: 1000,
+    borderRadius: radii.pill,
     // A22 / P8: was inline (height:1, opacity:0.15, radius:3, elevation:2)
     // — exact match to shadows.e1. Same fix class as the armed answer
     // card (P1). Per design-system.md §1.3.
@@ -2091,10 +2091,10 @@ const contactStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
     height: 48,
     width: '100%',
-    borderRadius: 1000,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
   },
@@ -2140,8 +2140,8 @@ const reviewStyles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    gap: 16,
-    paddingBottom: 8,
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
   },
   // 44pt visible tap target — paddingVertical:13 brings the ~18pt
   // footnoteRegular "Back" link to a 44pt painted height per HIG.
@@ -2152,7 +2152,7 @@ const reviewStyles = StyleSheet.create({
   closeBtn: {
     alignSelf: 'flex-end',
     paddingVertical: 13,
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   closeText: {
     ...typography.footnoteRegular,
@@ -2162,7 +2162,7 @@ const reviewStyles = StyleSheet.create({
   chevronsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 32,
+    gap: spacing.xl,
     alignItems: 'center',
   },
   dotStrip: {
@@ -2173,7 +2173,7 @@ const reviewStyles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: radii.xs,
     backgroundColor: colors.separatorSubtle,
   },
   dotActive: {
@@ -2187,11 +2187,11 @@ const reviewStyles = StyleSheet.create({
 const officerStyles = StyleSheet.create({
   page: {
     flex: 1,
-    gap: 40,
+    gap: spacing.xl,
     alignItems: 'center',
   },
   titleBlock: {
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'flex-start',
     width: '100%',
   },
@@ -2210,14 +2210,14 @@ const officerStyles = StyleSheet.create({
   },
   cardsRow: {
     flexDirection: 'row',
-    gap: 24,
+    gap: spacing.lg,
     alignItems: 'flex-start',
     justifyContent: 'center',
     width: '100%',
   },
   card: {
     flex: 1,
-    gap: 32,
+    gap: spacing.xl,
     alignItems: 'center',
   },
   illustrationBox: {
@@ -2226,8 +2226,8 @@ const officerStyles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 32,
-    padding: 16,
+    gap: spacing.xl,
+    padding: spacing.md,
   },
   illustrationWrap: {
     width: 120,
@@ -2259,7 +2259,7 @@ const officerStyles = StyleSheet.create({
     color: colors.black,
   },
   bullets: {
-    gap: 16,
+    gap: spacing.md,
     width: '100%',
     alignItems: 'flex-start',
   },
@@ -2283,7 +2283,7 @@ const officerStyles = StyleSheet.create({
     width: 1,
     alignSelf: 'stretch',
     backgroundColor: colors.dividerNeutral,
-    marginVertical: 16,
+    marginVertical: spacing.md,
   },
 });
 
@@ -2297,9 +2297,9 @@ const contentStyles = StyleSheet.create({
     // beyond it when long. minHeight: '100%' keeps short content
     // anchored visually rather than collapsing.
     flexGrow: 1,
-    gap: 40,
+    gap: spacing.xl,
     alignItems: 'center',
-    paddingBottom: 16,
+    paddingBottom: spacing.md,
   },
   illustrationBox: {
     // P12: was fixed width/height 320 — original iPhone SE (320pt viewport)
@@ -2315,18 +2315,18 @@ const contentStyles = StyleSheet.create({
   },
   body: {
     width: '100%',
-    gap: 32,
+    gap: spacing.xl,
   },
   title: {
     ...typography.title1Emphasized,
     color: colors.black,
   },
   bullets: {
-    gap: 16,
+    gap: spacing.md,
   },
   bulletRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
     alignItems: 'flex-start',
   },
   bulletDot: {

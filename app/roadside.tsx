@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsTertiary,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: 999,
+    borderRadius: radii.pill,
   },
   locationChipLabel: {
     ...dynamicType(typography.footnoteRegular),
@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
   },
   modalCta: {
     backgroundColor: colors.freshgreen,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     paddingVertical: spacing.md,
     alignItems: 'center',
   },

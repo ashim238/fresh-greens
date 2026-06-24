@@ -13,6 +13,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import { type RouteCondition } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -127,8 +128,8 @@ const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
   card: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     maxHeight: '70%',

@@ -771,7 +771,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stationTextStack: { flex: 1, gap: 2 },
+  stationTextStack: { flex: 1, gap: spacing.xs },
   stationName: { ...dynamicType(typography.bodyRegular), color: colors.black },
   stationBrand: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
   emptyStationRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },

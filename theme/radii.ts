@@ -17,10 +17,12 @@
 // tokens speak with one voice.
 
 export const radii = {
+  xs: 4,    // tight inner chips, checkboxes, indicator dots, skeleton lines
   sm: 8,    // small chips, footer pills
   md: 12,   // standard cards (default)
   lg: 16,   // elevated modal cards (LifelineModal, RouteComparisonSheet)
   xl: 20,   // centered popup modals (/emergency, /report, /pulled-over)
+  sheet: 28, // bottom-sheet + modal top corners
   pill: 999, // capsule buttons, location chips
 } as const;
 

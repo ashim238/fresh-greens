@@ -18,6 +18,8 @@ import { getStoredUser } from '../lib/api/user';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -200,7 +202,7 @@ const styles = StyleSheet.create({
     // baseline. Inner content stretches to fill instead of hardcoding
     // 326, so on Pro Max the column grows with the device rather than
     // orphaning in the middle.
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -216,18 +218,18 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
-    gap: 16,
+    gap: spacing.md,
   },
   outlinedButton: {
     alignSelf: 'stretch',
     height: 48,
-    borderRadius: 100, // pill
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8, // space between icon and label
+    gap: spacing.sm, // space between icon and label
   },
   buttonBusy: {
     // Subtle dim while the Apple sheet is up so the user has feedback
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
     width: '100%',
   },
   dividerLine: {
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
     color: colors.freshgreen,
   },
   loginRow: {
-    paddingVertical: 16,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   loginPrompt: {

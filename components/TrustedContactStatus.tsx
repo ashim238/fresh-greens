@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { TrustedContact } from '../lib/api/trusted-contact';
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 
 /**
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     backgroundColor: colors.freshgreen,
   },
 });

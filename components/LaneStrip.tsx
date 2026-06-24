@@ -16,6 +16,7 @@ import { ArrowUUpLeft } from 'phosphor-react-native/src/icons/ArrowUUpLeft';
 
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import type { Lane, LaneDirection } from '../lib/api/routes';
 
 /**
@@ -229,7 +230,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 32,
     height: 40,
-    borderRadius: 6,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',

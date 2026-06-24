@@ -7,6 +7,7 @@ import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -98,7 +99,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     backgroundColor: colors.white,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

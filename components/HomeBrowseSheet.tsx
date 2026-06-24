@@ -1280,7 +1280,7 @@ const styles = StyleSheet.create({
     // Vertical rhythm between the stacked sections (headers / chips /
     // section header / rows). `gap` here replaces the old wrapping
     // `content` View that couldn't coexist with stickyHeaderIndices.
-    gap: 16,
+    gap: spacing.md,
     // 40pt = 24pt shadow clearance for the last card + 16pt of bottom
     // breathing room (what the old wrapper View provided).
     paddingBottom: 40,
@@ -1294,11 +1294,11 @@ const styles = StyleSheet.create({
   // 16pt gutter without double-counting.
   stickyChipsWrap: {
     backgroundColor: colors.white,
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
   headers: {
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   eyebrow: {
     ...dynamicType(typography.footnoteRegular),
@@ -1307,7 +1307,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   neighborhood: {
     ...dynamicType(typography.bodyEmphasized),
@@ -1317,14 +1317,14 @@ const styles = StyleSheet.create({
   weatherCard: {
     backgroundColor: colors.fillsQuaternary,
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   weatherRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   weatherText: {
     ...dynamicType(typography.footnoteRegular),
@@ -1335,8 +1335,8 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
   },
   chipsRow: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   // 44pt painted tap target per HIG. paddingVertical:13 + the chip
   // text's 18pt lineHeight (footnoteRegular) lands at ~44pt. Was 6
@@ -1345,9 +1345,9 @@ const styles = StyleSheet.create({
   // just hit area" rule. Adds ~14pt to the chip-row height; the
   // sheet has room for it.
   chip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     paddingVertical: 13,
-    borderRadius: 22,
+    borderRadius: radii.xl,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1370,8 +1370,8 @@ const styles = StyleSheet.create({
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 16,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
     // justifyContent: space-between via flex:1 on the inner title
     // group below — keeps the chevron right-anchored when present
     // and lets the title-group take the remaining width.
@@ -1385,7 +1385,7 @@ const styles = StyleSheet.create({
   sectionTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     flex: 1,
   },
   sectionTitle: {
@@ -1397,7 +1397,7 @@ const styles = StyleSheet.create({
   // and carousel, plus the outer browse-content gap handles spacing
   // between rows.
   browseRow: {
-    gap: 8,
+    gap: spacing.sm,
   },
   showAllBtn: {
     flexDirection: 'row',
@@ -1422,10 +1422,10 @@ const styles = StyleSheet.create({
     // minimum row breathing room. Earlier 4pt left it flush against
     // the section header above. Matches the cadence of other row
     // empty states (which use padding: 24 via the empty component).
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
   cardWrap: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
   },
   // Horizontal scroller content layout. The contentContainerStyle's
   // `paddingHorizontal` was breaking snap math (snap points are
@@ -1435,7 +1435,7 @@ const styles = StyleSheet.create({
   // shift the cards' actual positions, not just their visible offset.
   cardsRowContent: {
     gap: CARD_GAP,
-    paddingBottom: 6,
+    paddingBottom: spacing.sm,
   },
   carouselLeadingSpacer: {
     width: 16,
@@ -1452,8 +1452,8 @@ const styles = StyleSheet.create({
     // ScrollView now (so we can grow), but iPhone-fit still wants
     // tighter density than the design canvas. Bumped from 12 → 16
     // alongside the 1:1 photo restoration to honor v2's breathing room.
-    padding: 16,
-    gap: 16,
+    padding: spacing.md,
+    gap: spacing.md,
     // M3 Elevation 1 — chrome over map. Theme tier so the card,
     // FAB stack, and ETA pill all read at the same depth.
     ...shadows.e1,
@@ -1485,7 +1485,7 @@ const styles = StyleSheet.create({
     // "readable at a glance." Density wins here.
     width: '100%',
     aspectRatio: 4 / 3,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     overflow: 'hidden',
     alignSelf: 'center',
     position: 'relative',
@@ -1508,10 +1508,10 @@ const styles = StyleSheet.create({
     right: 8,
     bottom: 8,
     flexDirection: 'row',
-    gap: 8,
-    padding: 12,
+    gap: spacing.sm,
+    padding: spacing.md,
     backgroundColor: colors.white,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     ...shadows.e1,
   },
   // Top-of-photo emphasis pill. Mirrors `quoteCallout`'s white-pill +
@@ -1527,11 +1527,11 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.white,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     ...shadows.e1,
   },
   toplineText: {
@@ -1547,7 +1547,7 @@ const styles = StyleSheet.create({
   toplineAvatar: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: radii.md,
     backgroundColor: colors.fadedgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1568,7 +1568,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardBody: {
-    gap: 8,
+    gap: spacing.sm,
   },
   cardTitle: {
     // H7: dropped from title1Emphasized (28pt) → title3Emphasized (20pt).
@@ -1587,16 +1587,16 @@ const styles = StyleSheet.create({
   tagRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     flexWrap: 'wrap',
   },
   ratingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
     backgroundColor: colors.fillsPrimary,
-    borderRadius: 4,
-    padding: 4,
+    borderRadius: radii.xs,
+    padding: spacing.xs,
   },
   rating: {
     ...dynamicType(typography.footnoteEmphasized),
@@ -1619,8 +1619,8 @@ const styles = StyleSheet.create({
   },
   tag: {
     backgroundColor: colors.fillsPrimary,
-    borderRadius: 4,
-    padding: 4,
+    borderRadius: radii.xs,
+    padding: spacing.xs,
   },
   tagText: {
     ...typography.footnoteRegular,
@@ -1638,8 +1638,8 @@ const styles = StyleSheet.create({
   // first.
   openPill: {
     backgroundColor: colors.fadedgreen,
-    borderRadius: 4,
-    padding: 4,
+    borderRadius: radii.xs,
+    padding: spacing.xs,
   },
   openText: {
     ...typography.footnoteEmphasized,
@@ -1647,8 +1647,8 @@ const styles = StyleSheet.create({
   },
   muteTag: {
     backgroundColor: colors.fillsSecondary,
-    borderRadius: 4,
-    padding: 4,
+    borderRadius: radii.xs,
+    padding: spacing.xs,
     alignSelf: 'flex-start',
   },
   muteText: {
@@ -1656,10 +1656,10 @@ const styles = StyleSheet.create({
     color: colors.mutedSecondary,
   },
   empty: {
-    padding: 24,
+    padding: spacing.lg,
     backgroundColor: colors.white,
     borderRadius: 12,
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   emptyTitle: {

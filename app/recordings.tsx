@@ -29,6 +29,7 @@ import type { ArmedAnswer, Recording } from '../lib/api/recordings';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     backgroundColor: colors.systemGroupedBackground,
     borderWidth: 1,
     borderColor: colors.cardBorderSubtle,
@@ -567,7 +568,7 @@ const styles = StyleSheet.create({
   playButton: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: radii.sheet,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -626,7 +627,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     backgroundColor: colors.white,
-    borderRadius: 28,
+    borderRadius: radii.sheet,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
@@ -649,7 +650,7 @@ const styles = StyleSheet.create({
   confirmCloseCircle: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',

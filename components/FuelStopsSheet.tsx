@@ -10,6 +10,7 @@ import { type FuelType } from '../lib/api/fuel';
 import { ROUTE_PROXIMITY_MILES } from '../hooks/useRouteFuelStops';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { shadows } from '../theme/shadows';
@@ -247,8 +248,8 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
-    borderRadius: 10,
+    borderRadius: radii.md,
   },
   rowHighlighted: {
     backgroundColor: colors.fadedgreen,
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     backgroundColor: colors.fadedgreen,
   },
   trustedBadgeText: {

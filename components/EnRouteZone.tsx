@@ -12,6 +12,7 @@ import EnrouteHazardRoad from '../assets/illustrations/enroute-hazard-road.svg';
 import EnrouteHazardWildlife from '../assets/illustrations/enroute-hazard-wildlife.svg';
 
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { typography } from '../theme/typography';
 
 import type { HazardCategory } from '../lib/scoring';
@@ -189,6 +190,6 @@ const styles = StyleSheet.create({
     ...typography.caption1Emphasized,
     color: colors.black,
     backgroundColor: colors.white,
-    borderRadius: 4,
+    borderRadius: radii.xs,
   },
 });

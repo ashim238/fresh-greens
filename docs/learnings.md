@@ -4,6 +4,18 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Spacing + radii polish pass — `polish/spacing-radii-pass` (2026-06-23)
+
+Three things:
+
+1. **The polish slice survives without the aesthetic slice.** The Visual Maturity Program shipped density regularization bundled with MaterialSurface glassmorphism, button gradients, and SquircleIcon migration — the whole package got reverted because the aesthetic moves felt foreign. Re-applying the spacing + radii consistency alone, on a non-program branch (`polish/spacing-radii-pass`, deliberately NOT `program/visual-maturity-*`), landed without friction. Lesson: when a polish PR has both "consistency" and "direction" changes, split them into separate PRs so the consistency wins can land even if the direction is rejected.
+
+2. **The pill chaos was the most damning artifact.** 16 × `borderRadius: 100`, 6 × `1000`, 3 × `999`, plus 11 sites of `radii.pill` (also 999) — *three different inline values meant exactly the same thing*. All three clip identically on a 44pt-tall element (clipped to half-the-shorter-side), so the consolidation was zero-visual-change. The kind of drift that's invisible in any one PR review but reads as amateur in aggregate.
+
+3. **Off-grid radii were tighter calls than off-grid spacing.** Spacing snaps of 2pt are imperceptible; radius snaps of 2pt subtly change a card's character. Made the audit + user-approved snap targets explicit before any change — different bar than the mechanical spacing pass. Also: added `radii.xs: 4` and `radii.sheet: 28` rather than forcing pre-existing tiers — the data demanded two new tiers (11 sites for `xs`, 12 for `sheet`), and forcing them to neighboring tiers would have been a real visual change.
+
+---
+
 ## Design Health Program — closed (2026-06-20)
 
 Two-day program: Phase 1 critique (25 screens, 4 cross-screen patterns, Section 5 tail) → Phase 2 (10 PRs across 3 sprints) → Phase 3 (5 fix PRs, 13 items) → closeout audit (25 re-critiques + synthesis). All landed on `main`. Closeout doc at [`docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md`](docs/superpowers/specs/phase-1-findings/2026-06-20-design-health-program-closeout.md).

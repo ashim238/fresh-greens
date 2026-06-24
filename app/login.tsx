@@ -17,6 +17,8 @@ import { useUser } from '../hooks/useUser';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -169,7 +171,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -185,18 +187,18 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
-    gap: 16,
+    gap: spacing.md,
   },
   outlinedButton: {
     alignSelf: 'stretch',
     height: 48,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   buttonBusy: {
     opacity: 0.7,
@@ -213,7 +215,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
     width: '100%',
   },
   dividerLine: {
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
     color: colors.freshgreen,
   },
   loginRow: {
-    paddingVertical: 16,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   loginPrompt: {

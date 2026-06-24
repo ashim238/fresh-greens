@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   stopChrome: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: radii.xl,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',

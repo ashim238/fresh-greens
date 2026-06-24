@@ -4,6 +4,7 @@ import { Marker } from 'react-native-maps';
 
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 
 /**
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: radii.md,
     backgroundColor: colors.systemBlue,
   },
   outerRing: {
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
   innerDot: {
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: radii.sm,
     backgroundColor: colors.systemBlue,
   },
 });

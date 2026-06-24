@@ -16,6 +16,8 @@ import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -324,12 +326,12 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
     // 32pt per 4pt grid. Was 34 — likely a transcription drift from
     // a 32 + 2 calc. iOS bottom-safe-area inset is added on top of
     // this by SafeAreaView so the final clear above the home-bar is
     // ~64pt either way.
-    paddingBottom: 32,
+    paddingBottom: spacing.xl,
   },
   // Back-caret row (embedded entries — settings / emergency). 32pt outer left-align
   // matches the safe area's paddingHorizontal so the caret reads
@@ -338,17 +340,17 @@ const styles = StyleSheet.create({
     // -16 offset pulls the back-button row to the left edge of the
     // page (the SafeAreaView's paddingHorizontal:32 would otherwise
     // double-indent the caret relative to the title block below).
-    marginLeft: -16,
-    marginBottom: 8,
+    marginLeft: -spacing.md,
+    marginBottom: spacing.sm,
   },
   content: {
     flex: 1,
     width: '100%',
     justifyContent: 'center',
-    gap: 32,
+    gap: spacing.xl,
   },
   copy: {
-    gap: 16,
+    gap: spacing.md,
   },
   title: {
     // Large Title/Emphasized (34pt) per Figma v2 — gives the
@@ -371,15 +373,15 @@ const styles = StyleSheet.create({
   preview: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    padding: 16,
+    gap: spacing.md,
+    padding: spacing.md,
     borderRadius: 16,
     backgroundColor: colors.burntgreen,
   },
   avatar: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: radii.sheet,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -393,7 +395,7 @@ const styles = StyleSheet.create({
   },
   previewText: {
     flex: 1,
-    gap: 2,
+    gap: spacing.xs,
   },
   previewName: {
     ...dynamicType(typography.bodyEmphasized),
@@ -411,8 +413,8 @@ const styles = StyleSheet.create({
   },
 
   actions: {
-    gap: 16,
-    paddingTop: 8,
+    gap: spacing.md,
+    paddingTop: spacing.sm,
   },
   btnStretch: {
     alignSelf: 'stretch',

@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 
 type Props = {
   /** Total number of dots. */
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radii.xs,
     // backgroundColor applied inline from the `color` prop.
   },
   dotInactive: {

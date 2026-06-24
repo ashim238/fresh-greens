@@ -4,6 +4,7 @@ import { Marker } from 'react-native-maps';
 
 import FuelSvg from '../assets/illustrations/fuel.svg';
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 
 /**
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: radii.sm,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',

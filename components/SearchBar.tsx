@@ -7,7 +7,9 @@ import { XCircle } from 'phosphor-react-native/src/icons/XCircle';
 
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -174,17 +176,17 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
     height: 56,
-    paddingHorizontal: 16,
-    borderRadius: 1000,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
     // Responsive sizing: stretch to parent width with 8pt margins on
     // each side. Figma specs w-374 (Default) or w-358 (on-tap/typing)
     // on a 390pt baseline — both translate to "8pt or 16pt inset from
     // the screen edges." alignSelf + marginHorizontal preserves the
     // intent across device widths.
     alignSelf: 'stretch',
-    marginHorizontal: 8,
+    marginHorizontal: spacing.sm,
   },
   containerDefault: {
     backgroundColor: colors.white,

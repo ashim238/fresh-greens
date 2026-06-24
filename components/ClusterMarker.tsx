@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { typography } from '../theme/typography';
 
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
   marker: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     // wiltedgreen (not orange) — orange is reserved per .cursorrules
     // rule #4 for caution/hazard signaling. A community-report
     // cluster is informational (N reports here, tap to zoom), not
