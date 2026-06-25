@@ -23,7 +23,7 @@ import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
 import { MarkerGlyph } from './MarkerGlyph';
 import { colors } from '../theme/colors';
-import { markerCircleBgFor } from '../theme/marker-glyph';
+import { markerCircleBgFor, MARKER_GLYPH_STROKE_WOMEN_OWNED } from '../theme/marker-glyph';
 import { shadows } from '../theme/shadows';
 
 /**
@@ -132,7 +132,13 @@ function GlyphForCategory({
   // outline for readability on wiltedgreen and other fills.
   switch (subTag) {
     case 'Women-owned':
-      return <MarkerGlyph Glyph={GlyphWomenOwned} width={size} />;
+      return (
+        <MarkerGlyph
+          Glyph={GlyphWomenOwned}
+          width={size}
+          stroke={MARKER_GLYPH_STROKE_WOMEN_OWNED}
+        />
+      );
     case 'LGBTQ+ welcoming':
       return <MarkerGlyph Glyph={GlyphLgbtq} width={size} />;
     case 'Open restroom':

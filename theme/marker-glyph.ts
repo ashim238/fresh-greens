@@ -10,6 +10,18 @@ export const MARKER_REPORT_LANDMARK_BG = '#B26800';
 /** Fixed identity-glyph outline — readable on wiltedgreen and other fills. */
 export const MARKER_GLYPH_STROKE = colors.black;
 
+/**
+ * Women-owned illustrative fill — matches baked SVG paths; not UI
+ * `colors.pink` (reserved, role TBD).
+ */
+export const MARKER_GLYPH_FILL_WOMEN_OWNED = '#FF2D55';
+
+/**
+ * Saturated-fill glyph stroke — darker than fill, same treatment as
+ * report-pin illustrations (orange flag fill + dark outline).
+ */
+export const MARKER_GLYPH_STROKE_WOMEN_OWNED = '#C41E52';
+
 /** Subtle identity-glyph outline at the 24pt viewBox scale. */
 export const MARKER_GLYPH_STROKE_WIDTH_24 = 1;
 

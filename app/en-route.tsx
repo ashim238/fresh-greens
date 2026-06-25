@@ -129,7 +129,7 @@ import {
   metersToMiles,
   pathLengthMeters,
 } from '../lib/geo';
-import { clusterPointZones } from '../lib/clustering';
+import { clusterPointZones, regionToRevealCluster } from '../lib/clustering';
 import { DAYLIGHT_DASH_PATTERN, DAYLIGHT_ROUTE_PATTERN_A11Y, gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
 import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
@@ -1690,19 +1690,9 @@ export default function EnRoute() {
                 count={cluster.count}
                 onPress={() => {
                   Haptics.selectionAsync();
-                  const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
-                  const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
-                  const minLat = Math.min(...lats);
-                  const maxLat = Math.max(...lats);
-                  const minLng = Math.min(...lngs);
-                  const maxLng = Math.max(...lngs);
+                  if (!mapSize) return;
                   mapRef.current?.animateToRegion(
-                    {
-                      latitude: (minLat + maxLat) / 2,
-                      longitude: (minLng + maxLng) / 2,
-                      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.005),
-                      longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.005),
-                    },
+                    regionToRevealCluster(cluster, mapSize.width, mapSize.height),
                     400,
                   );
                 }}

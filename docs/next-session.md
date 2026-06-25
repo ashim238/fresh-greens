@@ -2,6 +2,85 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Pre-Supabase visual closure
+
+**Gate:** Last visual work before Supabase M1.1 pivot. Run **after** PR #264 merge (`ce9ef57` on `main`). **Plan only** until this section is executed — do not start Supabase until success criteria met.
+
+**Closed with #264 + stroke follow-up:** Map marker identity-glyph strokes — situational white/black from #262 reverted; default identity glyphs use `MARKER_GLYPH_STROKE` (black). **Women-owned** uses saturated-fill treatment (`MARKER_GLYPH_STROKE_WOMEN_OWNED`, darker than `#FF2D55` fill). **Felt-welcome heart** keeps black stroke.
+
+### Three passes (all screens)
+
+| Pass | Command | Scope | Artifact |
+| ---- | ------- | ----- | -------- |
+| Technical audit | `/impeccable audit` | Every `app/**/*.tsx` route file + key `components/` (see below) | Audit scorecard per route (workflow §12c) |
+| UX critique | `/impeccable critique` | Every hub + settings/onboarding/safety sub-flow | `.impeccable/critique/<timestamp>__<file>.md` |
+| Optical layout | `/visual-pass round` | Full 13 categories (`.cursor/skills/visual-pass/SKILL.md` §Checklist) on exhaustive route list | `.impeccable/VISUAL-PASS-<YYYY-MM-DD>.md` |
+
+**Key components** (audit all; visual-pass where meta/chips/sheets apply): `HomeBrowseSheet`, `LiveSafetySheet`, `RouteComparisonSheet`, `FuelStopsSheet`, `ReportDetailCard`, `RoadsideTowPick`, `LifelineModal`, `NotifyingPulse`, `MetaSeparator`, `DaylightRouteLegend`, `LandmarkMarker`, `EdgeIndicator`, `ClusterMarker`, `FuelStopMarker`, `EnRouteZone`, `settings/SettingsRow`, `settings/RowGroup`, `settings/SettingsHeader`, `SearchBar`, `Button`, `FloatingActionButton`, `StateCard`, `ZoneDetailCard`, `RouteHazardDetailCard`, `CalendarPickSheet`, `TrustedContactStatus`, `RecordingSaveErrorBanner`.
+
+### Full `app/` route catalog (27 screens)
+
+Expo-router file routes — flat `app/` tree (no nested route folders today). Each row is one auditable screen; presentation from `app/_layout.tsx`.
+
+| # | Route | File | Presentation | Flow |
+| - | ----- | ---- | ------------ | ---- |
+| 1 | `/` | `app/index.tsx` | stack | Welcome / brand splash |
+| 2 | `/get-started` | `app/get-started.tsx` | stack | Onboarding entry |
+| 3 | `/onboarding` | `app/onboarding.tsx` | stack | Onboarding pager |
+| 4 | `/login` | `app/login.tsx` | stack | Auth |
+| 5 | `/permissions` | `app/permissions.tsx` | stack | Location permission |
+| 6 | `/home` | `app/home.tsx` | stack | Primary map hub |
+| 7 | `/search` | `app/search.tsx` | stack | Destination search |
+| 8 | `/en-route` | `app/en-route.tsx` | stack | Live navigation hub |
+| 9 | `/report` | `app/report.tsx` | transparentModal | Community report overlay |
+| 10 | `/trip-summary` | `app/trip-summary.tsx` | modal | Post-trip recap |
+| 11 | `/fuel` | `app/fuel.tsx` | stack | Vehicle / fuel settings |
+| 12 | `/safety` | `app/safety.tsx` | modal | Safety toolkit picker |
+| 13 | `/emergency` | `app/emergency.tsx` | transparentModal | SOS countdown overlay |
+| 14 | `/pulled-over` | `app/pulled-over.tsx` | modal | Pulled-over state machine |
+| 15 | `/share-location` | `app/share-location.tsx` | modal | Proactive share sub-flow |
+| 16 | `/unfamiliar` | `app/unfamiliar.tsx` | modal | Unfamiliar-area sub-flow |
+| 17 | `/roadside` | `app/roadside.tsx` | modal | Roadside assistance sub-flow |
+| 18 | `/menu` | `app/menu.tsx` | stack | Settings hub |
+| 19 | `/safety-settings` | `app/safety-settings.tsx` | stack | Safety preferences |
+| 20 | `/zone-preferences` | `app/zone-preferences.tsx` | stack | Hazard-zone toggles |
+| 21 | `/trusted-contact-setup` | `app/trusted-contact-setup.tsx` | stack | Lifeline contact setup |
+| 22 | `/roadside-setup` | `app/roadside-setup.tsx` | modal | Roadside service setup |
+| 23 | `/insurance-setup` | `app/insurance-setup.tsx` | stack | Insurance card / OCR |
+| 24 | `/saved-places` | `app/saved-places.tsx` | stack | Saved places list |
+| 25 | `/recordings` | `app/recordings.tsx` | stack | Pulled-over recordings |
+| 26 | `/sign-out` | `app/sign-out.tsx` | stack | Sign-out confirmation |
+| 27 | `/legal` | `app/legal.tsx` | stack | Privacy / terms |
+
+**Shell only (skip three-pass UI audit):** `app/_layout.tsx` — root `Stack` + modal presentation options.
+
+**Sub-flow note:** Modal routes (`/safety`, `/pulled-over`, `/share-location`, `/unfamiliar`, `/roadside`, `/roadside-setup`, `/trip-summary`) and transparent overlays (`/report`, `/emergency`) are first-class screens — not children of hub files — and each gets its own audit/critique/visual-pass pass.
+
+### Suggested batching (5 PRs — every screen assigned)
+
+| PR | Branch theme | Routes (all `app/*.tsx` in batch) | Components |
+| -- | ------------ | --------------------------------- | ---------- |
+| 1 | `chore/visual-closure-map-hubs` | `/home`, `/search`, `/en-route`, `/report`, `/trip-summary`, `/fuel` | `HomeBrowseSheet`, `RouteComparisonSheet`, `FuelStopsSheet`, `LandmarkMarker`, `EdgeIndicator`, `ClusterMarker`, `FuelStopMarker`, `EnRouteZone`, `DaylightRouteLegend`, `ZoneDetailCard`, `RouteHazardDetailCard` |
+| 2 | `chore/visual-closure-safety` | `/safety`, `/emergency`, `/pulled-over`, `/share-location`, `/unfamiliar`, `/roadside` | `RoadsideTowPick`, `LiveSafetySheet`, `LifelineModal`, `NotifyingPulse`, `RecordingSaveErrorBanner`, `TrustedContactStatus` |
+| 3 | `chore/visual-closure-settings` | `/menu`, `/safety-settings`, `/zone-preferences`, `/trusted-contact-setup`, `/roadside-setup`, `/insurance-setup`, `/saved-places`, `/recordings`, `/sign-out`, `/legal` | `settings/SettingsRow`, `settings/RowGroup`, `settings/SettingsHeader`, `ReportDetailCard`, `PreferredStar`, `CalendarPickSheet` |
+| 4 | `chore/visual-closure-onboarding` | `/`, `/get-started`, `/onboarding`, `/login`, `/permissions` | `PageControl`, `Button`, `StateCard` |
+| 5 | `chore/visual-closure-synthesis` | Cross-cutting P0/P1 from batches 1–4; re-spot-check any shared component touched in multiple batches | `MetaSeparator`, `SearchBar`, `FloatingActionButton`, `DragHandle` + synthesis doc |
+
+**Coverage check:** 6 + 6 + 10 + 5 = **27 screens** (matches route catalog). `_layout.tsx` reviewed only for presentation consistency in batch 5 if needed.
+
+Each PR: run all three passes on its routes → fix-forward P0/P1 → `npx tsc --noEmit` → append learnings.
+
+### Success criteria
+
+- **Zero open P0 or P1** across audit, critique, and visual-pass findings before Supabase M1.1
+- P2/P3 logged in this file or synthesis doc with explicit defer rationale
+- Snapshot trail complete: critique files per route, visual-pass synthesis dated, audit scorecards archived
+- `npx tsc --noEmit` clean on `main` after synthesis PR merge
+
+### Visual-pass round checklist (13 categories)
+
+Meta separators · mixed-weight rhythm · flex gap vs optical spacing · label/value rows · multi-part meta rows · chip/pill padding · sheet title blocks · list row density · truncation balance · icon+text rows · map-overlay padding · modal prompt typography · search bar contextual treatment
+
 ## Backlog hygiene (2026-06-25)
 
 Code audit of open `🟣` / audit-tail items still marked open but resolved or mis-aimed in code:
