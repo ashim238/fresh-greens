@@ -77,7 +77,7 @@ export function HomeBrowseSheet({
   userLocation,
   refreshKey,
   collapsed,
-  onToggleCollapsed,
+  onExpand,
   onSelectRecommendation,
   onEmptyTap,
 }: {
@@ -100,7 +100,8 @@ export function HomeBrowseSheet({
    */
   refreshKey?: number;
   collapsed: boolean;
-  onToggleCollapsed: () => void;
+  /** Expands the sheet from collapsed when a chip jump needs row content visible. */
+  onExpand: () => void;
   /** Caller routes to /home with the destination params set. */
   onSelectRecommendation: (rec: Recommendation) => void;
   /**
@@ -254,7 +255,7 @@ export function HomeBrowseSheet({
         if (!reduceMotion) {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         }
-        onToggleCollapsed();
+        onExpand();
       }
       scrollToRow(cachedY);
       return;
@@ -267,7 +268,7 @@ export function HomeBrowseSheet({
       if (!reduceMotion) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       }
-      onToggleCollapsed();
+      onExpand();
     }
   }
 

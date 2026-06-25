@@ -209,6 +209,29 @@ const FAB_HEIGHT = 56;
 /** Inter-FAB gap when two FABs stack vertically (Recenter above Report). */
 const FAB_STACK_GAP = 12;
 
+/** Browse-mode bottom-sheet detents — peek, content-sized, maximized. */
+type BrowseSheetDetent = 'collapsed' | 'expanded' | 'maximized';
+
+const BROWSE_SHEET_DETENTS: BrowseSheetDetent[] = [
+  'collapsed',
+  'expanded',
+  'maximized',
+];
+
+/** Maximized detent height — matches `bottomSheet.maxHeight` (85% screen). */
+const BROWSE_SHEET_MAXIMIZED_FRACTION = 0.85;
+
+function stepBrowseSheetDetent(
+  current: BrowseSheetDetent,
+  direction: 'up' | 'down',
+): BrowseSheetDetent {
+  const idx = BROWSE_SHEET_DETENTS.indexOf(current);
+  if (direction === 'up') {
+    return BROWSE_SHEET_DETENTS[Math.min(idx + 1, BROWSE_SHEET_DETENTS.length - 1)];
+  }
+  return BROWSE_SHEET_DETENTS[Math.max(idx - 1, 0)];
+}
+
 /**
  * Which safe chip a zone contributes to, or null if the zone isn't a
  * charted safe signal. The two we surface are the same `safe`-typed
@@ -376,7 +399,8 @@ export default function Home() {
   // lets them opt into recommendations when ready. Validated on
   // device — the expanded default didn't give users a chance to
   // explore.
-  const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
+  const [browseSheetDetent, setBrowseSheetDetent] =
+    useState<BrowseSheetDetent>('collapsed');
   // Neighborhood label for the browse-mode sheet header. Derived
   // from a one-shot `Location.reverseGeocodeAsync` against the
   // user's first GPS fix. Picks `subregion + city` (most natural
@@ -854,11 +878,17 @@ export default function Home() {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           }
           if (g.dy > 20) {
-            setThingsToDoCollapsed(true);
+            setBrowseSheetDetent((d) => stepBrowseSheetDetent(d, 'down'));
           } else if (g.dy < -20) {
-            setThingsToDoCollapsed(false);
+            setBrowseSheetDetent((d) => stepBrowseSheetDetent(d, 'up'));
           } else {
-            setThingsToDoCollapsed((v) => !v);
+            // Tap: collapsed ↔ expanded. Maximized → expanded (one step
+            // down) — reaching maximized requires a deliberate drag up.
+            setBrowseSheetDetent((d) => {
+              if (d === 'collapsed') return 'expanded';
+              if (d === 'maximized') return 'expanded';
+              return 'collapsed';
+            });
           }
         },
       }),
@@ -2606,7 +2636,10 @@ export default function Home() {
         !selectedReport &&
         !selectedZone &&
         !selectedRouteHazard && <SafeAreaView
-        style={styles.bottomSheet}
+        style={[
+          styles.bottomSheet,
+          browseSheetDetent === 'maximized' && styles.bottomSheetMaximized,
+        ]}
         edges={['bottom']}
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
@@ -2616,7 +2649,7 @@ export default function Home() {
           // over them); in route mode there's no collapse concept,
           // so always track.
           const isRouteMode = !!(params.destLat && params.destLng);
-          if (isRouteMode || thingsToDoCollapsed) {
+          if (isRouteMode || browseSheetDetent === 'collapsed') {
             setFabAnchorHeight(h);
           }
         }}
@@ -2630,10 +2663,13 @@ export default function Home() {
             style={styles.dragHandleArea}
             accessibilityRole="button"
             accessibilityLabel={
-              thingsToDoCollapsed
+              browseSheetDetent === 'collapsed'
                 ? 'Drag bar — drag up or tap to expand recommendations'
-                : 'Drag bar — drag down or tap to collapse recommendations'
+                : browseSheetDetent === 'expanded'
+                  ? 'Drag bar — drag up to maximize, drag down or tap to collapse recommendations'
+                  : 'Drag bar — drag down to show more map'
             }
+            accessibilityState={{ expanded: browseSheetDetent !== 'collapsed' }}
             {...dragHandleResponder.panHandlers}
           >
             <DragHandle />
@@ -2649,13 +2685,18 @@ export default function Home() {
           // direct JSX children, which this element can't be when it's
           // a lone component child of a ScrollView here). The sheet's
           // capped maxHeight bounds the scroller's `flex: 1`.
+          <View
+            style={
+              browseSheetDetent === 'maximized' ? styles.browseSheetBody : undefined
+            }
+          >
           <HomeBrowseSheet
             firstName={userFirstName}
             neighborhoodLabel={neighborhoodLabel}
             userLocation={userLocation}
             refreshKey={focusRefreshKey}
-            collapsed={thingsToDoCollapsed}
-            onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+            collapsed={browseSheetDetent === 'collapsed'}
+            onExpand={() => setBrowseSheetDetent('expanded')}
             onSelectRecommendation={(rec) => {
               // Tapping a recommendation card routes to /home with
               // the destination params set, same way a search-result
@@ -2680,6 +2721,7 @@ export default function Home() {
               router.push('/report');
             }}
           />
+          </View>
         ) : (
           <>
         {/*
@@ -3683,7 +3725,7 @@ const styles = StyleSheet.create({
     // (browse mode only), so overflow becomes scrollable rather
     // than clipped — the user can scroll inside the sheet to reach
     // the bottom of a long card.
-    maxHeight: Dimensions.get('window').height * 0.85,
+    maxHeight: Dimensions.get('window').height * BROWSE_SHEET_MAXIMIZED_FRACTION,
     backgroundColor: colors.white,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
@@ -3692,6 +3734,18 @@ const styles = StyleSheet.create({
     // Shadow points UP since the sheet floats above content from the
     // bottom edge — `shadows.sheet` bundles the directional offset.
     ...shadows.sheet,
+  },
+  // Maximized browse detent — fixed height at the sheet cap so the inner
+  // scroller gets a bounded viewport and recommendation rows scroll
+  // inside the sheet instead of growing the sheet to content height.
+  bottomSheetMaximized: {
+    height: Dimensions.get('window').height * BROWSE_SHEET_MAXIMIZED_FRACTION,
+  },
+  // flex:1 wrapper around HomeBrowseSheet when maximized — passes the
+  // fixed sheet height down to the ScrollView's `flex: 1` constraint.
+  browseSheetBody: {
+    flex: 1,
+    minHeight: 0,
   },
   // ScrollView wrapper around the route-mode body content. flexShrink: 1
   // lets the scroller cede space to the always-visible actionsRow when
