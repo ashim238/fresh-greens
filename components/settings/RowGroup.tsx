@@ -21,10 +21,13 @@ import { typography } from '../../theme/typography';
 export function RowGroup({
   title,
   footer,
+  footerTone = 'default',
   children,
 }: {
   title?: string;
   footer?: string;
+  /** `error` renders footer in reserved red (inline validation, scan failures). */
+  footerTone?: 'default' | 'error';
   children: ReactNode;
 }) {
   const rows = Children.toArray(children);
@@ -47,7 +50,17 @@ export function RowGroup({
         </View>
       </View>
 
-      {footer ? <Text style={styles.footer}>{footer}</Text> : null}
+      {footer ? (
+        <Text
+          style={[
+            styles.footer,
+            footerTone === 'error' && styles.footerError,
+          ]}
+          accessibilityRole={footerTone === 'error' ? 'alert' : 'text'}
+        >
+          {footer}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -104,5 +117,8 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
     paddingHorizontal: spacing.md,
+  },
+  footerError: {
+    color: colors.red,
   },
 });

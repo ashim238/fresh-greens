@@ -86,12 +86,10 @@ export default function RootLayout() {
         />
         {/*
           /insurance-setup — carrier + policy number (+ optional card scan).
-          Settings-style sheet modal; pushed from /safety-settings.
+          Full stack push from /safety-settings (same register as /fuel and
+          /trusted-contact-setup, not a bottom sheet).
         */}
-        <Stack.Screen
-          name="insurance-setup"
-          options={{ presentation: 'modal' }}
-        />
+        <Stack.Screen name="insurance-setup" />
         {/*
           /legal — Privacy / Terms / Limitations. Pushed from /menu;
           standard stack push (not modal) since this is a reading

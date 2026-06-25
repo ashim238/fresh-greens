@@ -40,22 +40,29 @@ type Trailing = 'chevron' | 'toggle' | 'segmented' | 'none';
 export function SettingsRow({
   icon,
   label,
+  subtitle,
   value,
   trailing = 'chevron',
   toggleValue,
   onToggle,
   onPress,
   destructive,
+  disabled,
+  busy,
   accessibilityHint,
 }: {
   icon?: ReactNode;
   label: string;
+  /** Second line under the label — action description, not a value slot. */
+  subtitle?: string;
   value?: string;
   trailing?: Trailing;
   toggleValue?: boolean;
   onToggle?: (next: boolean) => void;
   onPress?: () => void;
   destructive?: boolean;
+  disabled?: boolean;
+  busy?: boolean;
   accessibilityHint?: string;
 }) {
   if (destructive) {
@@ -73,12 +80,31 @@ export function SettingsRow({
 
   const isToggle = trailing === 'toggle';
 
+  const a11yLabel = subtitle
+    ? `${label}, ${subtitle}`
+    : value
+      ? `${label}, ${value}`
+      : label;
+
+  const labelBlock = subtitle ? (
+    <View style={styles.copyColumn}>
+      <Text style={styles.labelWithSubtitle} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={styles.subtitle} numberOfLines={2}>
+        {subtitle}
+      </Text>
+    </View>
+  ) : (
+    <Text style={styles.label} numberOfLines={1}>
+      {label}
+    </Text>
+  );
+
   const body = (
     <>
       {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
-      <Text style={styles.label} numberOfLines={1}>
-        {label}
-      </Text>
+      {labelBlock}
       {value ? (
         <Text style={styles.value} numberOfLines={1}>
           {value}
@@ -110,11 +136,7 @@ export function SettingsRow({
   // row doesn't swallow touches.
   if (!onPress) {
     return (
-      <View
-        style={styles.row}
-        accessible
-        accessibilityLabel={value ? `${label}, ${value}` : label}
-      >
+      <View style={styles.row} accessible accessibilityLabel={a11yLabel}>
         {body}
       </View>
     );
@@ -123,10 +145,16 @@ export function SettingsRow({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled || busy}
       accessibilityRole="button"
-      accessibilityLabel={value ? `${label}, ${value}` : label}
+      accessibilityLabel={a11yLabel}
       accessibilityHint={accessibilityHint}
-      style={({ pressed }) => [styles.row, pressed && pressedDim]}
+      accessibilityState={{ disabled: disabled || busy, busy: !!busy }}
+      style={({ pressed }) => [
+        styles.row,
+        (disabled || busy) && styles.rowDisabled,
+        pressed && !disabled && !busy && pressedDim,
+      ]}
     >
       {body}
     </Pressable>
@@ -152,10 +180,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  copyColumn: {
+    flex: 1,
+    gap: spacing.xs,
+  },
   label: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
     flex: 1,
+  },
+  labelWithSubtitle: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.black,
+  },
+  subtitle: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
+  },
+  rowDisabled: {
+    opacity: 0.7,
   },
   // flexShrink + numberOfLines: a long value (e.g. "Reach a trusted
   // contact or 911") must truncate rather than squeeze the flex:1

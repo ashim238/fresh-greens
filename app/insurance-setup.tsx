@@ -1,13 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
-import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 import { Camera } from 'phosphor-react-native/src/icons/Camera';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import {
-  extractTextFromImage,
-  isSupported as ocrSupported,
-} from 'expo-text-extractor';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,15 +18,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RowGroup } from '../components/settings/RowGroup';
+import { SettingsHeader } from '../components/settings/SettingsHeader';
+import { SettingsRow } from '../components/settings/SettingsRow';
 import { useInsuranceProfile } from '../hooks/useInsuranceProfile';
 import { useMutation } from '../hooks/useMutation';
 import { getErrorMessage } from '../lib/error-message';
+import {
+  extractInsuranceCardText,
+  isInsuranceOcrEnvironment,
+  isInsuranceOcrSupported,
+} from '../lib/insurance-ocr-native';
 import { parseInsuranceFromOcr } from '../lib/insurance-ocr';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
-import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
-import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -41,11 +42,22 @@ import { typography } from '../theme/typography';
  * Have." Manual entry or scan an insurance card photo (on-device OCR via
  * Apple Vision; requires a dev build, not Expo Go).
  *
- * Pushed from /safety-settings. router.back() returns to Safety.
+ * Settings register: grouped-gray page, SettingsHeader, RowGroup cards
+ * (matches /fuel and /safety-settings). Full stack push from
+ * /safety-settings; router.back() returns to Safety.
  */
 export default function InsuranceSetup() {
   const router = useRouter();
   const { profile, loading, saveProfile } = useInsuranceProfile();
+  const [ocrSupported, setOcrSupported] = useState(false);
+
+  useEffect(() => {
+    if (!isInsuranceOcrEnvironment()) {
+      setOcrSupported(false);
+      return;
+    }
+    void isInsuranceOcrSupported().then(setOcrSupported);
+  }, []);
 
   const [carrierName, setCarrierName] = useState('');
   const [policyNumber, setPolicyNumber] = useState('');
@@ -72,12 +84,56 @@ export default function InsuranceSetup() {
   const policyValid = policyNumber.replace(/[^A-Za-z0-9]/g, '').length >= 4;
   const canSave = carrierValid && policyValid && !saving && !scanning;
 
+  const isDirty =
+    hydrated &&
+    (carrierName.trim() !== (profile?.carrierName ?? '').trim() ||
+      policyNumber.trim() !== (profile?.policyNumber ?? '').trim() ||
+      cardPhotoUri !== profile?.cardPhotoUri);
+
   const carrierError =
     carrierTouched && !carrierValid ? 'Enter your insurance carrier.' : null;
   const policyError =
     policyTouched && !policyValid
       ? 'Policy number needs at least 4 letters or digits.'
       : null;
+
+  const scanFooter =
+    scanError ?? (ocrSupported ? 'On-device only. Nothing is uploaded.' : undefined);
+  const scanFooterTone = scanError ? 'error' : 'default';
+
+  function saveAccessibilityHint(): string | undefined {
+    if (canSave) return 'Saves your insurance profile';
+    if (scanning) return 'Finish scanning before saving';
+    if (saving) return undefined;
+    if (!carrierValid) return 'Enter your insurance carrier to enable Save';
+    if (!policyValid) {
+      return 'Policy number needs at least 4 letters or digits to enable Save';
+    }
+    return undefined;
+  }
+
+  function confirmDiscard(onDiscard: () => void) {
+    if (!isDirty) {
+      onDiscard();
+      return;
+    }
+    Alert.alert(
+      'Discard changes?',
+      'You have unsaved insurance information.',
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: onDiscard },
+      ],
+    );
+  }
+
+  function handleBack() {
+    confirmDiscard(() => router.back());
+  }
+
+  function handleClose() {
+    confirmDiscard(() => router.replace('/home'));
+  }
 
   function handleCarrierChange(text: string) {
     setScanError(null);
@@ -114,7 +170,7 @@ export default function InsuranceSetup() {
     setScanning(true);
     setScanError(null);
     try {
-      const lines = await extractTextFromImage(uri);
+      const lines = await extractInsuranceCardText(uri);
       const draft = parseInsuranceFromOcr(lines);
       if (draft.carrierName) setCarrierName(draft.carrierName);
       if (draft.policyNumber) setPolicyNumber(draft.policyNumber);
@@ -205,17 +261,7 @@ export default function InsuranceSetup() {
     }
   }
 
-  if (loading && !hydrated) {
-    return (
-      <View style={styles.root}>
-        <StatusBar style="dark" />
-        <SafeAreaView style={styles.loadingSafe} edges={['top', 'bottom']}>
-          <ActivityIndicator color={colors.freshgreen} size="large" />
-          <Text style={styles.loadingLabel}>Loading insurance…</Text>
-        </SafeAreaView>
-      </View>
-    );
-  }
+  const formReady = hydrated && !loading;
 
   return (
     <View style={styles.root}>
@@ -225,89 +271,52 @@ export default function InsuranceSetup() {
           style={styles.kav}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.header}>
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              style={tapTarget44}
-            >
-              <CaretLeft size={28} color={colors.black} weight="regular" />
-            </Pressable>
-          </View>
+          <SettingsHeader
+            title="Auto insurance"
+            onBack={handleBack}
+            onClose={handleClose}
+          />
 
           <ScrollView
-            style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.intro}>
-              <Text style={styles.title} accessibilityRole="header">
-                Auto insurance
-              </Text>
-              <Text style={styles.lede}>
-                Save carrier and policy number so they are ready if you are
-                stopped.
-              </Text>
-            </View>
-
-            <View style={styles.scanSection}>
-              {!ocrSupported ? (
-                <Text style={styles.scanCapabilityNote} accessibilityRole="text">
-                  Card scanning needs a development build. Manual entry below
-                  still works in Expo Go.
-                </Text>
-              ) : null}
-
-              <View style={styles.scanCardShadow}>
-                <View style={styles.scanCard}>
-                  <Pressable
+            {!formReady ? (
+              <View style={styles.loadingBody}>
+                <ActivityIndicator color={colors.freshgreen} size="large" />
+                <Text style={styles.loadingLabel}>Loading insurance…</Text>
+              </View>
+            ) : (
+              <>
+                <RowGroup footer={scanFooter} footerTone={scanFooterTone}>
+                  <SettingsRow
+                    icon={
+                      scanning ? (
+                        <ActivityIndicator color={colors.freshgreen} />
+                      ) : (
+                        <Camera
+                          size={24}
+                          color={colors.black}
+                          weight="duotone"
+                        />
+                      )
+                    }
+                    label={
+                      scanning ? 'Reading card…' : 'Scan insurance card'
+                    }
                     onPress={handleScanCard}
                     disabled={scanning}
-                    style={({ pressed }) => [
-                      styles.scanRow,
-                      pressed && !scanning && pressedDim,
-                      scanning && styles.scanRowBusy,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Scan insurance card"
+                    busy={scanning}
                     accessibilityHint={
                       ocrSupported
                         ? 'Opens camera or photo library to read your card'
                         : 'Requires a development build; opens an explanation'
                     }
-                    accessibilityState={{ disabled: scanning, busy: scanning }}
-                  >
-                    <View style={styles.scanIconCircle}>
-                      {scanning ? (
-                        <ActivityIndicator color={colors.freshgreen} />
-                      ) : (
-                        <Camera
-                          size={24}
-                          color={colors.freshgreen}
-                          weight="duotone"
-                        />
-                      )}
-                    </View>
-                    <View style={styles.scanCopy}>
-                      <Text style={styles.scanTitle}>
-                        {scanning ? 'Reading card…' : 'Scan insurance card'}
-                      </Text>
-                      <Text style={styles.scanSubtitle}>
-                        On-device only. Nothing is uploaded.
-                      </Text>
-                    </View>
-                    <CaretRight
-                      size={16}
-                      color={colors.labelTertiary}
-                      weight="regular"
-                    />
-                  </Pressable>
+                  />
 
                   {cardPhotoUri ? (
-                    <>
-                      <View style={styles.scanDivider} />
+                    <View>
                       <Image
                         source={{ uri: cardPhotoUri }}
                         style={styles.cardThumb}
@@ -334,84 +343,81 @@ export default function InsuranceSetup() {
                           Remove card photo
                         </Text>
                       </Pressable>
-                    </>
+                    </View>
                   ) : null}
-                </View>
-              </View>
+                </RowGroup>
 
-              {scanError ? (
-                <Text style={styles.scanError} accessibilityRole="alert">
-                  {scanError}
-                </Text>
-              ) : null}
-            </View>
+                <RowGroup title="Enter manually">
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>Carrier</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        carrierError ? styles.inputError : null,
+                      ]}
+                      value={carrierName}
+                      onChangeText={handleCarrierChange}
+                      onBlur={() => setCarrierTouched(true)}
+                      placeholder="State Farm, GEICO, …"
+                      placeholderTextColor={colors.mutedSecondary}
+                      autoCapitalize="words"
+                      accessibilityLabel="Carrier"
+                    />
+                    {carrierError ? (
+                      <Text style={styles.fieldError} accessibilityRole="alert">
+                        {carrierError}
+                      </Text>
+                    ) : null}
+                  </View>
 
-            <View style={styles.manualSection}>
-              <Text style={styles.sectionLabel} accessibilityRole="header">
-                Enter manually
-              </Text>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Carrier</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    carrierError ? styles.inputError : null,
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>Policy number</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        policyError ? styles.inputError : null,
+                      ]}
+                      value={policyNumber}
+                      onChangeText={handlePolicyChange}
+                      onBlur={() => setPolicyTouched(true)}
+                      placeholder="As printed on your card"
+                      placeholderTextColor={colors.mutedSecondary}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      accessibilityLabel="Policy number"
+                    />
+                    {policyError ? (
+                      <Text style={styles.fieldError} accessibilityRole="alert">
+                        {policyError}
+                      </Text>
+                    ) : null}
+                  </View>
+                </RowGroup>
+
+                <Pressable
+                  onPress={handleSave}
+                  disabled={!canSave}
+                  style={({ pressed }) => [
+                    styles.saveBtn,
+                    !canSave && styles.saveBtnDisabled,
+                    pressed && canSave && pressedDim,
                   ]}
-                  value={carrierName}
-                  onChangeText={handleCarrierChange}
-                  onBlur={() => setCarrierTouched(true)}
-                  placeholder="State Farm, GEICO, …"
-                  placeholderTextColor={colors.labelTertiary}
-                  autoCapitalize="words"
-                  accessibilityLabel="Carrier"
-                />
-                {carrierError ? (
-                  <Text style={styles.fieldError} accessibilityRole="alert">
-                    {carrierError}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Policy number</Text>
-                <TextInput
-                  style={[styles.input, policyError ? styles.inputError : null]}
-                  value={policyNumber}
-                  onChangeText={handlePolicyChange}
-                  onBlur={() => setPolicyTouched(true)}
-                  placeholder="As printed on your card"
-                  placeholderTextColor={colors.labelTertiary}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  accessibilityLabel="Policy number"
-                />
-                {policyError ? (
-                  <Text style={styles.fieldError} accessibilityRole="alert">
-                    {policyError}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-          </ScrollView>
-
-          <Pressable
-            onPress={handleSave}
-            disabled={!canSave}
-            style={({ pressed }) => [
-              styles.cta,
-              !canSave && styles.ctaDisabled,
-              pressed && canSave && pressedDim,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={saving ? 'Saving insurance' : 'Save insurance'}
-            accessibilityHint="Saves your insurance profile"
-            accessibilityState={{ disabled: !canSave, busy: saving }}
-          >
-            {saving ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.ctaLabel}>Save</Text>
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    saving ? 'Saving insurance' : 'Save insurance'
+                  }
+                  accessibilityHint={saveAccessibilityHint()}
+                  accessibilityState={{ disabled: !canSave, busy: saving }}
+                >
+                  {saving ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <Text style={styles.saveBtnText}>Save</Text>
+                  )}
+                </Pressable>
+              </>
             )}
-          </Pressable>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -419,92 +425,20 @@ export default function InsuranceSetup() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
-  safe: { flex: 1, paddingHorizontal: spacing.lg },
-  loadingSafe: {
-    flex: 1,
+  root: { flex: 1, backgroundColor: colors.systemGroupedBackground },
+  safe: { flex: 1 },
+  loadingBody: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xxl,
   },
   loadingLabel: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelSecondary,
   },
   kav: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-  },
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingBottom: spacing.lg,
-    gap: spacing.xl,
-  },
-  intro: {
-    gap: spacing.xs,
-    paddingTop: spacing.sm,
-  },
-  title: {
-    ...dynamicType(typography.title2Emphasized),
-    color: colors.black,
-  },
-  lede: {
-    ...dynamicType(typography.subheadlineRegular),
-    color: colors.labelSecondary,
-  },
-  scanSection: {
-    gap: spacing.sm,
-  },
-  scanCapabilityNote: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelSecondary,
-    paddingHorizontal: spacing.xs,
-  },
-  scanCardShadow: {
-    borderRadius: radii.md,
-    ...shadows.e1,
-  },
-  scanCard: {
-    backgroundColor: colors.white,
-    borderRadius: radii.md,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.cardBorderSubtle,
-  },
-  scanRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    minHeight: 52,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  scanRowBusy: { opacity: 0.7 },
-  scanIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.pill,
-    backgroundColor: colors.fadedgreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanCopy: { flex: 1, gap: spacing.xs },
-  scanTitle: {
-    ...dynamicType(typography.bodyEmphasized),
-    color: colors.black,
-  },
-  scanSubtitle: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelSecondary,
-  },
-  scanDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.cardBorderSubtle,
-    marginLeft: spacing.md + 44 + spacing.md,
-  },
+  scrollContent: { padding: spacing.lg, gap: spacing.xl },
   cardThumb: {
     width: '100%',
     aspectRatio: 1.586,
@@ -521,23 +455,13 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
   },
-  scanError: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
-    paddingHorizontal: spacing.xs,
-  },
-  manualSection: {
-    gap: spacing.md,
-  },
-  sectionLabel: {
-    ...dynamicType(typography.footnoteEmphasized),
-    color: colors.wiltedgreen,
-  },
-  fieldGroup: {
-    gap: spacing.xs,
+  field: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   fieldLabel: {
-    ...dynamicType(typography.footnoteEmphasized),
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.labelSecondary,
   },
   input: {
@@ -545,7 +469,7 @@ const styles = StyleSheet.create({
     color: colors.black,
     minHeight: 44,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.separatorSubtle,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
   },
@@ -556,18 +480,20 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.red,
   },
-  cta: {
+  saveBtn: {
     minHeight: 50,
     borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
+    // 1pt wiltedgreen border per DESIGN.md: freshgreen alone is 2.88:1
+    // against the page (below the 3:1 UI-component floor); the border
+    // lifts the button-to-page edge into a legible range.
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
-  ctaDisabled: {
-    backgroundColor: colors.cardBorderSubtle,
-  },
-  ctaLabel: {
+  saveBtnDisabled: { opacity: 0.7 },
+  saveBtnText: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.white,
   },
