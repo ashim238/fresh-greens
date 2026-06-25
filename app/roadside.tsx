@@ -33,6 +33,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
+import { MetaSeparator } from '../components/MetaSeparator';
 import { NotifyingPulse } from '../components/NotifyingPulse';
 import { RoadsideTowPick } from '../components/RoadsideTowPick';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
@@ -587,7 +588,11 @@ function LiveStatus({
         {shareOn && contact && contactNotifiedTime && (
           <View style={styles.sharedRow}>
             <Text style={styles.sharedRowLabel}>Contact</Text>
-            <Text style={styles.sharedRowValue}>{contact.name} · {contactNotifiedTime}</Text>
+            <View style={styles.sharedRowValue}>
+              <Text style={styles.sharedRowValueText}>{contact.name}</Text>
+              <MetaSeparator style={styles.sharedRowMetaSeparator} />
+              <Text style={styles.sharedRowValueText}>{contactNotifiedTime}</Text>
+            </View>
           </View>
         )}
       </View>
@@ -958,9 +963,18 @@ const styles = StyleSheet.create({
     width: 64,
   },
   sharedRowValue: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  sharedRowValueText: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
-    flex: 1,
+  },
+  sharedRowMetaSeparator: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
   },
   sectionLabel: {
     ...dynamicType(typography.subheadlineEmphasized),

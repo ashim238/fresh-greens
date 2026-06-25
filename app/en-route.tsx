@@ -73,6 +73,7 @@ import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { FuelStopMarker } from '../components/FuelStopMarker';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
+import { MetaSeparator } from '../components/MetaSeparator';
 import { RouteComparisonSheet, type ComparisonRow } from '../components/RouteComparisonSheet';
 import { usePreferences } from '../hooks/usePreferences';
 import {
@@ -2279,11 +2280,17 @@ export default function EnRoute() {
             </FloatingActionButton>
           </View>
 
-          <View style={styles.secondaryRow}>
+          <View
+            style={styles.secondaryRow}
+            accessibilityRole="text"
+            accessibilityLabel={`${
+              distanceMiles != null ? formatDistance(distanceMiles) : '—'
+            }, ${durationMinutes != null ? formatDuration(durationMinutes) : '—'}`}
+          >
             <Text style={styles.secondaryDistance}>
               {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
             </Text>
-            <Text style={styles.secondarySeparator}>·</Text>
+            <MetaSeparator style={styles.secondarySeparator} />
             <Text style={styles.secondaryDuration}>
               {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
             </Text>
@@ -2849,7 +2856,6 @@ const styles = StyleSheet.create({
   // separator stays Subheadline/Regular gray for a quiet beat.
   secondaryRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },

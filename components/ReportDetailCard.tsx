@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Animated, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
@@ -32,6 +33,7 @@ import { pressedDim } from '../theme/interaction';
 
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
+import { MetaSeparator } from './MetaSeparator';
 import { type Variant, variantForCategoryId } from './LandmarkMarker';
 
 /**
@@ -149,11 +151,16 @@ export function ReportDetailCard({
   // didn't fit in the title — category when placeName is the title,
   // sub-tag otherwise, plus relative time.
   const title = placeName ?? category.label;
-  const subline = placeName
-    ? `${category.label}${subTag && subTag !== 'Other' ? ` · ${subTag}` : ''} · ${relativeTime(timestamp)}`
+  const sublineParts = placeName
+    ? [
+        category.label,
+        ...(subTag && subTag !== 'Other' ? [subTag] : []),
+        relativeTime(timestamp),
+      ]
     : subTag && subTag !== 'Other'
-      ? `${subTag} · ${relativeTime(timestamp)}`
-      : relativeTime(timestamp);
+      ? [subTag, relativeTime(timestamp)]
+      : [relativeTime(timestamp)];
+  const subline = sublineParts.join(' · ');
 
   async function handleShare() {
     const lines = [
@@ -220,9 +227,18 @@ export function ReportDetailCard({
           >
             {title}
           </Text>
-          <Text style={styles.subline} numberOfLines={1}>
-            {subline}
-          </Text>
+          <View style={styles.sublineRow}>
+            {sublineParts.map((part, index) => (
+              <Fragment key={`${part}-${index}`}>
+                {index > 0 ? (
+                  <MetaSeparator style={styles.sublineSeparator} />
+                ) : null}
+                <Text style={styles.subline} numberOfLines={1}>
+                  {part}
+                </Text>
+              </Fragment>
+            ))}
+          </View>
         </View>
 
         {hasBody && (
@@ -320,11 +336,21 @@ const styles = StyleSheet.create({
     color: colors.black,
     textAlign: 'center',
   } as const,
+  sublineRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   subline: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.mutedSecondary,
     textAlign: 'center',
   } as const,
+  sublineSeparator: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.mutedSecondary,
+  },
   bodyWrap: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,

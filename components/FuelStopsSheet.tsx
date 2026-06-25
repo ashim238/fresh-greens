@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { X } from 'phosphor-react-native/src/icons/X';
 
+import { MetaSeparator } from './MetaSeparator';
 import { type Place } from '../lib/api/places';
 import { fuelPriceLabel } from '../lib/api/fuel-prices';
 import { type FuelType } from '../lib/api/fuel';
@@ -190,9 +191,8 @@ export function FuelStopsSheet({
                 renderItem={({ item }) => {
                   const highlighted = item.id === highlightStopId;
                   const pricePart = fuelPriceLabel(item.fuelPrice);
-                  const meta = pricePart
-                    ? `${pricePart} · ${item.distanceMiles} mi from you · along your route`
-                    : `${item.distanceMiles} mi from you · along your route`;
+                  const distancePart = `${item.distanceMiles} mi from you`;
+                  const routePart = 'along your route';
                   return (
                     <View style={styles.rowOuter}>
                       <Pressable
@@ -221,7 +221,17 @@ export function FuelStopsSheet({
                               {item.address}
                             </Text>
                           )}
-                          <Text style={styles.rowMeta}>{meta}</Text>
+                          <View style={styles.rowMetaRow}>
+                            {pricePart ? (
+                              <>
+                                <Text style={styles.rowMeta}>{pricePart}</Text>
+                                <MetaSeparator style={styles.rowMetaSeparator} />
+                              </>
+                            ) : null}
+                            <Text style={styles.rowMeta}>{distancePart}</Text>
+                            <MetaSeparator style={styles.rowMetaSeparator} />
+                            <Text style={styles.rowMeta}>{routePart}</Text>
+                          </View>
                         </View>
                         <PreferredStar
                           preferred={isPreferred(item)}
@@ -327,10 +337,19 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
   },
+  rowMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
   rowMeta: {
     ...dynamicType(typography.caption1Regular),
     color: colors.labelTertiary,
-    marginTop: 2,
+  },
+  rowMetaSeparator: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.labelTertiary,
   },
   trustedBadge: {
     alignSelf: 'flex-start',

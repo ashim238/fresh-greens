@@ -17,6 +17,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
+import { MetaSeparator } from '../components/MetaSeparator';
 import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
 import {
   EmptyState as EmptyStateCard,
@@ -439,11 +440,21 @@ function RecordingCard({
         <Text style={styles.cardTimestamp}>
           {formatTimestamp(recording.createdAt)}
         </Text>
-        <Text style={styles.cardSecondary}>
-          {formatArmed(recording.armed)}
-          {recording.armed != null ? ' · ' : ''}
-          {formatDuration(recording.durationMs)}
-        </Text>
+        <View style={styles.cardSecondaryRow}>
+          {recording.armed != null ? (
+            <>
+              <Text style={styles.cardSecondary}>{formatArmed(recording.armed)}</Text>
+              <MetaSeparator style={styles.cardSecondarySeparator} />
+              <Text style={styles.cardSecondary}>
+                {formatDuration(recording.durationMs)}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.cardSecondary}>
+              {formatDuration(recording.durationMs)}
+            </Text>
+          )}
+        </View>
       </View>
 
       <Pressable
@@ -585,6 +596,11 @@ const styles = StyleSheet.create({
     // shift the "·" separator and stagger the stack between rows.
     fontVariant: ['tabular-nums'],
   },
+  cardSecondaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
   cardSecondary: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
@@ -592,6 +608,10 @@ const styles = StyleSheet.create({
     // fixed-width digits so the colon stays aligned row-to-row. Same
     // convention as the /en-route ETA + HomeBrowseSheet rating values.
     fontVariant: ['tabular-nums'],
+  },
+  cardSecondarySeparator: {
+    ...dynamicType(typography.subheadlineRegular),
+    color: colors.labelTertiary,
   },
   // 44pt painted surface per HIG. Was 32pt + hitSlop:12 which met
   // the touch-area floor but violated the cursorrules "visual on the
