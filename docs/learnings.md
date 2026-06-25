@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## chore/impeccable-docs-cleanup — post visual-closure (2026-06-25)
+
+After #270 merged the Pre-Supabase gate, `.impeccable/` had seven root-level point-in-time docs plus 76+ critique snapshots with no index. **Pattern:** one canonical rollup (`VISUAL-CLOSURE-SYNTHESIS.md`), batch/round docs in `archive/`, immutable `critique/` trail, `README.md` as the map. Commit `design.json` (design-chain artifact) and stray critique timestamps rather than gitignoring `.impeccable/` — only `hook.cache.json` stays ignored. Future `/visual-pass round` outputs land at root until a synthesis supersedes them, then move to `archive/`.
+
+---
+
 ## Pre-Supabase visual closure — batch 5 synthesis (`chore/visual-closure-synthesis`, 2026-06-25)
 
 Five PRs (#266–#269 + synthesis) walked all **27** `app/*.tsx` routes through audit, critique, and visual-pass before Supabase M1.1. **Pattern that worked:** batch by flow (map hubs → safety → settings → onboarding) then a synthesis PR that re-spot-checks cross-cutting primitives (`MetaSeparator`, `SearchBar`, `FloatingActionButton`, `DragHandle`) instead of re-auditing every screen. Round 7 P1s (inert mic, no-route turn card, safety picker hints, roadside share toggle) were already closed in batches 1–2 — synthesis verified, didn't re-fix. **P2 deferrals stay explicit** in `.impeccable/VISUAL-CLOSURE-SYNTHESIS.md` (fuel picker labels, report chip padding, splash legal links) so the gate doesn't silently absorb polish debt. Rollup is the artifact Supabase work should cite when asking "did we finish visual closure?"
@@ -12,13 +18,13 @@ Five PRs (#266–#269 + synthesis) walked all **27** `app/*.tsx` routes through 
 
 ## Visual pass — meta-line interpunct (`polish/visual-pass-meta-spacing`, 2026-06-25)
 
-Round 7 + typography critique scored token/ramp compliance but missed **optical micro-layout**: a `·` baked into `"· ${distance}"` or flex `gap` beside a middot Text sits closer to one neighbor when weights differ (`subheadline` + `footnote`, or `bodyEmphasized` + regular). Fix: shared `MetaSeparator` (`paddingHorizontal: spacing.xs` on the glyph) + `joinMetaParts()` in a flex row with no row-level `gap` on the beat. **Lesson:** critique scores voice/hierarchy/IA; technical audit catches tokens — neither inspects interpunct geometry. Add an explicit "meta-line separator" row to future hub/driving visual passes, not just type audits. Synthesis: `.impeccable/VISUAL-PASS-2026-06-25.md`.
+Round 7 + typography critique scored token/ramp compliance but missed **optical micro-layout**: a `·` baked into `"· ${distance}"` or flex `gap` beside a middot Text sits closer to one neighbor when weights differ (`subheadline` + `footnote`, or `bodyEmphasized` + regular). Fix: shared `MetaSeparator` (`paddingHorizontal: spacing.xs` on the glyph) + `joinMetaParts()` in a flex row with no row-level `gap` on the beat. **Lesson:** critique scores voice/hierarchy/IA; technical audit catches tokens — neither inspects interpunct geometry. Add an explicit "meta-line separator" row to future hub/driving visual passes, not just type audits. Synthesis: `.impeccable/archive/VISUAL-PASS-2026-06-25.md`.
 
 ---
 
 ## Tow-pick merge + Round 7 hub critique (`main` / `chore/design-round-7`, 2026-06-25)
 
-Squash-merged PR #253 (roadside tow-pick + MKLocalSearch phone enrichment) after clean pre-merge audit. **Round 7 hub sweep** (workflow §12b) ran immediately on `chore/design-round-7`: six hub screens critiqued, synthesis at `.impeccable/ROUND-7-SYNTHESIS.md`. **0 P0** — tow-pick is shippable; top follow-up is `/roadside` share-toggle auto-advancing to status (P1). Pattern: sub-flows outpolished their picker (`/safety` tiles still lack PR #242 hints while `/roadside` gained tow-pick). Critique → punch-list → fix PR is the right next beat, not more critique.
+Squash-merged PR #253 (roadside tow-pick + MKLocalSearch phone enrichment) after clean pre-merge audit. **Round 7 hub sweep** (workflow §12b) ran immediately on `chore/design-round-7`: six hub screens critiqued, synthesis at `.impeccable/archive/ROUND-7-SYNTHESIS.md`. **0 P0** — tow-pick is shippable; top follow-up is `/roadside` share-toggle auto-advancing to status (P1). Pattern: sub-flows outpolished their picker (`/safety` tiles still lack PR #242 hints while `/roadside` gained tow-pick). Critique → punch-list → fix PR is the right next beat, not more critique.
 
 ---
 

@@ -157,6 +157,8 @@ for *recurring* misses. Track cadence: `git log --oneline | grep audit`.
 
 ## §12c — Impeccable cadence (UI quality passes)
 
+**Index:** [`.impeccable/README.md`](../.impeccable/README.md) — canonical synthesis vs critique trail vs `archive/`.
+
 **Impeccable** (`/impeccable` in Cursor) runs **commands** in-session (audit, critique,
 polish, …). It does **not** replace §12 **`code-reviewer`** — Impeccable owns surface
 quality on named routes; `code-reviewer` owns diff-wide consistency, blast radius, and
