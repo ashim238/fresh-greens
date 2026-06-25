@@ -4,7 +4,7 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 
 ## Pre-Supabase visual closure
 
-**Gate:** Last visual work before Supabase M1.1 pivot. Run **after** PR #264 merge (`ce9ef57` on `main`). **Plan only** until this section is executed — do not start Supabase until success criteria met.
+**Gate:** ✅ **Met** (2026-06-25) — synthesis PR batch 5 on `chore/visual-closure-synthesis`. Batches 1–4 merged (#266–#269). Rollup: `.impeccable/VISUAL-CLOSURE-SYNTHESIS.md`. **0 open P0/P1** across audit, critique, and visual-pass. **Supabase M1.1 pivot cleared.**
 
 **Closed with #264 + stroke follow-up:** Map marker identity-glyph strokes — situational white/black from #262 reverted; default identity glyphs use `MARKER_GLYPH_STROKE` (black). **Women-owned** uses saturated-fill treatment (`MARKER_GLYPH_STROKE_WOMEN_OWNED`, darker than `#FF2D55` fill). **Felt-welcome heart** keeps black stroke.
 
@@ -72,10 +72,10 @@ Each PR: run all three passes on its routes → fix-forward P0/P1 → `npx tsc -
 
 ### Success criteria
 
-- **Zero open P0 or P1** across audit, critique, and visual-pass findings before Supabase M1.1
-- P2/P3 logged in this file or synthesis doc with explicit defer rationale
-- Snapshot trail complete: critique files per route, visual-pass synthesis dated, audit scorecards archived
-- `npx tsc --noEmit` clean on `main` after synthesis PR merge
+- ~~**Zero open P0 or P1** across audit, critique, and visual-pass findings before Supabase M1.1~~ — ✅ met batch 5 synthesis (0/0)
+- ~~P2/P3 logged in this file or synthesis doc with explicit defer rationale~~ — ✅ `.impeccable/VISUAL-CLOSURE-SYNTHESIS.md` §P2/P3
+- ~~Snapshot trail complete: critique files per route, visual-pass synthesis dated, audit scorecards archived~~ — ✅ batches 1–4 + prior VISUAL-PASS rounds
+- ~~`npx tsc --noEmit` clean on `main` after synthesis PR merge~~ — ✅ verified on synthesis branch
 
 ### Visual-pass round checklist (13 categories)
 
@@ -110,10 +110,10 @@ Post tow-pick merge hub sweep per workflow §12b. Synthesis: `.impeccable/ROUND-
 
 | Tier | Item | Surface | Notes |
 | ---- | ---- | ------- | ----- |
-| P1 | **Share toggle auto-advances to status** | `/roadside` Step 2 | Enabling share calls `markActionTaken()` — accidental toggle skips action review. |
-| P1 | **Toolkit tiles missing hints + session invisible** | `/safety` | PR #242 convention on sub-flows but not picker; active session only via Alert. |
-| P1 | **No-route turn-card = mock fallback copy** | `/en-route` | "Heading toward {dest}" ambiguous — parallel /home no-route branch. |
-| P1 | **Inert mic looks tappable** | `/search` | `onMicPress` omitted by design; sighted affordance still wrong. |
+| ~~P1~~ | ~~**Share toggle auto-advances to status**~~ | `/roadside` Step 2 | ~~Fixed batch 2 — toggle arms share only; `markActionTaken()` on call/tow paths.~~ |
+| ~~P1~~ | ~~**Toolkit tiles missing hints + session invisible**~~ | `/safety` | ~~Fixed batch 2 — `accessibilityHint` on tiles + session banner when active.~~ |
+| ~~P1~~ | ~~**No-route turn-card = mock fallback copy**~~ | `/en-route` | ~~Fixed batch 1 — `Following route to` for mock/cache; live `Heading toward` separate.~~ |
+| ~~P1~~ | ~~**Inert mic looks tappable**~~ | `/search` | ~~Fixed batch 1 — SearchBar omits mic when `onMicPress` undefined.~~ |
 | P2 | **Tow-pick simulator copy in production error** | `RoadsideTowPick` | Empty-state mentions Xcode simulator. |
 | P2 | **WrongSpotModal no in-card Cancel** | `/roadside` | Scrim tap only; VoiceOver escape gap. |
 | P2 | **"I figured it out" one-tap dismiss** | `/roadside` | Stress-state accidental back. |
