@@ -19,7 +19,7 @@ import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.
 import { MarkerGlyph } from './MarkerGlyph';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
-import { markerCircleBgFor } from '../theme/marker-glyph';
+import { markerCircleBgFor, MARKER_GLYPH_STROKE_WOMEN_OWNED } from '../theme/marker-glyph';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
@@ -180,7 +180,13 @@ function DefaultGlyph({
   // and off-screen edge markers read identically.
   switch (subTag) {
     case 'Women-owned':
-      return <MarkerGlyph Glyph={GlyphWomenOwned} width={24} />;
+      return (
+        <MarkerGlyph
+          Glyph={GlyphWomenOwned}
+          width={24}
+          stroke={MARKER_GLYPH_STROKE_WOMEN_OWNED}
+        />
+      );
     case 'LGBTQ+ welcoming':
       return <MarkerGlyph Glyph={GlyphLgbtq} width={24} />;
     case 'Open restroom':

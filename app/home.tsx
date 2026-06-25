@@ -109,7 +109,7 @@ import {
 import { maybeWarmZoneTile } from '../lib/corridor/passive-zone-tiles';
 import { getErrorMessage } from '../lib/error-message';
 import { pathLengthMeters } from '../lib/geo';
-import { clusterPointZones } from '../lib/clustering';
+import { clusterPointZones, regionToRevealCluster, regionToRevealCoordinates } from '../lib/clustering';
 import {
   arrivalLightLabel,
   DAYLIGHT_DASH_PATTERN,
@@ -2276,19 +2276,9 @@ export default function Home() {
                   suppressNextMapPressRef.current = true;
                   setSelectedRouteHazard(null);
                   Haptics.selectionAsync();
-                  const lats = cluster.zones.map((z) => z.coordinates[0].latitude);
-                  const lngs = cluster.zones.map((z) => z.coordinates[0].longitude);
-                  const minLat = Math.min(...lats);
-                  const maxLat = Math.max(...lats);
-                  const minLng = Math.min(...lngs);
-                  const maxLng = Math.max(...lngs);
+                  if (!mapSize) return;
                   mapRef.current?.animateToRegion(
-                    {
-                      latitude: (minLat + maxLat) / 2,
-                      longitude: (minLng + maxLng) / 2,
-                      latitudeDelta: Math.max((maxLat - minLat) * 1.5, 0.005),
-                      longitudeDelta: Math.max((maxLng - minLng) * 1.5, 0.005),
-                    },
+                    regionToRevealCluster(cluster, mapSize.width, mapSize.height),
                     400,
                   );
                 }}
@@ -2422,19 +2412,13 @@ export default function Home() {
                         400,
                       );
                     } else {
-                      const lats = group.items.map((z) => z.coordinates[0].latitude);
-                      const lngs = group.items.map((z) => z.coordinates[0].longitude);
-                      const minLat = Math.min(...lats);
-                      const maxLat = Math.max(...lats);
-                      const minLng = Math.min(...lngs);
-                      const maxLng = Math.max(...lngs);
+                      const coords = group.items.map((z) => z.coordinates[0]);
                       mapRef.current?.animateToRegion(
-                        {
-                          latitude: (minLat + maxLat) / 2,
-                          longitude: (minLng + maxLng) / 2,
-                          latitudeDelta: (maxLat - minLat) * 1.5 + 0.005,
-                          longitudeDelta: (maxLng - minLng) * 1.5 + 0.005,
-                        },
+                        regionToRevealCoordinates(
+                          coords,
+                          mapSize.width,
+                          mapSize.height,
+                        ),
                         400,
                       );
                     }

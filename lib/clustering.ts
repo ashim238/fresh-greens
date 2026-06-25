@@ -25,6 +25,8 @@ export type ClusterOrZone =
 
 const CLUSTER_RADIUS_PX = 60;
 
+export { CLUSTER_RADIUS_PX };
+
 function lngDegreesPerPixel(region: Region, viewportWidth: number): number {
   return region.longitudeDelta / viewportWidth;
 }
@@ -103,5 +105,65 @@ export function clusterPointZones(
     c.count === 1
       ? { kind: 'zone' as const, zone: c.zones[0] }
       : { kind: 'cluster' as const, cluster: c },
+  );
+}
+
+/**
+ * Camera region that zooms tight enough for greedy clustering to split
+ * members apart on the next frame. Replaces the old `max(span*1.5, 0.005)`
+ * floor, which kept dense clusters merged after tap.
+ */
+export function regionToRevealCoordinates(
+  coordinates: Coordinate[],
+  viewportWidth: number,
+  viewportHeight: number,
+): Region {
+  if (coordinates.length === 0) {
+    throw new Error('regionToRevealCoordinates requires at least one point');
+  }
+
+  const lats = coordinates.map((c) => c.latitude);
+  const lngs = coordinates.map((c) => c.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+
+  const spanLat = maxLat - minLat;
+  const spanLng = maxLng - minLng;
+
+  const minPxSeparation = CLUSTER_RADIUS_PX * 2.2;
+  const paddingFactor = 1.6;
+
+  const latDeltaFromSpan =
+    spanLat > 0
+      ? (spanLat * viewportHeight * paddingFactor) / minPxSeparation
+      : 0;
+  const lngDeltaFromSpan =
+    spanLng > 0
+      ? (spanLng * viewportWidth * paddingFactor) / minPxSeparation
+      : 0;
+
+  // Coincident pins can't split without spiderfy — block-scale zoom at least.
+  const streetLatDelta = 0.0008;
+  const streetLngDelta = 0.0008;
+
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max(latDeltaFromSpan, streetLatDelta),
+    longitudeDelta: Math.max(lngDeltaFromSpan, streetLngDelta),
+  };
+}
+
+export function regionToRevealCluster(
+  cluster: Cluster,
+  viewportWidth: number,
+  viewportHeight: number,
+): Region {
+  return regionToRevealCoordinates(
+    cluster.zones.map((z) => z.coordinates[0]),
+    viewportWidth,
+    viewportHeight,
   );
 }
