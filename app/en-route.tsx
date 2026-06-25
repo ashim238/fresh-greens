@@ -269,6 +269,9 @@ function a11yLabelForTurnCard(
   if (!info && routeSource === 'no-route') {
     return `No route available to ${destName ?? 'your destination'}. Try a different destination.`;
   }
+  if (!info && (routeSource === 'mock' || routeSource === 'cache')) {
+    return `Following route to ${destName ?? 'your destination'}. Turn-by-turn guidance unavailable offline.`;
+  }
   if (!info) return `Heading toward ${destName ?? 'your destination'}`;
   if (info.status === 'arrived') return "You've arrived at your destination";
   if (info.status === 'off-route') return 'Recalculating route';
@@ -1919,6 +1922,13 @@ export default function EnRoute() {
                 No route available{'\n'}
                 <Text style={styles.turnStreet}>
                   Try a different destination
+                </Text>
+              </Text>
+            ) : routeSource === 'mock' || routeSource === 'cache' ? (
+              <Text style={styles.turnInstruction}>
+                Following route to{'\n'}
+                <Text style={styles.turnStreet}>
+                  {params.destName ?? 'your destination'}
                 </Text>
               </Text>
             ) : (

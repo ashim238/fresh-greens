@@ -636,12 +636,10 @@ export default function Search() {
               setSelectedToolId(null);
               setResults([]);
             }}
-            // S2: omit onMicPress until voice input is built. Passing
-            // a no-op handler made PressableIcon render as a Pressable
-            // (truthy onPress), which VoiceOver announces as "Voice
-            // search, button" but produces zero feedback on tap.
-            // Undefined keeps the icon visible as a static decorative
-            // glyph until expo-speech / native speech-to-text lands.
+            // S2: omit onMicPress until voice input is built — SearchBar
+            // hides the mic glyph entirely when the handler is absent so
+            // sighted users don't tap a decorative affordance that does
+            // nothing. VoiceOver never saw a button here (no onPress).
             // TODO: restore handler when voice input ships.
             autoFocus
           />

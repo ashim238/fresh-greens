@@ -3528,7 +3528,9 @@ function RouteZonesFetchFailedChip({ onRetry }: { onRetry: () => void }) {
       accessibilityHint="Tap to try the route check again"
     >
       <ArrowClockwise size={16} color={colors.labelSecondary} weight="bold" />
-      <Text style={styles.routeZonesLoadingText}>Couldn't check route · Retry</Text>
+      <Text style={styles.routeZonesLoadingText}>Couldn&apos;t check route</Text>
+      <MetaSeparator style={styles.routeZonesMetaSeparator} />
+      <Text style={styles.routeZonesLoadingText}>Retry</Text>
     </Pressable>
   );
 }
@@ -4005,6 +4007,9 @@ const styles = StyleSheet.create({
   },
   routeZonesLoadingText: {
     ...dynamicType(typography.caption1Emphasized),
+    color: colors.labelSecondary,
+  },
+  routeZonesMetaSeparator: {
     color: colors.labelSecondary,
   },
   tradeoffRow: {
