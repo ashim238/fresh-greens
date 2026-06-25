@@ -19,7 +19,7 @@ import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.
 import { MarkerGlyph } from './MarkerGlyph';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
-import { markerCircleBgFor, markerGlyphStroke } from '../theme/marker-glyph';
+import { markerCircleBgFor } from '../theme/marker-glyph';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
@@ -147,7 +147,6 @@ export function EdgeIndicator({
                 categoryId={categoryId}
                 subTag={subTag}
                 variant={variant}
-                bgColor={circleColor}
               />
             )}
           </View>
@@ -172,24 +171,22 @@ function DefaultGlyph({
   categoryId,
   subTag,
   variant,
-  bgColor,
 }: {
   categoryId?: string;
   subTag?: string;
   variant?: Variant;
-  bgColor: string;
 }) {
   // Identity-tag bespoke SVGs — same four as LandmarkMarker so on-map
   // and off-screen edge markers read identically.
   switch (subTag) {
     case 'Women-owned':
-      return <MarkerGlyph Glyph={GlyphWomenOwned} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphWomenOwned} width={24} />;
     case 'LGBTQ+ welcoming':
-      return <MarkerGlyph Glyph={GlyphLgbtq} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphLgbtq} width={24} />;
     case 'Open restroom':
-      return <MarkerGlyph Glyph={GlyphRestroom} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphRestroom} width={24} />;
     case 'Late-night welcome':
-      return <MarkerGlyph Glyph={GlyphLateNight} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphLateNight} width={24} />;
   }
 
   switch (categoryId) {
@@ -197,32 +194,28 @@ function DefaultGlyph({
       return <EdgeGlyphCar width={22.14} height={15.03} />;
     case 'home':
       return (
-        <House
-          size={24}
-          color={markerGlyphStroke(bgColor)}
-          weight="duotone"
-        />
+        <House size={24} color={colors.black} weight="duotone" />
       );
     case 'felt-welcome':
-      return <MarkerGlyph Glyph={GlyphFeltWelcome} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} width={24} />;
     case 'felt-unsafe':
-      return <MarkerGlyph Glyph={GlyphFeltUnsafe} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltUnsafe} width={24} />;
     case 'incident':
-      return <MarkerGlyph Glyph={GlyphIncident} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphIncident} width={24} />;
     case 'lighting':
-      return <MarkerGlyph Glyph={GlyphLighting} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphLighting} width={24} />;
     case 'hazard':
-      return <MarkerGlyph Glyph={GlyphHazard} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphHazard} width={24} />;
     case 'black-owned':
-      return <MarkerGlyph Glyph={GlyphBlackOwned} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphBlackOwned} width={24} />;
   }
   switch (variant) {
     case 'positive':
-      return <MarkerGlyph Glyph={GlyphFeltWelcome} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} width={24} />;
     case 'report':
-      return <MarkerGlyph Glyph={GlyphFeltUnsafe} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltUnsafe} width={24} />;
     case 'black-owned':
-      return <MarkerGlyph Glyph={GlyphBlackOwned} bgColor={bgColor} width={24} />;
+      return <MarkerGlyph Glyph={GlyphBlackOwned} width={24} />;
     default:
       return null;
   }

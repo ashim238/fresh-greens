@@ -23,7 +23,7 @@ import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
 import { MarkerGlyph } from './MarkerGlyph';
 import { colors } from '../theme/colors';
-import { markerCircleBgFor, markerGlyphStroke } from '../theme/marker-glyph';
+import { markerCircleBgFor } from '../theme/marker-glyph';
 import { shadows } from '../theme/shadows';
 
 /**
@@ -115,13 +115,11 @@ function GlyphForCategory({
   categoryId,
   subTag,
   variant,
-  bgColor,
   size = 16,
 }: {
   categoryId?: string;
   subTag?: string;
   variant: Variant;
-  bgColor: string;
   size?: number;
 }) {
   // Identity-tag bespoke SVGs (multi-color illustrative, per Figma
@@ -130,28 +128,25 @@ function GlyphForCategory({
   // glyphs all line up visually for the four browse-sheet
   // identity chips. Place-type subTags (Restaurant, etc.) don't
   // appear here — they fall through to the category glyph.
-  // Stroked paths use `currentColor`; MarkerGlyph sets contrast
-  // from the inner-circle bg (illustration carve-out per
-  // .cursorrules #2 — pink is illustrative, not a UI signal).
+  // Stroked paths use `currentColor`; MarkerGlyph paints a fixed black
+  // outline for readability on wiltedgreen and other fills.
   switch (subTag) {
     case 'Women-owned':
-      return <MarkerGlyph Glyph={GlyphWomenOwned} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphWomenOwned} width={size} />;
     case 'LGBTQ+ welcoming':
-      return <MarkerGlyph Glyph={GlyphLgbtq} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphLgbtq} width={size} />;
     case 'Open restroom':
-      return <MarkerGlyph Glyph={GlyphRestroom} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphRestroom} width={size} />;
     case 'Late-night welcome':
-      return <MarkerGlyph Glyph={GlyphLateNight} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphLateNight} width={size} />;
   }
 
   switch (categoryId) {
     case 'home': {
       // Phosphor duotone House — universal iOS "home" affordance.
-      // Brand green on black-owned; situational contrast elsewhere.
+      // Brand green on black-owned; fixed black stroke elsewhere.
       const color =
-        variant === 'black-owned'
-          ? colors.freshgreen
-          : markerGlyphStroke(bgColor);
+        variant === 'black-owned' ? colors.freshgreen : colors.black;
       return <House size={size} color={color} weight="duotone" />;
     }
     case 'trusted-friend':
@@ -162,22 +157,22 @@ function GlyphForCategory({
       // later.
       return <GlyphTrustedFriend width={size} height={size} />;
     case 'black-owned':
-      return <MarkerGlyph Glyph={GlyphBlackOwned} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphBlackOwned} width={size} />;
     case 'felt-welcome':
-      return <MarkerGlyph Glyph={GlyphFeltWelcome} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} width={size} />;
     case 'felt-unsafe':
-      return <MarkerGlyph Glyph={GlyphFeltUnsafe} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphFeltUnsafe} width={size} />;
     case 'incident':
-      return <MarkerGlyph Glyph={GlyphIncident} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphIncident} width={size} />;
     case 'lighting':
-      return <MarkerGlyph Glyph={GlyphLighting} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphLighting} width={size} />;
     case 'hazard':
-      return <MarkerGlyph Glyph={GlyphHazard} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphHazard} width={size} />;
     default:
       // Defensive fallback for a categoryId we haven't seen — keeps the
       // marker visible if a new id is added to community-reports.ts but
       // forgotten here. Hazard reads as a sensible "generic report".
-      return <MarkerGlyph Glyph={GlyphHazard} bgColor={bgColor} width={size} />;
+      return <MarkerGlyph Glyph={GlyphHazard} width={size} />;
   }
 }
 
@@ -295,7 +290,6 @@ export function LandmarkMarker({
               categoryId={categoryId}
               subTag={subTag}
               variant={variant}
-              bgColor={circleBg}
               size={32}
             />
           </View>
