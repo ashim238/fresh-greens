@@ -32,6 +32,11 @@ export type Place = {
   longitude: number;
   /** Distance from the user's location in miles, rounded to 1 decimal. */
   distanceMiles: number;
+  /**
+   * Business phone when enriched (tow-pick via MKLocalSearch). Absent until
+   * `enrichPlaceWithPhone` runs — UI treats missing as gray Call + footnote.
+   */
+  phone?: string;
   /** Set by `enrichPlacesWithFuelPrices` — Gas/on-route fuel contexts only. */
   fuelPrice?: FuelPriceQuote;
 };
@@ -78,9 +83,32 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
  * canonical match cross-country; the `proximity` parameter still
  * biases nearby results to the top so local searches behave the same.
  */
+export type SearchPlacesOptions = {
+  /** Mapbox Search Box `types` filter. Defaults to `poi,address`. */
+  types?: string;
+  /**
+   * When true, a transport-level fetch failure throws `PlacesNetworkError`
+   * instead of returning `[]`. Tow-pick uses this to skip the Mapbox
+   * ladder and fall back to MKLocalSearch without four doomed retries.
+   */
+  throwOnNetworkError?: boolean;
+};
+
+/** Mapbox Search Box fetch failed at the transport layer (offline, DNS, etc.). */
+export class PlacesNetworkError extends Error {
+  constructor(message = 'Places search network unavailable', cause?: unknown) {
+    super(message);
+    this.name = 'PlacesNetworkError';
+    if (cause !== undefined) {
+      (this as Error & { cause?: unknown }).cause = cause;
+    }
+  }
+}
+
 export async function searchPlaces(
   query: string,
   userLocation: { latitude: number; longitude: number },
+  options?: SearchPlacesOptions,
 ): Promise<Place[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
@@ -113,7 +141,7 @@ export async function searchPlaces(
     // unconstrained `types: 'poi,address'` lets distant exact matches
     // surface when they're the canonical answer (e.g., a specific
     // street address that's only meaningful in another city).
-    types: 'poi,address',
+    types: options?.types ?? 'poi,address',
   });
 
   const url = `${MAPBOX_URL}?${params.toString()}`;
@@ -122,6 +150,9 @@ export async function searchPlaces(
   try {
     response = await fetch(url);
   } catch (err) {
+    if (options?.throwOnNetworkError) {
+      throw new PlacesNetworkError(undefined, err);
+    }
     console.warn('[places] Mapbox fetch failed:', err);
     return [];
   }

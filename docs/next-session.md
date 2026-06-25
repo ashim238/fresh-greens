@@ -2,6 +2,26 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Backlog hygiene (2026-06-25)
+
+Code audit of open `🟣` / audit-tail items still marked open but resolved or mis-aimed in code:
+
+| Item | Verdict | Action |
+|------|---------|--------|
+| Insurance number autofill (`/roadside-setup`) | **Mis-aimed** — OCR shipped on `/insurance-setup` (`6d03c7f`, expo-text-extractor). `/roadside-setup` is service name + phone only. | Retarget or strike below. |
+| Phase 0b "inert" `/safety` + `/menu` tiles | **Stale** — all four safety tiles wired (`safety.tsx`); menu Fuel tile wired (`showFuelTile` → `/fuel`). | Strike deferral note. |
+| Accessibility "only ~3 `dynamicType()`" | **Stale** — 200+ call sites post typography PR #252. | Strike. |
+| Audit `/home` F10 raw typography | **Stale** — fixed in #252. | Strike. |
+| Audit `/en-route` F4 hardcoded 25 mph | **Stale** — posted limit sign removed; current-speed pill only (`en-route.tsx` docblock). | Strike. |
+| Audit `/roadside` F1 WrongSpotModal input | **Stale** — `input` uses `dynamicType(typography.bodyRegular)`. | Strike. |
+| Audit `/unfamiliar` F1 "Saves your journey periodically" | **Stale** — copy no longer in `unfamiliar.tsx`. | Strike. |
+| Audit `/trip-summary` F2 "Set as default" | **Partially stale** — CTA is "Remember this destination"; silent no-op when `destLat`/`destLng` absent still possible (`trip-summary.tsx:181-200`). | Retitle, keep open. |
+| Saved places empty after saves | **Still valid** — no `savedPlaces.add` call sites; feature not built. | Keep. |
+| Report card subTags overhaul | **Still valid** — no code change. | Keep. |
+| Distance-aware refuel Phase 1 device-test | **Still valid** — UNVERIFIED-IN-RUNTIME. | Keep. |
+
+**Spike in progress:** `spike/mklocalsearch-tow-phone` — `expo-apple-mapkit` installed; `enrichPlaceWithPhone` + fixtures pass; live hit-rate UNVERIFIED-IN-RUNTIME (dev build).
+
 ## Safety flow critique sweep (2026-06-24)
 
 Surfaced from `/impeccable` critique passes on all six safety screens (`/en-route`, `/emergency`, `/pulled-over`, `/share-location`, `/unfamiliar`, `/roadside`). All 12 tasks shipped in two commits on `main` (`a5f1b67` + `03e57fb`). Critiques at `.impeccable/critique/2026-06-24T01-57-*.md`.
@@ -56,7 +76,7 @@ Surfaced during real-device smoke immediately after the Design Health Program cl
 | ~~🟠~~ | ~~Wrench "Road" icon on ETA page ambiguous~~ | `/en-route` ETA card | ~~Investigated 2026-06-23: icon is a car on rocky terrain, not a wrench. Reads correctly as "road condition." Punch list description was inaccurate. Closing.~~ |
 | ~~🟠~~ | ~~Yellow zone icons should be gray when inactive~~ | route preview / en-route | ~~Fixed 2026-06-23: default (not-yet-entered) zone markers now render at 50% opacity. Extended (entered) markers stay full opacity.~~ |
 | 🟣 | Report card contextual overhaul — multi-select subTags + per-category gaps | `/report` | `felt-welcome` mixes place-type and identity-signal into single-select; forces user to choose between "Restaurant" and "Women-owned." Fix: separate dimensions (place-type × identity-tags, multi-select on identity group). Also: some categories (`felt-unsafe`, `incident`, `hazard`, `lighting`) have no subTags at all — may benefit from lightweight context tags. Bounded spec: storage, picker UI, marker glyph dispatch, recommendation routing. |
-| 🟣 | Insurance number autofill | `/roadside-setup` | Users may not know their insurance number by heart. Lookup-from-policy-photo or saved-credentials integration — feature design. |
+| 🟣 | Insurance card OCR (policy autofill) | `/insurance-setup` | ~~Was listed as `/roadside-setup`.~~ Shipped `6d03c7f` — on-device card scan fills carrier + policy. Remaining gap: autofill from saved credentials / keychain (optional). |
 | 🟣 | **Roadside `tow-pick` sub-step (call-first)** | `/roadside` | **Grill-me locked 2026-06-25.** Replace "Search nearby tow services" → `/search` push. New `tow-pick` step inside same modal (problem → action → **tow-pick** → status). Row label: **"Find a tow truck nearby"**. Data: Mapbox ranks (`searchPlaces` "tow truck"), MKLocalSearch enriches phone per row (`Place.phone?`). Rows: name + distance + 44pt Call (active when phone); gray Call when no phone — tap shows inline footnote *"No number on file for this business"* (visually disabled, `onPress` not `disabled={true}`; VoiceOver gets `accessibilityHint`). Loading: progressive reveal — rows appear as each result is fully processed; `ActivityIndicator` below list until batch done. `tel:` → `markActionTaken` → status. Status: generic headline for tow path; **What they know** adds **Contacted** row with business name (membership call keeps `{serviceName} should be on the way`). Spike: MKLocalSearch bridge dep + Mapbox `/retrieve` metadata optional. Remove `handleTowSearch` → `/search` route. |
 | ~~🟣~~ | ~~Why does the app jump to Apple Maps for nearby resources?~~ | `/roadside` tow search | ~~Folded into tow-pick spec above — no Maps handoff; in-app call-first.~~ |
 
@@ -165,7 +185,7 @@ Phase 0 (`ae79812`) removed the *enumerated* dead-ends (Google/Email auth, inert
 - ~~**/en-route alternate-paths FAB** — "Show alternate paths (coming soon)"~~ — ✅ shipped (`457f3ef`); alternate-route comparison sheet.
 - ~~**/search Fuel card** — "Coming soon" hint~~ — ✅ shipped (`d9cb709` + `1997010`); wired to /fuel.
 
-Known Phase-1 deferrals (already triaged as WIRE, intentionally still present): **/menu Quick Tiles** (Fuel, Notifications) and the **/safety inert tiles** (Roadside, Unfamiliar area, Share my location).
+Known Phase-1 deferrals (already triaged as WIRE): ~~**/menu Quick Tiles** (Fuel, Notifications)~~ — Fuel tile wired (`menu.tsx` `showFuelTile`); ~~**/safety inert tiles**~~ — all four safety tabs wired (`safety.tsx` hrefs). **Voice-guided navigation** track still open (mic/Volume hidden `74c2d98`).
 
 **Triage decisions (2026-05-30) — status:**
 - ~~**HIDE now:** /en-route voice (mic) + Volume buttons~~ — ✅ done (`74c2d98`); buttons + orphaned imports/style removed.
@@ -259,7 +279,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 - ~~**`cardTitle` doesn't truncate at AX5**~~ — **stale (verified 2026-06-02).** `HomeBrowseSheet.tsx:1039` cardTitle has `numberOfLines={2}` (+ `adjustsFontSizeToFit minimumFontScale={0.85}`). Truncation is handled.
 - ~~**Saved-home + trusted-friend markers don't get a `selected` state**~~ — ~~confirmed resolved 2026-06-24: LandmarkMarker has `selected` prop (default false) with scale transition (0.65× unselected → 1× selected) and re-snapshot on flip. Lines 186, 207, 275.~~
 - ~~**Cluster marker + placement pin missing `accessibilityRole`**~~ — ~~confirmed resolved 2026-06-24: ClusterMarker has `role="button"` (line 51); placement pin has `role="none"` + descriptive label (intentional — coordinate indicator, not interactive image); LandmarkMarker has `role="button"` at both Marker sites.~~
-- ~~**Dynamic Type expansion** — only ~3 `dynamicType()` invocations~~ — **stale (verified 2026-06-02).** Now **140 `dynamicType()` invocations across 27 files** — the 2026-05-31 PROJECT-B sweep + the per-surface closures landed it. Breakpoint testing at AX5 on device is the only remaining (non-code) piece.
+- ~~**Dynamic Type expansion** — only ~3 `dynamicType()` invocations~~ — **stale (2026-06-25).** Typography PR #252 + prior sweeps; 200+ call sites. AX5 device testing remains the non-code piece.
 - ~~**Daylight gradient is color-only signaling (WCAG 1.4.1 failure)**~~ — **substantially fixed (2026-06-02).** `lib/daylight.ts` exposes `DAYLIGHT_DASH_PATTERN` (solid = day, dashes = twilight, dots = night); `/home`'s route-preview polyline consumed it, and `/en-route`'s active-route polyline now does too (`9e2fe5d`, the impeccable audit fix) — so the non-color cue rides the line on both the preview and the live drive. The bottom-sheet daylight legend carries `DaylightSun` / `DaylightMoon` glyph brackets as its non-color poles. Remaining (optional): an explicit inline accessibility-label narration ("daylight for first 12 mi, twilight from mile 12…") if a fuller text channel is wanted later.
 
 ## Visual / polish nits
@@ -348,7 +368,7 @@ Findings from `docs/archive/audits/2026-05-31-app-wide-fidelity-audit.md`. Criti
 - ~~**[/en-route] Bottom-sheet typography not wrapped in `dynamicType()`**~~ — ✅ closed `6189847` (9 bottom-sheet styles wrapped; endTripBtn lifted to minHeight). Original audit context: [Audit 2026-05-31 §/en-route F1, Important] wrap at `app/en-route.tsx:2143, 2147, 2162, 2173, 2223, 2231, 2227, 2079, 2269`; lift `endTripBtn.height: 52` → `minHeight`.
 - **[/en-route] Raw `rgba()` and hex literal in styles** — [Audit 2026-05-31 §/en-route F2, Important] tokens at `app/en-route.tsx:1959, 2064`.
 - ~~**[/en-route] Ionicons leak inside en-route surface**~~ — ✅ closed `a481cff` (All en-route + RouteComparisonSheet + FuelStopsSheet icons Phosphor). Original audit context: [Audit 2026-05-31 §/en-route F3, Important] `app/en-route.tsx:13, 1723`; `components/RouteComparisonSheet.tsx:1,54,78,91`; `components/FuelStopsSheet.tsx:1,51`.
-- **[/en-route] Speed limit hardcoded to 25 mph** — [Audit 2026-05-31 §/en-route F4, Important] `app/en-route.tsx:1507` — hide when unknown OR show "—" with "Limit unknown" a11y label.
+- ~~**[/en-route] Speed limit hardcoded to 25 mph**~~ — **stale (2026-06-25).** Posted limit sign removed (Phase 1 P1-10 / honesty audit); current-speed pill only. Restore when OSM `maxspeed` adapter ships — see Visual fidelity "Restore posted speed-limit sign."
 - **[/en-route] No consolidated v2-deltas docblock** — [Audit 2026-05-31 §/en-route F5, Important] add at `app/en-route.tsx:101-118`.
 - **[/en-route] No empty-state when location permission denied** — [Audit 2026-05-31 §/en-route F6, Important] `app/en-route.tsx:848-927`.
 - **[/en-route] Turn-card a11y wrapper doesn't surface hazards / offline state** — [Audit 2026-05-31 §/en-route F7, Important] promote `turnSign` View to `accessible` with composite label.
@@ -368,7 +388,7 @@ Findings from `docs/archive/audits/2026-05-31-app-wide-fidelity-audit.md`. Criti
 - **[/home] "Safest route" caption renders before zones load or with empty zones** — [Audit 2026-05-31 §/home F7, Important] gate at `app/home.tsx:1831` on `enabledZones.length > 0 && !isCalculatingRoute`.
 - **[/home] Cold-start race: `bottomSheetHeight` vs `fabAnchorHeight` lock** — [Audit 2026-05-31 §/home F8, Important] `app/home.tsx:1541-1551`; closed-form anchor proposed.
 - **[/home] `routeArrival` "arrive {time}" lowercase** — [Audit 2026-05-31 §/home F9, Minor] `app/home.tsx:1754`.
-- **[/home] Route-preview labels use spread `typography.*` without `dynamicType`** — [Audit 2026-05-31 §/home F10, Important] `placementHint`, `routeViaLabel`, `routeConditionsCaption`, `routeDistance`, `routeArrival`, `routeMinutes`, `destTitle`.
+- ~~**[/home] Route-preview labels use spread `typography.*` without `dynamicType`**~~ — **stale (2026-06-25, PR #252).** `placementHint`, chips, footnotes wrapped.
 - **[/home] `WeatherDrivingCard` glyphs are condition-agnostic** — [Audit 2026-05-31 §/home F11, Important] `HomeBrowseSheet.tsx`. Partially closed (`feat/home-weather-driving-glyphs`): the monochrome Phosphor `CloudSun`/`SteeringWheel` were swapped for the bespoke multi-color Figma illustrations (`weather-glyph.svg`/`driving-glyph.svg`, node 1100:8749) to match the design source of truth. Still open: the weather glyph is a single static partly-cloudy illustration regardless of the actual sky — `CurrentWeather` exposes `cloudCoverPct` (and could add Open-Meteo's `weather_code`) but no glyph keys off it. Making it condition-aware needs a glyph set (clear / cloudy / rain / etc.) + a `cloudCoverPct`-or-`weather_code`→glyph map.
 - ~~**[/home] `weatherCard` icon/text hierarchy inconsistent**~~ — [Audit 2026-05-31 §/home F12, Minor] icon `labelSecondary` vs text `labelTertiary`. Obsoleted by `feat/home-weather-driving-glyphs`: the glyphs are now multi-color illustrations with no monochrome tint, so the icon-vs-text color mismatch no longer exists.
 - **[/home] `UserLocationMarker` pulse animation runs forever** — [Audit 2026-05-31 §/home F14, Minor] lines 78-85. Defensible-by-comment.
@@ -388,7 +408,7 @@ Findings from `docs/archive/audits/2026-05-31-app-wide-fidelity-audit.md`. Criti
 
 ### /roadside
 
-- **[/roadside] `WrongSpotModal` input bypasses `dynamicType()`** — [Audit 2026-05-31 §/roadside F1, Minor] lines 716-724.
+- ~~**[/roadside] `WrongSpotModal` input bypasses `dynamicType()`**~~ — **stale (2026-06-25).** `styles.input` uses `dynamicType(typography.bodyRegular)`.
 - **[/roadside] Missing empty-string defensive bail on sanitized phone** — [Audit 2026-05-31 §/roadside F2, Minor] line 302 — references `audit/safety-polish` class-of-bug.
 
 ### /menu
@@ -405,14 +425,14 @@ Findings from `docs/archive/audits/2026-05-31-app-wide-fidelity-audit.md`. Criti
 
 ### /unfamiliar
 
-- **[/unfamiliar] "Saves your journey periodically" overstates v1 behavior** — [Audit 2026-05-31 §/unfamiliar F1, Important] `app/unfamiliar.tsx:274-276` — adapter persists exactly once. Fix: "Fresh Greens stays with you until you tell us you're safe."
+- ~~**[/unfamiliar] "Saves your journey periodically" overstates v1 behavior**~~ — **stale (2026-06-25).** Copy removed; step 2 reads "Your contact already has a text draft in Messages."
 - **[/unfamiliar] Auto-share-on-Step-1-pick has no inline disclosure** — [Audit 2026-05-31 §/unfamiliar F2, Minor] lines 99-102.
 - **[/unfamiliar] No-results / Search-failed Alerts collapse state silently** — [Audit 2026-05-31 §/unfamiliar F3, Minor] lines 120-126, 135-141.
 
 ### /trip-summary
 
 - ~~**[/trip-summary] Title + stats + inference copy not wrapped in `dynamicType()`**~~ — ✅ closed `d4e5141` (trip-summary title/destination/statValue/statLabel/inferenceHeading/Sub/Label/Result wrapped). Original audit context: [Audit 2026-05-31 §/trip-summary F1, Important] lines 349, 353, 363, 368, 378, 382, 396, 422. Folds into PROJECT-B.
-- **[/trip-summary] "Set as default" silently no-ops when `destLat`/`destLng` absent** — [Audit 2026-05-31 §/trip-summary F2, Important] lines 159-178. Folds into PROJECT-C.
+- **[/trip-summary] "Remember this destination" silently no-ops when `destLat`/`destLng` absent** — [Audit 2026-05-31 §/trip-summary F2, Important] `trip-summary.tsx:181-200` — disable CTA or show inline error. (Copy renamed from "Set as default" in P1-12.)
 - **[/trip-summary] Title/inferenceHeading register inconsistency** — [Audit 2026-05-31 §/trip-summary F3, Minor] `title1Regular` vs `title3Emphasized` at line 378.
 - **[/trip-summary] No haptic on Confirm/Dismiss or Set-as-default success** — [Audit 2026-05-31 §/trip-summary F4, Minor] lines 159-202.
 
