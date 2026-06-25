@@ -34,6 +34,7 @@ import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { Button } from '../components/Button';
 import { dynamicType } from '../theme/dynamic-type';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { typography } from '../theme/typography';
 
 /**
@@ -190,16 +191,17 @@ export default function Welcome() {
         <View style={styles.actions}>
           <View style={styles.terms}>
             <Pressable
-              style={styles.checkbox}
-              hitSlop={20}
+              style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
               onPress={() => setTermsAccepted((prev) => !prev)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: termsAccepted }}
               accessibilityLabel="I acknowledge the Privacy Policy and agree to Fresh Greens' Terms and Conditions."
             >
-              {termsAccepted && (
-                <Check size={18} color={colors.freshgreen} weight="bold" />
-              )}
+              <View style={styles.checkbox}>
+                {termsAccepted && (
+                  <Check size={18} color={colors.freshgreen} weight="bold" />
+                )}
+              </View>
             </Pressable>
             <View style={styles.termsTextColumn}>
               <Text style={styles.termsText}>
@@ -223,6 +225,11 @@ export default function Welcome() {
             // box?" would get "nothing, you get in anyway." Now the
             // button is disabled until they consent.
             disabled={!termsAccepted}
+            accessibilityHint={
+              termsAccepted
+                ? undefined
+                : 'Accept the Privacy Policy and Terms to enable Get started'
+            }
             onPress={() => router.push('/get-started')}
             style={styles.buttonStretch}
           />
@@ -407,9 +414,9 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   checkbox: {
-    // 24pt visual; hitSlop=20 brings effective tap area to 64pt.
-    // Below the 44pt HIG default by exception clause — a 44pt
-    // checkbox would dominate this dense legal-copy row.
+    // 24pt glyph centered inside the 44pt painted Pressable (tapTarget44).
+    // A 44pt box would dominate this dense legal-copy row; the HIG floor
+    // is met on the painted control, not via hitSlop on a sub-44 visual.
     width: 24,
     height: 24,
     borderWidth: 2,
