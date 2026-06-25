@@ -89,7 +89,6 @@ export default function Roadside() {
     longitude: number;
   } | null>(null);
   const [wrongSpotOpen, setWrongSpotOpen] = useState(false);
-  const [actionTaken, setActionTaken] = useState(false);
   const [shareOn, setShareOn] = useState(false);
   const [shareToggledAtIso, setShareToggledAtIso] = useState<string | null>(null);
   const [actionSource, setActionSource] = useState<ActionSource>(null);
@@ -178,7 +177,6 @@ export default function Roadside() {
   }
 
   function markActionTaken() {
-    setActionTaken(true);
     setStep('status');
   }
 

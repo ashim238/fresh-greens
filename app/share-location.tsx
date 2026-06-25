@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
@@ -50,6 +50,7 @@ export default function ShareLocation() {
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
   const [busyReasonId, setBusyReasonId] = useState<string | null>(null);
+  const [pickError, setPickError] = useState<string | null>(null);
   const [endError, setEndError] = useState<string | null>(null);
 
   const session = shareState.ready ? shareState.session : null;
@@ -65,11 +66,12 @@ export default function ShareLocation() {
 
   async function handlePick(option: ReasonOption) {
     if (busyReasonId !== null) return;
+    setPickError(null);
     setBusyReasonId(option.id);
     const startResult = await start.run({ type: 'share-location', reason: option.title });
     if (!startResult.ok) {
-      const { title, body } = getErrorMessage('sharing', 'transient', startResult.error);
-      Alert.alert(title, body);
+      const { body } = getErrorMessage('sharing', 'transient', startResult.error);
+      setPickError(body);
       setBusyReasonId(null);
       return;
     }
@@ -112,6 +114,7 @@ export default function ShareLocation() {
                 contactName={contact?.name ?? 'Your contact'}
                 onPick={handlePick}
                 busyReasonId={busyReasonId}
+                pickError={pickError}
               />
             )
           : null}
@@ -124,10 +127,12 @@ function ReasonPicker({
   contactName,
   onPick,
   busyReasonId,
+  pickError,
 }: {
   contactName: string;
   onPick: (option: ReasonOption) => void;
   busyReasonId: string | null;
+  pickError: string | null;
 }) {
   const anyBusy = busyReasonId !== null;
   return (
@@ -139,6 +144,12 @@ function ReasonPicker({
       <Text style={styles.title} accessibilityRole="header">
         What&apos;s the situation?
       </Text>
+
+      {pickError ? (
+        <Text style={styles.errorNote} accessibilityLiveRegion="polite">
+          {pickError} Tap a reason to try again.
+        </Text>
+      ) : null}
 
       <View style={styles.rowList}>
         {REASONS.map((r) => {

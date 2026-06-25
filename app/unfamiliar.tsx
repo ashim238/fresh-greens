@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -108,12 +107,15 @@ export default function Unfamiliar() {
   // a double-tap mid-flight.
   const [loadingDestId, setLoadingDestId] = useState<string | null>(null);
   const [destError, setDestError] = useState<string | null>(null);
+  const [problemError, setProblemError] = useState<string | null>(null);
+  const [endError, setEndError] = useState<string | null>(null);
 
   async function handleProblemPick(option: ProblemOption) {
+    setProblemError(null);
     const startResult = await start.run({ type: 'unfamiliar', reason: option.title });
     if (!startResult.ok) {
-      const { title, body } = getErrorMessage('sharing', 'transient', startResult.error);
-      Alert.alert(title, body);
+      const { body } = getErrorMessage('sharing', 'transient', startResult.error);
+      setProblemError(body);
       return;
     }
     setStep('destination');
@@ -156,10 +158,11 @@ export default function Unfamiliar() {
   }
 
   async function handleSafeNow() {
+    setEndError(null);
     const endResult = await end.run();
     if (!endResult.ok) {
-      const { title: endTitle, body: endBody } = getErrorMessage('sharing', 'transient', endResult.error);
-      Alert.alert(endTitle, endBody);
+      const { body: endBody } = getErrorMessage('sharing', 'transient', endResult.error);
+      setEndError(endBody);
       return;
     }
     // Most entries push /unfamiliar over /safety so `back()` works,
@@ -185,6 +188,7 @@ export default function Unfamiliar() {
             hasLifeline={!!contact}
             onPick={handleProblemPick}
             onLifeline={() => setLifelineOpen(true)}
+            problemError={problemError}
           />
         )}
         {step === 'destination' && (
@@ -205,6 +209,7 @@ export default function Unfamiliar() {
             hasLifeline={!!contact}
             sessionReason={session.reason}
             onEnd={handleSafeNow}
+            endError={endError}
             onResendSms={() => {
               void resend.run(undefined);
             }}
@@ -228,11 +233,13 @@ function ProblemPicker({
   hasLifeline,
   onPick,
   onLifeline,
+  problemError,
 }: {
   contactName: string;
   hasLifeline: boolean;
   onPick: (option: ProblemOption) => void;
   onLifeline: () => void;
+  problemError: string | null;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -244,6 +251,12 @@ function ProblemPicker({
       <Text style={styles.title} accessibilityRole="header">
         What&apos;s going on?
       </Text>
+
+      {problemError ? (
+        <Text style={styles.inlineError} accessibilityLiveRegion="polite">
+          {problemError} Tap a reason to try again.
+        </Text>
+      ) : null}
 
       <View style={styles.rowList}>
         {PROBLEMS.map((p) => (
@@ -386,12 +399,14 @@ function ActiveSessionView({
   hasLifeline,
   sessionReason,
   onEnd,
+  endError,
   onResendSms,
 }: {
   contactName: string;
   hasLifeline: boolean;
   sessionReason: string;
   onEnd: () => void;
+  endError: string | null;
   onResendSms: () => void;
 }) {
   return (
@@ -404,6 +419,12 @@ function ActiveSessionView({
         Sharing in Unfamiliar area.
       </Text>
       <Text style={styles.aspirationalNote}>Reason: {sessionReason}</Text>
+
+      {endError ? (
+        <Text style={styles.inlineError} accessibilityLiveRegion="polite">
+          {endError} Tap below to retry.
+        </Text>
+      ) : null}
 
       <View style={styles.safeNowWrap}>
         <Button
@@ -488,6 +509,11 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.red,
     marginTop: spacing.sm,
+  },
+  inlineError: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.red,
+    marginBottom: spacing.sm,
   },
   // Card list mirrors /pulled-over's armed picker (armedStyles
   // answersWrapper): flex 1 + justifyContent center vertically centers
