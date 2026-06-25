@@ -21,7 +21,9 @@ import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.
 import PinBlackOwned from '../assets/illustrations/mapmarker-pin-blackowned.svg';
 import PinPositive from '../assets/illustrations/mapmarker-pin-positive.svg';
 import PinReport from '../assets/illustrations/mapmarker-pin-report.svg';
+import { MarkerGlyph } from './MarkerGlyph';
 import { colors } from '../theme/colors';
+import { markerCircleBgFor, markerGlyphStroke } from '../theme/marker-glyph';
 import { shadows } from '../theme/shadows';
 
 /**
@@ -113,11 +115,13 @@ function GlyphForCategory({
   categoryId,
   subTag,
   variant,
+  bgColor,
   size = 16,
 }: {
   categoryId?: string;
   subTag?: string;
   variant: Variant;
+  bgColor: string;
   size?: number;
 }) {
   // Identity-tag bespoke SVGs (multi-color illustrative, per Figma
@@ -126,30 +130,28 @@ function GlyphForCategory({
   // glyphs all line up visually for the four browse-sheet
   // identity chips. Place-type subTags (Restaurant, etc.) don't
   // appear here — they fall through to the category glyph.
-  // Each SVG carries a white stroke for contrast on the wiltedgreen
-  // positive-variant inner circle (illustration carve-out per
+  // Stroked paths use `currentColor`; MarkerGlyph sets contrast
+  // from the inner-circle bg (illustration carve-out per
   // .cursorrules #2 — pink is illustrative, not a UI signal).
   switch (subTag) {
     case 'Women-owned':
-      return <GlyphWomenOwned width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphWomenOwned} bgColor={bgColor} width={size} />;
     case 'LGBTQ+ welcoming':
-      return <GlyphLgbtq width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphLgbtq} bgColor={bgColor} width={size} />;
     case 'Open restroom':
-      return <GlyphRestroom width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphRestroom} bgColor={bgColor} width={size} />;
     case 'Late-night welcome':
-      return <GlyphLateNight width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphLateNight} bgColor={bgColor} width={size} />;
   }
 
   switch (categoryId) {
     case 'home': {
       // Phosphor duotone House — universal iOS "home" affordance.
-      // Color follows the same per-variant convention the earlier
-      // Phosphor subTag dispatch used: green inside black-owned's
-      // black bg, white inside positive's wiltedgreen bg. variant
-      // for `'home'` resolves to 'positive' (see variantForCategoryId),
-      // so in practice this renders white.
+      // Brand green on black-owned; situational contrast elsewhere.
       const color =
-        variant === 'black-owned' ? colors.freshgreen : colors.white;
+        variant === 'black-owned'
+          ? colors.freshgreen
+          : markerGlyphStroke(bgColor);
       return <House size={size} color={color} weight="duotone" />;
     }
     case 'trusted-friend':
@@ -160,22 +162,22 @@ function GlyphForCategory({
       // later.
       return <GlyphTrustedFriend width={size} height={size} />;
     case 'black-owned':
-      return <GlyphBlackOwned width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphBlackOwned} bgColor={bgColor} width={size} />;
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} bgColor={bgColor} width={size} />;
     case 'felt-unsafe':
-      return <GlyphFeltUnsafe width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphFeltUnsafe} bgColor={bgColor} width={size} />;
     case 'incident':
-      return <GlyphIncident width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphIncident} bgColor={bgColor} width={size} />;
     case 'lighting':
-      return <GlyphLighting width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphLighting} bgColor={bgColor} width={size} />;
     case 'hazard':
-      return <GlyphHazard width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphHazard} bgColor={bgColor} width={size} />;
     default:
       // Defensive fallback for a categoryId we haven't seen — keeps the
       // marker visible if a new id is added to community-reports.ts but
       // forgotten here. Hazard reads as a sensible "generic report".
-      return <GlyphHazard width={size} height={size} />;
+      return <MarkerGlyph Glyph={GlyphHazard} bgColor={bgColor} width={size} />;
   }
 }
 
@@ -210,6 +212,7 @@ export function LandmarkMarker({
   selected?: boolean;
 }) {
   const variant = variantForCategoryId(categoryId);
+  const circleBg = markerCircleBgFor(variant, categoryId, 'landmark');
 
   // Track-until-first-paint. Also re-snapshots when `selected` flips
   // so MapKit captures the new scaled bitmap rather than rendering a
@@ -288,7 +291,13 @@ export function LandmarkMarker({
           {variant === 'report' && <BgReport width={48} height={48} />}
 
           <View style={styles.glyphWrap}>
-            <GlyphForCategory categoryId={categoryId} subTag={subTag} variant={variant} size={32} />
+            <GlyphForCategory
+              categoryId={categoryId}
+              subTag={subTag}
+              variant={variant}
+              bgColor={circleBg}
+              size={32}
+            />
           </View>
         </View>
       </View>

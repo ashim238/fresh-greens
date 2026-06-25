@@ -16,8 +16,10 @@ import GlyphLgbtq from '../assets/illustrations/mapmarker-glyph-lgbtq.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
 import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg';
 import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
+import { MarkerGlyph } from './MarkerGlyph';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
+import { markerCircleBgFor, markerGlyphStroke } from '../theme/marker-glyph';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
@@ -90,7 +92,7 @@ export function EdgeIndicator({
 }) {
   const pulse = usePulseOpacity(0.55);
   const Polygon = variant ? POLYGON_FOR_VARIANT[variant] : EdgeReport;
-  const circleColor = circleColorFor(variant, categoryId);
+  const circleColor = markerCircleBgFor(variant, categoryId, 'edge');
   const showCount = count != null && count > 1;
   const countLabel = count != null && count > 9 ? '9+' : String(count);
 
@@ -141,7 +143,12 @@ export function EdgeIndicator({
             ) : children ? (
               children
             ) : (
-              <DefaultGlyph categoryId={categoryId} subTag={subTag} variant={variant} />
+              <DefaultGlyph
+                categoryId={categoryId}
+                subTag={subTag}
+                variant={variant}
+                bgColor={circleColor}
+              />
             )}
           </View>
         </View>
@@ -165,74 +172,59 @@ function DefaultGlyph({
   categoryId,
   subTag,
   variant,
+  bgColor,
 }: {
   categoryId?: string;
   subTag?: string;
   variant?: Variant;
+  bgColor: string;
 }) {
   // Identity-tag bespoke SVGs — same four as LandmarkMarker so on-map
   // and off-screen edge markers read identically.
   switch (subTag) {
     case 'Women-owned':
-      return <GlyphWomenOwned width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphWomenOwned} bgColor={bgColor} width={24} />;
     case 'LGBTQ+ welcoming':
-      return <GlyphLgbtq width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphLgbtq} bgColor={bgColor} width={24} />;
     case 'Open restroom':
-      return <GlyphRestroom width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphRestroom} bgColor={bgColor} width={24} />;
     case 'Late-night welcome':
-      return <GlyphLateNight width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphLateNight} bgColor={bgColor} width={24} />;
   }
 
   switch (categoryId) {
     case 'trusted-friend':
       return <EdgeGlyphCar width={22.14} height={15.03} />;
     case 'home':
-      // Phosphor duotone House on the positive (wiltedgreen) circle bg —
-      // white foreground matches the LandmarkMarker convention so the
-      // off-viewport indicator and the on-map pin read as the same
-      // affordance. Swapped from the bespoke GlyphHome SVG 2026-06-03;
-      // the universal iOS house affordance reads instantly without
-      // paying for a dedicated illustration.
-      return <House size={24} color={colors.white} weight="duotone" />;
+      return (
+        <House
+          size={24}
+          color={markerGlyphStroke(bgColor)}
+          weight="duotone"
+        />
+      );
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} bgColor={bgColor} width={24} />;
     case 'felt-unsafe':
-      return <GlyphFeltUnsafe width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltUnsafe} bgColor={bgColor} width={24} />;
     case 'incident':
-      return <GlyphIncident width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphIncident} bgColor={bgColor} width={24} />;
     case 'lighting':
-      return <GlyphLighting width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphLighting} bgColor={bgColor} width={24} />;
     case 'hazard':
-      return <GlyphHazard width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphHazard} bgColor={bgColor} width={24} />;
     case 'black-owned':
-      return <GlyphBlackOwned width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphBlackOwned} bgColor={bgColor} width={24} />;
   }
   switch (variant) {
     case 'positive':
-      return <GlyphFeltWelcome width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} bgColor={bgColor} width={24} />;
     case 'report':
-      return <GlyphFeltUnsafe width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphFeltUnsafe} bgColor={bgColor} width={24} />;
     case 'black-owned':
-      return <GlyphBlackOwned width={24} height={24} />;
+      return <MarkerGlyph Glyph={GlyphBlackOwned} bgColor={bgColor} width={24} />;
     default:
       return null;
-  }
-}
-
-function circleColorFor(variant: Variant | undefined, categoryId: string | undefined): string {
-  // Trusted-friend's circle is burntgreen (#003F04) — same as the
-  // dark inner circle on the on-map trusted-friend.svg. Matches
-  // visual continuity between on-screen and off-screen forms.
-  if (categoryId === 'trusted-friend') return colors.burntgreen;
-  switch (variant) {
-    case 'positive':
-      return colors.slightlyWiltedGreen;
-    case 'report':
-      return colors.slightlyDarkOrange;
-    case 'black-owned':
-      return colors.black;
-    default:
-      return colors.labelSecondary;
   }
 }
 
