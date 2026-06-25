@@ -77,6 +77,7 @@ export function SearchBar({
           name="mic"
           onPress={onMicPress}
           accessibilityLabel="Voice search"
+          inert={!onMicPress}
         />
       </Pressable>
     );
@@ -123,6 +124,7 @@ export function SearchBar({
           name="mic"
           onPress={onMicPress}
           accessibilityLabel="Voice search"
+          inert={!onMicPress}
         />
       )}
     </View>
@@ -133,13 +135,16 @@ function PressableIcon({
   name,
   onPress,
   accessibilityLabel,
+  inert = false,
 }: {
   name: 'search' | 'mic' | 'chevron-back' | 'close-circle';
   onPress?: () => void;
   accessibilityLabel?: string;
+  /** When true, renders a muted decorative glyph (no press handler). */
+  inert?: boolean;
 }) {
   const size = name === 'mic' ? 20 : 24;
-  const icon = renderPhosphorIcon(name, size);
+  const icon = renderPhosphorIcon(name, size, inert);
   if (!onPress) {
     return <View style={styles.iconWrap}>{icon}</View>;
   }
@@ -159,8 +164,9 @@ function PressableIcon({
 function renderPhosphorIcon(
   name: 'search' | 'mic' | 'chevron-back' | 'close-circle',
   size: number,
+  inert = false,
 ) {
-  const color = colors.labelSecondary;
+  const color = inert ? colors.labelTertiary : colors.labelSecondary;
   switch (name) {
     case 'search':
       return <MagnifyingGlass size={size} color={color} weight="regular" />;
