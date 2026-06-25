@@ -10,7 +10,7 @@ Branch: `polish/visual-pass-markers`
 | **Technical audit** | `dynamicType`, theme tokens, tap targets, reserved-color grep | String-embedded `·` optical centering; marker disk geometry at map edges |
 | **Visual pass (this work)** | Meta separators, chip/sheet micro-layout, marker circle geometry | Voice/copy/IA; token violations outside layout |
 
-Builds on [VISUAL-PASS-2026-06-25.md](./VISUAL-PASS-2026-06-25.md) — most hub meta rows were fixed there; this round targets priority hubs plus map-marker optical bugs.
+Builds on [VISUAL-PASS-2026-06-25.md](./VISUAL-PASS-2026-06-25.md) — most hub meta rows were fixed there; this round targets priority hubs plus map-marker optical bugs. **Superseded by** [VISUAL-CLOSURE-SYNTHESIS.md](../VISUAL-CLOSURE-SYNTHESIS.md).
 
 ## Results
 

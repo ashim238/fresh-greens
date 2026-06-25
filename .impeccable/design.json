@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-23",
+  "title": "Design System: Fresh Greens",
+  "extensions": {
+    "colorMeta": {
+      "freshgreen": { "role": "primary", "displayName": "Fresh Green", "canonical": "#41AD49", "tonalRamp": ["#08210B", "#0F3D13", "#17591B", "#2E8C34", "#41AD49", "#66C06D", "#97D89C", "#D6F0D8"] },
+      "wiltedgreen": { "role": "secondary", "displayName": "Wilted Green", "canonical": "#326936", "tonalRamp": ["#0A1A0B", "#133015", "#1D481F", "#28572B", "#326936", "#5E8F61", "#94B996", "#CFE0D0"] },
+      "burntgreen": { "role": "tertiary", "displayName": "Burnt Green", "canonical": "#003F04", "tonalRamp": ["#001A02", "#002603", "#003F04", "#0A5A0E", "#1C7A22", "#4DA053", "#93C998", "#D5ECD7"] },
+      "fadedgreen": { "role": "tertiary", "displayName": "Faded Sage", "canonical": "#A0D6A4", "tonalRamp": ["#1E3A20", "#2F5A33", "#437A48", "#6BA770", "#A0D6A4", "#BBE2BE", "#D4EDD6", "#EDF8EE"] },
+      "signal-orange": { "role": "signal", "displayName": "Signal Orange", "canonical": "#FF9500" },
+      "signal-red": { "role": "signal", "displayName": "Signal Red", "canonical": "#FF3B30" },
+      "signal-yellow": { "role": "signal", "displayName": "Signal Yellow", "canonical": "#FFCC00" },
+      "signal-pink": { "role": "signal", "displayName": "Signal Pink", "canonical": "#FF2D55" },
+      "safety-navy": { "role": "signal", "displayName": "Safety Navy", "canonical": "#041E49" },
+      "grouped-background": { "role": "neutral", "displayName": "Grouped Background", "canonical": "#F6F6FA" },
+      "label-secondary": { "role": "neutral", "displayName": "Label Secondary", "canonical": "#3C3C43" },
+      "daylight-dawn": { "role": "functional", "displayName": "Daylight Dawn", "canonical": "#FFB347" },
+      "daylight-dusk": { "role": "functional", "displayName": "Daylight Dusk", "canonical": "#C4785A" },
+      "daylight-night": { "role": "functional", "displayName": "Daylight Night", "canonical": "#2D1B69" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Large Title / Emphasized", "purpose": "Largest heading register, full-screen moments. iOS HIG largeTitle." },
+      "headline": { "displayName": "Title 1", "purpose": "Primary screen titles. Its Regular twin is the in-modal held-question register." },
+      "title": { "displayName": "Title 2 / Title 3", "purpose": "Section headers and card titles." },
+      "body": { "displayName": "Body", "purpose": "Reading register and the app-wide CTA label weight (Emphasized 600)." },
+      "label": { "displayName": "Footnote", "purpose": "Secondary copy, chip labels, metadata. Caption 1 (12pt) is the informational floor." }
+    },
+    "shadows": [
+      { "name": "e1", "value": "0 1px 3px rgba(0,0,0,0.15)", "purpose": "Chrome over map: FAB stack, ETA pill, search bar, button fills. Lightest lift. Android elevation 2." },
+      { "name": "e2", "value": "0 2px 4px rgba(0,0,0,0.18)", "purpose": "Content over map: bottom sheets, recommendation cards, FABs. The workhorse. Android elevation 3." },
+      { "name": "e3", "value": "0 2px 4px rgba(0,0,0,0.25)", "purpose": "Markers and pins, so they read against busy map content. Android elevation 4." },
+      { "name": "dot", "value": "0 1px 2px rgba(0,0,0,0.25)", "purpose": "Tiny circular markers (user-location dot) where e3 would overwhelm a 24pt circle." },
+      { "name": "sheet", "value": "0 -4px 8px rgba(0,0,0,0.15)", "purpose": "Directional, points up: bottom sheets rising out of the bottom edge. Android elevation 8." }
+    ],
+    "motion": [
+      { "name": "press-dim", "value": "opacity 0.7", "purpose": "Universal pressed/disabled feedback on every Pressable (theme/interaction.ts pressedDim). The single feedback gesture." },
+      { "name": "transition-standard", "value": "150-250ms ease-out", "purpose": "Product-register convention for state transitions. Motion conveys state, never decoration; no orchestrated page-load sequences." }
+    ],
+    "breakpoints": [
+      { "name": "figma-baseline", "value": "390px" },
+      { "name": "iphone-se", "value": "375px" },
+      { "name": "iphone-pro-max", "value": "430px" }
+    ],
+    "responsiveNote": "Native iOS app (Expo / React Native). The real responsive axis is iOS Dynamic Type (via theme/dynamic-type.ts), not CSS breakpoints. Device widths above are informational only."
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Fresh Green capsule CTA with the contrast-lifting Wilted Green border. The app-wide primary action.",
+      "html": "<button class='ds-btn-primary'>Start trip</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 16px; border-radius:999px; background:#41AD49; color:#fff; border:1px solid #326936; font:600 17px/22px -apple-system,'SF Pro Text',system-ui,sans-serif; letter-spacing:-0.43px; box-shadow:0 1px 3px rgba(0,0,0,0.15); cursor:pointer; transition:opacity .15s ease-out; } .ds-btn-primary:hover { opacity:.92; } .ds-btn-primary:active { opacity:.7; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Wilted Green capsule for secondary actions and dark-surface CTAs.",
+      "html": "<button class='ds-btn-secondary'>Not now</button>",
+      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 16px; border-radius:999px; background:#326936; color:#fff; border:none; font:600 17px/22px -apple-system,'SF Pro Text',system-ui,sans-serif; letter-spacing:-0.43px; box-shadow:0 1px 3px rgba(0,0,0,0.15); cursor:pointer; transition:opacity .15s ease-out; } .ds-btn-secondary:active { opacity:.7; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-primary-outline",
+      "description": "Fresh Green border and label, no fill. Low-emphasis on light surfaces.",
+      "html": "<button class='ds-btn-outline'>View details</button>",
+      "css": ".ds-btn-outline { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 16px; border-radius:999px; background:transparent; color:#41AD49; border:1px solid #41AD49; font:600 17px/22px -apple-system,'SF Pro Text',system-ui,sans-serif; letter-spacing:-0.43px; cursor:pointer; transition:opacity .15s ease-out; } .ds-btn-outline:active { opacity:.7; }"
+    },
+    {
+      "name": "Search Bar",
+      "kind": "input",
+      "refersTo": "search-bar",
+      "description": "White pill floating over the map. Tapping routes to the search screen; the bar itself owns no keyboard in its default state.",
+      "html": "<div class='ds-search'><svg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='#3C3C43' stroke-width='2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><line x1='16.5' y1='16.5' x2='21' y2='21'/></svg><span class='ds-search-ph'>Where are you headed?</span><svg width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#3C3C43' stroke-width='2' stroke-linecap='round'><rect x='9' y='3' width='6' height='11' rx='3'/><path d='M5 11a7 7 0 0 0 14 0'/><line x1='12' y1='18' x2='12' y2='21'/></svg></div>",
+      "css": ".ds-search { display:flex; align-items:center; gap:16px; height:56px; padding:0 16px; border-radius:999px; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.18); max-width:374px; } .ds-search-ph { flex:1; color:rgba(60,60,67,0.6); font:400 17px/22px -apple-system,'SF Pro Text',system-ui,sans-serif; letter-spacing:-0.43px; }"
+    },
+    {
+      "name": "Floating Action Button",
+      "kind": "custom",
+      "refersTo": "fab",
+      "description": "White circle with e2 shadow. 56pt in the en-route side column, 48pt on the home overlay. Icon-agnostic.",
+      "html": "<button class='ds-fab' aria-label='Recenter'><svg width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='#326936' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='3'/><line x1='12' y1='2' x2='12' y2='5'/><line x1='12' y1='19' x2='12' y2='22'/><line x1='2' y1='12' x2='5' y2='12'/><line x1='19' y1='12' x2='22' y2='12'/></svg></button>",
+      "css": ".ds-fab { display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:999px; background:#fff; border:none; box-shadow:0 2px 4px rgba(0,0,0,0.18); cursor:pointer; transition:opacity .15s ease-out; } .ds-fab:active { opacity:.7; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The standard content surface floating over the map. Flat fill, 12px radius, e2 lift.",
+      "html": "<div class='ds-card'><div class='ds-card-title'>Along this route</div><div class='ds-card-body'>3 community notes, all clear on daylight.</div></div>",
+      "css": ".ds-card { background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 4px rgba(0,0,0,0.18); max-width:326px; } .ds-card-title { font:600 17px/22px -apple-system,'SF Pro Text',system-ui,sans-serif; letter-spacing:-0.43px; color:#000; margin-bottom:4px; } .ds-card-body { font:400 15px/20px -apple-system,'SF Pro Text',system-ui,sans-serif; letter-spacing:-0.23px; color:#3C3C43; }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Translucent neutral pill for rating/category/tag metadata. Reserved-signal fills appear only on route-warning chips.",
+      "html": "<span class='ds-chip'>Open now</span>",
+      "css": ".ds-chip { display:inline-flex; align-items:center; height:28px; padding:0 12px; border-radius:8px; background:rgba(120,120,128,0.2); color:#3C3C43; font:500 13px/18px -apple-system,'SF Pro Text',system-ui,sans-serif; letter-spacing:-0.08px; }"
+    },
+    {
+      "name": "Drag Handle",
+      "kind": "custom",
+      "refersTo": "drag-handle",
+      "description": "The universal bottom-sheet affordance. A 32x4 translucent-gray pill, centered.",
+      "html": "<div class='ds-handle'></div>",
+      "css": ".ds-handle { width:32px; height:4px; border-radius:999px; background:rgba(128,128,128,0.55); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Steady Companion",
+    "overview": "Fresh Greens rides shotgun. It is the calm voice beside the driver, not the dashboard barking orders, used in both a quiet planning moment at home and a charged one on the roadside, and it has to stay legible and reassuring in both. Safety is communicated through composure: generous space, a muted earthy-green palette, soft and intentional motion. The interface earns trust by showing its work (the Along this route briefing, the all-clear chip, the daylight strip), never by asserting authority. Underneath the calm sits the community-and-heritage warmth the thesis rests on: the Green Book lineage is felt, not stated. The system is HIG-native by conviction: it speaks iOS so the safety content, not the chrome, is what the user notices. Color is rationed, because a red dot means something here precisely because red appears nowhere else.",
+    "keyCharacteristics": [
+      "Calm, grounded, earthy: composure as the primary safety signal.",
+      "Reserved-color discipline: greens for UI, signals for meaning, never decoration.",
+      "iOS HIG-native: system typeface, grouped surfaces, 44pt painted tap targets.",
+      "Token-driven: every value pulled from theme/, never inlined.",
+      "Auditable by design: the UI surfaces why, it doesn't just assert."
+    ],
+    "rules": [
+      { "name": "The Reserved-Color Rule", "body": "Red, orange, yellow, pink, and navy appear only where they carry safety meaning. In-flow CTAs and links stay Fresh Green / Wilted Green. This separation is load-bearing: it is what lets a single red dot or orange chip actually mean something.", "section": "colors" },
+      { "name": "The One-Voice Rule", "body": "The greens carry the interactive surface; the signals never decorate it. If a color is doing mood instead of meaning, it is the wrong color.", "section": "colors" },
+      { "name": "The Held-Question Rule", "body": "When a surface asks the user something at a charged moment, set the prompt in Title 1 Regular, not Emphasized. Bold reads as a directive; regular weight reads as a held question. Reserve bold for guidance, not for questions you pose.", "section": "typography" },
+      { "name": "The 12pt Floor Rule", "body": "Caption 2 (11pt) sits below WCAG 1.4.4's floor for informational content and is reserved for ornament only. Anything a reader could miss and lose meaning from uses Caption 1 (12pt) or larger.", "section": "typography" },
+      { "name": "The Height-Over-Map Rule", "body": "Elevation is literal: pick the tier by how far the surface sits above the basemap (chrome to content to markers), not by how important it feels. A shadow is a claim about height.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do pull every value from theme/ (colors, typography, shadows, spacing 4pt ramp, radii). Never inline a design value.",
+      "Do keep interactive surfaces Fresh Green / Wilted Green. Reserved colors only where they carry safety meaning.",
+      "Do paint 44x44pt tap targets on the visual (the tapTarget44 token). hitSlop is forgiveness on top of compliance, never the compliance mechanism.",
+      "Do set charged-moment prompts in Title 1 Regular: the held question, not the command.",
+      "Do pair the daylight gradient with a redundant non-color cue (dash/width pattern + inline legend). Color alone fails WCAG 1.4.1 for colorblind drivers.",
+      "Do wrap long-read copy in dynamicType() so Dynamic Type scales the line box, not just the glyphs."
+    ],
+    "donts": [
+      "Don't drift toward generic ride-share / SaaS: no glossy dark-mode maps, neon route lines, or aggressive conversion CTAs.",
+      "Don't drift toward alarmist safety-app red: no red everywhere, no siren energy, no fear as the primary emotion. Red is a reserved signal, never an ambient mood.",
+      "Don't drift toward over-designed AI slop: no gradient text, no glassmorphism, no eyebrow labels on every section, no identical card grids.",
+      "Don't drift toward sterile / clinical: no cold enterprise-dashboard or medical-device feel. Keep the community warmth and the person behind the route.",
+      "Don't use border-left/border-right greater than 1px as a colored accent stripe. Full borders, background tints, or nothing.",
+      "Don't ship the Transparent button variant on a white surface: its white label is invisible there.",
+      "Don't use Caption 2 (11pt) for anything a reader could miss and lose meaning from."
+    ]
+  }
+}

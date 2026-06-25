@@ -4,7 +4,9 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 
 ## Pre-Supabase visual closure
 
-**Gate:** ✅ **Met** (2026-06-25) — synthesis PR batch 5 on `chore/visual-closure-synthesis`. Batches 1–4 merged (#266–#269). Rollup: `.impeccable/VISUAL-CLOSURE-SYNTHESIS.md`. **0 open P0/P1** across audit, critique, and visual-pass. **Supabase M1.1 pivot cleared.**
+**Gate:** ✅ **Met** (2026-06-25) — batch 5 merged **#270** (`9039edc`). Batches 1–4: #266–#269. Rollup: [`.impeccable/VISUAL-CLOSURE-SYNTHESIS.md`](../.impeccable/VISUAL-CLOSURE-SYNTHESIS.md). **0 open P0/P1** across audit, critique, and visual-pass. **Supabase M1.1 pivot cleared.**
+
+*The route catalog, batching table, and three-pass checklist below are **historical reference** for how closure was executed — not an open work queue.*
 
 **Closed with #264 + stroke follow-up:** Map marker identity-glyph strokes — situational white/black from #262 reverted; default identity glyphs use `MARKER_GLYPH_STROKE` (black). **Women-owned** uses saturated-fill treatment (`MARKER_GLYPH_STROKE_WOMEN_OWNED`, darker than `#FF2D55` fill). **Felt-welcome heart** keeps black stroke.
 
@@ -105,7 +107,7 @@ Code audit of open `🟣` / audit-tail items still marked open but resolved or m
 
 ## Design Round 7 critique tail (2026-06-25)
 
-Post tow-pick merge hub sweep per workflow §12b. Synthesis: `.impeccable/ROUND-7-SYNTHESIS.md`. Snapshots: `.impeccable/critique/2026-06-25T17-31-*.md`.
+Post tow-pick merge hub sweep per workflow §12b. Historical synthesis: [`.impeccable/archive/ROUND-7-SYNTHESIS.md`](../.impeccable/archive/ROUND-7-SYNTHESIS.md). Snapshots: `.impeccable/critique/2026-06-25T17-31-*.md`. **Closure:** all P1s fixed in batches 1–2; remaining P2s rolled into [`.impeccable/VISUAL-CLOSURE-SYNTHESIS.md`](../.impeccable/VISUAL-CLOSURE-SYNTHESIS.md) §P2/P3 (not blocking Supabase).
 
 
 | Tier | Item | Surface | Notes |
@@ -115,13 +117,13 @@ Post tow-pick merge hub sweep per workflow §12b. Synthesis: `.impeccable/ROUND-
 | ~~P1~~ | ~~**No-route turn-card = mock fallback copy**~~ | `/en-route` | ~~Fixed batch 1 — `Following route to` for mock/cache; live `Heading toward` separate.~~ |
 | ~~P1~~ | ~~**Inert mic looks tappable**~~ | `/search` | ~~Fixed batch 1 — SearchBar omits mic when `onMicPress` undefined.~~ |
 | P2 | **Tow-pick simulator copy in production error** | `RoadsideTowPick` | Empty-state mentions Xcode simulator. |
-| P2 | **WrongSpotModal no in-card Cancel** | `/roadside` | Scrim tap only; VoiceOver escape gap. |
+| ~~P2~~ | ~~**WrongSpotModal no in-card Cancel**~~ | `/roadside` | ~~Deferred — synthesis §P2/P3 (scrim dismiss; VoiceOver escape gap).~~ |
 | P2 | **"I figured it out" one-tap dismiss** | `/roadside` | Stress-state accidental back. |
-| P2 | **Calendar tile no connect feedback** | `/menu` | Fire-and-forget `connectCalendar()`. |
-| P2 | **MapCoach one-shot** | `/home` | Long-press-save-home unrecoverable after first dismiss. |
-| P2 | **No long-press FAB label flash** | `/en-route` | Post-coach icon-only column. |
+| ~~P2~~ | ~~**Calendar tile no connect feedback**~~ | `/menu` | ~~Deferred — synthesis §P2/P3 (success = tile removal on refocus).~~ |
+| ~~P2~~ | ~~**MapCoach one-shot**~~ | `/home` | ~~Deferred — synthesis §P2/P3 (onboarding cross-cut).~~ |
+| ~~P2~~ | ~~**No long-press FAB label flash**~~ | `/en-route` | ~~Deferred — synthesis §P2/P3 (discoverability polish).~~ |
 
-**P0 gate:** None — fix PR can open immediately.
+**P0 gate:** None — met at batch 5 (#270).
 
 ## Safety flow critique sweep (2026-06-24)
 

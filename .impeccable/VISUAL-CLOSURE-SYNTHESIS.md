@@ -104,9 +104,12 @@ Presentation from `app/_layout.tsx`. P0/P1 = open after batches 1–4 fix-forwar
 
 ## Prior visual-pass rounds (reference)
 
-- `.impeccable/VISUAL-PASS-2026-06-25.md` — meta separator hub sweep + `joinMetaParts`
-- `.impeccable/VISUAL-PASS-2026-06-26.md` — map markers + tow-pick meta
-- `.impeccable/VISUAL-CLOSURE-BATCH-{1,2,3,4}.md` — per-PR three-pass scorecards
+Historical batch/round docs: [`.impeccable/archive/`](./archive/) (indexed in [`.impeccable/README.md`](./README.md)).
+
+- `archive/VISUAL-PASS-2026-06-25.md` — meta separator hub sweep + `joinMetaParts`
+- `archive/VISUAL-PASS-2026-06-26.md` — map markers + tow-pick meta
+- `archive/VISUAL-CLOSURE-BATCH-{1,2,3,4}.md` — per-PR three-pass scorecards
+- `archive/ROUND-7-SYNTHESIS.md` — pre-closure hub sweep (P1s closed in batches 1–2)
 
 ## Counts
 
