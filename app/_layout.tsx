@@ -86,7 +86,7 @@ export default function RootLayout() {
         />
         {/*
           /roadside — Roadside Assistance sub-flow. Page-sheet modal with
-          internal state machine (problem → action → status), mirroring
+          internal state machine (problem → action → tow-pick → status), mirroring
           /pulled-over's pattern. DragHandle stays present; usePreventRemove
           traps dismissal on the status step.
         */}

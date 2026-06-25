@@ -34,6 +34,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
 import { NotifyingPulse } from '../components/NotifyingPulse';
+import { RoadsideTowPick } from '../components/RoadsideTowPick';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { getTrustedContact } from '../lib/api/trusted-contact';
@@ -47,7 +48,9 @@ import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
-type Step = 'problem' | 'action' | 'status';
+type Step = 'problem' | 'action' | 'tow-pick' | 'status';
+
+type ActionSource = 'membership' | 'tow' | null;
 
 type ProblemMeta = {
   id: ProblemType;
@@ -69,7 +72,7 @@ const PROBLEMS: ProblemMeta[] = [
  * /roadside — Roadside Assistance sub-flow.
  *
  * Single page-sheet modal route with internal state machine: problem →
- * action → status. DragHandle on every step; chevron is internal-step
+ * action → tow-pick → status. DragHandle on every step; chevron is internal-step
  * back nav (not sheet dismissal); Step 3 traps dismissal via
  * usePreventRemove (added in a later task). Matches /pulled-over.
  *
@@ -88,6 +91,8 @@ export default function Roadside() {
   const [actionTaken, setActionTaken] = useState(false);
   const [shareOn, setShareOn] = useState(false);
   const [shareToggledAtIso, setShareToggledAtIso] = useState<string | null>(null);
+  const [actionSource, setActionSource] = useState<ActionSource>(null);
+  const [contactedTowName, setContactedTowName] = useState<string | null>(null);
 
   usePreventRemove(step === 'status', () => {
     // Block the dismissal — the user must use an explicit CTA on Step 3.
@@ -151,12 +156,24 @@ export default function Roadside() {
   }
 
   function handleBackToActions() {
-    // Per Phase 1 P0-3: Step 3 was a trap. The "I'm back on the road"
-    // CTA was the only labeled exit but it commits state. This non-
-    // committing path returns to Step 2 so a user who advanced by
-    // accident (e.g. share toggle auto-advance) can recover without
-    // losing their roadside flow.
     setStep('action');
+  }
+
+  function handleOpenTowPick() {
+    setContactedTowName(null);
+    setStep('tow-pick');
+  }
+
+  function handleMembershipCallPlaced() {
+    setActionSource('membership');
+    setContactedTowName(null);
+    markActionTaken();
+  }
+
+  function handleTowCalled(businessName: string) {
+    setActionSource('tow');
+    setContactedTowName(businessName);
+    markActionTaken();
   }
 
   function markActionTaken() {
@@ -185,8 +202,8 @@ export default function Roadside() {
             locationCoords={locationCoords}
             shareOn={shareOn}
             onBack={handleBackToProblem}
-            onCallPlaced={markActionTaken}
-            onTowSearchOpened={markActionTaken}
+            onCallPlaced={handleMembershipCallPlaced}
+            onOpenTowPick={handleOpenTowPick}
             onShareToggle={(next) => {
               setShareOn(next);
               if (next) {
@@ -208,12 +225,21 @@ export default function Roadside() {
             onFiguredOut={() => router.back()}
           />
         )}
+        {step === 'tow-pick' && (
+          <RoadsideTowPick
+            locationCoords={locationCoords}
+            onBack={() => setStep('action')}
+            onTowCalled={handleTowCalled}
+          />
+        )}
         {step === 'status' && (
           <LiveStatus
             problem={problem}
             locationLabel={locationLabel ?? 'Your location'}
             shareOn={shareOn}
             shareToggledAtIso={shareToggledAtIso}
+            actionSource={actionSource}
+            contactedTowName={contactedTowName}
             onBackOnRoad={() => router.back()}
             onSwitchToPulledOver={() => router.replace('/pulled-over')}
             onBackToActions={handleBackToActions}
@@ -307,7 +333,7 @@ function ActionMenu({
   shareOn,
   onBack,
   onCallPlaced,
-  onTowSearchOpened,
+  onOpenTowPick,
   onShareToggle,
   onFiguredOut,
 }: {
@@ -317,7 +343,7 @@ function ActionMenu({
   shareOn: boolean;
   onBack: () => void;
   onCallPlaced: () => void;
-  onTowSearchOpened: () => void;
+  onOpenTowPick: () => void;
   onShareToggle: (next: boolean) => void;
   onFiguredOut: () => void;
 }) {
@@ -343,12 +369,8 @@ function ActionMenu({
     onCallPlaced();
   }
 
-  function handleTowSearch() {
-    onTowSearchOpened();
-    router.push({
-      pathname: '/search',
-      params: { q: 'tow truck' },
-    });
+  function handleOpenTowPick() {
+    onOpenTowPick();
   }
 
   function handleShareToggle(next: boolean) {
@@ -405,18 +427,18 @@ function ActionMenu({
           <CaretRight size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
 
-        {/* Tow-search row */}
+        {/* Nearby tow list */}
         <Pressable
-          onPress={handleTowSearch}
+          onPress={handleOpenTowPick}
           style={({ pressed }) => [styles.row, pressed && pressedDim]}
           accessibilityRole="button"
-          accessibilityLabel="Search nearby tow services"
-          accessibilityHint="Opens in-app search for tow services near you"
+          accessibilityLabel="Find a tow truck nearby"
+          accessibilityHint="Shows nearby tow services you can call"
         >
           <View style={styles.iconCircle}>
             <MapPin size={24} color={colors.freshgreen} weight="regular" />
           </View>
-          <Text style={styles.rowLabel}>Search nearby tow services</Text>
+          <Text style={styles.rowLabel}>Find a tow truck nearby</Text>
           <CaretRight size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
 
@@ -475,6 +497,8 @@ function LiveStatus({
   locationLabel,
   shareOn,
   shareToggledAtIso,
+  actionSource,
+  contactedTowName,
   onBackOnRoad,
   onSwitchToPulledOver,
   onBackToActions,
@@ -483,6 +507,8 @@ function LiveStatus({
   locationLabel: string;
   shareOn: boolean;
   shareToggledAtIso: string | null;
+  actionSource: ActionSource;
+  contactedTowName: string | null;
   onBackOnRoad: () => void;
   onSwitchToPulledOver: () => void;
   onBackToActions: () => void;
@@ -491,9 +517,12 @@ function LiveStatus({
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
 
-  const headline = roadsideProfile
-    ? `${roadsideProfile.serviceName} should be on the way.`
-    : 'Help is on the way. Stay where you are.';
+  const headline =
+    actionSource === 'tow'
+      ? 'Stay where you are. Help is on the way.'
+      : roadsideProfile
+        ? `${roadsideProfile.serviceName} should be on the way.`
+        : 'Help is on the way. Stay where you are.';
 
   const problemLabel = problem
     ? PROBLEMS.find((p) => p.id === problem)?.label ?? 'Need help'
@@ -537,6 +566,12 @@ function LiveStatus({
           <Text style={styles.sharedRowLabel}>Location</Text>
           <Text style={styles.sharedRowValue}>{locationLabel}</Text>
         </View>
+        {contactedTowName && (
+          <View style={styles.sharedRow}>
+            <Text style={styles.sharedRowLabel}>Contacted</Text>
+            <Text style={styles.sharedRowValue}>{contactedTowName}</Text>
+          </View>
+        )}
         {shareOn && contact && contactNotifiedTime && (
           <View style={styles.sharedRow}>
             <Text style={styles.sharedRowLabel}>Contact</Text>
