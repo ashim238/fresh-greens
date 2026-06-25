@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { LoadingState } from './StateCard';
+import { joinMetaParts } from './MetaSeparator';
 import { enrichPlacesWithPhoneProgressive } from '../lib/api/enrich-place-phone';
 import {
   TowSearchOfflineError,
@@ -177,9 +178,12 @@ export function RoadsideTowPick({ locationCoords, onBack, onTowCalled }: Props) 
                   <Text style={styles.towName} numberOfLines={2}>
                     {place.name}
                   </Text>
-                  <Text style={styles.towMeta} numberOfLines={2}>
-                    {formatDistanceMiles(place.distanceMiles)} · {place.address}
-                  </Text>
+                  <View style={styles.towMetaRow}>
+                    {joinMetaParts(
+                      [formatDistanceMiles(place.distanceMiles), place.address],
+                      { textStyle: styles.towMeta, numberOfLines: 2 },
+                    )}
+                  </View>
                   {noPhoneNoteId === place.id && (
                     <Text
                       style={styles.noPhoneNote}
@@ -290,6 +294,11 @@ const styles = StyleSheet.create({
   towMeta: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
+  },
+  towMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   noPhoneNote: {
     ...dynamicType(typography.footnoteRegular),

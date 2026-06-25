@@ -1418,7 +1418,7 @@ const styles = StyleSheet.create({
   },
   weatherCard: {
     backgroundColor: colors.fillsQuaternary,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     gap: spacing.sm,

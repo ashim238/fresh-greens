@@ -4,7 +4,12 @@ import { enrichPlacesWithFuelPrices } from '../lib/api/fuel-prices';
 import { searchPlaces, type Place } from '../lib/api/places';
 import type { FuelType } from '../lib/api/fuel';
 import type { LatLng } from '../lib/edge-indicators';
-import { distanceToPolylineMeters } from '../lib/geo';
+import {
+  distanceToPolylineMeters,
+  haversineMeters,
+  metersToMiles,
+  sampleAlongPath,
+} from '../lib/geo';
 
 /** Keep stops within this distance of the route polyline. ~1.5 km is a
     short detour; tune on device (spec risk note). */
@@ -13,10 +18,58 @@ export const ROUTE_PROXIMITY_METERS = 1500;
 /** Human-readable proximity copy for fuel-sheet subtitles. */
 export const ROUTE_PROXIMITY_MILES = 1;
 
+/**
+ * Mapbox `searchPlaces` is proximity-biased and capped at 10 results.
+ * A single query at the user's GPS returns only nearby stations — on a
+ * long route every on-map pin clusters at the origin even after the
+ * polyline filter. Sample centers along the route so discovery covers
+ * the corridor (bounded to limit API calls).
+ */
+const FUEL_ROUTE_SAMPLE_SPACING_M = 25_000; // ~15 mi
+const MAX_FUEL_ROUTE_SAMPLES = 5;
+const FUEL_SAMPLE_DEDUPE_M = 500;
+
 /** Mapbox category query per fuel type — electric searches charging,
     everything else searches gas. */
 function fuelQuery(fuelType: FuelType): string {
   return fuelType === 'electric' ? 'ev charging' : 'gas station';
+}
+
+function distanceMilesFrom(a: LatLng, b: LatLng): number {
+  return Math.round(metersToMiles(haversineMeters(a, b)) * 10) / 10;
+}
+
+async function searchFuelAlongRoute(
+  query: string,
+  routeCoords: LatLng[],
+  userLocation: LatLng,
+): Promise<Place[]> {
+  const samples = sampleAlongPath(
+    routeCoords,
+    FUEL_ROUTE_SAMPLE_SPACING_M,
+    MAX_FUEL_ROUTE_SAMPLES,
+  ).filter(
+    (s) => haversineMeters(s, userLocation) > FUEL_SAMPLE_DEDUPE_M,
+  );
+
+  const batches = await Promise.all([
+    searchPlaces(query, userLocation),
+    ...samples.map((s) => searchPlaces(query, s)),
+  ]);
+
+  const byId = new Map<string, Place>();
+  for (const batch of batches) {
+    for (const place of batch) {
+      if (!byId.has(place.id)) byId.set(place.id, place);
+    }
+  }
+
+  return [...byId.values()]
+    .map((p) => ({
+      ...p,
+      distanceMiles: distanceMilesFrom(userLocation, p),
+    }))
+    .sort((a, b) => a.distanceMiles - b.distanceMiles);
 }
 
 export type RouteFuelStopsState = {
@@ -26,11 +79,12 @@ export type RouteFuelStopsState = {
 };
 
 /**
- * Fetches fuel/charging POIs near the user and keeps only those within
- * ROUTE_PROXIMITY_METERS of the active route polyline, sorted by distance
- * to the user (searchPlaces already returns that order; the proximity
- * filter preserves it). Only fetches when `active` (the sheet is open) so
- * we don't spend Mapbox calls on every /en-route mount.
+ * Fetches fuel/charging POIs along the active route corridor and keeps
+ * only those within ROUTE_PROXIMITY_METERS of the polyline. Mapbox
+ * queries run at the user's location plus sample points along the route
+ * (not user-GPS-only) so long routes don't cluster every pin at the
+ * origin. Only fetches when `active` so we don't spend Mapbox calls on
+ * every idle mount.
  */
 export function useRouteFuelStops(params: {
   active: boolean;
@@ -58,7 +112,11 @@ export function useRouteFuelStops(params: {
     setState({ stops: [], loading: true, error: false });
     (async () => {
       try {
-        const results = await searchPlaces(fuelQuery(fuelType), loc);
+        const results = await searchFuelAlongRoute(
+          fuelQuery(fuelType),
+          routeCoords,
+          loc,
+        );
         const onRoute = results.filter(
           (p) =>
             distanceToPolylineMeters(
