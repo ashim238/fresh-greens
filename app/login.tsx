@@ -47,7 +47,7 @@ import { typography } from '../theme/typography';
  */
 export default function Login() {
   const router = useRouter();
-  const { signInWithApple } = useUser();
+  const { signInWithApple, signInAsDevUser } = useUser();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +80,20 @@ export default function Login() {
     // child. The user shouldn't be able to swipe-back from /get-started
     // to /login (they came from / via the "Have an account?" link).
     router.replace('/get-started');
+  }
+
+  async function handleDevSignIn() {
+    if (signingIn) return;
+    setError(null);
+    setSigningIn(true);
+    try {
+      await signInAsDevUser();
+      router.replace('/home');
+    } catch (err: unknown) {
+      setError(getErrorMessage('auth', 'transient', err).body);
+    } finally {
+      setSigningIn(false);
+    }
   }
 
   return (
@@ -142,6 +156,19 @@ export default function Login() {
                 <Text style={styles.loginLink}>Sign up</Text>
               </Text>
             </Pressable>
+
+            {__DEV__ && (
+              <Pressable
+                onPress={() => void handleDevSignIn()}
+                disabled={signingIn}
+                style={({ pressed }) => [styles.devBypass, pressed && pressedDim]}
+                accessibilityRole="button"
+                accessibilityLabel="Continue as dev user"
+                accessibilityHint="Simulator-only bypass when Sign in with Apple is unavailable"
+              >
+                <Text style={styles.devBypassText}>Continue as dev user (simulator)</Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </SafeAreaView>
@@ -246,5 +273,15 @@ const styles = StyleSheet.create({
   loginLink: {
     color: colors.freshgreen,
     fontFamily: typography.footnoteEmphasized.fontFamily,
+  },
+  devBypass: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  devBypassText: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.fadedgreen,
+    textAlign: 'center',
   },
 });

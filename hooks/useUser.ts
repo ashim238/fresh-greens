@@ -82,6 +82,25 @@ export function useUser() {
   }, []);
 
   /**
+   * __DEV__-only escape hatch when Sign in with Apple is unavailable
+   * (Simulator without entitlement, free Personal Team, etc.). Seeds a
+   * local user via the same adapter path as real sign-in.
+   */
+  const signInAsDevUser = useCallback(async (): Promise<User> => {
+    if (!__DEV__) {
+      throw new Error('Dev sign-in is only available in development builds');
+    }
+    const stored = await upsertUser({
+      id: 'dev-simulator-user',
+      provider: 'apple',
+      displayName: 'Dev User',
+      email: 'dev@localhost',
+    });
+    setUser(stored);
+    return stored;
+  }, []);
+
+  /**
    * Edit the display name and/or avatar photo. No-op (returns null) if
    * nobody's signed in. Reflects the change into local state so the
    * /menu profile card updates immediately.
@@ -95,5 +114,5 @@ export function useUser() {
     [],
   );
 
-  return { user, loading, signInWithApple, signOut, updateProfile };
+  return { user, loading, signInWithApple, signInAsDevUser, signOut, updateProfile };
 }
