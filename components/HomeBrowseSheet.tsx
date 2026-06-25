@@ -163,12 +163,18 @@ export function HomeBrowseSheet({
   // scroll-spy — otherwise onScroll overwrites the optimistic
   // activeCategory before the target row lands under the chip strip.
   const scrollSpyLockedRef = useRef(false);
+  // Breathing room below the sticky chips in `scrollToRow`. The spy
+  // threshold must include the same offset — otherwise programmatic
+  // scroll settle lands spyLine 8pt above the target row and
+  // `computeActiveCategory` reads one section short (tap N → N−1).
+  const chipJumpBreathe = spacing.sm;
 
   function computeActiveCategory(spyLine: number): RecommendationCategory | null {
+    const activeThreshold = spyLine + chipJumpBreathe;
     let active: RecommendationCategory | null = null;
     for (const cat of CATEGORY_ORDER) {
       const y = rowYsRef.current[categoryToRowKey(cat)];
-      if (y == null || y > spyLine) break;
+      if (y == null || y > activeThreshold) break;
       active = cat;
     }
     return active;
@@ -209,10 +215,10 @@ export function HomeBrowseSheet({
   }, [showAllRows, trustedRowCollapsed]);
 
   // Scrolls the sheet so the given row offset lands just below the
-  // pinned chip strip (+8pt breathing room), clamped at the top.
+  // pinned chip strip (+chipJumpBreathe breathing room), clamped at top.
   function scrollToRow(y: number) {
     sheetScrollRef.current?.scrollTo({
-      y: Math.max(0, y - stickyChipsHeightRef.current - 8),
+      y: Math.max(0, y - stickyChipsHeightRef.current - chipJumpBreathe),
       animated: true,
     });
   }
