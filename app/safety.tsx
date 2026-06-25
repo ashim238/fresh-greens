@@ -62,6 +62,7 @@ import { typography } from '../theme/typography';
 type SafetyTab = {
   id: string;
   label: string;
+  hint: string;
   Icon: ComponentType<SvgProps>;
   /** Sub-flow route. All four tiles are wired as of the
    *  Unfamiliar + Share-Location PR; the no-contact and cross-tile
@@ -78,6 +79,7 @@ const TABS: SafetyTab[] = [
   {
     id: 'pulled-over',
     label: 'Pulled-over',
+    hint: 'Opens pulled-over recording and guidance',
     Icon: SafetyPulledOver,
     // Routes to /pulled-over, a single consolidated modal that runs the
     // entire flow as an internal state machine: armed-or-not → recording
@@ -88,18 +90,21 @@ const TABS: SafetyTab[] = [
   {
     id: 'roadside',
     label: 'Roadside assistance',
+    hint: 'Opens roadside assistance for car troubles',
     Icon: SafetyCarTroubles,
     href: '/roadside',
   },
   {
     id: 'unfamiliar',
     label: 'Unfamiliar area',
+    hint: 'Opens routing to a nearby safe destination',
     Icon: SafetyLost,
     href: '/unfamiliar',
   },
   {
     id: 'share-location',
     label: 'Share location',
+    hint: 'Opens live location sharing with your trusted contact',
     Icon: SafetyShareLocation,
     href: '/share-location',
   },
@@ -198,6 +203,20 @@ export default function SafetyModal() {
         </View>
 
         <View style={styles.body}>
+          {session && (
+            <View
+              style={styles.sessionBanner}
+              accessibilityRole="text"
+              accessibilityLabel={`${SHARE_FLOW_LABEL[session.type]} session active. Tap the tile again to manage your session.`}
+            >
+              <Text style={styles.sessionBannerTitle}>
+                {SHARE_FLOW_LABEL[session.type]} session active
+              </Text>
+              <Text style={styles.sessionBannerBody}>
+                Tap {SHARE_FLOW_LABEL[session.type]} again to manage your session.
+              </Text>
+            </View>
+          )}
           <View style={styles.grid}>
             {/* Two tiles per row, flex-stretched — same grid contract as
                 /report's category picker (gridRow + flex:1 tiles). */}
@@ -210,6 +229,7 @@ export default function SafetyModal() {
                     onPress={() => handleTabPress(tab)}
                     accessibilityRole="button"
                     accessibilityLabel={tab.label}
+                    accessibilityHint={tab.hint}
                   >
                     <View style={styles.tabIcon}>
                       <tab.Icon width={48} height={48} />
@@ -331,6 +351,22 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     gap: spacing.lg,
+  },
+  sessionBanner: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.fillsTertiary,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  sessionBannerTitle: {
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.black,
+  },
+  sessionBannerBody: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
   },
   grid: {
     // Matches /report picker: 24pt between rows (popup gap-24).
