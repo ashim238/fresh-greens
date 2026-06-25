@@ -128,7 +128,7 @@ export function LiveSafetySheet({
       >
         <NotifyingPulse
           contactName={contact.name}
-          label={`${sessionTypeLabel} · ${duration}`}
+          labelParts={[sessionTypeLabel, duration]}
           align="start"
           onPress={() => {
             void resend.run(undefined);

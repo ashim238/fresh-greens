@@ -57,6 +57,7 @@ import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { RouteHazardDetailCard } from '../components/RouteHazardDetailCard';
 import { ZoneDetailCard } from '../components/ZoneDetailCard';
+import { MetaSeparator } from '../components/MetaSeparator';
 import { LoadingState } from '../components/StateCard';
 import { SavedPlaceBookmark } from '../components/SavedPlaceBookmark';
 import { SearchBar } from '../components/SearchBar';
@@ -2887,11 +2888,27 @@ export default function Home() {
             >
               {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
             </Animated.Text>
-            {arrivalTime && <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>}
-            {distanceLabel && (
-              <Text style={styles.routeDistance}>
-                {arrivalTime ? `· ${distanceLabel}` : distanceLabel}
-              </Text>
+            {(arrivalTime || distanceLabel) && (
+              <View
+                style={styles.routeMetaCluster}
+                accessibilityRole="text"
+                accessibilityLabel={[
+                  arrivalTime ? `arrive ${arrivalTime}` : null,
+                  distanceLabel,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              >
+                {arrivalTime && (
+                  <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>
+                )}
+                {arrivalTime && distanceLabel && (
+                  <MetaSeparator style={styles.routeMetaSeparator} />
+                )}
+                {distanceLabel && (
+                  <Text style={styles.routeDistance}>{distanceLabel}</Text>
+                )}
+              </View>
             )}
           </View>
           </View>
@@ -3770,20 +3787,25 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
+  // Arrival + distance meta cluster — grouped so the interpunct sits
+  // between siblings with symmetric padding, not after a flex gap.
+  routeMetaCluster: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingBottom: spacing.sm,
+  },
   // Arrival clock time — sits baseline-aligned with the duration headline.
   routeArrival: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelSecondary,
-    paddingBottom: spacing.sm,
   },
-  // Distance line below the hero row.
+  routeMetaSeparator: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelTertiary,
+  },
   routeDistance: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
-    // Lives inside routeHeroRow now — parent owns the 24pt gutter.
-    // paddingBottom: spacing.sm baseline-aligns with the arrival text
-    // when both sit next to the 34pt hero number.
-    paddingBottom: spacing.sm,
   },
   routeMinutes: {
     // H12: title2Emphasized (22pt) → largeTitleEmphasized (34pt). The

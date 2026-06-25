@@ -10,6 +10,7 @@ import { ShieldStar } from 'phosphor-react-native/src/icons/ShieldStar';
 import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { X } from 'phosphor-react-native/src/icons/X';
 
+import { MetaSeparator } from './MetaSeparator';
 import { type RouteCondition } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
@@ -99,9 +100,11 @@ export function RouteComparisonSheet({
                   <Text style={[styles.descriptor, item.isRecommended && styles.descriptorSafe]}>
                     {item.descriptor}
                   </Text>
-                  <Text style={styles.meta}>
-                    {item.arrivalLabel} · {item.distanceLabel}
-                  </Text>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.meta}>{item.arrivalLabel}</Text>
+                    <MetaSeparator style={styles.metaSeparator} />
+                    <Text style={styles.meta}>{item.distanceLabel}</Text>
+                  </View>
                   {item.conditions.length > 0 && (
                     <View style={styles.chips}>
                       {item.conditions.map((c) => {
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.separatorSubtle,
-    gap: 4,
+    gap: spacing.xs,
   },
   rowActive: {},
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -154,7 +157,12 @@ const styles = StyleSheet.create({
   descriptor: { ...dynamicType(typography.subheadlineRegular), color: colors.labelSecondary },
   descriptorSafe: { ...dynamicType(typography.subheadlineEmphasized), color: colors.freshgreen },
   meta: { ...dynamicType(typography.footnoteRegular), color: colors.labelSecondary },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 4 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaRow: { flexDirection: 'row', alignItems: 'center' },
+  metaSeparator: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   chipText: { ...dynamicType(typography.caption1Regular), color: colors.labelSecondary },
 });

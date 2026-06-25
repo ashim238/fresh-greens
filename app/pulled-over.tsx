@@ -49,6 +49,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
+import { MetaSeparator } from '../components/MetaSeparator';
 import { RecordingSaveErrorBanner } from '../components/RecordingSaveErrorBanner';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
@@ -1016,7 +1017,7 @@ function RecordingChip({ elapsed }: { elapsed: number }) {
     >
       <Animated.View style={[chipStyles.dot, { opacity: pulse }]} />
       <Text style={chipStyles.label}>Recording</Text>
-      <Text style={chipStyles.dotSeparator}>·</Text>
+      <MetaSeparator style={chipStyles.dotSeparator} />
       <Text style={chipStyles.timer}>
         00:{minutes}:{seconds}
       </Text>
@@ -1715,7 +1716,6 @@ const chipStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
     paddingTop: spacing.xs,
   },
   dot: {
@@ -1723,6 +1723,7 @@ const chipStyles = StyleSheet.create({
     height: 8,
     borderRadius: radii.xs,
     backgroundColor: colors.red,
+    marginRight: spacing.sm,
   },
   label: {
     ...dynamicType(typography.footnoteEmphasized),

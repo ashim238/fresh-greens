@@ -17,6 +17,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
+import { MetaSeparator, joinMetaParts } from '../components/MetaSeparator';
 import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
 import {
   EmptyState as EmptyStateCard,
@@ -436,14 +437,30 @@ function RecordingCard({
       </Pressable>
 
       <View style={styles.cardTextStack} accessible accessibilityLabel={rowInfoLabel}>
-        <Text style={styles.cardTimestamp}>
-          {formatTimestamp(recording.createdAt)}
-        </Text>
-        <Text style={styles.cardSecondary}>
-          {formatArmed(recording.armed)}
-          {recording.armed != null ? ' · ' : ''}
-          {formatDuration(recording.durationMs)}
-        </Text>
+        <View style={styles.cardTimestampRow}>
+          {(() => {
+            const { date, time } = formatTimestampParts(recording.createdAt);
+            return joinMetaParts([date, time], {
+              textStyle: styles.cardTimestamp,
+              separatorStyle: styles.cardTimestampSeparator,
+            });
+          })()}
+        </View>
+        <View style={styles.cardSecondaryRow}>
+          {recording.armed != null ? (
+            <>
+              <Text style={styles.cardSecondary}>{formatArmed(recording.armed)}</Text>
+              <MetaSeparator style={styles.cardSecondarySeparator} />
+              <Text style={styles.cardSecondary}>
+                {formatDuration(recording.durationMs)}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.cardSecondary}>
+              {formatDuration(recording.durationMs)}
+            </Text>
+          )}
+        </View>
       </View>
 
       <Pressable
@@ -469,7 +486,7 @@ function RecordingCard({
 
 // --- Helpers -------------------------------------------------------------
 
-function formatTimestamp(ms: number): string {
+function formatTimestampParts(ms: number): { date: string; time: string } {
   const d = new Date(ms);
   const sameYear = d.getFullYear() === new Date().getFullYear();
   const dateOptions: Intl.DateTimeFormatOptions = sameYear
@@ -481,6 +498,11 @@ function formatTimestamp(ms: number): string {
     minute: '2-digit',
     hour12: true,
   }).format(d);
+  return { date, time };
+}
+
+function formatTimestamp(ms: number): string {
+  const { date, time } = formatTimestampParts(ms);
   return `${date} · ${time}`;
 }
 
@@ -577,6 +599,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.sm,
   },
+  cardTimestampRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
   cardTimestamp: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
@@ -585,6 +612,15 @@ const styles = StyleSheet.create({
     // shift the "·" separator and stagger the stack between rows.
     fontVariant: ['tabular-nums'],
   },
+  cardTimestampSeparator: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.labelTertiary,
+  },
+  cardSecondaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
   cardSecondary: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
@@ -592,6 +628,10 @@ const styles = StyleSheet.create({
     // fixed-width digits so the colon stays aligned row-to-row. Same
     // convention as the /en-route ETA + HomeBrowseSheet rating values.
     fontVariant: ['tabular-nums'],
+  },
+  cardSecondarySeparator: {
+    ...dynamicType(typography.subheadlineRegular),
+    color: colors.labelTertiary,
   },
   // 44pt painted surface per HIG. Was 32pt + hitSlop:12 which met
   // the touch-area floor but violated the cursorrules "visual on the

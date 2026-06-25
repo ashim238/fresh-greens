@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Visual pass — meta-line interpunct (`polish/visual-pass-meta-spacing`, 2026-06-25)
+
+Round 7 + typography critique scored token/ramp compliance but missed **optical micro-layout**: a `·` baked into `"· ${distance}"` or flex `gap` beside a middot Text sits closer to one neighbor when weights differ (`subheadline` + `footnote`, or `bodyEmphasized` + regular). Fix: shared `MetaSeparator` (`paddingHorizontal: spacing.xs` on the glyph) + `joinMetaParts()` in a flex row with no row-level `gap` on the beat. **Lesson:** critique scores voice/hierarchy/IA; technical audit catches tokens — neither inspects interpunct geometry. Add an explicit "meta-line separator" row to future hub/driving visual passes, not just type audits. Synthesis: `.impeccable/VISUAL-PASS-2026-06-25.md`.
+
+---
+
 ## Tow-pick merge + Round 7 hub critique (`main` / `chore/design-round-7`, 2026-06-25)
 
 Squash-merged PR #253 (roadside tow-pick + MKLocalSearch phone enrichment) after clean pre-merge audit. **Round 7 hub sweep** (workflow §12b) ran immediately on `chore/design-round-7`: six hub screens critiqued, synthesis at `.impeccable/ROUND-7-SYNTHESIS.md`. **0 P0** — tow-pick is shippable; top follow-up is `/roadside` share-toggle auto-advancing to status (P1). Pattern: sub-flows outpolished their picker (`/safety` tiles still lack PR #242 hints while `/roadside` gained tow-pick). Critique → punch-list → fix PR is the right next beat, not more critique.

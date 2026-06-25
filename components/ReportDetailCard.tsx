@@ -30,6 +30,7 @@ import { typography } from '../theme/typography';
 
 import { pressedDim } from '../theme/interaction';
 
+import { joinMetaParts } from './MetaSeparator';
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
 import { type Variant, variantForCategoryId } from './LandmarkMarker';
@@ -149,11 +150,16 @@ export function ReportDetailCard({
   // didn't fit in the title — category when placeName is the title,
   // sub-tag otherwise, plus relative time.
   const title = placeName ?? category.label;
-  const subline = placeName
-    ? `${category.label}${subTag && subTag !== 'Other' ? ` · ${subTag}` : ''} · ${relativeTime(timestamp)}`
+  const sublineParts = placeName
+    ? [
+        category.label,
+        ...(subTag && subTag !== 'Other' ? [subTag] : []),
+        relativeTime(timestamp),
+      ]
     : subTag && subTag !== 'Other'
-      ? `${subTag} · ${relativeTime(timestamp)}`
-      : relativeTime(timestamp);
+      ? [subTag, relativeTime(timestamp)]
+      : [relativeTime(timestamp)];
+  const subline = sublineParts.join(' · ');
 
   async function handleShare() {
     const lines = [
@@ -220,9 +226,13 @@ export function ReportDetailCard({
           >
             {title}
           </Text>
-          <Text style={styles.subline} numberOfLines={1}>
-            {subline}
-          </Text>
+          <View style={styles.sublineRow}>
+            {joinMetaParts(sublineParts, {
+              textStyle: styles.subline,
+              separatorStyle: styles.sublineSeparator,
+              numberOfLines: 1,
+            })}
+          </View>
         </View>
 
         {hasBody && (
@@ -320,11 +330,21 @@ const styles = StyleSheet.create({
     color: colors.black,
     textAlign: 'center',
   } as const,
+  sublineRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   subline: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.mutedSecondary,
     textAlign: 'center',
   } as const,
+  sublineSeparator: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.mutedSecondary,
+  },
   bodyWrap: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,

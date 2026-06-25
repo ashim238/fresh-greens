@@ -73,6 +73,7 @@ import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { FuelStopMarker } from '../components/FuelStopMarker';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
+import { MetaSeparator } from '../components/MetaSeparator';
 import { RouteComparisonSheet, type ComparisonRow } from '../components/RouteComparisonSheet';
 import { usePreferences } from '../hooks/usePreferences';
 import {
@@ -1962,19 +1963,23 @@ export default function EnRoute() {
                 }
               >
                 <WifiSlash size={14} color={colors.white} weight="duotone" />
-                <Text style={styles.offlinePillText}>
-                  {/* Cache → "Offline route" with age stamp ("· 3h old")
-                      when available; mock → "Demo route" to distinguish
-                      real-but-stale OSRM geometry from last-resort
-                      synthetic. Both keep the pill same visual register
-                      (translucent white, WifiSlash) — degraded states,
-                      not alarm. */}
-                  {routeSource === 'cache'
-                    ? cacheAgeMs != null
-                      ? `Offline route · ${formatCacheAge(cacheAgeMs)} old`
-                      : 'Offline route'
-                    : 'Demo route'}
-                </Text>
+                <View style={styles.offlinePillTextRow}>
+                  {routeSource === 'cache' ? (
+                    <>
+                      <Text style={styles.offlinePillText}>Offline route</Text>
+                      {cacheAgeMs != null ? (
+                        <>
+                          <MetaSeparator style={styles.offlinePillSeparator} />
+                          <Text style={styles.offlinePillText}>
+                            {formatCacheAge(cacheAgeMs)} old
+                          </Text>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text style={styles.offlinePillText}>Demo route</Text>
+                  )}
+                </View>
               </View>
             )}
           </View>
@@ -2279,11 +2284,17 @@ export default function EnRoute() {
             </FloatingActionButton>
           </View>
 
-          <View style={styles.secondaryRow}>
+          <View
+            style={styles.secondaryRow}
+            accessibilityRole="text"
+            accessibilityLabel={`${
+              distanceMiles != null ? formatDistance(distanceMiles) : '—'
+            }, ${durationMinutes != null ? formatDuration(durationMinutes) : '—'}`}
+          >
             <Text style={styles.secondaryDistance}>
               {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
             </Text>
-            <Text style={styles.secondarySeparator}>·</Text>
+            <MetaSeparator style={styles.secondarySeparator} />
             <Text style={styles.secondaryDuration}>
               {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
             </Text>
@@ -2609,10 +2620,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignSelf: 'flex-start',
   },
+  offlinePillTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
   offlinePillText: {
     // F5: bumped caption1Emphasized (12pt) → footnoteEmphasized (13pt)
     // to match the 14pt WifiSlash icon's cap-height. Earlier 12pt sat
     // visually low against the icon inside the compact pill.
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.white,
+  },
+  offlinePillSeparator: {
     ...dynamicType(typography.footnoteEmphasized),
     color: colors.white,
   },
@@ -2849,7 +2869,6 @@ const styles = StyleSheet.create({
   // separator stays Subheadline/Regular gray for a quiet beat.
   secondaryRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
