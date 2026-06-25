@@ -27,6 +27,7 @@ import DrivingGlyph from '../assets/illustrations/driving-glyph.svg';
 import WeatherGlyph from '../assets/illustrations/weather-glyph.svg';
 
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
+import { Compass } from 'phosphor-react-native/src/icons/Compass';
 import { usePressScale } from '../hooks/usePressScale';
 import { useRecommendationsBatch, type BrowseRowSpec } from '../hooks/useRecommendationsBatch';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -156,6 +157,20 @@ export function HomeBrowseSheet({
   // optimistically on tap for instant feedback.
   const [activeCategory, setActiveCategory] =
     useState<RecommendationCategory | null>(null);
+  // While a chip jump is animating the sheet scroll, suppress the
+  // scroll-spy — otherwise onScroll overwrites the optimistic
+  // activeCategory before the target row lands under the chip strip.
+  const scrollSpyLockedRef = useRef(false);
+
+  function computeActiveCategory(spyLine: number): RecommendationCategory | null {
+    let active: RecommendationCategory | null = null;
+    for (const cat of CATEGORY_ORDER) {
+      const y = rowYsRef.current[categoryToRowKey(cat)];
+      if (y == null || y > spyLine) break;
+      active = cat;
+    }
+    return active;
+  }
 
   // On scroll, the active chip is the DEEPEST category row whose header
   // has scrolled up to/under the pinned chip strip. Rows without a chip
@@ -164,29 +179,32 @@ export function HomeBrowseSheet({
   // bails on an unchanged value, so this only re-renders the sheet on a
   // section-boundary crossing (~6× per full scroll), not per frame.
   function handleSheetScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (scrollSpyLockedRef.current) return;
     const spyLine =
       e.nativeEvent.contentOffset.y + stickyChipsHeightRef.current;
-    let active: RecommendationCategory | null = null;
-    for (const cat of CATEGORY_ORDER) {
-      const y = rowYsRef.current[categoryToRowKey(cat)];
-      // Rows are laid out in CATEGORY_ORDER, so Ys increase — stop at
-      // the first row that hasn't scrolled past the spy line yet.
-      if (y == null || y > spyLine) break;
-      active = cat;
-    }
+    const active = computeActiveCategory(spyLine);
     setActiveCategory((prev) => (prev === active ? prev : active));
   }
 
-  // Clear the cached row Ys when the sheet collapses — the rows
-  // unmount, and their cached Y values are now stale (next expand
-  // could lay them out at different offsets if sheet content
-  // changed, e.g. a new community report bumped Row 1's height).
-  // Fresh measurements arrive via onLayout on the post-expand pass.
+  function handleSheetScrollSettled(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    scrollSpyLockedRef.current = false;
+    const spyLine =
+      e.nativeEvent.contentOffset.y + stickyChipsHeightRef.current;
+    setActiveCategory(computeActiveCategory(spyLine));
+  }
+
+  // Clear cached row Ys when layout-affecting state changes — rows
+  // remount or shift height (collapse, progressive disclosure, trusted
+  // row toggle) and stale Ys make scroll-spy + chip jumps miss.
   useEffect(() => {
     if (collapsed) {
       rowYsRef.current = {};
     }
   }, [collapsed]);
+
+  useEffect(() => {
+    rowYsRef.current = {};
+  }, [showAllRows, trustedRowCollapsed]);
 
   // Scrolls the sheet so the given row offset lands just below the
   // pinned chip strip (+8pt breathing room), clamped at the top.
@@ -208,6 +226,7 @@ export function HomeBrowseSheet({
   function jumpToCategory(category: RecommendationCategory | null) {
     // Browse chip (null) → top of the sheet. Category chip → its row.
     const key = category ? categoryToRowKey(category) : 'trusted-community';
+    scrollSpyLockedRef.current = true;
     // Optimistic active state — light up the tapped chip immediately
     // rather than waiting for the scroll-spy to catch up mid-animation.
     setActiveCategory(category);
@@ -282,6 +301,8 @@ export function HomeBrowseSheet({
       nestedScrollEnabled
       stickyHeaderIndices={[1]}
       onScroll={handleSheetScroll}
+      onScrollEndDrag={handleSheetScrollSettled}
+      onMomentumScrollEnd={handleSheetScrollSettled}
       scrollEventThrottle={16}
     >
       <View style={styles.headers}>
@@ -786,6 +807,11 @@ function CategoryChips({
           pressed && pressedDim,
         ]}
       >
+        <Compass
+          size={16}
+          color={browseActive ? colors.burntgreen : colors.labelTertiary}
+          weight="duotone"
+        />
         <Text style={[styles.chipText, browseActive && styles.chipTextActive]}>
           Browse
         </Text>
@@ -806,6 +832,7 @@ function CategoryChips({
               pressed && pressedDim,
             ]}
           >
+            <CategoryGlyph16 category={cat} active={isActive} />
             <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
               {CATEGORY_LABELS[cat]}
             </Text>
@@ -814,6 +841,31 @@ function CategoryChips({
       })}
     </ScrollView>
   );
+}
+
+/** 16pt category glyph for the chip row — same assets as section headers. */
+function CategoryGlyph16({
+  category,
+  active,
+}: {
+  category: RecommendationCategory;
+  active: boolean;
+}) {
+  const glyph = (() => {
+    switch (category) {
+      case 'black-owned':
+        return <GlyphBlackOwned width={16} height={16} />;
+      case 'women-owned':
+        return <GlyphWomenOwned width={16} height={16} />;
+      case 'lgbtq-welcoming':
+        return <GlyphLgbtq width={16} height={16} />;
+      case 'restroom':
+        return <GlyphRestroom width={16} height={16} />;
+      case 'late-night-warm-welcome':
+        return <GlyphLateNight width={16} height={16} />;
+    }
+  })();
+  return <View style={{ opacity: active ? 1 : 0.72 }}>{glyph}</View>;
 }
 
 // --- Weather card --------------------------------------------------------
@@ -1369,11 +1421,13 @@ const styles = StyleSheet.create({
   // just hit area" rule. Adds ~14pt to the chip-row height; the
   // sheet has room for it.
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: 13,
     borderRadius: radii.xl,
     backgroundColor: colors.fillsTertiary,
-    alignItems: 'center',
     justifyContent: 'center',
   },
   chipText: {
