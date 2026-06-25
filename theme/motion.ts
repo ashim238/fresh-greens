@@ -1,4 +1,12 @@
-import { Easing } from 'react-native';
+import { Easing, LayoutAnimation, Platform, UIManager } from 'react-native';
+
+// Android needs this once before any LayoutAnimation call.
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 /**
  * Motion tokens — the project's one source of truth for animation
@@ -47,3 +55,23 @@ export const motion = {
     outQuart: Easing.out(Easing.quad),
   },
 } as const;
+
+/**
+ * Damped spring for layout snaps (sheet expand/collapse, row collapse,
+ * category reveal). High springDamping keeps the settle physical
+ * without the bounce/elastic family the calm-companion voice bans.
+ * Call only when `useReduceMotion()` is false.
+ */
+export function configureLayoutSpring() {
+  LayoutAnimation.configureNext({
+    duration: motion.duration.calm,
+    update: {
+      type: LayoutAnimation.Types.spring,
+      springDamping: 0.86,
+    },
+    create: {
+      type: LayoutAnimation.Types.easeInEaseOut,
+      property: LayoutAnimation.Properties.opacity,
+    },
+  });
+}

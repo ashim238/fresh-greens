@@ -15,7 +15,6 @@ import {
   Animated,
   Dimensions,
   Easing,
-  LayoutAnimation,
   Linking,
   PanResponder,
   Pressable,
@@ -142,6 +141,7 @@ import {
 import { colors } from '../theme/colors';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
+import { configureLayoutSpring } from '../theme/motion';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -851,14 +851,28 @@ export default function Home() {
           // Motion on. The collapsed-state change still happens; only
           // the transition is suppressed.
           if (!reduceMotion) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            configureLayoutSpring();
           }
           if (g.dy > 20) {
-            setThingsToDoCollapsed(true);
+            setThingsToDoCollapsed((was) => {
+              if (!was) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              }
+              return true;
+            });
           } else if (g.dy < -20) {
-            setThingsToDoCollapsed(false);
+            setThingsToDoCollapsed((was) => {
+              if (was) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              }
+              return false;
+            });
           } else {
-            setThingsToDoCollapsed((v) => !v);
+            setThingsToDoCollapsed((was) => {
+              const next = !was;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              return next;
+            });
           }
         },
       }),
@@ -2635,6 +2649,7 @@ export default function Home() {
                 ? 'Drag bar — drag up or tap to expand recommendations'
                 : 'Drag bar — drag down or tap to collapse recommendations'
             }
+            accessibilityState={{ expanded: !thingsToDoCollapsed }}
             {...dragHandleResponder.panHandlers}
           >
             <DragHandle />
@@ -2656,7 +2671,14 @@ export default function Home() {
             userLocation={userLocation}
             refreshKey={focusRefreshKey}
             collapsed={thingsToDoCollapsed}
-            onToggleCollapsed={() => setThingsToDoCollapsed((v) => !v)}
+            onExpand={() => {
+              if (!thingsToDoCollapsed) return;
+              if (!reduceMotion) {
+                configureLayoutSpring();
+              }
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              setThingsToDoCollapsed(false);
+            }}
             onSelectRecommendation={(rec) => {
               // Tapping a recommendation card routes to /home with
               // the destination params set, same way a search-result

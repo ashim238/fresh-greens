@@ -4,7 +4,7 @@ import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
 import { Star } from 'phosphor-react-native/src/icons/Star';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, LayoutAnimation, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import CommunitySignalGlyph from '../assets/illustrations/trustedbycommunity-empty.svg';
 // Bespoke category glyphs — multi-color illustrative SVGs that
@@ -43,6 +43,7 @@ import type {
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { configureLayoutSpring } from '../theme/motion';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -77,7 +78,7 @@ export function HomeBrowseSheet({
   userLocation,
   refreshKey,
   collapsed,
-  onToggleCollapsed,
+  onExpand,
   onSelectRecommendation,
   onEmptyTap,
 }: {
@@ -100,7 +101,8 @@ export function HomeBrowseSheet({
    */
   refreshKey?: number;
   collapsed: boolean;
-  onToggleCollapsed: () => void;
+  /** Expands the sheet from collapsed when a chip jump needs row content visible. */
+  onExpand: () => void;
   /** Caller routes to /home with the destination params set. */
   onSelectRecommendation: (rec: Recommendation) => void;
   /**
@@ -163,6 +165,12 @@ export function HomeBrowseSheet({
   // scroll-spy — otherwise onScroll overwrites the optimistic
   // activeCategory before the target row lands under the chip strip.
   const scrollSpyLockedRef = useRef(false);
+  // Scroll-driven lift on the sticky chip strip — ramps e1 shadow as
+  // row content scrolls underneath so the pinned chips read as a
+  // floating table-of-contents, not a flat label row.
+  const chipElevation = useRef(new Animated.Value(0)).current;
+  const chipsScrollRef = useRef<ScrollView>(null);
+  const chipOffsetsRef = useRef<Record<string, number>>({});
   // Breathing room below the sticky chips in `scrollToRow`. The spy
   // threshold must include the same offset — otherwise programmatic
   // scroll settle lands spyLine 8pt above the target row and
@@ -187,9 +195,12 @@ export function HomeBrowseSheet({
   // bails on an unchanged value, so this only re-renders the sheet on a
   // section-boundary crossing (~6× per full scroll), not per frame.
   function handleSheetScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const offsetY = e.nativeEvent.contentOffset.y;
+    if (!reduceMotion) {
+      chipElevation.setValue(Math.min(offsetY / 32, 1));
+    }
     if (scrollSpyLockedRef.current) return;
-    const spyLine =
-      e.nativeEvent.contentOffset.y + stickyChipsHeightRef.current;
+    const spyLine = offsetY + stickyChipsHeightRef.current;
     const active = computeActiveCategory(spyLine);
     setActiveCategory((prev) => (prev === active ? prev : active));
   }
@@ -216,6 +227,25 @@ export function HomeBrowseSheet({
 
   // Scrolls the sheet so the given row offset lands just below the
   // pinned chip strip (+chipJumpBreathe breathing room), clamped at top.
+  useEffect(() => {
+    if (reduceMotion) return;
+    const key = activeCategory ?? 'browse';
+    const x = chipOffsetsRef.current[key];
+    if (x == null) return;
+    chipsScrollRef.current?.scrollTo({
+      x: Math.max(0, x - spacing.md),
+      animated: true,
+    });
+  }, [activeCategory, reduceMotion]);
+
+  function revealAllCategories() {
+    if (!reduceMotion) {
+      configureLayoutSpring();
+    }
+    Haptics.selectionAsync().catch(() => {});
+    setShowAllRows(true);
+  }
+
   function scrollToRow(y: number) {
     sheetScrollRef.current?.scrollTo({
       y: Math.max(0, y - stickyChipsHeightRef.current - chipJumpBreathe),
@@ -238,7 +268,12 @@ export function HomeBrowseSheet({
     // Optimistic active state — light up the tapped chip immediately
     // rather than waiting for the scroll-spy to catch up mid-animation.
     setActiveCategory(category);
-    setShowAllRows(true);
+    setShowAllRows((was) => {
+      if (!was && !reduceMotion) {
+        configureLayoutSpring();
+      }
+      return true;
+    });
     Haptics.selectionAsync().catch(() => {});
     // Try the cached Y first regardless of collapsed state — covers
     // the case where rows are already laid out (e.g. user collapsed
@@ -252,9 +287,9 @@ export function HomeBrowseSheet({
       // mode), so the scroll target survives the expansion animation.
       if (collapsed) {
         if (!reduceMotion) {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          configureLayoutSpring();
         }
-        onToggleCollapsed();
+        onExpand();
       }
       scrollToRow(cachedY);
       return;
@@ -265,9 +300,9 @@ export function HomeBrowseSheet({
     setPendingScrollKey(key);
     if (collapsed) {
       if (!reduceMotion) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        configureLayoutSpring();
       }
-      onToggleCollapsed();
+      onExpand();
     }
   }
 
@@ -340,19 +375,41 @@ export function HomeBrowseSheet({
         chip-jump scrollTos land the target row's header just below the
         pinned chips, not behind them.
       */}
-      <View
-        style={styles.stickyChipsWrap}
+      <Animated.View
+        style={[
+          styles.stickyChipsWrap,
+          {
+            shadowColor: shadows.e1.shadowColor,
+            shadowOffset: shadows.e1.shadowOffset,
+            shadowRadius: shadows.e1.shadowRadius,
+            shadowOpacity: chipElevation.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, shadows.e1.shadowOpacity],
+            }),
+            elevation: chipElevation.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, shadows.e1.elevation],
+            }),
+          },
+        ]}
         onLayout={(e) => {
           stickyChipsHeightRef.current = e.nativeEvent.layout.height;
         }}
       >
-        <CategoryChips onJump={jumpToCategory} activeCategory={activeCategory} />
-      </View>
+        <CategoryChips
+          scrollRef={chipsScrollRef}
+          onChipLayout={(key, x) => {
+            chipOffsetsRef.current[key] = x;
+          }}
+          onJump={jumpToCategory}
+          activeCategory={activeCategory}
+        />
+      </Animated.View>
 
       <Pressable
         onPress={() => {
           if (!reduceMotion) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            configureLayoutSpring();
           }
           setTrustedRowCollapsed((v) => !v);
         }}
@@ -410,7 +467,7 @@ export function HomeBrowseSheet({
           })}
           {!showAllRows && (
             <Pressable
-              onPress={() => setShowAllRows(true)}
+              onPress={revealAllCategories}
               accessibilityRole="button"
               accessibilityLabel="Show all categories"
               style={({ pressed }) => [styles.showAllBtn, pressed && pressedDim]}
@@ -790,20 +847,26 @@ const CATEGORY_ORDER: RecommendationCategory[] = [
  * it would go stale the moment the user scrolls past the tapped section.
  */
 function CategoryChips({
+  scrollRef,
+  onChipLayout,
   onJump,
   activeCategory,
 }: {
+  scrollRef: React.RefObject<ScrollView | null>;
+  onChipLayout: (key: string, x: number) => void;
   onJump: (next: RecommendationCategory | null) => void;
   activeCategory: RecommendationCategory | null;
 }) {
   const browseActive = activeCategory === null;
   return (
     <ScrollView
+      ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.chipsRow}
     >
       <Pressable
+        onLayout={(e) => onChipLayout('browse', e.nativeEvent.layout.x)}
         onPress={() => onJump(null)}
         accessibilityRole="button"
         accessibilityLabel="Browse"
@@ -829,6 +892,7 @@ function CategoryChips({
         return (
           <Pressable
             key={cat}
+            onLayout={(e) => onChipLayout(cat, e.nativeEvent.layout.x)}
             onPress={() => onJump(cat)}
             accessibilityRole="button"
             accessibilityLabel={CATEGORY_LABELS[cat]}
