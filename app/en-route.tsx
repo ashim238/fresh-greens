@@ -61,6 +61,7 @@ import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 
 import { ClusterMarker } from '../components/ClusterMarker';
 import { DestinationMarker } from '../components/DestinationMarker';
+import { DaylightRouteLegend } from '../components/DaylightRouteLegend';
 import { DragHandle } from '../components/DragHandle';
 import { EnRouteZone } from '../components/EnRouteZone';
 import { FloatingActionButton } from '../components/FloatingActionButton';
@@ -128,7 +129,7 @@ import {
   pathLengthMeters,
 } from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
-import { DAYLIGHT_DASH_PATTERN, gradientSegments } from '../lib/daylight';
+import { DAYLIGHT_DASH_PATTERN, DAYLIGHT_ROUTE_PATTERN_A11Y, gradientSegments } from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
 import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
 import {
@@ -1141,7 +1142,7 @@ export default function EnRoute() {
     if (durationMinutes == null) return;
     routeAnnouncedRef.current = true;
     AccessibilityInfo.announceForAccessibility(
-      `Route loaded, ${formatDuration(durationMinutes)} to ${params.destName ?? 'your destination'}.`,
+      `Route loaded, ${formatDuration(durationMinutes)} to ${params.destName ?? 'your destination'}. ${DAYLIGHT_ROUTE_PATTERN_A11Y}`,
     );
   }, [durationMinutes, params.destName]);
 
@@ -2273,6 +2274,17 @@ export default function EnRoute() {
           </View>
 
           {/*
+            Daylight key — expanded sheet only so the collapsed ETA row
+            stays glanceable while driving. Mirrors /home's route-preview
+            legend (color + dash swatches + sun/moon).
+          */}
+          {sheetExpanded && (
+            <View style={styles.daylightLegendRow}>
+              <DaylightRouteLegend cloudCoverPct={cloudCoverPct} />
+            </View>
+          )}
+
+          {/*
             Refuel reminders entry — Full state only, gated on the user
             having reminders enabled. Same `sheetExpanded` conditional
             pattern as the hazard panel below. Opens FuelStopsSheet; a
@@ -2824,6 +2836,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  daylightLegendRow: {
+    alignItems: 'flex-end',
+    paddingTop: spacing.xs,
   },
   secondaryDistance: {
     ...dynamicType(typography.bodyEmphasized),

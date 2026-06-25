@@ -66,6 +66,25 @@ export const DAYLIGHT_DASH_PATTERN: Record<DaylightBand, number[] | undefined> =
   night: [2, 8],
 };
 
+/** Anchor colors for the route daylight legend — left-to-right = more → less light. */
+export const DAYLIGHT_LEGEND_ANCHORS = [
+  { band: 'day' as const, color: colors.daylightDawn },
+  { band: 'twilight' as const, color: colors.daylightDusk },
+  { band: 'night' as const, color: colors.daylightNight },
+];
+
+/**
+ * VoiceOver label for the daylight legend strip. Pairs with the visual
+ * pattern swatches (solid → dashed → dotted) so colorblind users get
+ * the dash-density cue in text as well as on the map polyline.
+ */
+export const DAYLIGHT_LEGEND_A11Y_LABEL =
+  'Daylight along your route. Colors warm to cool as light fades. On the map, solid is full daylight, dashed is twilight, dotted is after dark. Denser dashes mean less light.';
+
+/** One-line route-loaded hint (en-route) — complements the map polyline. */
+export const DAYLIGHT_ROUTE_PATTERN_A11Y =
+  'Route line uses color and dashes for daylight: solid is brightest; denser dashes mean darker segments.';
+
 /**
  * Splits a route's coordinates into colored segments. The color of each
  * segment represents how much daylight remains when (approximately) the

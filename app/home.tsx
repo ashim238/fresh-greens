@@ -1,5 +1,4 @@
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import {
   useFocusEffect,
@@ -38,8 +37,6 @@ import { PathIcon } from 'phosphor-react-native/src/icons/Path';
 import { Star } from 'phosphor-react-native/src/icons/Star';
 import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
 import { X } from 'phosphor-react-native/src/icons/X';
-import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
-import DaylightSun from '../assets/illustrations/daylight-sun.svg';
 import PlacementPin from '../assets/illustrations/drag-and-drop.svg';
 import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
@@ -50,6 +47,7 @@ import { DestinationMarker } from '../components/DestinationMarker';
 import { EnRouteZone } from '../components/EnRouteZone';
 import { FuelStopMarker } from '../components/FuelStopMarker';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
+import { DaylightRouteLegend } from '../components/DaylightRouteLegend';
 import { DragHandle } from '../components/DragHandle';
 import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
@@ -114,7 +112,6 @@ import { pathLengthMeters } from '../lib/geo';
 import { clusterPointZones } from '../lib/clustering';
 import {
   arrivalLightLabel,
-  cloudDesaturate,
   DAYLIGHT_DASH_PATTERN,
   gradientSegments,
   suggestedDepartureForDaylight,
@@ -705,9 +702,9 @@ export default function Home() {
       ? formatDistance(selectedRoute.distanceMeters / METERS_PER_MILE)
       : null;
   // Arrival daylight band = the last gradient segment's band (≈ destination).
-  // Sighted users also read this via the daylight strip's sun/moon glyphs +
-  // the polyline gradient; the strip is accessibilityElementsHidden, so the
-  // arrival context is folded into the conditions caption's a11y label below.
+  // Sighted users read this via the daylight legend (color + dash swatches +
+  // sun/moon glyphs) and the polyline; VoiceOver gets the legend label plus
+  // the arrival phrase in routeConditionsA11y when that caption ships.
   const arrivalSegs = selectedRoute ? gradientSegments(selectedRoute) : [];
   const arrivalBand = arrivalSegs.length
     ? arrivalSegs[arrivalSegs.length - 1].band
@@ -3001,32 +2998,10 @@ export default function Home() {
             <Text style={styles.routeViaLabel} numberOfLines={1}>
               Via {viaRoad ?? params.destName ?? 'your destination'}
             </Text>
-            {/*
-              Daylight strip — paired with the via line per Figma.
-              Hidden from accessibility tree (the conditions caption
-              below carries the arrival context for VoiceOver).
-            */}
-            <View
+            <DaylightRouteLegend
+              cloudCoverPct={cloudCoverPct}
               style={styles.daylightStripInline}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              accessibilityIgnoresInvertColors
-            >
-              <LinearGradient
-                colors={[
-                  cloudDesaturate(colors.daylightDawn, cloudCoverPct),
-                  cloudDesaturate(colors.daylightDusk, cloudCoverPct),
-                  cloudDesaturate(colors.daylightNight, cloudCoverPct),
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.daylightBar}
-              />
-              <View style={styles.daylightIcons}>
-                <DaylightSun width={16} height={16} />
-                <DaylightMoon width={16} height={16} />
-              </View>
-            </View>
+            />
           </View>
 
           {recommended && trustedStationOnRoute && (
@@ -4002,14 +3977,6 @@ const styles = StyleSheet.create({
   routeZonesLoadingText: {
     ...dynamicType(typography.caption1Emphasized),
     color: colors.labelSecondary,
-  },
-  daylightBar: {
-    height: 4,
-    borderRadius: radii.pill,
-  },
-  daylightIcons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   tradeoffRow: {
     // H13: 16 → 24 to match the route card's canonical gutter
