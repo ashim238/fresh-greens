@@ -258,11 +258,16 @@ function formatStepDistance(meters: number): string {
  *   - arrived: "You've arrived at your destination"
  *   - off-route: "Recalculating route"
  *   - null (mock fallback): "Heading toward {destination}"
+ *   - no-route: "No route available" recovery copy
  */
 function a11yLabelForTurnCard(
   info: NextStepInfo | null,
   destName: string | undefined,
+  routeSource: RouteSource,
 ): string {
+  if (!info && routeSource === 'no-route') {
+    return `No route available to ${destName ?? 'your destination'}. Try a different destination.`;
+  }
   if (!info) return `Heading toward ${destName ?? 'your destination'}`;
   if (info.status === 'arrived') return "You've arrived at your destination";
   if (info.status === 'off-route') return 'Recalculating route';
@@ -1873,7 +1878,11 @@ export default function EnRoute() {
           <View
             style={styles.turnDirection}
             accessible
-            accessibilityLabel={a11yLabelForTurnCard(nextStepInfo, params.destName)}
+            accessibilityLabel={a11yLabelForTurnCard(
+              nextStepInfo,
+              params.destName,
+              routeSource,
+            )}
           >
             {/*
               Turn maneuver glyph — informational, not a button.
@@ -1912,6 +1921,13 @@ export default function EnRoute() {
                   {nextStepInfo.distanceMeters < 30
                     ? 'now'
                     : `in ${formatStepDistance(nextStepInfo.distanceMeters)}`}
+                </Text>
+              </Text>
+            ) : routeSource === 'no-route' ? (
+              <Text style={styles.turnInstruction}>
+                No route available{'\n'}
+                <Text style={styles.turnStreet}>
+                  Try a different destination
                 </Text>
               </Text>
             ) : (
