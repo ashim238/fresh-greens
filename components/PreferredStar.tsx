@@ -3,13 +3,13 @@ import { Pressable } from 'react-native';
 import { Star } from 'phosphor-react-native/src/icons/Star';
 
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 
 /**
  * Trust-star toggle — identical affordance wherever a gas/charging
  * station is shown (FuelStopsSheet, /search Gas results). Filled
  * wiltedgreen when trusted, hollow labelTertiary otherwise. Compact
- * glyph with hitSlop for a 44pt effective tap target.
+ * glyph centered in a 44pt painted tap target.
  *
  * Spec: docs/archive/superpowers/specs/2026-06-02-preferred-stations-design.md
  */
@@ -25,13 +25,12 @@ export function PreferredStar({
   return (
     <Pressable
       onPress={onToggle}
-      hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel={
         accessibilityLabel ?? (preferred ? 'Untrust this station' : 'Trust this station')
       }
       accessibilityState={{ selected: preferred }}
-      style={({ pressed }) => [pressed && pressedDim]}
+      style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
     >
       {/* Filled YELLOW star when trusted — the universal "favorite"
           mark. Documented reserved-color carve-out: yellow is otherwise

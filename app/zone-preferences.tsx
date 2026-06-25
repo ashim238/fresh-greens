@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LoadingState } from '../components/StateCard';
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { SettingsRow } from '../components/settings/SettingsRow';
@@ -48,7 +49,9 @@ export default function ZonePreferences() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {prefsState.ready && (() => {
+          {!prefsState.ready ? (
+            <LoadingState text="Loading preferences…" />
+          ) : (() => {
             // Degraded-state surfacing: when all three flag toggles are off,
             // route scoring has no safety signals to weigh — routes degrade
             // to distance/time only. Silent in v1; user-flagged as a P1.
