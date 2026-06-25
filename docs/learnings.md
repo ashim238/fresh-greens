@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Tow-pick merge + Round 7 hub critique (`main` / `chore/design-round-7`, 2026-06-25)
+
+Squash-merged PR #253 (roadside tow-pick + MKLocalSearch phone enrichment) after clean pre-merge audit. **Round 7 hub sweep** (workflow §12b) ran immediately on `chore/design-round-7`: six hub screens critiqued, synthesis at `.impeccable/ROUND-7-SYNTHESIS.md`. **0 P0** — tow-pick is shippable; top follow-up is `/roadside` share-toggle auto-advancing to status (P1). Pattern: sub-flows outpolished their picker (`/safety` tiles still lack PR #242 hints while `/roadside` gained tow-pick). Critique → punch-list → fix PR is the right next beat, not more critique.
+
+---
+
 ## Typography — Jost + Libre Franklin (`main`, 2026-06-25)
 
 Shipped app-wide brand fonts via a single choke point: `theme/fonts.ts` + `theme/typography.ts` + `hooks/useAppFonts` in root `_layout`. **Jost** only on `largeTitle*`, `title1*`, and `sosCountdown` (ExtraBold); **Libre Franklin** on everything from `title2*` down. No per-screen edits — ~200 `dynamicType(typography.*)` call sites picked it up automatically. RN wants one `.otf` per `fontFamily` string (no `fontWeight` synthesis). Exempt surfaces stay system: speed-limit disc, lifeline 44pt initial. Letter-spacing/line-height loosened slightly for Franklin vs the SF-tuned ramp. Figma text styles still need a manual sync pass.
