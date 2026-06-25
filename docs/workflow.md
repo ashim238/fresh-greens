@@ -42,13 +42,13 @@ Superpowers skills execute template mechanics; see [`WORKFLOW-TEMPLATE.md`](WORK
 | §2–3 scope (intent, v1 boundary) | Superpowers **`brainstorming`** *or* Impeccable **`shape`** — pick one per feature, not both |
 | §3 multi-task plan | Superpowers **`writing-plans`** + **`subagent-driven-development`** |
 | §5 build | Karpathy guidelines (lean, surgical diffs) + `{{DEV_LOOP}}` |
-| §6 self-review | Template checklist + Impeccable **technical audit** on UI routes (§12c) |
+| §6 self-review | Template checklist + Impeccable **technical audit** + **`/visual-pass quick`** on UI routes (§12c) |
 | §10 verify | Superpowers **`verification-before-completion`** + UNVERIFIED-IN-RUNTIME log for dev-build paths |
 | §12 pre-merge | **`code-reviewer`** agent review on branch diff (§12c light/full paths) |
 
 ## FG-specific step notes (beyond the template)
 
-- **§6 self-review** — Karpathy guidelines: minimum code, surgical diffs, no speculative abstractions. On UI PRs, also run Impeccable **technical audit** on touched routes (§12c). **P0 blocks merge; P1 fix or log in `next-session.md` with explicit debt.**
+- **§6 self-review** — Karpathy guidelines: minimum code, surgical diffs, no speculative abstractions. On UI PRs, also run Impeccable **technical audit** on touched routes (§12c). **Tier A (quick):** run **`/visual-pass quick`** on the diff when meta rows, sheets, chips, or label/value layouts changed — grep for inline `·`, fix with `MetaSeparator` / `joinMetaParts` (see `.cursor/skills/visual-pass/SKILL.md`). **P0 blocks merge; P1 fix or log in `next-session.md` with explicit debt.**
 - **§7 commit** — include Figma node ID when the screen is Figma-backed: `feat: <screen> layout (figma <node-id>)`. Off-Figma screens: omit the node or note the analog (`analog: /roadside-setup`).
 - **§9 merge mechanics** —
   - *GitHub PR path:* `gh pr merge <num> --squash --delete-branch` → `git checkout main` → `git pull --ff-only`.
@@ -128,7 +128,8 @@ carousel, marker clusters); state-shape for new features.
 ## §12b — Periodic fidelity audit (every ~5 PRs, or after any heavy/structural one)
 
 One **round** branch (`chore/figma-fidelity-audit-N` or `chore/design-round-N`) can
-combine Figma MCP diff **and** Impeccable critique snapshots; not two separate rituals.
+combine Figma MCP diff, Impeccable critique snapshots, **and** a **`/visual-pass round`**
+synthesis (`.impeccable/VISUAL-PASS-<date>.md`); not three separate rituals.
 
 ### Figma-backed screens
 Source the screen list from `graphify-out/GRAPH_REPORT.md` community hubs. Per screen
@@ -175,20 +176,25 @@ proxy boundaries.
 | Greenfield / ambiguous UX (scope) | Superpowers **`brainstorming`** *or* `/impeccable shape` | Intent before code — not every settings row |
 | Greenfield UI (build arc) | `/impeccable craft` | shape → build — situational |
 | UI PR pre-commit (§6) | `/impeccable audit <touched files>` | Scorecard + P0–P3 backlog |
+| UI PR pre-commit (§6) — **Tier A** | `/visual-pass quick <touched files>` | Inline optical fixes; grep inline `·` → `MetaSeparator` / `joinMetaParts` |
 | Pre-merge (UI) | `code-reviewer` on branch diff; re-run Impeccable audit only if audit fixes landed | Agent review + score unchanged |
 | Structural UX review | `/impeccable critique <route>` | `.impeccable/critique/<timestamp>__<file>.md` |
 | Round (~5 PRs, with §12b) | `/impeccable critique` on hub screens | Snapshot trail |
+| Round (~5 PRs, with §12b) — **Tier B** | `/visual-pass round` | `.impeccable/VISUAL-PASS-<date>.md` hub-screen synthesis |
 | After critique/audit backlog | `polish` · `layout` · `clarify` · `harden` (per audit map) | Same branch |
 | Before merge (§10) | Log **UNVERIFIED-IN-RUNTIME** for dev-build paths; Superpowers **`verification-before-completion`** | Explicit verification debt |
 
 ### Rhythm (full UI PR)
 
 ```
-scope (brainstorming OR shape) → build (karpathy-lean) → Impeccable audit → fix → code-reviewer → merge
+scope (brainstorming OR shape) → build (karpathy-lean) → Impeccable audit → visual-pass quick → fix → code-reviewer → merge
 ```
 
 **Critique** = heuristic UX (voice, hierarchy, slop). **Technical audit** = measurable
-(a11y, tokens, touch targets). Both on structural work; audit alone on small token/copy fixes.
+(a11y, tokens, touch targets). **Visual pass** = optical micro-layout (meta separators,
+mixed-weight rhythm, flex alignment illusions). Both critique and visual-pass on structural
+work; audit + visual-pass quick on small layout/meta fixes; audit alone on pure token/copy
+with no meta rows or sheets touched.
 
 ### Discipline
 
@@ -196,6 +202,7 @@ scope (brainstorming OR shape) → build (karpathy-lean) → Impeccable audit �
 - **Snapshots:** cite `.impeccable/critique/` paths in `next-session.md` when findings become follow-ups.
 - **Pure-fn adapters:** `lib/*.fixtures.ts` runnable via `npx tsx` when Jest is not wired.
 - **Do not skip `code-reviewer`** because Impeccable passed; reserved-color usage and cross-file drift still need `rg` + diff review.
+- **Audit addendum — meta separators:** technical audit grep sees `·` in strings as valid text; it does not flag asymmetric optical spacing. Any multi-part meta row (`distance · time`, `category · tag · time`) must use `MetaSeparator` or `joinMetaParts` from `components/MetaSeparator.tsx`, not string-embedded middots or row `gap` alone. Visual-pass owns this check; audit re-run if separator splits change a11y labels.
 
 ## §13 — Rollback and escalation
 
