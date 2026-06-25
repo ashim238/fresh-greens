@@ -71,7 +71,7 @@ export function RoadsideTowPick({ locationCoords, onBack, onTowCalled }: Props) 
 
         if (!places.length) {
           setFetchError(
-            'No tow services found nearby. Set a simulator location (Features → Location) or try calling your roadside service.',
+            'No tow services found nearby. Try calling your roadside service instead.',
           );
           setFetchingList(false);
           return;

@@ -208,7 +208,6 @@ export default function Roadside() {
               setShareOn(next);
               if (next) {
                 setShareToggledAtIso(new Date().toISOString());
-                if (!actionTaken) markActionTaken();
                 const problemLabel =
                   PROBLEMS.find((p) => p.id === problem)?.label ?? 'Need help';
                 void (async () => {
@@ -222,7 +221,20 @@ export default function Roadside() {
                 })();
               }
             }}
-            onFiguredOut={() => router.back()}
+            onFiguredOut={() => {
+              Alert.alert(
+                'All set?',
+                "You'll leave roadside assistance and return to the map.",
+                [
+                  { text: 'Stay', style: 'cancel' },
+                  {
+                    text: 'Leave',
+                    style: 'destructive',
+                    onPress: () => router.back(),
+                  },
+                ],
+              );
+            }}
           />
         )}
         {step === 'tow-pick' && (
@@ -708,6 +720,17 @@ function WrongSpotModal({
           >
             <Text style={styles.modalCtaLabel}>Confirm</Text>
           </Pressable>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.modalCancelBtn,
+              pressed && pressedDim,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+          >
+            <Text style={styles.modalCancelLabel}>Cancel</Text>
+          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
@@ -883,6 +906,15 @@ const styles = StyleSheet.create({
   modalCtaLabel: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.white,
+  },
+  modalCancelBtn: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelLabel: {
+    ...dynamicType(typography.bodyRegular),
+    color: colors.labelSecondary,
   },
   // Step 2 — action menu
   backChevron: {
