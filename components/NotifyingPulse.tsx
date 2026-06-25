@@ -1,5 +1,7 @@
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { joinMetaParts } from './MetaSeparator';
+
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { colors } from '../theme/colors';
@@ -13,6 +15,8 @@ type Props = {
   contactName: string;
   /** Optional override; defaults to Messages-opened copy. */
   label?: string;
+  /** When set, renders label beats with MetaSeparator instead of a string. */
+  labelParts?: readonly string[];
   /** Centered (flow footers) vs. row-left (inside widget chrome). Default: 'center'. */
   align?: 'center' | 'start';
   /** Re-open the pre-filled Messages composer. */
@@ -26,13 +30,17 @@ type Props = {
 export function NotifyingPulse({
   contactName,
   label,
+  labelParts,
   align = 'center',
   onPress,
 }: Props) {
   const reduceMotion = useReduceMotion();
   const pulse = usePulseOpacity();
   const resolvedLabel =
-    label ?? `Messages opened for ${contactName} — tap Send`;
+    label ??
+    (labelParts && labelParts.length > 0
+      ? labelParts.join(', ')
+      : `Messages opened for ${contactName} — tap Send`);
 
   const content = (
     <>
@@ -41,7 +49,16 @@ export function NotifyingPulse({
         accessibilityElementsHidden
         importantForAccessibility="no"
       />
-      <Text style={styles.label}>{resolvedLabel}</Text>
+      {labelParts && labelParts.length > 0 ? (
+        <View style={styles.labelRow}>
+          {joinMetaParts(labelParts, {
+            textStyle: styles.label,
+            separatorStyle: styles.labelSeparator,
+          })}
+        </View>
+      ) : (
+        <Text style={styles.label}>{resolvedLabel}</Text>
+      )}
     </>
   );
 
@@ -90,7 +107,16 @@ const styles = StyleSheet.create({
     borderRadius: radii.xs,
     backgroundColor: colors.freshgreen,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
   label: {
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
+    color: colors.labelSecondary,
+  },
+  labelSeparator: {
     ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.labelSecondary,
   },

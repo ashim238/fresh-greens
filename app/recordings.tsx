@@ -17,7 +17,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
-import { MetaSeparator } from '../components/MetaSeparator';
+import { MetaSeparator, joinMetaParts } from '../components/MetaSeparator';
 import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
 import {
   EmptyState as EmptyStateCard,
@@ -437,9 +437,15 @@ function RecordingCard({
       </Pressable>
 
       <View style={styles.cardTextStack} accessible accessibilityLabel={rowInfoLabel}>
-        <Text style={styles.cardTimestamp}>
-          {formatTimestamp(recording.createdAt)}
-        </Text>
+        <View style={styles.cardTimestampRow}>
+          {(() => {
+            const { date, time } = formatTimestampParts(recording.createdAt);
+            return joinMetaParts([date, time], {
+              textStyle: styles.cardTimestamp,
+              separatorStyle: styles.cardTimestampSeparator,
+            });
+          })()}
+        </View>
         <View style={styles.cardSecondaryRow}>
           {recording.armed != null ? (
             <>
@@ -480,7 +486,7 @@ function RecordingCard({
 
 // --- Helpers -------------------------------------------------------------
 
-function formatTimestamp(ms: number): string {
+function formatTimestampParts(ms: number): { date: string; time: string } {
   const d = new Date(ms);
   const sameYear = d.getFullYear() === new Date().getFullYear();
   const dateOptions: Intl.DateTimeFormatOptions = sameYear
@@ -492,6 +498,11 @@ function formatTimestamp(ms: number): string {
     minute: '2-digit',
     hour12: true,
   }).format(d);
+  return { date, time };
+}
+
+function formatTimestamp(ms: number): string {
+  const { date, time } = formatTimestampParts(ms);
   return `${date} · ${time}`;
 }
 
@@ -588,6 +599,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.sm,
   },
+  cardTimestampRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
   cardTimestamp: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
@@ -595,6 +611,10 @@ const styles = StyleSheet.create({
     // hold a fixed column width across rows — proportional digits
     // shift the "·" separator and stagger the stack between rows.
     fontVariant: ['tabular-nums'],
+  },
+  cardTimestampSeparator: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.labelTertiary,
   },
   cardSecondaryRow: {
     flexDirection: 'row',

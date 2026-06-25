@@ -48,6 +48,8 @@ import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
+import { joinMetaParts } from './MetaSeparator';
+
 /**
  * /home bottom sheet — browse mode (no destination set yet).
  * Figma node (v2): 1114:9047 (Home MapMarker — shows the canonical
@@ -1036,12 +1038,18 @@ function RecommendationCard({
   // on the Text is the backstop. facets is undefined for every other
   // card, so this is a no-op outside the Trusted row.
   const FACET_DISPLAY_CAP = 2;
-  const categoryPillText =
+  const facetOverflow =
+    r.facets && r.facets.length > FACET_DISPLAY_CAP
+      ? r.facets.length - FACET_DISPLAY_CAP
+      : 0;
+  const facetParts =
     r.facets && r.facets.length > 0
-      ? r.facets.slice(0, FACET_DISPLAY_CAP).join(' · ') +
-        (r.facets.length > FACET_DISPLAY_CAP
-          ? ` +${r.facets.length - FACET_DISPLAY_CAP}`
-          : '')
+      ? r.facets.slice(0, FACET_DISPLAY_CAP)
+      : null;
+  const categoryPillText =
+    facetParts != null
+      ? facetParts.join(', ') +
+        (facetOverflow > 0 ? ` +${facetOverflow}` : '')
       : r.categoryLabel;
   // Resolve the topline variant against the entry's actual data —
   // if the variant's payload is missing (e.g. closing-soon on an
@@ -1171,7 +1179,24 @@ function RecommendationCard({
             </View>
           ) : null}
           <View style={styles.tag}>
-            <Text style={styles.tagText} numberOfLines={1}>{categoryPillText}</Text>
+            {facetParts != null ? (
+              <View style={styles.tagMetaRow}>
+                {joinMetaParts(facetParts, {
+                  textStyle: styles.tagText,
+                  separatorStyle: styles.tagMetaSeparator,
+                  numberOfLines: 1,
+                })}
+                {facetOverflow > 0 ? (
+                  <Text style={styles.tagText} numberOfLines={1}>
+                    {` +${facetOverflow}`}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.tagText} numberOfLines={1}>
+                {r.categoryLabel}
+              </Text>
+            )}
           </View>
           {/* Cross-row enrichment badge: this non-community card's place
               is also a community report in another browse row. Reuses the
@@ -1702,6 +1727,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsPrimary,
     borderRadius: radii.xs,
     padding: spacing.xs,
+  },
+  tagMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  tagMetaSeparator: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.black,
   },
   tagText: {
     ...dynamicType(typography.footnoteRegular),

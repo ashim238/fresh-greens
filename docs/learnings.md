@@ -6,7 +6,7 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ## Visual pass — meta-line interpunct (`polish/visual-pass-meta-spacing`, 2026-06-25)
 
-Round 7 + typography critique scored token/ramp compliance but missed **optical micro-layout**: a `·` baked into `"· ${distance}"` or flex `gap` beside a middot Text sits closer to one neighbor when weights differ (`subheadline` + `footnote`, or `bodyEmphasized` + regular). Fix: shared `MetaSeparator` (`paddingHorizontal: spacing.xs` on the glyph) in a flex row with no row-level `gap` on the beat. **Lesson:** token grep ≠ visual rhythm — add an explicit "meta-line separator" row to future hub/driving visual passes, not just type audits.
+Round 7 + typography critique scored token/ramp compliance but missed **optical micro-layout**: a `·` baked into `"· ${distance}"` or flex `gap` beside a middot Text sits closer to one neighbor when weights differ (`subheadline` + `footnote`, or `bodyEmphasized` + regular). Fix: shared `MetaSeparator` (`paddingHorizontal: spacing.xs` on the glyph) + `joinMetaParts()` in a flex row with no row-level `gap` on the beat. **Lesson:** critique scores voice/hierarchy/IA; technical audit catches tokens — neither inspects interpunct geometry. Add an explicit "meta-line separator" row to future hub/driving visual passes, not just type audits. Synthesis: `.impeccable/VISUAL-PASS-2026-06-25.md`.
 
 ---
 

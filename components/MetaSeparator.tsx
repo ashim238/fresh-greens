@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from 'react';
 import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
 
 import { colors } from '../theme/colors';
@@ -21,6 +22,32 @@ export function MetaSeparator({ style }: { style?: StyleProp<TextStyle> }) {
       ·
     </Text>
   );
+}
+
+type JoinMetaPartsOptions = {
+  textStyle?: StyleProp<TextStyle>;
+  separatorStyle?: StyleProp<TextStyle>;
+  numberOfLines?: number;
+};
+
+/** Renders meta tokens with symmetric interpunct spacing between siblings. */
+export function joinMetaParts(
+  parts: readonly (string | null | undefined | false)[],
+  {
+    textStyle,
+    separatorStyle,
+    numberOfLines,
+  }: JoinMetaPartsOptions = {},
+): ReactNode {
+  const filtered = parts.filter((part): part is string => Boolean(part));
+  return filtered.map((part, index) => (
+    <Fragment key={`${part}-${index}`}>
+      {index > 0 ? <MetaSeparator style={separatorStyle} /> : null}
+      <Text style={textStyle} numberOfLines={numberOfLines}>
+        {part}
+      </Text>
+    </Fragment>
+  ));
 }
 
 const styles = StyleSheet.create({

@@ -1,49 +1,51 @@
-# Visual pass — meta-line spacing (2026-06-25)
+# Visual pass — meta separators & micro-layout (2026-06-25)
 
-**Scope:** Hub + driving surfaces, Priority A/B meta lines. Code review of JSX + StyleSheet (not scorecard-only).
+Branch: `polish/visual-pass-meta-spacing`
 
-**Branch:** `polish/visual-pass-meta-spacing`
+## Critique vs visual pass
 
-## Audit gap — why Round 7 / type critique missed interpunct
+| Layer | What it inspects | What it misses |
+|-------|------------------|----------------|
+| **Impeccable critique** | Heuristic UX — voice, hierarchy, calm-companion register, slop tells, IA. Scores screens holistically. | Optical separator geometry, mixed-weight rhythm on the same meta line, flex `gap` asymmetry around interpuncts. |
+| **Technical audit** | `dynamicType`, theme tokens, tap targets, reserved-color grep. | Inline `·` in strings — grep sees the character but not that it sits closer to one neighbor than the other. |
+| **Visual pass (this work)** | Fix-forward micro-layout: `MetaSeparator`, label/value rows, flex mistakes, truncation on meta clusters. | Voice/copy/IA — that's critique's job. |
 
-Round 7 and the typography app-wide critique score **token presence** (dynamicType spread, ramp compliance, reserved-color grep) and **macro hierarchy** (headline vs body weight steps). They do **not** inspect:
+**Short answer for "I thought that was covered by critique":** Critique scores whether a screen *feels* right; it does not measure whether an interpunct is optically centered between two `Text` siblings. Technical audit catches token violations but passes string-embedded `·` because the character is present and valid. This pass complements both — it does not replace them.
 
-- Mixed-weight inline runs on the same flex row (`subheadline` arrive + `footnote` distance + a `·` baked into a string prefix)
-- Whether separator glyphs own **symmetric** horizontal padding vs flex `gap` or leading `"· "` in a string
-- Optical centering of middots between emphasized and regular siblings
-
-Interpunct spacing is **micro-typography / optical layout** — invisible to token grep and invisible to rubrics that stop at "uses footnoteRegular." Future visual passes should add an explicit **meta-line separator** check: any `·` in route/sheet meta → `MetaSeparator` or equivalent row with `paddingHorizontal: spacing.xs` on the glyph.
-
-## Findings
+## Results
 
 | Screen / component | Issue | Fixed? | Notes |
-|---|---|---|---|
-| `/home` route-preview card | `· ${distance}` string left middot closer to distance than arrival | **Yes** | `MetaSeparator` + `routeMetaCluster` row; a11y label on cluster |
-| `/en-route` bottom sheet ETA row | Raw `·` Text + `gap: spacing.xs` doubled beat spacing | **Yes** | `MetaSeparator`; removed row `gap` |
-| `RouteComparisonSheet` | Inline `"arrival · distance"` string | **Yes** | `metaRow` + `MetaSeparator` |
-| `RouteComparisonSheet` | Raw `gap: 4` / `marginTop: 4` literals | **Yes** | → `spacing.xs` / `spacing.sm` |
-| `FuelStopsSheet` stop rows | 3-part meta string with embedded `·` | **Yes** | `rowMetaRow` + `MetaSeparator` |
-| `/pulled-over` recording chip | `gap` + bare `·` Text | **Yes** | `MetaSeparator`; dot gets `marginRight` only |
-| `/roadside` share card Contact row | `name · time` in one Text | **Yes** | Value row + `MetaSeparator` |
-| `ReportDetailCard` subline | Category · tag · time string | **Yes** | `sublineParts` row + `MetaSeparator`; share still uses joined string |
-| `/recordings` row secondary | Armed · duration string | **Yes** | `cardSecondaryRow` + `MetaSeparator` |
-| `MetaSeparator` (new) | No shared separator primitive | **Yes** | 8 uses — exceeds rule-of-three |
-| `DaylightRouteLegend` | — | n/a | No interpunct; 96pt column + `spacing.*` already correct |
-| `/home` via + daylight row | — | n/a | Flex row reviewed; no separator issue |
-| `HomeBrowseSheet` rec cards | Rating/distance as pills not `·` meta | n/a | Different pattern; pills use `gap: spacing.sm` |
-| `/en-route` secondary row | `bodyEmphasized` flanks + `subheadline` separator | **P2** | Intentional quiet beat per comment; monitor optically on device |
-| `/home` route meta | Mixed `subheadline` arrive + `footnote` distance | **P2** | Matches Figma tiering; separator sized to footnote side |
-| `LiveSafetySheet` collapsed | `sessionType · duration` in NotifyingPulse label string | **P2** | Low-traffic chip; would need NotifyingPulse parts API |
-| `FuelStopsSheet` header subtitle | Trusted-count clause in template string | **P2** | Prose sentence, not token meta row |
-| `RoadsideTowPick` | `distance · address` inline | **P2** | Secondary to this pass; same fix pattern if it ships |
-| `/trip-summary` | Stat columns not inline meta | n/a | Label/value stack reviewed — spacing OK |
-| `formatTimestamp` in `/recordings` | Date · time inside one string (title line) | **P2** | Tabular-nums guard on timestamp; separator not split (title row) |
+|--------------------|-------|--------|-------|
+| `app/home.tsx` | Route-preview arrival · distance meta cluster | Yes | `MetaSeparator` + `routeMetaCluster` row (prior agent). Mixed weights intentional: arrival subheadline, distance footnote. |
+| `app/en-route.tsx` | Bottom-sheet distance · duration | Yes | `MetaSeparator` in `secondaryRow` (prior agent). |
+| `app/en-route.tsx` | Offline pill `Offline route · 3h old` string | Yes | Split to `MetaSeparator` beats inside pill. |
+| `components/RouteComparisonSheet.tsx` | Arrival · distance meta row | Yes | Prior agent. |
+| `components/FuelStopsSheet.tsx` | Row meta price · distance · along route | Yes | Prior agent. Subtitle trusted-count clause left as prose (not a meta cluster). |
+| `components/FuelStopsSheet.tsx` | `gap: 2`, `paddingHorizontal: 8` literals | Yes | → `spacing.xs` / `spacing.sm`. |
+| `components/DaylightRouteLegend.tsx` | — | N/A | No interpunct meta; gradient key only. |
+| `components/HomeBrowseSheet.tsx` | Trusted-row facet pill `Black-owned · Felt welcome` | Yes | `joinMetaParts` inside category tag. Rating/distance use separate tag pills (Figma), not one meta line. |
+| `components/ReportDetailCard.tsx` | Subline category · tag · time | Yes | Refactored to `joinMetaParts`. |
+| `app/trip-summary.tsx` | — | N/A | Duration/distance are stacked stat columns, not inline meta. |
+| `app/roadside.tsx` | Contact · notified-time shared row | Yes | Prior agent. |
+| `app/search.tsx` | Upcoming place · when, Set location · when | Yes | `joinMetaParts` in `recentMetaRow`. |
+| `app/search.tsx` | Saved regular `Default · N trips` | Yes | `subtitleMeta` + `joinMetaParts`. |
+| `app/search.tsx` | Gas result price · distance | Yes | `resultMetaRow` + `joinMetaParts`. |
+| `components/LiveSafetySheet.tsx` | Collapsed pill session · duration | Yes | `NotifyingPulse.labelParts` + `MetaSeparator`. |
+| `components/NotifyingPulse.tsx` | String label with embedded · | Yes | New `labelParts` prop. |
+| `app/pulled-over.tsx` | Recording · timer chip | Yes | Prior agent. |
+| `app/recordings.tsx` | Card timestamp date · time | Yes | `joinMetaParts`; a11y strings keep comma join. |
+| `components/MetaSeparator.tsx` | Repeated map/join pattern | Yes | Added `joinMetaParts()` helper. |
+| `components/RoadsideTowPick.tsx` | Distance · address in result row | P2 | Out of priority list; same pattern, defer to next pass. |
+| `app/fuel.tsx` | Vehicle picker `Sedan · 350 mi` labels | P2 | Picker chip labels — needs Figma confirm on whether beats belong in chips. |
+| `app/safety-settings.tsx` | Insurance carrier · policy string | P2 | Settings summary prose, not route meta. |
+| `app/home.tsx` | Alternate-route announcement strings with · | P2 | VoiceOver/announcement copy, not rendered meta row. |
 
 ## Counts
 
-- **Fixed:** 10 (including new `MetaSeparator` + 9 call-site/layout fixes)
-- **Logged P2 / reviewed n/a:** 8
+- **Screens/components reviewed:** 18
+- **Fixed:** 15
+- **Logged P2 / N/A:** 6
 
 ## Verification
 
-- `npx tsc --noEmit` — run on branch before merge
+- `npx tsc --noEmit` — pass

@@ -26,6 +26,7 @@ import QuickToolGas from '../assets/illustrations/safety-tools-gas.svg';
 import QuickToolParking from '../assets/illustrations/safety-tools-parking.svg';
 
 import { CalendarPickSheet } from '../components/CalendarPickSheet';
+import { joinMetaParts } from '../components/MetaSeparator';
 import { PreferredStar } from '../components/PreferredStar';
 import { SavedPlaceBookmark } from '../components/SavedPlaceBookmark';
 import { SearchBar } from '../components/SearchBar';
@@ -128,6 +129,8 @@ type SavedRow = {
   id: string;
   name: string;
   subtitle: string;
+  /** When set, subtitle renders as meta beats instead of a single string. */
+  subtitleMeta?: readonly string[];
   latitude: number;
   longitude: number;
 };
@@ -171,7 +174,9 @@ function buildSavedRows(
       id: r.id,
       name: r.name,
       subtitle:
-        r.count > 1 ? `Default · ${r.count} trips` : 'Default destination',
+        r.count > 1 ? `Default, ${r.count} trips` : 'Default destination',
+      subtitleMeta:
+        r.count > 1 ? (['Default', `${r.count} trips`] as const) : undefined,
       latitude: r.latitude,
       longitude: r.longitude,
     });
@@ -201,10 +206,14 @@ function formatResultDistance(miles: number): string {
   return `${Math.round(miles)} mi`;
 }
 
-function formatGasResultMeta(place: Place): string {
+function gasResultMetaParts(place: Place): string[] {
   const price = fuelPriceLabel(place.fuelPrice);
   const dist = formatResultDistance(place.distanceMiles);
-  return price ? `${price} · ${dist}` : dist;
+  return price ? [price, dist] : [dist];
+}
+
+function formatGasResultMeta(place: Place): string {
+  return gasResultMetaParts(place).join(', ');
 }
 
 export default function Search() {
@@ -740,9 +749,19 @@ export default function Search() {
                             <Text style={styles.recentText} numberOfLines={1}>
                               {row.name}
                             </Text>
-                            <Text style={styles.recentSubtext} numberOfLines={1}>
-                              {row.subtitle}
-                            </Text>
+                            {row.subtitleMeta ? (
+                              <View style={styles.recentMetaRow}>
+                                {joinMetaParts(row.subtitleMeta, {
+                                  textStyle: styles.recentSubtext,
+                                  separatorStyle: styles.recentSubtextSeparator,
+                                  numberOfLines: 1,
+                                })}
+                              </View>
+                            ) : (
+                              <Text style={styles.recentSubtext} numberOfLines={1}>
+                                {row.subtitle}
+                              </Text>
+                            )}
                           </View>
                         </Pressable>
                       ))
@@ -782,12 +801,16 @@ export default function Search() {
                             <Text style={styles.recentText} numberOfLines={1}>
                               {event.title}
                             </Text>
-                            <Text
-                              style={styles.recentSubtext}
-                              numberOfLines={1}
-                            >
-                              {place.name} · {relativeWhen(event.startsAt)}
-                            </Text>
+                            <View style={styles.recentMetaRow}>
+                              {joinMetaParts(
+                                [place.name, relativeWhen(event.startsAt)],
+                                {
+                                  textStyle: styles.recentSubtext,
+                                  separatorStyle: styles.recentSubtextSeparator,
+                                  numberOfLines: 1,
+                                },
+                              )}
+                            </View>
                           </View>
                         </Pressable>
                       ))}
@@ -811,12 +834,16 @@ export default function Search() {
                             <Text style={styles.recentText} numberOfLines={1}>
                               {event.title}
                             </Text>
-                            <Text
-                              style={styles.recentSubtext}
-                              numberOfLines={1}
-                            >
-                              Set location · {relativeWhen(event.startsAt)}
-                            </Text>
+                            <View style={styles.recentMetaRow}>
+                              {joinMetaParts(
+                                ['Set location', relativeWhen(event.startsAt)],
+                                {
+                                  textStyle: styles.recentSubtext,
+                                  separatorStyle: styles.recentSubtextSeparator,
+                                  numberOfLines: 1,
+                                },
+                              )}
+                            </View>
                           </View>
                         </Pressable>
                       ))}
@@ -1035,9 +1062,13 @@ export default function Search() {
                     </Text>
                   ) : null}
                   {isGasRow ? (
-                    <Text style={styles.resultMeta} numberOfLines={1}>
-                      {formatGasResultMeta(place)}
-                    </Text>
+                    <View style={styles.resultMetaRow}>
+                      {joinMetaParts(gasResultMetaParts(place), {
+                        textStyle: styles.resultMeta,
+                        separatorStyle: styles.resultMetaSeparator,
+                        numberOfLines: 1,
+                      })}
+                    </View>
                   ) : null}
                 </View>
                 {!isGasRow ? (
@@ -1233,6 +1264,15 @@ const styles = StyleSheet.create({
     ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
     color: colors.mutedSecondary,
   },
+  recentMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  recentSubtextSeparator: {
+    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
+    color: colors.mutedSecondary,
+  },
   stateCardWrap: {
     flex: 1,
     alignItems: 'center',
@@ -1261,6 +1301,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   resultMeta: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.labelTertiary,
+  },
+  resultMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  resultMetaSeparator: {
     ...dynamicType(typography.caption1Regular),
     color: colors.labelTertiary,
   },

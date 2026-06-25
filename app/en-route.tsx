@@ -1963,19 +1963,23 @@ export default function EnRoute() {
                 }
               >
                 <WifiSlash size={14} color={colors.white} weight="duotone" />
-                <Text style={styles.offlinePillText}>
-                  {/* Cache → "Offline route" with age stamp ("· 3h old")
-                      when available; mock → "Demo route" to distinguish
-                      real-but-stale OSRM geometry from last-resort
-                      synthetic. Both keep the pill same visual register
-                      (translucent white, WifiSlash) — degraded states,
-                      not alarm. */}
-                  {routeSource === 'cache'
-                    ? cacheAgeMs != null
-                      ? `Offline route · ${formatCacheAge(cacheAgeMs)} old`
-                      : 'Offline route'
-                    : 'Demo route'}
-                </Text>
+                <View style={styles.offlinePillTextRow}>
+                  {routeSource === 'cache' ? (
+                    <>
+                      <Text style={styles.offlinePillText}>Offline route</Text>
+                      {cacheAgeMs != null ? (
+                        <>
+                          <MetaSeparator style={styles.offlinePillSeparator} />
+                          <Text style={styles.offlinePillText}>
+                            {formatCacheAge(cacheAgeMs)} old
+                          </Text>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text style={styles.offlinePillText}>Demo route</Text>
+                  )}
+                </View>
               </View>
             )}
           </View>
@@ -2616,10 +2620,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignSelf: 'flex-start',
   },
+  offlinePillTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
   offlinePillText: {
     // F5: bumped caption1Emphasized (12pt) → footnoteEmphasized (13pt)
     // to match the 14pt WifiSlash icon's cap-height. Earlier 12pt sat
     // visually low against the icon inside the compact pill.
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.white,
+  },
+  offlinePillSeparator: {
     ...dynamicType(typography.footnoteEmphasized),
     color: colors.white,
   },

@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { Animated, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
@@ -31,9 +30,9 @@ import { typography } from '../theme/typography';
 
 import { pressedDim } from '../theme/interaction';
 
+import { joinMetaParts } from './MetaSeparator';
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
-import { MetaSeparator } from './MetaSeparator';
 import { type Variant, variantForCategoryId } from './LandmarkMarker';
 
 /**
@@ -228,16 +227,11 @@ export function ReportDetailCard({
             {title}
           </Text>
           <View style={styles.sublineRow}>
-            {sublineParts.map((part, index) => (
-              <Fragment key={`${part}-${index}`}>
-                {index > 0 ? (
-                  <MetaSeparator style={styles.sublineSeparator} />
-                ) : null}
-                <Text style={styles.subline} numberOfLines={1}>
-                  {part}
-                </Text>
-              </Fragment>
-            ))}
+            {joinMetaParts(sublineParts, {
+              textStyle: styles.subline,
+              separatorStyle: styles.sublineSeparator,
+              numberOfLines: 1,
+            })}
           </View>
         </View>
 

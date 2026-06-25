@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   rowHighlighted: {
     backgroundColor: colors.fadedgreen,
   },
-  rowText: { flex: 1, gap: 2 },
+  rowText: { flex: 1, gap: spacing.xs },
   rowName: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   trustedBadge: {
     alignSelf: 'flex-start',
     marginTop: 2,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: radii.pill,
     backgroundColor: colors.fadedgreen,
