@@ -73,12 +73,13 @@ export function SearchBar({
         <Text style={styles.placeholder} numberOfLines={1}>
           {placeholder}
         </Text>
-        <PressableIcon
-          name="mic"
-          onPress={onMicPress}
-          accessibilityLabel="Voice search"
-          inert={!onMicPress}
-        />
+        {onMicPress ? (
+          <PressableIcon
+            name="mic"
+            onPress={onMicPress}
+            accessibilityLabel="Voice search"
+          />
+        ) : null}
       </Pressable>
     );
   }
@@ -119,14 +120,13 @@ export function SearchBar({
           onPress={onClearPress}
           accessibilityLabel="Clear search"
         />
-      ) : (
+      ) : onMicPress ? (
         <PressableIcon
           name="mic"
           onPress={onMicPress}
           accessibilityLabel="Voice search"
-          inert={!onMicPress}
         />
-      )}
+      ) : null}
     </View>
   );
 }
