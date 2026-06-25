@@ -20,35 +20,35 @@ colors:
   daylight-night: "#2D1B69"
 typography:
   display:
-    fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif"
+    fontFamily: "Jost"
     fontSize: "34px"
     fontWeight: 700
     lineHeight: "41px"
-    letterSpacing: "0.4px"
+    letterSpacing: "0.15px"
   headline:
-    fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif"
+    fontFamily: "Jost"
     fontSize: "28px"
     fontWeight: 700
     lineHeight: "34px"
-    letterSpacing: "0.38px"
+    letterSpacing: "0.12px"
   title:
-    fontFamily: "-apple-system, 'SF Pro Text', system-ui, sans-serif"
+    fontFamily: "Libre Franklin"
     fontSize: "22px"
     fontWeight: 400
-    lineHeight: "28px"
-    letterSpacing: "-0.26px"
+    lineHeight: "29px"
+    letterSpacing: "-0.15px"
   body:
-    fontFamily: "-apple-system, 'SF Pro Text', system-ui, sans-serif"
+    fontFamily: "Libre Franklin"
     fontSize: "17px"
     fontWeight: 400
-    lineHeight: "22px"
-    letterSpacing: "-0.43px"
+    lineHeight: "23px"
+    letterSpacing: "-0.25px"
   label:
-    fontFamily: "-apple-system, 'SF Pro Text', system-ui, sans-serif"
+    fontFamily: "Libre Franklin"
     fontSize: "13px"
     fontWeight: 400
     lineHeight: "18px"
-    letterSpacing: "-0.08px"
+    letterSpacing: "-0.05px"
 rounded:
   sm: "8px"
   md: "12px"
@@ -114,14 +114,14 @@ components:
 
 Fresh Greens rides shotgun. It is the calm voice beside the driver, not the dashboard barking orders — a tool used in both a quiet planning moment at home and a charged one on the roadside, and it has to stay legible and reassuring in both. Every surface is built so that safety is communicated through composure: generous space, a muted earthy-green palette, soft and intentional motion. The interface earns trust by showing its work — the "Along this route:" briefing, the all-clear chip, the daylight strip — never by asserting authority. Underneath the calm sits the warmth the thesis rests on: this was built by and for a community, and the Green Book lineage is felt, not stated.
 
-The system is HIG-native by conviction, not convenience. It speaks iOS — the grouped-settings register, the system typeface, 44pt tap targets painted on the visual — so that the safety content, not the chrome, is what the user notices. Color is rationed: brand greens carry the entire interactive surface, and a small reserved palette (red, orange, yellow, navy) is held back for moments that carry real safety meaning. That rationing is the whole game. A red dot means something here precisely because red appears nowhere else.
+The system is HIG-native by conviction, not convenience. It speaks iOS — the grouped-settings register, Jost/Franklin typography, 44pt tap targets painted on the visual — so that the safety content, not the chrome, is what the user notices. Color is rationed: brand greens carry the entire interactive surface, and a small reserved palette (red, orange, yellow, navy) is held back for moments that carry real safety meaning. That rationing is the whole game. A red dot means something here precisely because red appears nowhere else.
 
 This system explicitly rejects four neighbors. It is **not** generic ride-share / SaaS (glossy dark-mode maps, neon route lines, aggressive conversion CTAs). It is **not** alarmist safety-app red (red everywhere, siren energy, fear as the primary emotion). It is **not** over-designed AI slop (gradient text, glassmorphism, eyebrow labels, identical card grids). And it is **not** sterile / clinical (cold enterprise-dashboard or medical-device coldness that loses the person, and the history, behind the route).
 
 **Key Characteristics:**
 - Calm, grounded, earthy — composure as the primary safety signal.
 - Reserved-color discipline: greens for UI, signals for meaning, never decoration.
-- iOS HIG-native: system typeface, grouped surfaces, 44pt painted tap targets.
+- iOS HIG-native: Jost/Franklin type ramp, grouped surfaces, 44pt painted tap targets.
 - Token-driven: every value pulled from `theme/`, never inlined — including `theme/motion.ts`.
 - Confident, not loud: full-screen hero moments take the larger Large Title voice; settings eyebrows shift to Wilted Green so the brand carries the chrome.
 - Motion is part of the component, not a coat of paint: entrance morphs on detail cards, a 0.98 press-scale on large tap targets, all gated by Reduce Motion.
@@ -165,16 +165,16 @@ A muted, earthy green family carries the entire interactive surface; a sharp res
 
 ## 3. Typography
 
-**Display / Body / Label Font:** System (San Francisco) — `-apple-system, 'SF Pro Text/Display', system-ui`. One typeface, the platform's own, across every register.
+**Display / Body / Label Font:** **Jost** (display — large titles, Title 1, SOS countdown) + **Libre Franklin** (body — Title 2 downward, all reading UI). OFL via `@expo-google-fonts`, loaded in `app/_layout.tsx`. Sizes follow the iOS HIG ramp in `theme/typography.ts`.
 
-**Character:** No display face, no pairing, no flourish. The hierarchy is built entirely from the iOS HIG type ramp — scale, weight, and a deliberate Regular/Emphasized split. Restraint is the personality: the type should read as native iOS, so the safety content is the thing the user notices, not the lettering.
+**Character:** Jost carries wayfinding confidence (geometric, Futura-adjacent); Franklin carries human guidance and American print warmth. Hierarchy is still scale + weight from the ramp, not decoration. System San Francisco remains on **dynamic-type exempt** surfaces only (speed-limit disc, lifeline avatar initial) — see `.cursorrules`.
 
 ### Hierarchy
-- **Large Title — Emphasized** (700, 34/41, +0.4 tracking): The largest heading register; full-screen moments.
-- **SOS Countdown** (800, 40/44, +1 tracking): A single focal numeral inside the /emergency countdown disc. The one place type goes above heading scale, because it *is* the screen.
-- **Headline / Title 1** (700, 28/34): Primary screen titles. Its **Regular** twin (400, 28/34) is the in-modal user-prompt register — same size, lighter weight, so the modal reads as a held question rather than a command.
+- **Large Title — Emphasized** (Jost Bold, 34/41, +0.15 tracking): The largest heading register; full-screen moments.
+- **SOS Countdown** (Jost ExtraBold, 40/44, +0.5 tracking): A single focal numeral inside the /emergency countdown disc.
+- **Headline / Title 1** (Jost, 28/34, +0.12 tracking): Primary screen titles. **Regular** twin for in-modal held questions.
 - **Title 2 / Title 3** (22/28, 20/25): Section headers and card titles.
-- **Body** (400, 17/22, −0.43 tracking): The reading register, and the app-wide CTA label weight (Emphasized 600). Matches Settings.app's primary-action buttons.
+- **Body** (Franklin Regular, 17/23, −0.25 tracking): The reading register; Emphasized uses Franklin SemiBold. CTA labels use `bodyEmphasized`.
 - **Subheadline / Footnote** (15/20, 13/18): Secondary copy, chip labels, metadata.
 - **Caption 1** (12/16): The smallest *informational* register.
 

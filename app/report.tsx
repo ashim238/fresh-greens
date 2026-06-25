@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   titleEmphasized: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
     alignSelf: 'stretch',
   },
@@ -983,12 +983,12 @@ const styles = StyleSheet.create({
     // earlier bodyEmphasized — the subtitle is the supporting line, not
     // the prompt itself. Per .cursorrules "In-modal user prompts use
     // Title1 Regular," the *supporting* body line should match in tone.
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.labelTertiary,
     alignSelf: 'stretch',
   },
   anonymousNote: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     marginTop: spacing.xs,
     alignSelf: 'stretch',
@@ -1160,11 +1160,11 @@ const styles = StyleSheet.create({
     borderColor: colors.wiltedgreen,
   },
   chipLabel: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.freshgreen,
   },
   chipLabelActive: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
   },
   chipAvoid: {
@@ -1208,11 +1208,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   thankYouTitle: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
   },
   thankYouSubtitle: {
-    ...typography.bodyRegular,
+    ...dynamicType(typography.bodyRegular),
     color: colors.labelTertiary,
   },
 
@@ -1232,7 +1232,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.cardBorderSubtle,
   },
   inputAccessoryDone: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.freshgreen,
     paddingVertical: spacing.xs,
   },

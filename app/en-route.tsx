@@ -2468,7 +2468,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sosHoldHint: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: colors.labelSecondary,
   },
   sosHoldRing: {
@@ -2530,11 +2530,11 @@ const styles = StyleSheet.create({
   // from Title3/Regular so the number reads with the prominence the
   // driver needs to glance at it under stress.
   turnDistance: {
-    ...typography.title3Emphasized,
+    ...dynamicType(typography.title3Emphasized),
     color: colors.white,
   },
   turnDistanceUnit: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.fadedgreen,
   },
   turnText: {
@@ -2808,7 +2808,7 @@ const styles = StyleSheet.create({
     height: 16,
   },
   eta: {
-    ...typography.largeTitleEmphasized,
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.black,
     // F7: tabular-nums on the ETA so the arrival time doesn't reflow
     // each minute as the digits change (e.g. "8:30" → "8:29" shifting
@@ -2848,7 +2848,7 @@ const styles = StyleSheet.create({
     borderColor: colors.separatorSubtle,
   },
   routeBadgeActive: { backgroundColor: colors.freshgreen, borderColor: colors.freshgreen },
-  routeBadgeText: { ...typography.caption1Emphasized, color: colors.black },
+  routeBadgeText: { ...dynamicType(typography.caption1Emphasized), color: colors.black },
   routeBadgeTextActive: { color: colors.black },
 
   // --- End trip pill ---

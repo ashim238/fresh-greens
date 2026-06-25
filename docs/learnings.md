@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## Typography — Jost + Libre Franklin (`main`, 2026-06-25)
+
+Shipped app-wide brand fonts via a single choke point: `theme/fonts.ts` + `theme/typography.ts` + `hooks/useAppFonts` in root `_layout`. **Jost** only on `largeTitle*`, `title1*`, and `sosCountdown` (ExtraBold); **Libre Franklin** on everything from `title2*` down. No per-screen edits — ~200 `dynamicType(typography.*)` call sites picked it up automatically. RN wants one `.otf` per `fontFamily` string (no `fontWeight` synthesis). Exempt surfaces stay system: speed-limit disc, lifeline 44pt initial. Letter-spacing/line-height loosened slightly for Franklin vs the SF-tuned ramp. Figma text styles still need a manual sync pass.
+
+---
+
 ## Follow-up sweep — `polish/follow-up-sweep` (2026-06-23)
 
 One thing: **A polish arc's critique is a punch list, not a closing statement.** The previous impeccable arc closed with all 4 restructured screens scoring PASS — but the critique sweep flagged 5 follow-up items that were trivially actionable in a single follow-up branch. All 5 landed in ~30 minutes of inline work, no subagent dispatches needed: caption2 → footnote bump (Floor Rule), sign-out confirm (destructive cascade guard), home FAB-stack named constants, report discard-confirm, sticky Go button via ScrollView + flexShrink. The right rhythm: ship the arc → critique → punch-list sweep → critique again. The critique-to-sweep loop is where genuine quality lives, not in the arc itself.

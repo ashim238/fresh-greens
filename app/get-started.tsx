@@ -285,6 +285,6 @@ const styles = StyleSheet.create({
     // Inner Text inherits size/lineHeight/letterSpacing from loginPrompt;
     // we only need the weight bump for "Log in" + the green color.
     color: colors.freshgreen,
-    fontWeight: typography.footnoteEmphasized.fontWeight,
+    fontFamily: typography.footnoteEmphasized.fontFamily,
   },
 });

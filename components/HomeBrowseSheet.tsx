@@ -1377,7 +1377,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   // Scroll-spy active chip — fadedgreen fill + burntgreen text, the
@@ -1577,7 +1577,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   toplineAvatarText: {
-    ...typography.caption1Emphasized,
+    ...dynamicType(typography.caption1Emphasized),
     color: colors.burntgreen,
   },
   quoteText: {
@@ -1641,7 +1641,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   ratingMeta: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   tag: {
@@ -1650,7 +1650,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   tagText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.black,
     // H8: tabular-nums for the distance tag ("0.3 mi", "1.2 mi") +
     // any numeric tag content. No-op on alpha-only tags (categoryLabel,
@@ -1669,7 +1669,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   openText: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.burntgreen,
   },
   muteTag: {
@@ -1679,7 +1679,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   muteText: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: colors.mutedSecondary,
   },
   empty: {

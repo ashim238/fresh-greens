@@ -3595,11 +3595,11 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   mapCoachTitle: {
-    ...typography.title3Emphasized,
+    ...dynamicType(typography.title3Emphasized),
     color: colors.black,
   },
   mapCoachBody: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelSecondary,
   },
   mapCoachButton: {
@@ -3614,7 +3614,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   mapCoachButtonText: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.white,
   },
   edgeOverlay: {
@@ -3743,11 +3743,11 @@ const styles = StyleSheet.create({
     // title3Emphasized (not the 34pt largeTitle of "12 min") — a
     // measured empty-state weight that won't shout or wrap, sharing
     // the populated headline's wiltedgreen accent.
-    ...typography.title3Emphasized,
+    ...dynamicType(typography.title3Emphasized),
     color: colors.wiltedgreen,
   },
   noRouteBody: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   // (Browse-sheet scroller styles moved into HomeBrowseSheet, which
@@ -3783,7 +3783,7 @@ const styles = StyleSheet.create({
   },
   // Destination title — card title + tappable save-as-regular toggle.
   routeDestTitle: {
-    ...typography.title3Emphasized,
+    ...dynamicType(typography.title3Emphasized),
     color: colors.black,
     flex: 1,
   },
@@ -3886,7 +3886,7 @@ const styles = StyleSheet.create({
     // Briefing-framing header above the chips ("Along this route:")
     // — reframes the orange WarningDiamond chips from alarm to
     // informational, per the mobile-ux audit on PR B.
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   routeChipsRow: {
@@ -3919,7 +3919,7 @@ const styles = StyleSheet.create({
     opacity: 0.25,
   },
   routeCountLabel: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: colors.labelTertiary,
     minWidth: 44,
     textAlign: 'center',
@@ -3956,7 +3956,7 @@ const styles = StyleSheet.create({
     // together carry chip recognizability; the text reads as count +
     // label at the smaller size without competing with the glyph for
     // emphasis.
-    ...typography.caption1Emphasized,
+    ...dynamicType(typography.caption1Emphasized),
     color: colors.black,
   },
   // Positive variant — the "we scanned, you're clear" chip. Same
@@ -3977,7 +3977,7 @@ const styles = StyleSheet.create({
     // Match RouteWarningChip's caption1Emphasized so the two chip
     // variants read as a family — same row slot, same type register,
     // different palette for the binary watch/clear semantic.
-    ...typography.caption1Emphasized,
+    ...dynamicType(typography.caption1Emphasized),
     color: colors.burntgreen,
   },
   routeZonesLoadingChip: {
@@ -4000,7 +4000,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsTertiary,
   },
   routeZonesLoadingText: {
-    ...typography.caption1Emphasized,
+    ...dynamicType(typography.caption1Emphasized),
     color: colors.labelSecondary,
   },
   daylightBar: {
@@ -4020,7 +4020,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   tradeoffCopy: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.mutedTertiary,
   },
   actionsRow: {
@@ -4044,7 +4044,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scheduleText: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.wiltedgreen,
   },
   goBtn: {
@@ -4068,7 +4068,7 @@ const styles = StyleSheet.create({
     // bodyEmphasized (17pt) — primary CTA should outweigh Schedule's
     // 13pt footnote secondary. Apple Maps "Directions" / Waze "GO"
     // both sit near 17pt semibold.
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.white,
   },
   // --- Placement mode ---
@@ -4151,7 +4151,7 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   placementConfirmText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
   } as const,
 });

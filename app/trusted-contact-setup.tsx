@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     // Avatar initials stay at the fixed token size — the avatar is a
     // visual element, not text needing AX5 scaling. Documented exception
     // mirroring LifelineModal's avatar.
-    ...typography.title3Emphasized,
+    ...dynamicType(typography.title3Emphasized),
     color: colors.white,
   },
   previewText: {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   },
 
   errorText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.red,
     textAlign: 'center',
   },

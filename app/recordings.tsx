@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     // Inline emphasized run inside an otherwise-regular body sentence.
     // bodyEmphasized carries the weight (typography token already
     // defines fontWeight/fontFamily), so we just spread it.
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   confirmActionBtn: {

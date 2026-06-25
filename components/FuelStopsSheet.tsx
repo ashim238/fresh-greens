@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fadedgreen,
   },
   trustedBadgeText: {
-    ...typography.caption1Emphasized,
+    ...dynamicType(typography.caption1Emphasized),
     color: colors.burntgreen,
   },
 });

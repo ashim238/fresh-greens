@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
     lineHeight: 40,
   },
   countdownUnit: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     marginTop: -spacing.xs,

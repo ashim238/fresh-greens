@@ -13,6 +13,7 @@ import EnrouteHazardWildlife from '../assets/illustrations/enroute-hazard-wildli
 
 import { colors } from '../theme/colors';
 import { radii } from '../theme/radii';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 import type { HazardCategory } from '../lib/scoring';
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     width: 72,
     textAlignVertical: 'center',
     textAlign: 'center',
-    ...typography.caption1Emphasized,
+    ...dynamicType(typography.caption1Emphasized),
     color: colors.black,
     backgroundColor: colors.white,
     borderRadius: radii.xs,
