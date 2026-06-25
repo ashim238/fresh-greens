@@ -175,7 +175,6 @@ export default function TrustedContactSetup() {
               onPress={() => router.back()}
               accessibilityRole="button"
               accessibilityLabel="Back"
-              hitSlop={12}
               style={({ pressed }) => [
                 tapTarget44,
                 pressed && pressedDim,

@@ -65,6 +65,14 @@ export default function RoadsideSetup() {
   const phoneValid = phoneNumber.replace(/\D/g, '').length >= 7;
   const canSave = nameValid && phoneValid && !saving;
 
+  function saveAccessibilityHint(): string | undefined {
+    if (canSave) return 'Saves your roadside service profile';
+    if (saving) return undefined;
+    if (!nameValid) return 'Enter a service name to enable Save';
+    if (!phoneValid) return 'Enter a phone number with at least 7 digits to enable Save';
+    return undefined;
+  }
+
   async function handleSave() {
     if (!canSave) return;
     const result = await saveMutation.run({ serviceName, phoneNumber });
@@ -139,8 +147,8 @@ export default function RoadsideSetup() {
             ]}
             accessibilityRole="button"
             accessibilityLabel="Save"
-            accessibilityHint="Saves your roadside service profile"
-            accessibilityState={{ disabled: !canSave }}
+            accessibilityHint={saveAccessibilityHint()}
+            accessibilityState={{ disabled: !canSave, busy: saving }}
           >
             <Text style={styles.ctaLabel}>Save</Text>
           </Pressable>

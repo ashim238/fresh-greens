@@ -89,7 +89,6 @@ export function CalendarPickSheet({
             onPress={onDismiss}
             accessibilityRole="button"
             accessibilityLabel="Close"
-            hitSlop={8}
             style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
           >
             <X size={20} color={colors.labelSecondary} weight="bold" />

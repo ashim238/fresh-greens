@@ -57,7 +57,6 @@ export function SettingsHeader({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
-          hitSlop={8}
           style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
         >
           <X size={24} color={colors.black} weight="regular" />
@@ -73,7 +72,6 @@ export function SettingsHeader({
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          hitSlop={8}
           style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
         >
           <CaretLeft size={28} color={colors.black} weight="regular" />
@@ -90,7 +88,6 @@ export function SettingsHeader({
         onPress={onClose}
         accessibilityRole="button"
         accessibilityLabel="Close"
-        hitSlop={8}
         style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
       >
         <X size={24} color={colors.black} weight="regular" />
