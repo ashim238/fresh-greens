@@ -358,12 +358,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   settingsLinkPrompt: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.white,
   },
   settingsLink: {
     color: colors.freshgreen,
-    fontWeight: typography.footnoteEmphasized.fontWeight,
+    fontFamily: typography.footnoteEmphasized.fontFamily,
     textDecorationLine: 'underline',
   },
 });

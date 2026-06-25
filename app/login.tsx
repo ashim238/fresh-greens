@@ -245,6 +245,6 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     color: colors.freshgreen,
-    fontWeight: typography.footnoteEmphasized.fontWeight,
+    fontFamily: typography.footnoteEmphasized.fontFamily,
   },
 });

@@ -5,6 +5,7 @@ import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
     // anchors the label visually inside the 44pt pill. Height stays
     // 44pt (HIG floor); Apple's compact-button pattern is 44 × 17pt
     // so this is on-precedent.
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
   },
   labelUnderlined: {
     textDecorationLine: 'underline',

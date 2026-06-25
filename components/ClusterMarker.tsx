@@ -5,6 +5,7 @@ import { Marker } from 'react-native-maps';
 import { colors } from '../theme/colors';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 /**
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
     ...shadows.e3,
   },
   count: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.white,
   },
 });

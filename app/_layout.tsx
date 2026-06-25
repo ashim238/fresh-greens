@@ -1,5 +1,11 @@
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { useAppFonts } from '../hooks/useAppFonts';
+
+SplashScreen.preventAutoHideAsync();
 
 /**
  * Root layout — wraps every screen in the app/ directory.
@@ -18,6 +24,18 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
  * Required at the root for the new SafeAreaView to function.
  */
 export default function RootLayout() {
+  const fontsLoaded = useAppFonts();
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      void SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false }}>

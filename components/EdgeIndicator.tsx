@@ -17,6 +17,7 @@ import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
+import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
 
 import { type Variant } from './LandmarkMarker';
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   countText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
   },
 });

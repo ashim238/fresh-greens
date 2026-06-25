@@ -98,7 +98,8 @@ Hazard avoidance has a ceiling: even the highest-scoring route passes through ri
 
 Theme tokens:
 - `theme/colors.ts` — type-safe color palette (Freshgreen, Wiltedgreen, Burntgreen, etc.).
-- `theme/typography.ts` — iOS-style type ramp (largeTitleEmphasized, title1Emphasized, bodyRegular, bodyEmphasized, subheadlineRegular, subheadlineEmphasized, footnoteRegular, footnoteEmphasized, caption1Regular, caption2Regular).
+- `theme/fonts.ts` — Jost + Libre Franklin family name constants.
+- `theme/typography.ts` — iOS-style type ramp with per-token `fontFamily` (largeTitleEmphasized, title1Emphasized, bodyRegular, …).
 
 Shared components (`components/`):
 - `SearchBar` — white-elevated variant for /home; gray variant inlined in /search.

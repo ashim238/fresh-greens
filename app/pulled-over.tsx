@@ -1725,17 +1725,17 @@ const chipStyles = StyleSheet.create({
     backgroundColor: colors.red,
   },
   label: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.black,
   },
   dotSeparator: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   timer: {
     // Tabular figures so the seconds digits don't jiggle as they
     // change (default proportional figures shift width per glyph).
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     fontVariant: ['tabular-nums'],
   },
@@ -1755,11 +1755,11 @@ const armedStyles = StyleSheet.create({
     // alone (regular vs emphasized) didn't read as a clear hierarchy.
     // User-flagged 2026-06-01. Amends the safety-flow entry-header
     // precedent (mirrored in /roadside, /unfamiliar, /share-location).
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.labelTertiary,
   },
   title: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
   },
   answersWrapper: {
@@ -1796,11 +1796,11 @@ const armedStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   answerTitle: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
   },
   answerSubtitle: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
   },
 });
@@ -1836,7 +1836,7 @@ const transitionStyles = StyleSheet.create({
   // 24pt below the subtitle so it reads as separate UI hint, not
   // continuation of the message.
   skipHint: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     textAlign: 'center',
     marginTop: spacing.lg,
@@ -1864,11 +1864,11 @@ const guidanceStyles = StyleSheet.create({
     // alone (regular vs emphasized) didn't read as a clear hierarchy.
     // User-flagged 2026-06-01. Amends the safety-flow entry-header
     // precedent (mirrored in /roadside, /unfamiliar, /share-location).
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.labelTertiary,
   },
   title: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
   },
   bullets: {
@@ -1883,11 +1883,11 @@ const guidanceStyles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bulletDot: {
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
   },
   bulletText: {
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
     flex: 1,
   },
@@ -1905,7 +1905,7 @@ const guidanceStyles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   readAloudText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.labelTertiary,
   },
   scrollArea: {
@@ -1957,7 +1957,7 @@ const guidanceStyles = StyleSheet.create({
     backgroundColor: colors.red,
   },
   recordingFootnote: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: colors.labelTertiary,
     textAlign: 'center',
   },
@@ -1977,11 +1977,11 @@ const guidanceStyles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   continueText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.wiltedgreen,
   },
   micUnavailableText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     textAlign: 'center',
     paddingHorizontal: spacing.sm,
@@ -1997,11 +1997,11 @@ const guidanceStyles = StyleSheet.create({
     borderColor: colors.labelTertiary,
   },
   stopRecordingText: {
-    ...typography.footnoteEmphasized,
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.labelSecondary,
   },
   stateAttribution: {
-    ...typography.caption1Regular,
+    ...dynamicType(typography.caption1Regular),
     color: colors.labelTertiary,
     marginBottom: spacing.xs,
   },
@@ -2019,11 +2019,11 @@ const contactStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...typography.title1Regular,
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
   },
   subtitle: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     // P9: mutedTertiary (rgba(80,80,80,0.7)) at 15pt = ~3.0-3.5:1 contrast,
     // below WCAG AA for normal text. This is reassuring informational copy
     // user needs to read, not decorative metadata — labelTertiary (#3D3D3D)
@@ -2074,11 +2074,11 @@ const contactStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: {
-    ...typography.largeTitleEmphasized,
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
   },
   contactName: {
-    ...typography.title2Regular,
+    ...dynamicType(typography.title2Regular),
     color: colors.black,
     textAlign: 'center',
   },
@@ -2093,7 +2093,7 @@ const contactStyles = StyleSheet.create({
     borderColor: colors.freshgreen,
   },
   contactNameEmpty: {
-    ...typography.bodyEmphasized,
+    ...dynamicType(typography.bodyEmphasized),
     color: colors.freshgreen,
     textAlign: 'center',
   },
@@ -2119,7 +2119,7 @@ const contactStyles = StyleSheet.create({
     ...shadows.e1,
   },
   callBtnText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
   },
   textBtn: {
@@ -2134,7 +2134,7 @@ const contactStyles = StyleSheet.create({
     borderColor: colors.wiltedgreen,
   },
   textBtnText: {
-    ...typography.subheadlineEmphasized,
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.wiltedgreen,
   },
   btnDisabled: {
@@ -2150,7 +2150,7 @@ const contactStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   reviewLinkText: {
-    ...typography.subheadlineRegular,
+    ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
     textDecorationLine: 'underline',
   },
@@ -2158,7 +2158,7 @@ const contactStyles = StyleSheet.create({
     alignItems: 'center',
   },
   footerHintText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     // P10: instructional copy ("Swipe down on the gray slider...") at
     // 13pt + 70% gray = ~3.5:1 contrast. Same fix class as P9 — promote
     // to labelTertiary for readable instruction. Per .cursorrules reserved-color rule.
@@ -2185,7 +2185,7 @@ const reviewStyles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   closeText: {
-    ...typography.footnoteRegular,
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     textDecorationLine: 'underline',
   },
@@ -2231,11 +2231,11 @@ const officerStyles = StyleSheet.create({
     // alone (regular vs emphasized) didn't read as a clear hierarchy.
     // User-flagged 2026-06-01. Amends the safety-flow entry-header
     // precedent (mirrored in /roadside, /unfamiliar, /share-location).
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.labelTertiary,
   },
   title: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
   },
   cardsRow: {
@@ -2285,7 +2285,7 @@ const officerStyles = StyleSheet.create({
     left: 52,
   },
   cardLabel: {
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
   },
   bullets: {
@@ -2307,7 +2307,7 @@ const officerStyles = StyleSheet.create({
     // Inline emphasis weight inside Officer/Trooper card bullets.
     // Pulls from the typography token instead of an inline literal so
     // weight changes flow through one source.
-    fontWeight: typography.bodyEmphasized.fontWeight,
+    fontFamily: typography.bodyEmphasized.fontFamily,
   },
   divider: {
     width: 1,
@@ -2348,7 +2348,7 @@ const contentStyles = StyleSheet.create({
     gap: spacing.xl,
   },
   title: {
-    ...typography.title1Emphasized,
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
   },
   bullets: {
@@ -2374,16 +2374,16 @@ const contentStyles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bulletDot: {
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
   },
   bulletText: {
-    ...typography.title3Regular,
+    ...dynamicType(typography.title3Regular),
     color: colors.black,
     flex: 1,
   },
   bulletStrong: {
-    ...typography.title3Emphasized,
+    ...dynamicType(typography.title3Emphasized),
     color: colors.black,
   },
 });

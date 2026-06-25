@@ -74,7 +74,8 @@
         {
           "calendarPermission": "Fresh Greens reads your upcoming events to offer them as safe-routed destinations. It never edits your calendar."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
