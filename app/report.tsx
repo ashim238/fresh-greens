@@ -35,6 +35,7 @@ import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg'
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { Button } from '../components/Button';
+import { MarkerGlyph } from '../components/MarkerGlyph';
 import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
 import { useMutation } from '../hooks/useMutation';
 import { useUser } from '../hooks/useUser';
@@ -436,7 +437,10 @@ function CategoryGlyph({
     case 'black-owned':
       return <GlyphBlackOwned width={size} height={size} />;
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={size} height={size} />;
+      // Outline path uses fill="currentColor"; MarkerGlyph pins black so
+      // the grid tile doesn't inherit an unset currentColor (stroke flicker
+      // from #262's dual-stroke SVG).
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} width={size} height={size} />;
     case 'felt-unsafe':
       return <GlyphFeltUnsafe width={size} height={size} />;
     case 'incident':

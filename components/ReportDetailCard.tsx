@@ -34,6 +34,7 @@ import { joinMetaParts } from './MetaSeparator';
 import { DragHandle } from './DragHandle';
 import { FloatingActionButton } from './FloatingActionButton';
 import { type Variant, variantForCategoryId } from './LandmarkMarker';
+import { MarkerGlyph } from './MarkerGlyph';
 
 /**
  * Community-report detail bottom sheet — appears when the user taps a
@@ -67,7 +68,7 @@ function GlyphForCategory({ categoryId }: { categoryId: ReportCategoryId }) {
     case 'black-owned':
       return <GlyphBlackOwned width={32} height={32} />;
     case 'felt-welcome':
-      return <GlyphFeltWelcome width={32} height={32} />;
+      return <MarkerGlyph Glyph={GlyphFeltWelcome} width={32} height={32} />;
     case 'felt-unsafe':
       return <GlyphFeltUnsafe width={32} height={32} />;
     case 'incident':
