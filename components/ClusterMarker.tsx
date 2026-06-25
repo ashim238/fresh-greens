@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   marker: {
     width: 36,
     height: 36,
-    borderRadius: radii.lg,
+    borderRadius: radii.pill,
     // wiltedgreen (not orange) — orange is reserved per .cursorrules
     // rule #4 for caution/hazard signaling. A community-report
     // cluster is informational (N reports here, tap to zoom), not

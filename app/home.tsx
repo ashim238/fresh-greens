@@ -2389,6 +2389,7 @@ export default function Home() {
                   // Multi-pin clusters get the counter anyway, which
                   // overrides the glyph at render time.
                   categoryId={group.items[0].reportCategoryId}
+                  subTag={group.items[0].reportSubTag}
                   count={group.items.length}
                   accessibilityLabel={
                     group.items.length === 1

@@ -11,7 +11,11 @@ import GlyphFeltUnsafe from '../assets/illustrations/mapmarker-glyph-felt-unsafe
 import GlyphFeltWelcome from '../assets/illustrations/mapmarker-glyph-felt-welcome.svg';
 import GlyphHazard from '../assets/illustrations/mapmarker-glyph-hazard.svg';
 import GlyphIncident from '../assets/illustrations/mapmarker-glyph-incident.svg';
+import GlyphLateNight from '../assets/illustrations/mapmarker-glyph-late-night.svg';
+import GlyphLgbtq from '../assets/illustrations/mapmarker-glyph-lgbtq.svg';
 import GlyphLighting from '../assets/illustrations/mapmarker-glyph-lighting.svg';
+import GlyphRestroom from '../assets/illustrations/mapmarker-glyph-restroom.svg';
+import GlyphWomenOwned from '../assets/illustrations/mapmarker-glyph-womenowned.svg';
 import { usePulseOpacity } from '../hooks/usePulseOpacity';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -66,6 +70,7 @@ export function EdgeIndicator({
   rotation,
   variant,
   categoryId,
+  subTag,
   count,
   children,
   onPress,
@@ -76,6 +81,8 @@ export function EdgeIndicator({
   rotation: number;
   variant?: Variant;
   categoryId?: string;
+  /** Identity / place sub-tag — mirrors LandmarkMarker dispatch. */
+  subTag?: string;
   count?: number;
   children?: ReactNode;
   onPress?: () => void;
@@ -134,7 +141,7 @@ export function EdgeIndicator({
             ) : children ? (
               children
             ) : (
-              <DefaultGlyph categoryId={categoryId} variant={variant} />
+              <DefaultGlyph categoryId={categoryId} subTag={subTag} variant={variant} />
             )}
           </View>
         </View>
@@ -156,11 +163,26 @@ export function EdgeIndicator({
  */
 function DefaultGlyph({
   categoryId,
+  subTag,
   variant,
 }: {
   categoryId?: string;
+  subTag?: string;
   variant?: Variant;
 }) {
+  // Identity-tag bespoke SVGs — same four as LandmarkMarker so on-map
+  // and off-screen edge markers read identically.
+  switch (subTag) {
+    case 'Women-owned':
+      return <GlyphWomenOwned width={24} height={24} />;
+    case 'LGBTQ+ welcoming':
+      return <GlyphLgbtq width={24} height={24} />;
+    case 'Open restroom':
+      return <GlyphRestroom width={24} height={24} />;
+    case 'Late-night welcome':
+      return <GlyphLateNight width={24} height={24} />;
+  }
+
   switch (categoryId) {
     case 'trusted-friend':
       return <EdgeGlyphCar width={22.14} height={15.03} />;
@@ -253,7 +275,9 @@ const styles = StyleSheet.create({
   circle: {
     width: 36,
     height: 36,
-    borderRadius: radii.lg,
+    // radii.lg (16) on a 36×36 view reads as a rounded square at the
+    // map edge — pill (999) keeps the disk circular at any size.
+    borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },

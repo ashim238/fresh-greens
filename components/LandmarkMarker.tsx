@@ -126,6 +126,9 @@ function GlyphForCategory({
   // glyphs all line up visually for the four browse-sheet
   // identity chips. Place-type subTags (Restaurant, etc.) don't
   // appear here — they fall through to the category glyph.
+  // Each SVG carries a white stroke for contrast on the wiltedgreen
+  // positive-variant inner circle (illustration carve-out per
+  // .cursorrules #2 — pink is illustrative, not a UI signal).
   switch (subTag) {
     case 'Women-owned':
       return <GlyphWomenOwned width={size} height={size} />;
