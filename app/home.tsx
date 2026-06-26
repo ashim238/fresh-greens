@@ -3671,7 +3671,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     backgroundColor: colors.systemGroupedBackground,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
@@ -4139,7 +4139,7 @@ const styles = StyleSheet.create({
     // shadows.e1 for the lift above the white sheet surface.
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: radii.pill,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',

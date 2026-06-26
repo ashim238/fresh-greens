@@ -25,6 +25,7 @@ import { formatDistance, formatDuration } from '../lib/format';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -472,7 +473,7 @@ const styles = StyleSheet.create({
   inferenceBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },

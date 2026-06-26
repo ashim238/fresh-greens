@@ -45,9 +45,9 @@ export function FuelStopMarker({
       <View style={styles.frame} accessibilityIgnoresInvertColors>
         <View
           style={[
-            styles.iconCircle,
-            preferred && styles.iconCirclePreferred,
-            selected && !preferred && styles.iconCircleSelected,
+            styles.iconTile,
+            preferred && styles.iconTilePreferred,
+            selected && !preferred && styles.iconTileSelected,
           ]}
         >
           <FuelSvg width={22} height={22} />
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  iconCircle: {
+  iconTile: {
     width: 36,
     height: 36,
     borderRadius: radii.lg,
@@ -80,12 +80,12 @@ const styles = StyleSheet.create({
     borderColor: colors.separatorSubtle,
     ...shadows.e1,
   },
-  iconCirclePreferred: {
+  iconTilePreferred: {
     // reserved-color sanctioned (.cursorrules #9): favorite-gold ring, on-map sibling of PreferredStar
     borderColor: colors.yellow,
     borderWidth: 2,
   },
-  iconCircleSelected: {
+  iconTileSelected: {
     borderColor: colors.wiltedgreen,
     borderWidth: 2,
   },

@@ -350,7 +350,7 @@ function DestinationPicker({
               accessibilityHint="Routes you there and returns to the map"
               accessibilityState={{ disabled: anyLoading, busy: isLoading }}
             >
-              <View style={styles.iconCircle}>
+              <View style={styles.iconTile}>
                 {isLoading ? (
                   <ActivityIndicator color={colors.freshgreen} />
                 ) : (
@@ -559,12 +559,13 @@ const styles = StyleSheet.create({
     minHeight: 60,
     ...shadows.e1,
   },
-  iconCircle: {
+  iconTile: {
     width: 36,
     height: 36,
     borderRadius: radii.lg,
     // fillsTertiary (was white) — the card itself is now white, so a
-    // white circle would vanish. Matches /roadside's iconCircle.
+    // white tile would vanish. Matches /roadside's iconTile (this is a
+    // squircle / iOS-Settings-style row leading-icon, not a circle).
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',

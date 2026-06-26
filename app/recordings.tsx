@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   playButton: {
     width: 56,
     height: 56,
-    borderRadius: radii.sheet,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
   confirmCloseCircle: {
     width: 32,
     height: 32,
-    borderRadius: radii.lg,
+    borderRadius: radii.pill,
     backgroundColor: colors.fillsTertiary,
     alignItems: 'center',
     justifyContent: 'center',

@@ -4,6 +4,7 @@ import { Marker } from 'react-native-maps';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
 
 import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 
 const PUCK_SIZE = 36;
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
   puck: {
     width: OUTER_SIZE,
     height: OUTER_SIZE,
-    borderRadius: OUTER_SIZE / 2,
+    borderRadius: radii.pill,
     backgroundColor: colors.burntgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
   core: {
     width: PUCK_SIZE,
     height: PUCK_SIZE,
-    borderRadius: PUCK_SIZE / 2,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -114,14 +115,14 @@ const styles = StyleSheet.create({
     left: -PUCK_SIZE * 0.1,
     width: PUCK_SIZE * 0.9,
     height: PUCK_SIZE * 0.9,
-    borderRadius: (PUCK_SIZE * 0.9) / 2,
+    borderRadius: radii.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   trail1: {
     position: 'absolute',
     width: TRAIL_1_SIZE,
     height: TRAIL_1_SIZE,
-    borderRadius: TRAIL_1_SIZE / 2,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     opacity: 0.28,
     top: FRAME_SIZE / 2 + TRAIL_1_OFFSET - TRAIL_1_SIZE / 2,
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: TRAIL_2_SIZE,
     height: TRAIL_2_SIZE,
-    borderRadius: TRAIL_2_SIZE / 2,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     opacity: 0.12,
     top: FRAME_SIZE / 2 + TRAIL_2_OFFSET - TRAIL_2_SIZE / 2,

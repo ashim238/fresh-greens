@@ -403,8 +403,8 @@ function CountdownView({
           2026-06-01 that the prior version felt congested partly
           because every element sat at the same 16pt rhythm. */}
       <View style={styles.exitCluster}>
-        {/* Stop affordance — X glyph in a 44pt neutral circle (stopChrome)
-            + "Stop" label. The painted 44pt floor on stopChrome IS the tap
+        {/* Stop affordance — X glyph in a 44pt neutral squircle (stopChrome,
+            radii.xl) + "Stop" label. The painted 44pt floor on stopChrome IS the tap
             target — the earlier hitSlop was redundant forgiveness padding
             now that the chrome is 44pt (audit #10 cleanup; the stale
             "hitSlop extends past the visible chrome" comment was leftover
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   countdownDisc: {
     width: 88,
     height: 88,
-    borderRadius: 44,
+    borderRadius: radii.pill,
     backgroundColor: colors.red,
     alignItems: 'center',
     justifyContent: 'center',

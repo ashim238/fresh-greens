@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   dueBanner: {
     backgroundColor: colors.fadedgreen,
-    borderRadius: 12,
+    borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginBottom: spacing.sm,

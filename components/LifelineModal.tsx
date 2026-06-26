@@ -10,6 +10,7 @@ import type { TrustedContact } from '../lib/api/trusted-contact';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
+import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   avatarRing: {
     width: 152,
     height: 152,
-    borderRadius: 76,
+    borderRadius: radii.pill,
     borderWidth: 4,
     borderColor: colors.freshgreen,
     alignItems: 'center',
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 132,
     height: 132,
-    borderRadius: 66,
+    borderRadius: radii.pill,
     backgroundColor: colors.burntgreen,
     alignItems: 'center',
     justifyContent: 'center',

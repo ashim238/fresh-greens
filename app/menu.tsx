@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     // 2026-06-02: source switches to { uri: user.avatarUri } when set.
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     overflow: 'hidden',
   },
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
   tileCard: {
     gap: 8,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: radii.md,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,

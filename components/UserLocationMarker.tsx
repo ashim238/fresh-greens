@@ -85,7 +85,7 @@ export function UserLocationMarker({
           </View>
         )}
         <View style={styles.outerRing}>
-          <View style={styles.innerDot} />
+          <View style={styles.innerCore} />
         </View>
       </View>
     </Marker>
@@ -109,13 +109,13 @@ const styles = StyleSheet.create({
   outerRing: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: radii.pill,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.dot,
   },
-  innerDot: {
+  innerCore: {
     width: 18,
     height: 18,
     borderRadius: radii.sm,

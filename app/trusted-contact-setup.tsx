@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     // (the UserPlus icon renders at 56), not a spacing/typography token.
     width: 56,
     height: 56,
-    borderRadius: radii.sheet,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',

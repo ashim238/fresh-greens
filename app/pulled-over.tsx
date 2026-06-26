@@ -2053,14 +2053,14 @@ const contactStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 80,
+    borderRadius: radii.pill,
     borderWidth: 3,
     borderColor: colors.fadedgreen,
   },
   avatarRingMiddle: {
     width: 140,
     height: 140,
-    borderRadius: 70,
+    borderRadius: radii.pill,
     borderWidth: 3,
     borderColor: colors.freshgreen,
     alignItems: 'center',
@@ -2069,7 +2069,7 @@ const contactStyles = StyleSheet.create({
   avatarCircle: {
     width: 128,
     height: 128,
-    borderRadius: 64,
+    borderRadius: radii.pill,
     backgroundColor: colors.wiltedgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2211,7 +2211,7 @@ const reviewStyles = StyleSheet.create({
     backgroundColor: colors.wiltedgreen,
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radii.xs,
   },
 });
 
@@ -2254,7 +2254,7 @@ const officerStyles = StyleSheet.create({
   illustrationBox: {
     width: 148,
     height: 244,
-    borderRadius: 12,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xl,

@@ -1240,7 +1240,7 @@ function RecommendationCard({
 
         <View style={styles.tagRow}>
           {r.rating != null ? (
-            <View style={styles.ratingPill}>
+            <View style={styles.ratingChip}>
               <Star size={14} color={colors.freshgreen} weight="fill" />
               <Text style={styles.rating}>{r.rating.toFixed(1)}</Text>
               {r.reviewCount != null ? (
@@ -1270,10 +1270,10 @@ function RecommendationCard({
           </View>
           {/* Cross-row enrichment badge: this non-community card's place
               is also a community report in another browse row. Reuses the
-              openPill's affirmative-green pill (fadedgreen / burntgreen) —
+              openTag's affirmative-green pill (fadedgreen / burntgreen) —
               same visual token, no parallel style. Set by enrichAcrossRows. */}
           {r.communityTrusted ? (
-            <View style={styles.openPill}>
+            <View style={styles.openTag}>
               <Text style={styles.openText}>Community pick</Text>
             </View>
           ) : null}
@@ -1281,7 +1281,7 @@ function RecommendationCard({
 
         <View style={styles.tagRow}>
           {r.isOpen != null ? (
-            <View style={r.isOpen ? styles.openPill : styles.tag}>
+            <View style={r.isOpen ? styles.openTag : styles.tag}>
               <Text style={r.isOpen ? styles.openText : styles.tagText}>
                 {r.isOpen ? 'Open' : 'Closed'}
               </Text>
@@ -1521,7 +1521,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: 13,
-    borderRadius: radii.xl,
+    borderRadius: radii.pill,
     backgroundColor: colors.fillsTertiary,
     justifyContent: 'center',
   },
@@ -1580,7 +1580,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    borderRadius: radii.md,
+    borderRadius: radii.pill,
     backgroundColor: colors.fillsQuaternary,
     minHeight: 44,
   },
@@ -1619,7 +1619,7 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     backgroundColor: colors.white,
-    borderRadius: 12,
+    borderRadius: radii.md,
     // v2 spec (Figma 1114:9047) is 24pt padding + 48pt photo→body gap;
     // we use 16pt for both because the outer sheet has a vertical
     // ScrollView now (so we can grow), but iPhone-fit still wants
@@ -1642,7 +1642,7 @@ const styles = StyleSheet.create({
   },
   skelLine: {
     backgroundColor: colors.fillsPrimary,
-    borderRadius: 4,
+    borderRadius: radii.xs,
   },
   photoWrap: {
     // 4:3 (intentional override of v2 Figma 1114:9047's 1:1 photo).
@@ -1713,14 +1713,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   // 20pt avatar circle for curator-attribution variant. fadedgreen
-  // backing matches the openPill family — keeps "community-trust"
+  // backing matches the openTag family — keeps "community-trust"
   // signaling in the green ramp rather than introducing a fresh
   // surface color. Initial sits in burntgreen for the AA contrast
   // boost over freshgreen-on-fadedgreen (which fails).
   toplineAvatar: {
     width: 20,
     height: 20,
-    borderRadius: radii.md,
+    borderRadius: radii.pill,
     backgroundColor: colors.fadedgreen,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1766,7 +1766,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
-  ratingPill: {
+  ratingChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -1821,7 +1821,7 @@ const styles = StyleSheet.create({
   // 44202e0). One visual token, two affirmative semantics — if a
   // future change needs them to diverge, fork into separate styles
   // first.
-  openPill: {
+  openTag: {
     backgroundColor: colors.fadedgreen,
     borderRadius: radii.xs,
     padding: spacing.xs,
@@ -1843,7 +1843,7 @@ const styles = StyleSheet.create({
   empty: {
     padding: spacing.lg,
     backgroundColor: colors.white,
-    borderRadius: 12,
+    borderRadius: radii.md,
     gap: spacing.sm,
     alignItems: 'center',
   },

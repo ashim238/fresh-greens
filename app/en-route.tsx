@@ -323,16 +323,16 @@ function SideFabRow({
   children: React.ReactNode;
 }) {
   // Device-smoke 2026-06-21: previously rendered `children` bare when
-  // !showLabel, then wrapped in a flexRow with the labelPill when
+  // !showLabel, then wrapped in a flexRow with the labelChip when
   // showLabel — switching between the two on Guide tap shifted the
-  // FAB's x-position because the row added labelPill+gap width on the
+  // FAB's x-position because the row added labelChip+gap width on the
   // left. The fix: render the same row container in both cases and
-  // position the labelPill ABSOLUTELY so it hangs to the left of the
+  // position the labelChip ABSOLUTELY so it hangs to the left of the
   // FAB without participating in flex sizing. The FAB stays anchored.
   return (
     <View style={sideFabRowStyles.row}>
       {showLabel && (
-        <View style={sideFabRowStyles.labelPill}>
+        <View style={sideFabRowStyles.labelChip}>
           <Text style={sideFabRowStyles.labelText}>{label}</Text>
         </View>
       )}
@@ -347,7 +347,7 @@ const sideFabRowStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  labelPill: {
+  labelChip: {
     position: 'absolute',
     right: '100%',
     marginRight: spacing.sm,
@@ -2513,7 +2513,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: radii.pill,
     borderWidth: 3,
     borderColor: colors.red,
   },
@@ -2615,7 +2615,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignSelf: 'flex-start',
   },
@@ -2818,7 +2818,7 @@ const styles = StyleSheet.create({
   fuelStopsDueBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
   },
   fuelStopsDueText: {
@@ -2891,7 +2891,7 @@ const styles = StyleSheet.create({
   // --- Per-route duration badges (tap to switch active route) ---
   routeBadge: {
     backgroundColor: colors.white,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderWidth: 1,
@@ -2911,7 +2911,7 @@ const styles = StyleSheet.create({
     // primary CTAs (Go is filled, End Trip is outlined — different
     // visual weight already).
     minHeight: 52,
-    borderRadius: 100,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
     alignItems: 'center',

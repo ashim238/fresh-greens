@@ -315,7 +315,7 @@ function ProblemPicker({
             accessibilityLabel={p.label}
             accessibilityHint="Selects this problem and shows roadside actions"
           >
-            <View style={styles.iconCircle}>
+            <View style={styles.iconTile}>
               <p.Icon size={24} color={colors.freshgreen} weight="regular" />
             </View>
             <Text style={styles.rowLabel}>{p.label}</Text>
@@ -438,7 +438,7 @@ function ActionMenu({
               : 'Set up your roadside service'
           }
         >
-          <View style={styles.iconCircle}>
+          <View style={styles.iconTile}>
             <Phone size={24} color={colors.freshgreen} weight="regular" />
           </View>
           <Text style={styles.rowLabel}>
@@ -457,7 +457,7 @@ function ActionMenu({
           accessibilityLabel="Find a tow truck nearby"
           accessibilityHint="Shows nearby tow services you can call"
         >
-          <View style={styles.iconCircle}>
+          <View style={styles.iconTile}>
             <MapPin size={24} color={colors.freshgreen} weight="regular" />
           </View>
           <Text style={styles.rowLabel}>Find a tow truck nearby</Text>
@@ -473,7 +473,7 @@ function ActionMenu({
             accessibilityState={{ checked: shareOn }}
             accessibilityLabel={`Share location with ${contact.name}`}
           >
-            <View style={styles.iconCircle}>
+            <View style={styles.iconTile}>
               <ShareNetwork size={24} color={colors.freshgreen} weight="regular" />
             </View>
             <Text style={styles.rowLabel}>Share location w/ {contact.name}</Text>
@@ -492,7 +492,7 @@ function ActionMenu({
             accessibilityRole="button"
             accessibilityLabel="Set a trusted contact"
           >
-            <View style={styles.iconCircle}>
+            <View style={styles.iconTile}>
               <ShareNetwork size={24} color={colors.freshgreen} weight="regular" />
             </View>
             <Text style={styles.rowLabel}>Set a trusted contact</Text>
@@ -613,7 +613,7 @@ function LiveStatus({
         accessibilityRole="button"
         accessibilityLabel="Switch to Pulled-over mode"
       >
-        <View style={styles.iconCircle}>
+        <View style={styles.iconTile}>
           <Siren size={24} color={colors.navy} weight="regular" />
         </View>
         <Text style={styles.rowLabel}>Switch to Pulled-over mode</Text>
@@ -837,7 +837,7 @@ const styles = StyleSheet.create({
     minHeight: 60,
     gap: spacing.md,
   },
-  iconCircle: {
+  iconTile: {
     width: 36,
     height: 36,
     borderRadius: radii.lg,
