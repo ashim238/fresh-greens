@@ -262,7 +262,10 @@ const styles = StyleSheet.create({
   // 2026-06-01.
   backChevronPlaceholder: {
     marginTop: spacing.sm,
-    height: 32,
+    // 44 to match the real backChevron height in the sibling safety
+    // flows (unfamiliar/roadside) so the title baseline aligns across
+    // the hub — was 32, which sat the title 12pt high vs the others.
+    height: 44,
   },
   // Eyebrow + title pair — mirrors /pulled-over's armed picker. The
   // eyebrow drops to title3Regular (20pt) so the size-step against

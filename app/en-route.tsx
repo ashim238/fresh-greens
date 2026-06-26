@@ -2186,9 +2186,8 @@ export default function EnRoute() {
       >
         {/*
           Tap the drag-handle row to toggle Collapsed ↔ Full. The
-          Pressable wraps a generously padded area around the
-          drag handle itself so the tap target meets HIG 44pt
-          while the visible handle bar stays small (32×4).
+          Pressable is a full-width 44pt-tall row (HIG floor on the
+          visual) with the 32×4 handle bar centered inside it.
         */}
         <Pressable
           style={styles.dragHandleTapTarget}
@@ -2755,12 +2754,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: spacing.sm,
   },
-  // Drag handle tap target — 8+4+8=20pt of vertical paint; the
-  // remaining HIG 44pt floor comes from `hitSlop` on the Pressable.
-  // Painting the full 44pt of padding left too much dead space
-  // above the ETA row.
+  // Drag-handle tap target — full sheet-width × 44pt painted (the HIG
+  // floor met on the visual itself, not via hitSlop). The 32×4 handle
+  // bar centers inside the 44pt row.
   dragHandleTapTarget: {
-    paddingVertical: spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   // Hazard panel (Full state) — yellow diamond hazard marker on the

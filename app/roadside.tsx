@@ -109,9 +109,17 @@ export default function Roadside() {
   }, [step]);
 
   // Reverse-geocode the user's current location for the chip + Step 2 headline.
-  // Fails silently → label stays "Locating…" until the user uses "Wrong spot?".
+  // Permission denial and geocode errors fall back explicitly; a GPS fix that
+  // never arrives (getCurrentPositionAsync has no timeout) is caught by an
+  // 8s terminal-state guard so the chip never sits on "Locating…" forever —
+  // the user can still correct via "Wrong spot?".
   useEffect(() => {
     let cancelled = false;
+    const settleTimer = setTimeout(() => {
+      // Only fills if nothing has resolved yet — preserves an already-set
+      // label like "Location unavailable".
+      if (!cancelled) setLocationLabel((prev) => prev ?? 'Your location');
+    }, 8000);
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -139,10 +147,13 @@ export default function Roadside() {
       } catch (err) {
         console.warn('roadside reverse-geocode failed', err);
         if (!cancelled) setLocationLabel('Your location');
+      } finally {
+        clearTimeout(settleTimer);
       }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(settleTimer);
     };
   }, []);
 
@@ -709,7 +720,11 @@ function WrongSpotModal({
             autoFocus
             accessibilityLabel="Address or area"
           />
-          {error && <Text style={styles.modalError}>{error}</Text>}
+          {error && (
+            <Text style={styles.modalError} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
           <Pressable
             onPress={handleConfirm}
             disabled={busy || !text.trim()}
@@ -774,7 +789,10 @@ const styles = StyleSheet.create({
   // User-flagged 2026-06-01.
   backChevronPlaceholder: {
     marginTop: spacing.sm,
-    height: 32,
+    // 44 to match this screen's own backChevron (bumped 32→44 in audit
+    // #10) and the sibling flows — the placeholder was left stale at 32,
+    // jumping the title 12pt on the chevron-less step.
+    height: 44,
   },
   // Eyebrow + title pair — mirrors /pulled-over's armed picker. The
   // eyebrow drops to title3Regular (20pt) so the size-step against

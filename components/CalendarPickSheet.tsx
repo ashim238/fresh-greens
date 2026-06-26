@@ -48,16 +48,22 @@ export function CalendarPickSheet({
   // Distinguishes "haven't searched yet" from "searched, no matches" so
   // the empty-results copy only shows after an actual search.
   const [searched, setSearched] = useState(false);
+  // A failed lookup must read as a failed lookup, not "your place
+  // doesn't exist" — honesty-of-disclosure on the screen whose whole
+  // job is correcting a wrong location.
+  const [error, setError] = useState(false);
 
   async function runSearch() {
     const q = query.trim();
     if (!q || !userLocation) return;
     setSearching(true);
+    setError(false);
     try {
       const hits = await searchPlaces(q, userLocation);
       setResults(hits);
     } catch {
       setResults([]);
+      setError(true);
     } finally {
       setSearching(false);
       setSearched(true);
@@ -112,6 +118,23 @@ export function CalendarPickSheet({
 
         {searching ? (
           <ActivityIndicator style={styles.spinner} color={colors.labelSecondary} />
+        ) : error ? (
+          <View style={styles.results}>
+            <Text
+              style={styles.emptyResults}
+              accessibilityLiveRegion="polite"
+            >
+              Couldn&apos;t search just now — check your connection.
+            </Text>
+            <Pressable
+              onPress={runSearch}
+              accessibilityRole="button"
+              accessibilityLabel="Try search again"
+              style={({ pressed }) => [styles.retryRow, pressed && pressedDim]}
+            >
+              <Text style={styles.retryText}>Try again</Text>
+            </Pressable>
+          </View>
         ) : searched && results.length === 0 ? (
           <Text style={styles.emptyResults}>
             No matches. Try a different search.
@@ -152,8 +175,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
     paddingHorizontal: spacing.lg,
@@ -203,5 +226,15 @@ const styles = StyleSheet.create({
   resultName: {
     ...dynamicType(typography.bodyRegular),
     color: colors.black,
+  },
+  retryRow: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    paddingRight: spacing.sm,
+  },
+  retryText: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.freshgreen,
   },
 });

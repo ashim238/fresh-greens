@@ -2840,8 +2840,13 @@ export default function Home() {
             onPress={handleToggleRegular}
             accessibilityRole="button"
             accessibilityLabel={`${params.destName ?? 'Destination'}. ${
-              isRegularDestination ? 'Saved as a regular' : 'Tap to save as a regular'
+              isRegularDestination ? 'Saved as a regular' : 'Not a regular'
             }.`}
+            accessibilityHint={
+              isRegularDestination
+                ? 'Removes this destination from your regulars'
+                : 'Saves this destination as a regular'
+            }
             style={({ pressed }) => [styles.routeDestTitleHit, pressed && pressedDim]}
           >
             <View style={styles.routeDestTitleRow}>
@@ -3525,7 +3530,7 @@ function RouteZonesFetchFailedChip({ onRetry }: { onRetry: () => void }) {
       style={({ pressed }) => [styles.routeZonesRetryChip, pressed && pressedDim]}
       accessibilityRole="button"
       accessibilityLabel="Couldn't check this route for hazards"
-      accessibilityHint="Tap to try the route check again"
+      accessibilityHint="Re-checks this route for hazards"
     >
       <ArrowClockwise size={16} color={colors.labelSecondary} weight="bold" />
       <Text style={styles.routeZonesLoadingText}>Couldn&apos;t check route</Text>

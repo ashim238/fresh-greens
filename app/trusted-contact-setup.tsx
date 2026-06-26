@@ -238,6 +238,15 @@ export default function TrustedContactSetup() {
                   >
                     {contact.phoneNumber}
                   </Text>
+                  <Text
+                    style={[
+                      styles.previewReassurance,
+                      embedded && stylesWhite.previewReassurance,
+                    ]}
+                  >
+                    Now {contact.name.split(' ')[0]} is one tap away whenever
+                    you need them.
+                  </Text>
                 </View>
               </View>
               </Pressable>
@@ -374,10 +383,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.md,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     backgroundColor: colors.burntgreen,
   },
   avatar: {
+    // 56pt fixed avatar disc — a display element sized to its glyph
+    // (the UserPlus icon renders at 56), not a spacing/typography token.
     width: 56,
     height: 56,
     borderRadius: radii.sheet,
@@ -402,6 +413,14 @@ const styles = StyleSheet.create({
   },
   previewPhone: {
     ...dynamicType(typography.subheadlineRegular),
+    color: colors.fadedgreen,
+  },
+  // Warm payoff line — closes the loop the empty state opened ("someone
+  // you trust") by confirming the person is now wired into the safety
+  // flows. Honest framing: "one tap away" (the user initiates), never
+  // "we'll message them" — the app never contacts on its own.
+  previewReassurance: {
+    ...dynamicType(typography.footnoteRegular),
     color: colors.fadedgreen,
   },
 
@@ -458,5 +477,8 @@ const stylesWhite = StyleSheet.create({
   },
   previewPhone: {
     color: colors.labelTertiary,
+  },
+  previewReassurance: {
+    color: colors.labelSecondary,
   },
 });

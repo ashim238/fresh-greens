@@ -82,7 +82,6 @@ export const colors = {
   // doesn't get re-derived as raw rgba per screen.
   modalScrim: 'rgba(0, 0, 0, 0.2)',          // dim layer behind /report popup
   modalScrimStrong: 'rgba(0, 0, 0, 0.4)',    // heavier dim for safety-sheet overlays (LiveSafetySheet expand, LifelineModal)
-  photoDismissChip: 'rgba(0, 0, 0, 0.6)',    // /report photo remove control on image preview
   cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',    // input/card outlines
   separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers on light bg
   dividerOnDark: 'rgba(160, 214, 164, 0.25)',// hairline dividers on wiltedgreen
@@ -94,6 +93,12 @@ export const colors = {
    *     a faint glow without competing with freshgreen brand color.
    *  Generalizable to any "active state on a dark surface" pattern. */
   whiteFill12: 'rgba(255, 255, 255, 0.12)',
+
+  /** Report severity-chip 8% fills — red (avoid-level) / orange
+   *  (caution-level) at 8% over the chip's reserved border color.
+   *  See .cursorrules reserved-color carve-out #12. */
+  chipAvoidFill: 'rgba(255, 59, 48, 0.08)',
+  chipCautionFill: 'rgba(255, 149, 0, 0.08)',
 } as const;
 
 // Type helper: lets TypeScript autocomplete color names and catch typos.

@@ -98,22 +98,43 @@ export default function Report() {
     return null;
   });
 
+  // Whether GPS fallback has conclusively failed (permission denied,
+  // error, or never resolved) — drives the CTA's terminal "Location
+  // needed" state instead of a forever "Finding your location…".
+  const [locationUnavailable, setLocationUnavailable] = useState(false);
+
   // Fall back to current GPS when no location was passed via params.
   useEffect(() => {
     if (location) return;
     let cancelled = false;
+    // Guarantee a terminal state — getCurrentPositionAsync has no timeout,
+    // so a fix that never arrives would otherwise hang the CTA on
+    // "Finding your location…" (same guard as /roadside).
+    const settleTimer = setTimeout(() => {
+      if (!cancelled) setLocationUnavailable(true);
+    }, 8000);
     (async () => {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const pos = await Location.getCurrentPositionAsync({});
-      if (cancelled) return;
-      setLocation({
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      });
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          if (!cancelled) setLocationUnavailable(true);
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({});
+        if (cancelled) return;
+        setLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      } catch {
+        if (!cancelled) setLocationUnavailable(true);
+      } finally {
+        clearTimeout(settleTimer);
+      }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(settleTimer);
     };
   }, [location]);
 
@@ -358,7 +379,13 @@ export default function Report() {
             submitting={submitting}
             submitError={submitError}
             submitErrorPayload={submitMutation.error}
-            locationKnown={location !== null}
+            locationStatus={
+              location !== null
+                ? 'known'
+                : locationUnavailable
+                  ? 'unavailable'
+                  : 'resolving'
+            }
             photoUri={photoUri}
             onPickPhoto={handlePickPhoto}
             onClearPhoto={handleClearPhoto}
@@ -571,7 +598,7 @@ function DetailView({
   submitting,
   submitError,
   submitErrorPayload,
-  locationKnown,
+  locationStatus,
   photoUri,
   onPickPhoto,
   onClearPhoto,
@@ -589,7 +616,7 @@ function DetailView({
   submitting: boolean;
   submitError: boolean;
   submitErrorPayload: Error | null;
-  locationKnown: boolean;
+  locationStatus: 'known' | 'resolving' | 'unavailable';
   photoUri: string | undefined;
   onPickPhoto: () => void;
   onClearPhoto: () => void;
@@ -753,46 +780,41 @@ function DetailView({
           <>
             <Text style={styles.fieldLabel}>(Optional) Add a photo</Text>
             {photoUri ? (
-              // Preview state — tap the image to retake (replaces),
-              // tap the X to clear. The retake-on-tap pattern matches
-              // iOS Photos / Instagram capture review screens.
-              <View style={styles.photoPreviewWrap}>
+              // Preview state — tap the image to retake (replaces); the
+              // explicit "Remove photo" control below clears it. The remove
+              // action lives in its own ≥44pt labeled row, not a corner
+              // badge, so it clears the HIG tap-target floor on the visual
+              // without leaning on hitSlop or fighting the retake-on-image
+              // tap (the prior 24pt + hitSlop=8 badge was only 40pt).
+              <View style={styles.photoPreviewBlock}>
+                <View style={styles.photoPreviewWrap}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.photoPreview,
+                      pressed && pressedDim,
+                    ]}
+                    onPress={onPickPhoto}
+                    accessibilityRole="button"
+                    accessibilityLabel="Photo attached — tap to retake"
+                  >
+                    <Image
+                      source={{ uri: photoUri }}
+                      style={styles.photoPreviewImage}
+                      accessibilityIgnoresInvertColors
+                    />
+                  </Pressable>
+                </View>
                 <Pressable
                   style={({ pressed }) => [
-                    styles.photoPreview,
-                    pressed && pressedDim,
-                  ]}
-                  onPress={onPickPhoto}
-                  accessibilityRole="button"
-                  accessibilityLabel="Photo attached — tap to retake"
-                >
-                  <Image
-                    source={{ uri: photoUri }}
-                    style={styles.photoPreviewImage}
-                    accessibilityIgnoresInvertColors
-                  />
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.photoClearBtn,
+                    styles.photoRemoveRow,
                     pressed && pressedDim,
                   ]}
                   onPress={onClearPhoto}
                   accessibilityRole="button"
                   accessibilityLabel="Remove photo"
-                  // Small "x" badge in the photo corner — .cursorrules
-                  // carve-out case: a child target inside an already-
-                  // compliant larger container (the 200pt photo-preview
-                  // Pressable around it carries the primary retake
-                  // action; this corner badge clears the photo).
-                  // hitSlop=8 keeps the touch zone (24+8+8=40) inside
-                  // the badge's painted area and clear of the photo
-                  // Pressable underneath — bumping it to 12 would push
-                  // touch into the photo's tap area and steal retakes
-                  // (audit #10 review).
-                  hitSlop={8}
                 >
-                  <X size={14} color={colors.white} weight="bold" />
+                  <X size={16} color={colors.labelSecondary} weight="bold" />
+                  <Text style={styles.photoRemoveText}>Remove photo</Text>
                 </Pressable>
               </View>
             ) : (
@@ -825,11 +847,29 @@ function DetailView({
         />
       )}
       <Button
-        text={submitting ? 'Submitting…' : category.cta}
+        // Make the wait legible instead of a bare disabled button: while
+        // GPS resolves the CTA reads "Finding your location…", and if it
+        // can't be resolved at all it reaches a terminal "Location needed"
+        // rather than hanging.
+        text={
+          submitting
+            ? 'Submitting…'
+            : locationStatus === 'known'
+              ? category.cta
+              : locationStatus === 'unavailable'
+                ? 'Location needed to post this report'
+                : 'Finding your location…'
+        }
         onPress={onSubmit}
-        disabled={!locationKnown}
+        disabled={locationStatus !== 'known' || submitting}
         loading={submitting}
-        accessibilityLabel={category.cta}
+        accessibilityLabel={
+          locationStatus === 'known'
+            ? category.cta
+            : locationStatus === 'unavailable'
+              ? 'Location needed to post this report'
+              : 'Finding your location'
+        }
         style={styles.ctaStretch}
       />
     </>
@@ -1048,16 +1088,6 @@ const styles = StyleSheet.create({
   gridGroup: {
     gap: spacing.sm,
   },
-  // Sentiment header above each picker-group row. wiltedgreen
-  // footnoteEmphasized — the bolder-pass RowGroup eyebrow voice, one
-  // tier down from the 15pt tile labels so the header reads as context,
-  // not as a competing affordance.
-  gridGroupHeader: {
-    ...dynamicType(typography.footnoteEmphasized),
-    color: colors.wiltedgreen,
-    paddingHorizontal: spacing.lg,
-  },
-
   // --- Detail form ---
   // v2 Figma (1112:8900): 16pt gap between form-block children (label →
   // input → label → photo). Bumped from 12 to match. The borderRadius
@@ -1091,13 +1121,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Photo preview after capture. Container is `relative` so the
-  // clear X can absolute-position over the image's top-right corner.
+  // Photo preview after capture — image in a fixed-height rounded
+  // frame, with the explicit "Remove photo" control beneath it.
+  photoPreviewBlock: {
+    gap: spacing.xs,
+  },
   photoPreviewWrap: {
     height: 120,
     borderRadius: radii.lg,
     overflow: 'hidden',
-    position: 'relative',
   },
   photoPreview: {
     width: '100%',
@@ -1107,19 +1139,21 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // 24pt translucent dark pill anchored top-right of the preview;
-  // separate Pressable from the retake-on-image-tap so the two
-  // gestures don't fight.
-  photoClearBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: radii.md,
-    backgroundColor: colors.photoDismissChip,
+  // Explicit remove control — its own ≥44pt painted row (HIG floor on
+  // the visual), so it never relies on hitSlop or competes with the
+  // retake-on-image tap above it. labelSecondary, not red: removing an
+  // un-submitted attachment is low-stakes and recoverable.
+  photoRemoveRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingRight: spacing.sm,
+  },
+  photoRemoveText: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelSecondary,
   },
 
   // --- Place-type chips (sub-tag picker) ---
@@ -1173,7 +1207,7 @@ const styles = StyleSheet.create({
   },
   chipAvoid: {
     borderColor: colors.red,
-    backgroundColor: 'rgba(255, 59, 48, 0.08)',
+    backgroundColor: colors.chipAvoidFill,
   },
   chipAvoidActive: {
     backgroundColor: colors.red,
@@ -1184,7 +1218,7 @@ const styles = StyleSheet.create({
   },
   chipCaution: {
     borderColor: colors.orange,
-    backgroundColor: 'rgba(255, 149, 0, 0.08)',
+    backgroundColor: colors.chipCautionFill,
   },
   chipCautionActive: {
     backgroundColor: colors.orange,

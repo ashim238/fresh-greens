@@ -315,11 +315,15 @@ export default function Search() {
   const { resolved: upcomingResolved, unresolved: upcomingUnresolved } =
     useUpcomingDestinations(userLocation, calRefreshKey);
   const [pickEvent, setPickEvent] = useState<UpcomingEvent | null>(null);
-  // Quick Tool filter selection — visual-only for v1 (filter logic
-  // isn't wired yet, the tools are still "coming soon"). Tapping a
-  // tile selects it; tapping the selected tile deselects. Mutually
-  // exclusive — one filter at a time matches the Figma's "Selected"
-  // variant which has no multi-select treatment.
+  // Quick Tool selection — mutually exclusive (one at a time, matching
+  // the Figma "Selected" variant, which has no multi-select treatment).
+  // The tools ARE wired: tapping a tile with a `query` (Food/Gas/
+  // Parking) sets the search text and fires the debounced autocomplete
+  // (Gas additionally enriches results with fuel prices); Saved reveals
+  // the inline saved list. Tapping the selected tile backs out (clears
+  // the query / hides the list). Tiles render only in the landing
+  // phase, so the "Selected" highlight never lingers over unrelated
+  // results.
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   // Tracks the most-recently-issued autocomplete query so stale
   // responses from earlier keystrokes can be discarded when they
@@ -865,7 +869,7 @@ export default function Search() {
                   <Text style={styles.fuelTitle}>Fuel</Text>
                   <Text style={styles.fuelSubtitle}>
                     {fuelProfile?.remindersEnabled && fuelProfile.nextReminderAt
-                      ? `Refuel reminder on · next ${new Date(
+                      ? `Next reminder · ${new Date(
                           fuelProfile.nextReminderAt,
                         ).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
                       : 'Set up refuel reminders for your car'}
