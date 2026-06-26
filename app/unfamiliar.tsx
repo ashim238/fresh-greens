@@ -13,11 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
 import { Lightbulb } from 'phosphor-react-native/src/icons/Lightbulb';
 import { RoadHorizon } from 'phosphor-react-native/src/icons/RoadHorizon';
 
+import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
 import { LifelineModal } from '../components/LifelineModal';
@@ -315,14 +315,7 @@ function DestinationPicker({
   const anyLoading = loadingDestId !== null;
   return (
     <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-      <Pressable
-        onPress={onBack}
-        style={({ pressed }) => [styles.backChevron, pressed && pressedDim]}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-      >
-        <CaretLeft size={28} color={colors.black} weight="regular" />
-      </Pressable>
+      <BackButton onPress={onBack} style={styles.backChevron} />
 
       <Text style={styles.subtitle}>Let&apos;s get you someplace safe.</Text>
       <Text style={styles.title} accessibilityRole="header">

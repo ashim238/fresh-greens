@@ -1,4 +1,3 @@
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -15,11 +14,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '../components/BackButton';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
-import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -95,17 +95,7 @@ export default function RoadsideSetup() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.header}>
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              // 44pt painted floor instead of hitSlop — .cursorrules
-              // forbids hitSlop as the compliance mechanism on a sub-44pt
-              // visual. The 28pt CaretLeft centers inside (audit #10 fix).
-              style={tapTarget44}
-            >
-              <CaretLeft size={28} color={colors.black} weight="regular" />
-            </Pressable>
+            <BackButton onPress={() => router.back()} />
           </View>
           <Text style={styles.title} accessibilityRole="header">
             Roadside service
@@ -167,11 +157,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.sm,
   },
-  // (backBtn replaced by the shared `tapTarget44` token in audit #10
-  //  review — applied directly at the back Pressable.)
-  // Title sits on its own line below the back chevron (matches /fuel +
-  // /recordings + /safety-settings) — chevron and title on one row read
-  // congested.
+  // Back chevron uses the shared `<BackButton>` component (which carries
+  // its own 44pt painted target). Title sits on its own line below it
+  // (matches /fuel + /recordings + /safety-settings) — chevron and title
+  // on one row read congested.
   title: {
     ...dynamicType(typography.title2Emphasized),
     color: colors.black,

@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePreventRemove } from '@react-navigation/native';
 
 import { CarBattery } from 'phosphor-react-native/src/icons/CarBattery';
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
 import { Lock } from 'phosphor-react-native/src/icons/Lock';
 import { MapPin } from 'phosphor-react-native/src/icons/MapPin';
@@ -31,6 +30,7 @@ import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
 import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 import { X } from 'phosphor-react-native/src/icons/X';
 
+import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
 import { MetaSeparator } from '../components/MetaSeparator';
@@ -412,14 +412,7 @@ function ActionMenu({
       contentContainerStyle={styles.stepBody}
       showsVerticalScrollIndicator={false}
     >
-      <Pressable
-        onPress={onBack}
-        style={({ pressed }) => [styles.backChevron, pressed && pressedDim]}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-      >
-        <CaretLeft size={28} color={colors.black} weight="regular" />
-      </Pressable>
+      <BackButton onPress={onBack} style={styles.backChevron} />
 
       <Text style={styles.subtitle}>Got it.</Text>
       <Text style={styles.title} accessibilityRole="header">
@@ -937,14 +930,13 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.bodyRegular),
     color: colors.labelSecondary,
   },
-  // Step 2 — action menu
+  // Step 2 — action menu. The back chevron itself comes from <BackButton>
+  // (which carries the 44pt painted floor + chevron glyph). This style
+  // overrides BackButton's default centered alignment with `flex-start`
+  // so the caret stays left-anchored to the row's left edge — visual
+  // placement matches the rest of the screen's left-aligned content.
   backChevron: {
     marginTop: spacing.sm,
-    // Bumped 32→44 (audit #10) — 32pt + hitSlop=12 brought touch to 56 but
-    // painted target was below the HIG 44pt floor (and .cursorrules
-    // forbids hitSlop as the compliance mechanism). alignItems flex-start
-    // keeps the caret left-anchored so the visual placement on the row
-    // doesn't shift; the 28pt CaretLeft now centers vertically inside.
     width: 44,
     height: 44,
     alignItems: 'flex-start',

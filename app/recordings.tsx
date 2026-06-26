@@ -5,7 +5,6 @@ import { StatusBar } from 'expo-status-bar';
 // Phosphor deep-imports bypass the package's barrel index — see
 // app/trusted-contact-setup.tsx for the longer note + tsconfig
 // `paths` mapping that keeps TypeScript happy.
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { Microphone } from 'phosphor-react-native/src/icons/Microphone';
 import { Pause } from 'phosphor-react-native/src/icons/Pause';
 import { Play } from 'phosphor-react-native/src/icons/Play';
@@ -16,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
 import { MetaSeparator, joinMetaParts } from '../components/MetaSeparator';
 import { SafetyErrorMessage } from '../components/SafetyErrorMessage';
@@ -216,14 +216,7 @@ export default function Recordings() {
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <Pressable
-            onPress={handleBack}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
-          >
-            <CaretLeft size={28} color={colors.black} weight="regular" />
-          </Pressable>
+          <BackButton onPress={handleBack} />
         </View>
 
         <ScrollView

@@ -1,12 +1,12 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { UserPlus } from 'phosphor-react-native/src/icons/UserPlus';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { EmptyState } from '../components/StateCard';
@@ -15,7 +15,7 @@ import { useTrustedContact } from '../hooks/useTrustedContact';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -171,17 +171,7 @@ export default function TrustedContactSetup() {
         */}
         {embedded ? (
           <View style={styles.backHeader}>
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              style={({ pressed }) => [
-                tapTarget44,
-                pressed && pressedDim,
-              ]}
-            >
-              <CaretLeft size={28} color={colors.black} weight="regular" />
-            </Pressable>
+            <BackButton onPress={() => router.back()} />
           </View>
         ) : (
           <PageControl total={5} activeIndex={4} />

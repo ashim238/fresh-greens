@@ -1,5 +1,4 @@
 import * as Haptics from 'expo-haptics';
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { BackButton } from './BackButton';
 import { LoadingState } from './StateCard';
 import { joinMetaParts } from './MetaSeparator';
 import { enrichPlacesWithPhoneProgressive } from '../lib/api/enrich-place-phone';
@@ -135,14 +135,7 @@ export function RoadsideTowPick({ locationCoords, onBack, onTowCalled }: Props) 
       contentContainerStyle={styles.stepBody}
       showsVerticalScrollIndicator={false}
     >
-      <Pressable
-        onPress={onBack}
-        style={({ pressed }) => [styles.backChevron, pressed && pressedDim]}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-      >
-        <CaretLeft size={28} color={colors.black} weight="regular" />
-      </Pressable>
+      <BackButton onPress={onBack} style={styles.backChevron} />
 
       <View style={styles.titleBlock}>
         <Text style={styles.subtitle}>Nearby help</Text>
