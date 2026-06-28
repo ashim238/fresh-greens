@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Camera } from 'phosphor-react-native/src/icons/Camera';
 import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
+import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
 import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useState } from 'react';
 import {
@@ -562,6 +563,7 @@ function severityChipStyles(
   base?: object;
   active?: object;
   label?: object;
+  level?: 'avoid' | 'caution';
 } {
   if (!category.severityMap) return {};
   const zone = category.severityMap[tag];
@@ -570,6 +572,7 @@ function severityChipStyles(
       base: styles.chipAvoid,
       active: styles.chipAvoidActive,
       label: styles.chipAvoidLabel,
+      level: 'avoid',
     };
   }
   if (zone === 'caution') {
@@ -577,6 +580,7 @@ function severityChipStyles(
       base: styles.chipCaution,
       active: styles.chipCautionActive,
       label: styles.chipCautionLabel,
+      level: 'caution',
     };
   }
   return {};
@@ -721,7 +725,13 @@ function DetailView({
                             disabled={submitting}
                             accessibilityRole="button"
                             accessibilityState={{ selected: active }}
-                            accessibilityLabel={`${tag}${active ? ' (selected)' : ''}`}
+                            accessibilityLabel={`${tag}${
+                              sev.level === 'avoid'
+                                ? ', avoid-level'
+                                : sev.level === 'caution'
+                                  ? ', caution-level'
+                                  : ''
+                            }${active ? ' (selected)' : ''}`}
                             style={({ pressed }) => [
                               styles.chip,
                               sev.base,
@@ -729,6 +739,29 @@ function DetailView({
                               pressed && !submitting && pressedDim,
                             ]}
                           >
+                            {sev.level ? (
+                              <WarningDiamond
+                                // Non-color severity cue (WCAG 1.4.1): the
+                                // chip's red/orange border was the only
+                                // signal that this place-type is flagged;
+                                // a colorblind reader saw "Highway underpass"
+                                // with an indistinguishable border. The
+                                // diamond is the same hazard glyph the
+                                // route-preview chips use (home.tsx), so
+                                // the icon vocabulary stays consistent.
+                                // Color inherits from `sev.label` via fill,
+                                // not added as new color information.
+                                size={14}
+                                color={
+                                  active
+                                    ? colors.white
+                                    : sev.level === 'avoid'
+                                      ? colors.red
+                                      : colors.orange
+                                }
+                                weight="fill"
+                              />
+                            ) : null}
                             <Text
                               style={[
                                 styles.chipLabel,
@@ -1183,14 +1216,16 @@ const styles = StyleSheet.create({
   // larger painted area. Outlined freshgreen (unselected) / filled
   // wiltedgreen (selected) — the content treatment is unchanged.
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     minHeight: 44,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.freshgreen,
     backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   chipActive: {
     // wiltedgreen so the white active-state label clears WCAG AA.
