@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/moderation-bulk-mode — Promise.allSettled needs result inspection (2026-06-29)
+
+`Promise.allSettled` never throws, so wrapping it in `try/catch` is dead code — the `catch` fires only on errors *before* the settled promise (like `getAuthHeaders` failing). The settled results array must be inspected: each entry is either `{status: 'fulfilled'}` or `{status: 'rejected', reason}`. Without checking, bulk actions silently swallowed per-request 4xx/5xx and fired a success haptic. **Pattern for bulk RPCs:** `allSettled` → filter rejected → error haptic if any failed, success haptic if all passed. Also: when mixing report states across sections (hidden + visible + removed), filter to only send applicable RPCs (don't restore an already-visible report). And: transparent base borders prevent layout shift when toggling a selection border — set `borderWidth` + `borderColor: 'transparent'` on the default state, then selected state only changes color.
+
+---
+
 ## feat/moderation-investigation-panels — zero-fetch investigation (2026-06-29)
 
 Submitter history and nearby reports derive from data already in state (the full queue fetch), so two of three investigation panels need no additional network call. Only the flag breakdown hits a new table. **Worth keeping: before adding a fetch, check whether the data is already in the component tree.** The queue already has all reports — filtering by `device_uuid` or haversine distance is instant and avoids N+1 queries. The code reviewer caught a real injection vector: `report.id` interpolated into a PostgREST URL without `encodeURIComponent`. The DB column is unconstrained `text` — a crafted ID with `&` or `=` could inject filter operators. Defense-in-depth: always encode user-sourced values in URL query params, even when RLS gates the data.

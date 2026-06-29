@@ -2,6 +2,19 @@
 
 Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (2026-05-13). Items roughly grouped by type. Each line is the user's note verbatim, lightly annotated with the file or pattern most likely to touch the fix.
 
+## Supabase M1.1 — shipped
+
+**Commits on `main`:**
+- `174373c` — plain composite index replacing IMMUTABLE-rejected partial index
+- `7edc1ca` — device-UUID, anon auth, community-cloud M1.1 wiring
+- `6636bf5` — error-code UI, moderator role hook, `/moderation` route
+- `2c534c5` — investigation panels (submitter history, nearby reports, flag breakdown)
+- `c5f4c14` — ~~bulk mode~~ multi-select hide/remove for `/moderation` queue
+
+**Blocked (Apple / Supabase config):** Apple Sign-in (requires Apple Developer Program), Phone OTP (Supabase SMS provider), moderator role bootstrap (manual `auth.users` update), M1.2 push notifications.
+
+**Unblocked enhancements (remaining):** ~~bulk mode~~, push notifications (M1.2), transparency page.
+
 ## Pre-Supabase visual closure
 
 **Gate:** ✅ **Met** (2026-06-25) — batch 5 merged **#270** (`9039edc`). Batches 1–4: #266–#269. Rollup: [`.impeccable/VISUAL-CLOSURE-SYNTHESIS.md`](../.impeccable/VISUAL-CLOSURE-SYNTHESIS.md). **0 open P0/P1** across audit, critique, and visual-pass. **Supabase M1.1 pivot cleared.**
