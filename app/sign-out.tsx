@@ -1,14 +1,17 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PermissionsCar from '../assets/illustrations/permissions-car.svg';
 import PermissionsLocation from '../assets/illustrations/permissions-location.svg';
 
 import { Button } from '../components/Button';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
+import { motion } from '../theme/motion';
 import { typography } from '../theme/typography';
 
 /**
@@ -26,6 +29,33 @@ import { typography } from '../theme/typography';
  */
 export default function SignOut() {
   const router = useRouter();
+  const reduceMotion = useReduceMotion();
+
+  // D6: delayed subtitle entrance — "Drive safe." waits 600ms before
+  // fading in over 220ms. The pause creates an emotional beat after
+  // the title. Gated on reduce motion (both shown immediately).
+  const [subtitleVisible, setSubtitleVisible] = useState(reduceMotion);
+  const subtitleOpacity = useRef(
+    new Animated.Value(reduceMotion ? 1 : 0),
+  ).current;
+
+  useEffect(() => {
+    if (reduceMotion) {
+      subtitleOpacity.setValue(1);
+      setSubtitleVisible(true);
+      return;
+    }
+    const delay = setTimeout(() => {
+      setSubtitleVisible(true);
+      Animated.timing(subtitleOpacity, {
+        toValue: 1,
+        duration: motion.duration.quick,
+        easing: motion.easing.out,
+        useNativeDriver: true,
+      }).start();
+    }, 600);
+    return () => clearTimeout(delay);
+  }, [reduceMotion, subtitleOpacity]);
 
   return (
     <View style={styles.root}>
@@ -44,7 +74,11 @@ export default function SignOut() {
 
           <View style={styles.copy}>
             <Text style={styles.title}>You've been logged out.</Text>
-            <Text style={styles.subtitle}>Drive safe.</Text>
+            {subtitleVisible && (
+              <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
+                Drive safe.
+              </Animated.Text>
+            )}
           </View>
 
           <Button
