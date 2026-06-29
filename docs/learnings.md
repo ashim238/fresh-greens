@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## impeccable-sweep — full 5-command design sweep + 4 fix PRs (2026-06-29)
+
+First full `/impeccable critique, audit, bolder, delight, document` pass across the entire app. Scored 29/40 Nielsen + 16/20 technical. Two findings surfaced independently by both critique and audit agents: **home.tsx monolith (4163 lines, 27 useState)** and **pulled-over transition auto-advance (3s, no user control)**. The convergence is the signal — when two independent assessments flag the same thing, it's not a judgment call, it's structural.
+
+**Loading copy is brand voice, not placeholder.** "Charting course..." was a generic navigation cliché inherited from early prototyping. Replacing it with thesis-aligned copy ("Mapping the safest way there...", "Searching spots the community trusts...") takes zero engineering effort and converts every loading state from dead air into a brand impression. Worth keeping: any time you see generic copy in a loading/empty state, ask whether it could be doing thesis work instead.
+
+**The bolder assessment's anti-pattern list is as valuable as its recommendations.** The 8 "don't do this" items (no confetti, no streaks, no animated transitions in pulled-over, no personality in safety-critical errors) are guardrails that prevent the delight layer from undermining the calm register. Worth keeping for any future delight work: read the anti-patterns before implementing the opportunities.
+
+**Empty states were already warm — the sweep confirmed it.** D5 proposed first-time empty state variants, but the per-category `EMPTY_STATE_COPY` in HomeBrowseSheet already had exactly the right tone ("Be the first to put a Black-owned spot on the map here"). The actual gap was just a missing visual CTA affordance (Plus icon), not missing copy. Worth keeping: before planning a fix, read the code — the previous-you may have already solved it.
+
 ## docs/m1.1-rls-moderation-spec — Supabase M1.1 design grill (2026-06-29)
 
 Drove a full grill-me session through the M1.1 RLS + moderation design — the thesis-linchpin work where "two users sharing data" goes live. Twenty-one structural decisions resolved into a single spec doc + a runnable migration. The architecture pattern that kept emerging across decisions: **two-track asymmetry as design statement.** Condition reports (negative-space safety signals — felt-unsafe, hazard, lighting, incident) get hard Apple Sign-in + rate limits + spatial-cluster caps + OTP escalation; place reports (positive-space community signals — felt-welcome, black-owned) stay anonymous + lightly rate-limited. Not security stratification per se — *"positive contributions stay frictionless; accusatory contributions require accountability"* is the thesis claim made explicit in the schema. **Worth keeping: when a system has multiple object classes that look the same on the surface but differ in failure-mode stakes, the design statement is the asymmetric policy, not the uniform one. Saying "we treat all reports the same" sounds principled but masks a real difference; saying "we treat them differently because their attack surfaces differ" is the load-bearing claim.**
