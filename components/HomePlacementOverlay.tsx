@@ -6,7 +6,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import { DragHandle } from './DragHandle';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, pressedFeedback } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -35,7 +35,7 @@ export function HomePlacementOverlay({ onConfirm, onCancel }: HomePlacementOverl
         <Text style={styles.placementHint}>Tap the map to move the pin. Drag to move around.</Text>
         <View style={styles.placementActions}>
           <Pressable
-            style={({ pressed }) => [styles.placementConfirm, pressed && pressedDim]}
+            style={({ pressed }) => [styles.placementConfirm, pressed && pressedFeedback]}
             onPress={onConfirm}
             accessibilityRole="button"
             accessibilityLabel="Confirm report location"

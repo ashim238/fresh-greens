@@ -10,8 +10,8 @@
  * firstRouteSafeOnPath for use by home.tsx's focusRouteHazardAtIndex /
  * handleRouteSafeChipPress handlers.
  */
-import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import * as haptics from '../lib/haptics';
 import { type ReactNode, useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -78,7 +78,7 @@ import { isPointNearPolyline, routePassesZone } from '../lib/scoring';
 
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { pressedDim, pressedFeedback, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -157,7 +157,7 @@ export function RoutePreviewCard({
     const next = Math.min(routes.length - 1, Math.max(0, cur + dir));
     if (next === cur) return;
     lastCycleDirRef.current = dir;
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     onSelectRoute(routes[next].id);
   }
 
@@ -176,7 +176,7 @@ export function RoutePreviewCard({
     if (lastMinutesRevealKeyRef.current === key) return;
     const isFirstReveal = lastMinutesRevealKeyRef.current === null;
     lastMinutesRevealKeyRef.current = key;
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     // Skip the fade on the very first reveal — without this, the card briefly
     // renders "—", fades to "12 min", and the user sees the entrance. Better
     // entrance is just "appears" on first paint; subsequent route-changes get
@@ -236,10 +236,10 @@ export function RoutePreviewCard({
     const lat = parseFloat(params.destLat);
     const lng = parseFloat(params.destLng);
     if (isRegularDestination) {
-      Haptics.selectionAsync().catch(() => {});
+      haptics.tap();
       void unmarkRegular(lat, lng);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      haptics.confirm();
       void markRegular({
         name: params.destName ?? 'Destination',
         latitude: lat,
@@ -422,7 +422,7 @@ export function RoutePreviewCard({
           )}
           <Pressable
             onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
+              haptics.tap();
               router.replace({ pathname: '/home', params: {} });
             }}
             accessibilityRole="button"
@@ -664,18 +664,16 @@ export function RoutePreviewCard({
         <View style={styles.actionsRow}>
           {suggestedDeparture && (
             <Pressable
-              style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
+              style={({ pressed }) => [styles.scheduleBtn, pressed && pressedFeedback]}
               onPress={async () => {
-                Haptics.selectionAsync().catch(() => {});
+                haptics.tap();
                 const timeLabel = formatTimeOfDay(suggestedDeparture);
                 const result = await scheduleDepartureNotification(
                   suggestedDeparture,
                   params.destName,
                 );
                 if (result.ok) {
-                  Haptics.notificationAsync(
-                    Haptics.NotificationFeedbackType.Success,
-                  ).catch(() => {});
+                  haptics.confirm();
                   Alert.alert(
                     `Scheduled for ${timeLabel}`,
                     `We'll send a heads-up at ${timeLabel} so you can leave when the daylight's right.`,
@@ -713,7 +711,7 @@ export function RoutePreviewCard({
           )}
 
           <Pressable
-            style={({ pressed }) => [styles.goBtn, pressed && pressedDim]}
+            style={({ pressed }) => [styles.goBtn, pressed && pressedFeedback]}
             onPress={() =>
               router.push({
                 pathname: '/en-route',
@@ -925,14 +923,13 @@ const styles = StyleSheet.create({
   },
   routeHeroRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'baseline',
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
   routeMetaCluster: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingBottom: spacing.sm,
+    alignItems: 'baseline',
   },
   routeArrival: {
     ...dynamicType(typography.subheadlineRegular),
@@ -1093,8 +1090,9 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: spacing.md,
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xl,
   },
   scheduleBtn: {
     flex: 1,

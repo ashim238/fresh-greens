@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { colors } from '../theme/colors';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, pressedFeedback } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 
@@ -71,7 +71,8 @@ export function FloatingActionButton({
         styles.base,
         dimensions,
         style,
-        (pressed || disabled) && pressedDim,
+        pressed && pressedFeedback,
+        disabled && pressedDim,
       ]}
     >
       <View style={styles.iconWrap}>{children}</View>

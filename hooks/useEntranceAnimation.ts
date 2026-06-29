@@ -39,17 +39,13 @@ export function useEntranceAnimation(slideFromY: number = 16) {
       return;
     }
     const anim = Animated.parallel([
-      Animated.timing(opacity, {
+      Animated.spring(opacity, {
         toValue: 1,
-        duration: motion.duration.quick,
-        easing: motion.easing.out,
-        useNativeDriver: true,
+        ...motion.spring.gentle,
       }),
-      Animated.timing(translateY, {
+      Animated.spring(translateY, {
         toValue: 0,
-        duration: motion.duration.quick,
-        easing: motion.easing.out,
-        useNativeDriver: true,
+        ...motion.spring.gentle,
       }),
     ]);
     anim.start();

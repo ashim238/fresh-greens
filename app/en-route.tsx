@@ -1,5 +1,5 @@
-import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import * as haptics from '../lib/haptics';
 import {
   useFocusEffect,
   useLocalSearchParams,
@@ -146,7 +146,7 @@ import {
 } from '../lib/scoring';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, pressedFeedback } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
@@ -990,7 +990,7 @@ export default function EnRoute() {
     prevEnteredZoneIdsRef.current = enteredZoneIds;
     if (!entered) return;
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptics.shift();
   }, [enteredZoneIds]);
 
   // Drag-handle tap: toggles sheet expansion.
@@ -1692,7 +1692,7 @@ export default function EnRoute() {
                 longitude={cluster.center.longitude}
                 count={cluster.count}
                 onPress={() => {
-                  Haptics.selectionAsync();
+                  haptics.tap();
                   if (!mapSize) return;
                   mapRef.current?.animateToRegion(
                     regionToRevealCluster(cluster, mapSize.width, mapSize.height),
@@ -2232,7 +2232,7 @@ export default function EnRoute() {
                 // need to clearActiveRoute here, which would race
                 // the new saveActiveRoute and risk leaving the user
                 // with no offline fallback during the swap window.
-                Haptics.selectionAsync().catch(() => {});
+                haptics.tap();
                 router.push('/search?from=enroute');
               }}
             >
@@ -2275,7 +2275,7 @@ export default function EnRoute() {
               accessibilityLabel="Compare routes"
               accessibilityHint="Compare alternate routes and switch"
               onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
+                haptics.tap();
                 setShowComparison(true);
               }}
             >
@@ -2406,7 +2406,7 @@ export default function EnRoute() {
             primary exit affordance.
           */}
           <Pressable
-            style={({ pressed }) => [styles.endTripBtn, pressed && pressedDim]}
+            style={({ pressed }) => [styles.endTripBtn, pressed && pressedFeedback]}
             onPress={handleEndTrip}
             accessibilityRole="button"
             accessibilityLabel="End trip"

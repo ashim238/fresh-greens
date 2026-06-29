@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import * as haptics from '../lib/haptics';
 import * as Location from 'expo-location';
 import {
   useFocusEffect,
@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Alert,
+  Animated,
   Dimensions,
   Linking,
   PanResponder,
@@ -114,9 +115,9 @@ import {
   type RouteSafeType,
 } from '../lib/route-preview';
 import { colors } from '../theme/colors';
-import { pressedDim, tapTarget44 } from '../theme/interaction';
+import { pressedDim, pressedFeedback, tapTarget44 } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
-import { configureLayoutSpring } from '../theme/motion';
+import { configureLayoutSpring, motion } from '../theme/motion';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -355,6 +356,33 @@ export default function Home() {
   // FABs are not.
   const [fabAnchorHeight, setFabAnchorHeight] = useState(0);
 
+  // --- Sheet crossfade choreography ---
+  const isRouteMode = !!(params.destLat && params.destLng);
+  const [sheetMode, setSheetMode] = useState(isRouteMode);
+  const sheetOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isRouteMode === sheetMode) return;
+    if (reduceMotion) {
+      setSheetMode(isRouteMode);
+      return;
+    }
+    Animated.timing(sheetOpacity, {
+      toValue: 0,
+      duration: 80,
+      easing: motion.easing.outQuart,
+      useNativeDriver: true,
+    }).start(() => {
+      setSheetMode(isRouteMode);
+      Animated.timing(sheetOpacity, {
+        toValue: 1,
+        duration: 200,
+        easing: motion.easing.out,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [isRouteMode]);
+
   // --- Report placement mode (tap-to-move) ---
   // When true, a placement marker appears at the user's location.
   // Tap anywhere on the map to relocate it; Confirm opens /report
@@ -588,21 +616,21 @@ export default function Home() {
           if (g.dy > 20) {
             setThingsToDoCollapsed((was) => {
               if (!was) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                haptics.shift();
               }
               return true;
             });
           } else if (g.dy < -20) {
             setThingsToDoCollapsed((was) => {
               if (was) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                haptics.shift();
               }
               return false;
             });
           } else {
             setThingsToDoCollapsed((was) => {
               const next = !was;
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              haptics.shift();
               return next;
             });
           }
@@ -756,7 +784,7 @@ export default function Home() {
       );
       const entry = list[index];
       if (!entry) return;
-      Haptics.selectionAsync().catch(() => {});
+      haptics.tap();
       setSelectedZone(null);
       setHighlightFuelStopId(null);
       setShowFuelStops(false);
@@ -796,7 +824,7 @@ export default function Home() {
         enabledZones,
       );
       if (!hit) return;
-      Haptics.selectionAsync().catch(() => {});
+      haptics.tap();
       setSelectedReport(null);
       setSelectedRouteHazard(null);
       setSelectedZone(hit.zone);
@@ -809,7 +837,7 @@ export default function Home() {
 
   const handleSelectFuelStopOnMap = useCallback((stop: Place) => {
     setHighlightFuelStopId(stop.id);
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     mapRef.current?.animateToRegion(
       {
         latitude: stop.latitude,
@@ -838,7 +866,7 @@ export default function Home() {
    */
   function handleRecenter() {
     if (!userLocation) return;
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     const latitudeDelta = 0.02;
     mapRef.current?.animateToRegion(
       {
@@ -863,7 +891,7 @@ export default function Home() {
     setSelectedReport(null);
     setPlacingReport(true);
     setPlacementPin({ ...userLocation });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptics.shift();
     // Recenter on the placement pin with a tighter zoom — the user is
     // about to drag this thing, so the camera should be sitting on
     // top of it. Previously the pin appeared at the user's GPS coord
@@ -895,7 +923,7 @@ export default function Home() {
     // pin relocates, not open recenter/detail surfaces.
     if (placingReport) return;
     suppressNextMapPressRef.current = true;
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     const latitudeDelta = 0.008;
     mapRef.current?.animateToRegion(
       {
@@ -922,7 +950,7 @@ export default function Home() {
     if (!trustedContact?.phoneNumber) return;
     if (placingReport) return;
     suppressNextMapPressRef.current = true;
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     const name = trustedContact.name ?? 'your trusted contact';
     Alert.alert(
       name,
@@ -931,14 +959,14 @@ export default function Home() {
         {
           text: 'Call',
           onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            haptics.focus();
             void Linking.openURL(`tel:${trustedContact.phoneNumber}`);
           },
         },
         {
           text: 'Text',
           onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            haptics.focus();
             void Linking.openURL(`sms:${trustedContact.phoneNumber}`);
           },
         },
@@ -1285,7 +1313,7 @@ export default function Home() {
         })[0];
 
       if (hit) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+        haptics.commit();
         Alert.alert(
           'Remove report?',
           'This will remove your community report from the map.',
@@ -1312,7 +1340,7 @@ export default function Home() {
       }
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptics.shift();
     // First-home flag captured *before* the Alert so the post-confirm
     // path can tell a milestone save (first home, ever) apart from a
     // re-save / update. Button label, success-notification haptic, and
@@ -1341,7 +1369,7 @@ export default function Home() {
               // against a hypothetical concurrent save (no current path
               // creates one, but the snapshot is cheap to harden).
               if (wasFirstHome && home == null) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                haptics.confirm();
                 // Re-center on the new home so the just-dropped pin
                 // is unambiguously visible. Reduce-Motion path uses
                 // duration=0 so the camera still lands on the pin
@@ -1380,9 +1408,7 @@ export default function Home() {
               await clearAllCommunityReports();
               setReportZones(await getCommunityReportsAsZones());
               setSelectedReport(null);
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success,
-              ).catch(() => {});
+              haptics.confirm();
             } catch (err) {
               const { title, body } = getErrorMessage('save', 'transient', err);
               Alert.alert(title, body);
@@ -1421,7 +1447,7 @@ export default function Home() {
     // placing a report pin, and a tap should move the pin even if it
     // happens to land on a zone overlay.
     if (placingReport) {
-      Haptics.selectionAsync().catch(() => {});
+      haptics.tap();
       setPlacementPin({ latitude, longitude });
       return;
     }
@@ -1462,7 +1488,7 @@ export default function Home() {
           isPointNearPolyline(tap, r.coordinates, 40),
       );
       if (tappedAlt) {
-        Haptics.selectionAsync().catch(() => {});
+        haptics.tap();
         setSelectedRouteId(tappedAlt.id);
         return;
       }
@@ -1790,7 +1816,7 @@ export default function Home() {
                   if (placingReport) return;
                   suppressNextMapPressRef.current = true;
                   setSelectedRouteHazard(null);
-                  Haptics.selectionAsync();
+                  haptics.tap();
                   if (!mapSize) return;
                   mapRef.current?.animateToRegion(
                     regionToRevealCluster(cluster, mapSize.width, mapSize.height),
@@ -1819,7 +1845,7 @@ export default function Home() {
                 suppressNextMapPressRef.current = true;
                 setSelectedZone(null);
                 setSelectedRouteHazard(null);
-                Haptics.selectionAsync().catch(() => {});
+                haptics.tap();
                 setSelectedReport({
                   zoneId: zone.id,
                   categoryId: zone.reportCategoryId as ReportCategoryId,
@@ -1911,7 +1937,7 @@ export default function Home() {
             onLongPress={
               __DEV__
                 ? () => {
-                    Haptics.selectionAsync().catch(() => {});
+                    haptics.tap();
                     setDevChipHidden((h) => !h);
                   }
                 : undefined
@@ -1989,17 +2015,12 @@ export default function Home() {
           // browse mode (so FABs stay put while the sheet expands
           // over them); in route mode there's no collapse concept,
           // so always track.
-          const isRouteMode = !!(params.destLat && params.destLng);
           if (isRouteMode || thingsToDoCollapsed) {
             setFabAnchorHeight(h);
           }
         }}
       >
-        {!(params.destLat && params.destLng) ? (
-          // Browse mode: the drag bar is interactive — tap or vertical
-          // pan to toggle the recommendations section. Wider hit area
-          // via vertical padding so the bar is comfortable to grab
-          // mid-trip without aiming at a 4pt stripe.
+        {!sheetMode ? (
           <View
             style={styles.dragHandleArea}
             accessibilityRole="button"
@@ -2017,71 +2038,58 @@ export default function Home() {
           <DragHandle />
         )}
 
-        {!(params.destLat && params.destLng) ? (
-          // Browse-mode sheet. HomeBrowseSheet owns its own vertical
-          // ScrollView (so its category chips can pin via
-          // stickyHeaderIndices — that only works on a ScrollView's
-          // direct JSX children, which this element can't be when it's
-          // a lone component child of a ScrollView here). The sheet's
-          // capped maxHeight bounds the scroller's `flex: 1`.
-          <HomeBrowseSheet
-            firstName={userFirstName}
-            userLocation={userLocation}
-            refreshKey={focusRefreshKey}
-            collapsed={thingsToDoCollapsed}
-            onExpand={() => {
-              if (!thingsToDoCollapsed) return;
-              if (!reduceMotion) {
-                configureLayoutSpring();
-              }
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              setThingsToDoCollapsed(false);
-            }}
-            onSelectRecommendation={(rec) => {
-              // Tapping a recommendation card routes to /home with
-              // the destination params set, same way a search-result
-              // tap does. router.replace (not push) so back-stack
-              // stays clean — this is a destination CHANGE on
-              // /home, not a new screen entry.
-              router.replace({
-                pathname: '/home',
-                params: {
-                  destLat: String(rec.latitude),
-                  destLng: String(rec.longitude),
-                  destName: rec.name,
-                },
-              });
-            }}
-            onEmptyTap={() => {
-              // Empty-state CTA — taps route to the report flow
-              // (same entry point as the Report FAB). Light haptic
-              // marks the transition; the report flow's own success
-              // notification handles the commit feedback.
-              Haptics.selectionAsync().catch(() => {});
-              router.push('/report');
-            }}
-          />
-        ) : (
-          <RoutePreviewCard
-            routes={routes}
-            recommended={recommended}
-            selectedRoute={selectedRoute}
-            onSelectRoute={setSelectedRouteId}
-            enabledZones={enabledZones}
-            params={params}
-            cloudCoverPct={cloudCoverPct}
-            isCalculatingRoute={isCalculatingRoute}
-            routeFetchSource={routeFetchSource}
-            tripZonesStatus={tripZonesStatus}
-            tripZonesFetchFailed={tripZonesFetchFailed}
-            tripZonesCorridorComplete={tripZonesCorridorComplete}
-            onCorridorRetry={() => setCorridorRetryTick((t) => t + 1)}
-            onHazardChipPress={handleRouteHazardChipPress}
-            onSafeChipPress={handleRouteSafeChipPress}
-            preferredStations={preferredStations}
-            fuelType={fuelProfile?.fuelType}
-          />
-        )}
+        <Animated.View style={{ opacity: sheetOpacity }}>
+          {!sheetMode ? (
+            <HomeBrowseSheet
+              firstName={userFirstName}
+              userLocation={userLocation}
+              refreshKey={focusRefreshKey}
+              collapsed={thingsToDoCollapsed}
+              onExpand={() => {
+                if (!thingsToDoCollapsed) return;
+                if (!reduceMotion) {
+                  configureLayoutSpring();
+                }
+                haptics.shift();
+                setThingsToDoCollapsed(false);
+              }}
+              onSelectRecommendation={(rec) => {
+                router.replace({
+                  pathname: '/home',
+                  params: {
+                    destLat: String(rec.latitude),
+                    destLng: String(rec.longitude),
+                    destName: rec.name,
+                  },
+                });
+              }}
+              onEmptyTap={() => {
+                haptics.tap();
+                router.push('/report');
+              }}
+            />
+          ) : (
+            <RoutePreviewCard
+              routes={routes}
+              recommended={recommended}
+              selectedRoute={selectedRoute}
+              onSelectRoute={setSelectedRouteId}
+              enabledZones={enabledZones}
+              params={params}
+              cloudCoverPct={cloudCoverPct}
+              isCalculatingRoute={isCalculatingRoute}
+              routeFetchSource={routeFetchSource}
+              tripZonesStatus={tripZonesStatus}
+              tripZonesFetchFailed={tripZonesFetchFailed}
+              tripZonesCorridorComplete={tripZonesCorridorComplete}
+              onCorridorRetry={() => setCorridorRetryTick((t) => t + 1)}
+              onHazardChipPress={handleRouteHazardChipPress}
+              onSafeChipPress={handleRouteSafeChipPress}
+              preferredStations={preferredStations}
+              fuelType={fuelProfile?.fuelType}
+            />
+          )}
+        </Animated.View>
       </SafeAreaView>}
 
       {/*
@@ -2292,7 +2300,7 @@ export default function Home() {
             </Text>
             <Pressable
               onPress={mapCoach.dismiss}
-              style={({ pressed }) => [styles.mapCoachButton, pressed && pressedDim]}
+              style={({ pressed }) => [styles.mapCoachButton, pressed && pressedFeedback]}
               accessibilityRole="button"
               accessibilityLabel="Got it, dismiss the map guide"
             >

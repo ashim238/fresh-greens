@@ -54,6 +54,23 @@ export const motion = {
     /** Slightly snappier — press releases, micro-feedback. */
     outQuart: Easing.out(Easing.quad),
   },
+  spring: {
+    /**
+     * Responsive press feedback, value changes. Settles fast.
+     * Use with `Animated.spring(value, motion.spring.snappy)`.
+     */
+    snappy: { tension: 300, friction: 20, useNativeDriver: true },
+    /**
+     * Standard UI transitions — entrance, state change. The workhorse.
+     * Use with `Animated.spring(value, motion.spring.gentle)`.
+     */
+    gentle: { tension: 170, friction: 26, useNativeDriver: true },
+    /**
+     * Larger movements — sheet morphs, camera. Deliberate settle.
+     * Use with `Animated.spring(value, motion.spring.calm)`.
+     */
+    calm: { tension: 120, friction: 22, useNativeDriver: true },
+  },
 } as const;
 
 /**

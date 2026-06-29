@@ -7,6 +7,7 @@ import { variantForCategoryId } from './LandmarkMarker';
 import type { SavedPlace } from '../lib/api/saved-places';
 import type { TrustedContact } from '../lib/api/trusted-contact';
 import type { Zone } from '../lib/api/zones';
+import { animateCamera } from '../lib/map-camera';
 import { regionToRevealCoordinates } from '../lib/clustering';
 import {
   edgePositionForPoint,
@@ -83,21 +84,15 @@ export function HomeEdgeIndicatorLayer({
               }
               onPress={() => {
                 if (group.items.length === 1) {
-                  mapRef.current?.animateToRegion(
-                    {
-                      latitude: first.latitude,
-                      longitude: first.longitude,
-                      latitudeDelta: mapRegion.latitudeDelta,
-                      longitudeDelta: mapRegion.longitudeDelta,
-                    },
-                    400,
-                  );
+                  animateCamera(mapRef, {
+                    latitude: first.latitude,
+                    longitude: first.longitude,
+                    latitudeDelta: mapRegion.latitudeDelta,
+                    longitudeDelta: mapRegion.longitudeDelta,
+                  }, mapRegion);
                 } else {
                   const coords = group.items.map((z) => z.coordinates[0]);
-                  mapRef.current?.animateToRegion(
-                    regionToRevealCoordinates(coords, mapSize.width, mapSize.height),
-                    400,
-                  );
+                  animateCamera(mapRef, regionToRevealCoordinates(coords, mapSize.width, mapSize.height), mapRegion);
                 }
               }}
             />
@@ -117,15 +112,12 @@ export function HomeEdgeIndicatorLayer({
               categoryId="home"
               accessibilityLabel={`${home.name} (off-screen — tap to center)`}
               onPress={() =>
-                mapRef.current?.animateToRegion(
-                  {
-                    latitude: home.latitude,
-                    longitude: home.longitude,
-                    latitudeDelta: mapRegion.latitudeDelta,
-                    longitudeDelta: mapRegion.longitudeDelta,
-                  },
-                  400,
-                )
+                animateCamera(mapRef, {
+                  latitude: home.latitude,
+                  longitude: home.longitude,
+                  latitudeDelta: mapRegion.latitudeDelta,
+                  longitudeDelta: mapRegion.longitudeDelta,
+                }, mapRegion)
               }
             />
           );
@@ -152,14 +144,11 @@ export function HomeEdgeIndicatorLayer({
               categoryId="trusted-friend"
               accessibilityLabel={`${trustedContact.name} (off-screen — tap to center)`}
               onPress={() =>
-                mapRef.current?.animateToRegion(
-                  {
-                    ...point,
-                    latitudeDelta: mapRegion.latitudeDelta,
-                    longitudeDelta: mapRegion.longitudeDelta,
-                  },
-                  400,
-                )
+                animateCamera(mapRef, {
+                  ...point,
+                  latitudeDelta: mapRegion.latitudeDelta,
+                  longitudeDelta: mapRegion.longitudeDelta,
+                }, mapRegion)
               }
             />
           );

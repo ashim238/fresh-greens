@@ -1,5 +1,5 @@
-import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import * as haptics from '../lib/haptics';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
@@ -51,6 +51,7 @@ import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
+import { AnimatedNumber } from './AnimatedNumber';
 import { joinMetaParts } from './MetaSeparator';
 
 /**
@@ -268,7 +269,7 @@ export function HomeBrowseSheet({
     if (!reduceMotion) {
       configureLayoutSpring();
     }
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     setShowAllRows(true);
   }
 
@@ -300,7 +301,7 @@ export function HomeBrowseSheet({
       }
       return true;
     });
-    Haptics.selectionAsync().catch(() => {});
+    haptics.tap();
     // Try the cached Y first regardless of collapsed state — covers
     // the case where rows are already laid out (e.g. user collapsed
     // then re-tapped a chip without the rowYsRef having been cleared
@@ -1000,7 +1001,7 @@ function WeatherDrivingCard({
     );
   }
 
-  const temp = weather ? `${weather.temperatureF}°` : '—°';
+  const tempValue = weather ? `${weather.temperatureF}` : '—';
   const condition = weather ? weather.drivingLabel : '—';
 
   return (
@@ -1014,7 +1015,7 @@ function WeatherDrivingCard({
     >
       <View style={styles.weatherRow}>
         <WeatherGlyph width={16} height={16} />
-        <Text style={styles.weatherText}>{temp}</Text>
+        <AnimatedNumber value={tempValue} style={styles.weatherText} suffix="°" />
       </View>
       <View style={styles.weatherRow}>
         <DrivingGlyph width={16} height={16} />
@@ -1476,9 +1477,9 @@ const styles = StyleSheet.create({
   sheetScrollContent: {
     flexGrow: 1,
     // Vertical rhythm between the stacked sections (headers / chips /
-    // section header / rows). `gap` here replaces the old wrapping
-    // `content` View that couldn't coexist with stickyHeaderIndices.
-    gap: spacing.md,
+    // section header / rows). lg (24pt) gives generous separation
+    // between major sections; internal cluster gaps stay at sm/md.
+    gap: spacing.lg,
     // 40pt = 24pt shadow clearance for the last card + 16pt of bottom
     // breathing room (what the old wrapper View provided).
     paddingBottom: 40,

@@ -14,7 +14,30 @@ import type { ViewStyle } from 'react-native';
  * or that are intentionally inert (the dim would compete with the
  * opacity-0.5 inert state used in /menu).
  */
-export const pressedDim: ViewStyle = { opacity: 0.7 };
+export const pressedDim: ViewStyle = { opacity: 0.85 };
+
+/**
+ * Press feedback with scale — 97% scale paired with the dim.
+ * Use as the upgrade path from `pressedDim` on surfaces where a
+ * subtle physical "press" feel is appropriate. Applied via Pressable's
+ * functional style prop:
+ *
+ *   <Pressable style={({ pressed }) => [styles.btn, pressed && pressedScale]} />
+ */
+export const pressedScale: ViewStyle = {
+  transform: [{ scale: 0.97 }],
+};
+
+/**
+ * Combined press feedback — dim + scale together. The recommended token
+ * for new Pressable components; `pressedDim` remains for existing callsites.
+ *
+ *   <Pressable style={({ pressed }) => [styles.btn, pressed && pressedFeedback]} />
+ */
+export const pressedFeedback: ViewStyle = {
+  opacity: 0.85,
+  transform: [{ scale: 0.97 }],
+};
 
 /**
  * 44×44 painted tap target per iOS HIG — the painted floor for icon
