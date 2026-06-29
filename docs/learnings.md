@@ -4,6 +4,12 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/moderation-investigation-panels — zero-fetch investigation (2026-06-29)
+
+Submitter history and nearby reports derive from data already in state (the full queue fetch), so two of three investigation panels need no additional network call. Only the flag breakdown hits a new table. **Worth keeping: before adding a fetch, check whether the data is already in the component tree.** The queue already has all reports — filtering by `device_uuid` or haversine distance is instant and avoids N+1 queries. The code reviewer caught a real injection vector: `report.id` interpolated into a PostgREST URL without `encodeURIComponent`. The DB column is unconstrained `text` — a crafted ID with `&` or `=` could inject filter operators. Defense-in-depth: always encode user-sourced values in URL query params, even when RLS gates the data.
+
+---
+
 ## impeccable-sweep — full 5-command design sweep + 4 fix PRs (2026-06-29)
 
 First full `/impeccable critique, audit, bolder, delight, document` pass across the entire app. Scored 29/40 Nielsen + 16/20 technical. Two findings surfaced independently by both critique and audit agents: **home.tsx monolith (4163 lines, 27 useState)** and **pulled-over transition auto-advance (3s, no user control)**. The convergence is the signal — when two independent assessments flag the same thing, it's not a judgment call, it's structural.
