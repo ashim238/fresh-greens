@@ -339,6 +339,9 @@ const styles = StyleSheet.create({
     // page (the SafeAreaView's paddingHorizontal:32 would otherwise
     // double-indent the caret relative to the title block below).
     marginLeft: -spacing.md,
+    // Clear the safe-area inset so the caret doesn't sit flush under the
+    // Dynamic Island — mirrors /recordings' header paddingVertical:sm.
+    marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
   content: {
