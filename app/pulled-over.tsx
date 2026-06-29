@@ -153,7 +153,6 @@ const ANSWERS: AnswerCard[] = [
   },
 ];
 
-const TRANSITION_MS = 3000;
 const REVIEW_VIEW_COUNT = 5;
 
 // Fallback display when no trusted contact has been set yet (user
@@ -296,14 +295,10 @@ export default function PulledOver() {
     };
   }, [phase]);
 
-  // Auto-advance from transition → guidance after 3s. The transition
-  // phase is a brief reassurance ("We'll walk you through what to do.")
-  // with no controls of its own, so the timeout is the only way out.
-  useEffect(() => {
-    if (phase !== 'transition') return;
-    const timeout = setTimeout(() => setPhase('guidance'), TRANSITION_MS);
-    return () => clearTimeout(timeout);
-  }, [phase]);
+  // Transition → guidance is now user-initiated (explicit Continue
+  // button) per WCAG 2.2.1 Timing Adjustable. The prior 3-second
+  // auto-advance removed user control during the most stressful
+  // moment — replaced with an indefinite wait + prominent CTA.
 
   // VoiceOver focus management — announce each phase change so the
   // screen reader user gets verbal confirmation that the flow has
@@ -707,27 +702,14 @@ function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
 // --- Phase: Transition ---------------------------------------------------
 
 function TransitionView({ onSkip }: { onSkip: () => void }) {
-  // Trauma-informed control: the 3-second auto-advance was a calming
-  // pause by design, but for users processing a stop in real time,
-  // 3 seconds of "wait, what?" can feel longer than helpful. Making
-  // the whole card a Pressable lets users skip ahead the moment
-  // they're ready — pace control during stress is one of the
-  // strongest predictors of self-regulation per Stanford's Trauma &
-  // Resilience Lab. The auto-advance still fires for users who don't
-  // tap (default calming pace preserved); tapping is opt-in
-  // acceleration. accessibilityHint announces both behaviors so
-  // VoiceOver users know they can choose.
+  // User-controlled advance (WCAG 2.2.1): the screen waits
+  // indefinitely for the user to tap Continue. Pace control during
+  // stress is one of the strongest predictors of self-regulation per
+  // Stanford's Trauma & Resilience Lab — an explicit button is
+  // clearer than tap-anywhere and removes the auto-advance timer
+  // that took control away from the user.
   return (
-    <Pressable
-      style={({ pressed }) => [
-        transitionStyles.center,
-        pressed && pressedDim,
-      ]}
-      onPress={onSkip}
-      accessibilityRole="button"
-      accessibilityLabel="We'll walk you through what to do. We've started recording for your safety."
-      accessibilityHint="Auto-advances after 3 seconds, or tap to advance now"
-    >
+    <View style={transitionStyles.center}>
       <View style={transitionStyles.textBlock}>
         <Text style={transitionStyles.title}>
           We'll walk you{'\n'}through what to do.
@@ -735,9 +717,20 @@ function TransitionView({ onSkip }: { onSkip: () => void }) {
         <Text style={transitionStyles.subtitle}>
           We've started recording{'\n'} for your safety.
         </Text>
-        <Text style={transitionStyles.skipHint}>Tap to continue</Text>
       </View>
-    </Pressable>
+
+      <Pressable
+        onPress={onSkip}
+        accessibilityRole="button"
+        accessibilityLabel="Continue to guidance"
+        style={({ pressed }) => [
+          transitionStyles.continueBtn,
+          pressed && pressedDim,
+        ]}
+      >
+        <Text style={transitionStyles.continueBtnText}>Continue</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -1292,16 +1285,24 @@ function ReviewView({
             </View>
           )}
 
-          <View
-            style={reviewStyles.dotStrip}
-            accessibilityLabel={`Step ${index + 1} of ${REVIEW_VIEW_COUNT}`}
-          >
-            {Array.from({ length: REVIEW_VIEW_COUNT }).map((_, i) => (
-              <View
-                key={i}
-                style={[reviewStyles.dot, i === index && reviewStyles.dotActive]}
-              />
-            ))}
+          <View style={reviewStyles.progressBlock}>
+            <View
+              style={reviewStyles.dotStrip}
+              accessibilityElementsHidden
+            >
+              {Array.from({ length: REVIEW_VIEW_COUNT }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[reviewStyles.dot, i === index && reviewStyles.dotActive]}
+                />
+              ))}
+            </View>
+            <Text
+              style={reviewStyles.progressLabel}
+              accessibilityLabel={`Step ${index + 1} of ${REVIEW_VIEW_COUNT}`}
+            >
+              {index + 1} of {REVIEW_VIEW_COUNT}
+            </Text>
           </View>
 
           {index < REVIEW_VIEW_COUNT - 1 ? (
@@ -1796,8 +1797,11 @@ const armedStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
   },
+  // Promoted from bodyEmphasized (17pt) to title2Emphasized (22pt Bold)
+  // for decision weight — the armed answer is the highest-stakes tap
+  // in the flow and the title should read as a clear, bold choice.
   answerTitle: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.title2Emphasized),
     color: colors.black,
   },
   answerSubtitle: {
@@ -1831,17 +1835,24 @@ const transitionStyles = StyleSheet.create({
     color: colors.labelTertiary,
     textAlign: 'center',
   },
-  // Subtle "Tap to continue" hint — much smaller than title/subtitle
-  // so it doesn't compete with the calming message but sits visible
-  // enough that users discover the skip-ahead affordance. Spaced
-  // 24pt below the subtitle so it reads as separate UI hint, not
-  // continuation of the message.
-  skipHint: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-    opacity: 0.7,
+  // Primary Continue button — freshgreen fill with wiltedgreen border
+  // per the spec. 44pt height, pill radius, centered below the text
+  // block. This is the only way forward from the transition phase
+  // (no auto-advance), so it gets primary-CTA treatment.
+  continueBtn: {
+    height: 44,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.pill,
+    backgroundColor: colors.freshgreen,
+    borderWidth: 1,
+    borderColor: colors.wiltedgreen,
+    marginTop: spacing.xl,
+  },
+  continueBtnText: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.white,
   },
 });
 
@@ -2196,10 +2207,18 @@ const reviewStyles = StyleSheet.create({
     gap: spacing.xl,
     alignItems: 'center',
   },
+  progressBlock: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   dotStrip: {
     flexDirection: 'row',
     gap: spacing.sm,
     alignItems: 'center',
+  },
+  progressLabel: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.labelSecondary,
   },
   dot: {
     width: 6,
