@@ -3614,13 +3614,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
-    backgroundColor: colors.freshgreen,
+    backgroundColor: colors.wiltedgreen,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
     marginTop: spacing.xs,
   },
   mapCoachButtonText: {
-    ...dynamicType(typography.footnoteEmphasized),
+    ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
   },
   edgeOverlay: {
@@ -3864,9 +3864,10 @@ const styles = StyleSheet.create({
     // footnoteRegular (13pt) — bumped from caption1Regular (12pt) to
     // match the conditions tail's increased role: it now surfaces the
     // arrivalLabel ("arriving in daylight" etc.) that was previously
-    // only in the VoiceOver a11y label.
+    // only in the VoiceOver a11y label. labelSecondary (#3C3C43)
+    // provides ~7:1 contrast on white vs labelTertiary's ~5:1.
     ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
+    color: colors.labelSecondary,
     paddingHorizontal: spacing.lg,
   },
   trustedOnRouteRow: {

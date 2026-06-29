@@ -387,9 +387,11 @@ const styles = StyleSheet.create({
     // Figma v2 specs Body/Emphasized but at 17pt on the colored bg
     // with this much copy, Semibold reads dense and urgent when the
     // text is informational — Regular lets the 34pt title carry the
-    // emphasis.
+    // emphasis. 80% opacity subordinates body to the full-white title
+    // so the hierarchy reads title-commands / body-supports.
     ...dynamicType(typography.bodyRegular),
     color: colors.white,
+    opacity: 0.8,
   },
   actions: {
     width: '100%',

@@ -19,6 +19,7 @@ import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
+import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { dynamicType } from '../theme/dynamic-type';
 import { typography } from '../theme/typography';
@@ -232,10 +233,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
+    backgroundColor: colors.freshgreen,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: spacing.sm, // space between icon and label
+    ...shadows.e1,
   },
   buttonBusy: {
     // Subtle dim while the Apple sheet is up so the user has feedback

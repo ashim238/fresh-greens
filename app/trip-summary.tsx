@@ -411,12 +411,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   title: {
-    ...dynamicType(typography.title1Regular),
-    color: colors.black,
+    ...dynamicType(typography.caption1Regular),
+    color: colors.mutedSecondary,
   },
   destination: {
-    ...dynamicType(relaxedLineHeight(typography.bodyRegular)),
-    color: colors.mutedSecondary,
+    ...dynamicType(typography.largeTitleEmphasized),
+    color: colors.black,
     marginTop: spacing.xs,
   },
   stats: {
@@ -425,18 +425,18 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   statValue: {
-    ...dynamicType(typography.title2Emphasized),
+    ...dynamicType(typography.title1Emphasized),
     color: colors.black,
     fontVariant: ['tabular-nums'],
   },
   statLabel: {
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.caption1Regular),
     color: colors.mutedSecondary,
     marginTop: spacing.xs,
   },
   // --- Inference validation (C12b) ---
   inferenceSection: {
-    marginTop: spacing.xl,
+    marginTop: spacing.xxl,
     gap: spacing.sm,
   },
   inferenceHeading: {
