@@ -332,6 +332,8 @@ export type CommunityReport = {
   photoUri?: string;
   /** ms since epoch — used for ordering and stale-cleanup if ever needed. */
   timestamp: number;
+  /** Server-derived trust signal from the public view (M1.1). */
+  trustTier?: 'verified' | 'community' | 'contributor';
 };
 
 // --- Public API -----------------------------------------------------------

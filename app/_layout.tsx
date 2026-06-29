@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useAppFonts } from '../hooks/useAppFonts';
+import { isCommunityCloudConfigured } from '../lib/api/sources/community-cloud';
+import { signInAnonymously } from '../lib/supabase-auth';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +31,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       void SplashScreen.hideAsync();
+      if (isCommunityCloudConfigured()) {
+        void signInAnonymously();
+      }
     }
   }, [fontsLoaded]);
 

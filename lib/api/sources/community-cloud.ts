@@ -1,19 +1,23 @@
-// Fresh Greens — community reports cloud adapter (B1).
+// Fresh Greens — community reports cloud adapter (B1 → M1.1).
 //
-// Optional Supabase PostgREST read/write when EXPO_PUBLIC_SUPABASE_URL and
+// Supabase PostgREST read/write when EXPO_PUBLIC_SUPABASE_URL and
 // EXPO_PUBLIC_SUPABASE_ANON_KEY are set in `.env.local`. No SDK — plain
-// fetch, same mock-fallback spirit as Overpass mirrors.
-//
-// Expected table `community_reports` (snake_case columns):
-//   id, category_id, location (jsonb {latitude, longitude}), detail,
-//   sub_tag, place_name, google_place_id, submitted_by, photo_uri, timestamp
-//
-// RLS: thesis demo typically allows anon SELECT; INSERT for signed-in users
-// or open insert — configure in Supabase dashboard, not in this repo.
+// fetch. M1.1 additions: auth token injection, device-UUID header,
+// reads from community_reports_public view, soft-delete via RPC,
+// server-side error-code mapping (P0001–P0004).
 
 import type { CommunityReport, ReportCategoryId } from '../community-reports';
+import { getDeviceUUID } from '../../device-uuid';
+import { getAuthHeaders, getAuthUserId } from '../../supabase-auth';
 
 const SYNC_QUEUE_KEY = 'fresh-greens.community-reports.sync-queue.v1';
+
+export type ReportSubmitError =
+  | 'device-banned'
+  | 'otp-required'
+  | 'rate-limited'
+  | 'cluster-limited'
+  | 'unknown';
 
 type SupabaseRow = {
   id: string;
@@ -22,10 +26,12 @@ type SupabaseRow = {
   detail?: string | null;
   sub_tag?: string | null;
   place_name?: string | null;
+  place_type?: string | null;
   google_place_id?: string | null;
   submitted_by?: string | null;
   photo_uri?: string | null;
   timestamp: number;
+  trust_tier?: string | null;
 };
 
 export function isCommunityCloudConfigured(): boolean {
@@ -39,13 +45,9 @@ function supabaseRestBase(): string {
   return `${url}/rest/v1`;
 }
 
-function supabaseHeaders(): Record<string, string> {
-  return {
-    apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-    Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!}`,
-    'Content-Type': 'application/json',
-    Prefer: 'return=minimal',
-  };
+function rpcBase(): string {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
+  return `${url}/rest/v1/rpc`;
 }
 
 function rowToReport(row: SupabaseRow): CommunityReport {
@@ -56,34 +58,30 @@ function rowToReport(row: SupabaseRow): CommunityReport {
     detail: row.detail ?? undefined,
     subTag: row.sub_tag ?? undefined,
     placeName: row.place_name ?? undefined,
+    placeType: row.place_type ?? undefined,
     googlePlaceId: row.google_place_id ?? undefined,
     submittedBy: row.submitted_by ?? undefined,
     photoUri: row.photo_uri ?? undefined,
     timestamp: row.timestamp,
+    trustTier: (row.trust_tier as 'verified' | 'community' | 'contributor') ?? undefined,
   };
 }
 
-function reportToRow(report: CommunityReport): SupabaseRow {
-  return {
-    id: report.id,
-    category_id: report.categoryId,
-    location: report.location,
-    detail: report.detail ?? null,
-    sub_tag: report.subTag ?? null,
-    place_name: report.placeName ?? null,
-    google_place_id: report.googlePlaceId ?? null,
-    submitted_by: report.submittedBy ?? null,
-    photo_uri: report.photoUri ?? null,
-    timestamp: report.timestamp,
-  };
+function parsePostgrestError(body: string): ReportSubmitError {
+  if (body.includes('P0001')) return 'device-banned';
+  if (body.includes('P0002')) return 'otp-required';
+  if (body.includes('P0003')) return 'rate-limited';
+  if (body.includes('P0004')) return 'cluster-limited';
+  return 'unknown';
 }
 
-/** All cloud reports; empty when unconfigured or on failure. */
+/** All visible cloud reports via the public view; empty when unconfigured or on failure. */
 export async function fetchCloudCommunityReports(): Promise<CommunityReport[]> {
   if (!isCommunityCloudConfigured()) return [];
   try {
-    const url = `${supabaseRestBase()}/community_reports?select=*&order=timestamp.desc`;
-    const res = await fetch(url, { headers: supabaseHeaders() });
+    const headers = await getAuthHeaders();
+    const url = `${supabaseRestBase()}/community_reports_public?select=*&order=timestamp.desc`;
+    const res = await fetch(url, { headers });
     if (!res.ok) {
       console.warn('[community-cloud] fetch failed:', res.status);
       return [];
@@ -97,38 +95,67 @@ export async function fetchCloudCommunityReports(): Promise<CommunityReport[]> {
   }
 }
 
-/** Upsert one report; returns true on success. */
+export type PushResult =
+  | { ok: true }
+  | { ok: false; error: ReportSubmitError };
+
+/** Insert a report; returns ok or a typed error code. */
 export async function pushCommunityReportToCloud(
   report: CommunityReport,
-): Promise<boolean> {
-  if (!isCommunityCloudConfigured()) return false;
+): Promise<PushResult> {
+  if (!isCommunityCloudConfigured()) return { ok: false, error: 'unknown' };
   try {
+    const [headers, deviceUUID, authUserId] = await Promise.all([
+      getAuthHeaders(),
+      getDeviceUUID(),
+      getAuthUserId(),
+    ]);
     const url = `${supabaseRestBase()}/community_reports`;
+    const row = {
+      id: report.id,
+      category_id: report.categoryId,
+      location: report.location,
+      detail: report.detail ?? null,
+      sub_tag: report.subTag ?? null,
+      place_name: report.placeName ?? null,
+      place_type: report.placeType ?? null,
+      google_place_id: report.googlePlaceId ?? null,
+      submitted_by: report.submittedBy ?? null,
+      photo_uri: report.photoUri ?? null,
+      timestamp: report.timestamp,
+      device_uuid: deviceUUID,
+      auth_user_id: authUserId,
+      is_verified_phone: false,
+    };
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        ...supabaseHeaders(),
-        Prefer: 'resolution=merge-duplicates,return=minimal',
-      },
-      body: JSON.stringify(reportToRow(report)),
+      headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify(row),
     });
-    if (!res.ok && res.status !== 409) {
-      console.warn('[community-cloud] push failed:', res.status);
-      return false;
-    }
-    return true;
+    if (res.ok || res.status === 201) return { ok: true };
+    const body = await res.text();
+    console.warn('[community-cloud] push failed:', res.status, body);
+    return { ok: false, error: parsePostgrestError(body) };
   } catch (error) {
     console.warn('[community-cloud] push error:', error);
-    return false;
+    return { ok: false, error: 'unknown' };
   }
 }
 
-/** Best-effort delete (Undo / hold-to-delete). */
+/** Soft-delete via RPC (Undo / hold-to-delete). */
 export async function deleteCommunityReportFromCloud(id: string): Promise<void> {
   if (!isCommunityCloudConfigured()) return;
   try {
-    const url = `${supabaseRestBase()}/community_reports?id=eq.${encodeURIComponent(id)}`;
-    await fetch(url, { method: 'DELETE', headers: supabaseHeaders() });
+    const headers = await getAuthHeaders();
+    const url = `${rpcBase()}/submitter_delete_report`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ p_report_id: id }),
+    });
+    if (!res.ok) {
+      console.warn('[community-cloud] delete failed:', res.status);
+    }
   } catch (error) {
     console.warn('[community-cloud] delete error:', error);
   }
@@ -174,8 +201,8 @@ export async function flushCommunityReportSyncQueue(): Promise<void> {
   if (queue.length === 0) return;
   const remaining: CommunityReport[] = [];
   for (const report of queue) {
-    const ok = await pushCommunityReportToCloud(report);
-    if (!ok) remaining.push(report);
+    const result = await pushCommunityReportToCloud(report);
+    if (!result.ok) remaining.push(report);
   }
   await writeSyncQueue(remaining);
 }
