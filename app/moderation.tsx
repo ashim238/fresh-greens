@@ -8,6 +8,8 @@ import { Trash } from 'phosphor-react-native/src/icons/Trash';
 import { ArrowCounterClockwise } from 'phosphor-react-native/src/icons/ArrowCounterClockwise';
 import { Users } from 'phosphor-react-native/src/icons/Users';
 import { MapPin } from 'phosphor-react-native/src/icons/MapPin';
+import { CheckCircle } from 'phosphor-react-native/src/icons/CheckCircle';
+import { CircleIcon as Circle } from 'phosphor-react-native/src/icons/Circle';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -33,6 +35,8 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 const NEARBY_RADIUS_METERS = 500;
+const BULK_BAR_HEIGHT = 80;
+const holdRingColor = 'rgba(255, 59, 48, 0.15)';
 
 type ModerationReport = {
   id: string;
@@ -67,6 +71,9 @@ export default function Moderation() {
   const [reports, setReports] = useState<ModerationReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActing, setBulkActing] = useState(false);
 
   const fetchQueue = useCallback(async () => {
     try {
@@ -90,6 +97,29 @@ export default function Moderation() {
   useEffect(() => {
     void fetchQueue();
   }, [fetchQueue]);
+
+  function enterBulkMode() {
+    setBulkMode(true);
+    setExpandedId(null);
+    setSelectedIds(new Set());
+  }
+
+  function exitBulkMode() {
+    setBulkMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
 
   async function handleRestore(reportId: string) {
     try {
@@ -135,6 +165,84 @@ export default function Moderation() {
     }
   }
 
+  async function handleBulkRestore() {
+    const applicable = reports.filter(
+      (r) => selectedIds.has(r.id) && (r.hidden_at !== null || r.removed_at !== null),
+    );
+    if (applicable.length === 0) return;
+    setBulkActing(true);
+    try {
+      const headers = await getAuthHeaders();
+      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
+      const url = `${base}/rest/v1/rpc/moderator_restore_report`;
+      const results = await Promise.allSettled(
+        applicable.map(async (r) => {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              p_report_id: r.id,
+              p_reason: 'Bulk restored via moderation queue',
+            }),
+          });
+          if (!res.ok) throw new Error(`${res.status}`);
+        }),
+      );
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        console.warn(`[moderation] bulk restore: ${failures.length}/${results.length} failed`);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+      void fetchQueue();
+    } catch (error) {
+      console.warn('[moderation] bulk restore error:', error);
+    } finally {
+      setBulkActing(false);
+      exitBulkMode();
+    }
+  }
+
+  async function handleBulkRemove() {
+    const applicable = reports.filter(
+      (r) => selectedIds.has(r.id) && r.removed_at === null,
+    );
+    if (applicable.length === 0) return;
+    setBulkActing(true);
+    try {
+      const headers = await getAuthHeaders();
+      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
+      const url = `${base}/rest/v1/rpc/moderator_remove_report`;
+      const results = await Promise.allSettled(
+        applicable.map(async (r) => {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              p_report_id: r.id,
+              p_reason: 'Bulk removed via moderation queue',
+            }),
+          });
+          if (!res.ok) throw new Error(`${res.status}`);
+        }),
+      );
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        console.warn(`[moderation] bulk remove: ${failures.length}/${results.length} failed`);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+      void fetchQueue();
+    } catch (error) {
+      console.warn('[moderation] bulk remove error:', error);
+    } finally {
+      setBulkActing(false);
+      exitBulkMode();
+    }
+  }
+
   const hiddenReports = reports.filter((r) => r.hidden_at !== null && r.removed_at === null);
   const visibleReports = reports.filter((r) => r.hidden_at === null && r.removed_at === null);
   const removedReports = reports.filter((r) => r.removed_at !== null);
@@ -150,9 +258,28 @@ export default function Moderation() {
           onClose={() => router.back()}
         />
 
+        {!loading && reports.length > 0 && (
+          <View style={styles.toolbar}>
+            <Pressable
+              onPress={bulkMode ? exitBulkMode : enterBulkMode}
+              disabled={bulkActing}
+              accessibilityRole="button"
+              accessibilityLabel={bulkMode ? 'Exit selection mode' : 'Enter selection mode'}
+              style={({ pressed }) => [styles.toolbarBtn, pressed && pressedDim, bulkActing && { opacity: 0.4 }]}
+            >
+              <Text style={styles.toolbarBtnText}>
+                {bulkMode ? 'Done' : 'Select'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            bulkMode && selectedIds.size > 0 && styles.scrollContentBulk,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {loading && (
@@ -176,6 +303,9 @@ export default function Moderation() {
               onToggle={setExpandedId}
               onRestore={handleRestore}
               onRemove={handleRemove}
+              bulkMode={bulkMode}
+              selectedIds={selectedIds}
+              onSelect={toggleSelected}
             />
           )}
 
@@ -188,6 +318,9 @@ export default function Moderation() {
               onToggle={setExpandedId}
               onRestore={handleRestore}
               onRemove={handleRemove}
+              bulkMode={bulkMode}
+              selectedIds={selectedIds}
+              onSelect={toggleSelected}
             />
           )}
 
@@ -200,9 +333,21 @@ export default function Moderation() {
               onToggle={setExpandedId}
               onRestore={handleRestore}
               onRemove={handleRemove}
+              bulkMode={bulkMode}
+              selectedIds={selectedIds}
+              onSelect={toggleSelected}
             />
           )}
         </ScrollView>
+
+        {bulkMode && selectedIds.size > 0 && (
+          <BulkActionBar
+            count={selectedIds.size}
+            acting={bulkActing}
+            onRestore={handleBulkRestore}
+            onRemove={handleBulkRemove}
+          />
+        )}
       </SafeAreaView>
     </View>
   );
@@ -216,6 +361,9 @@ function QueueSection({
   onToggle,
   onRestore,
   onRemove,
+  bulkMode,
+  selectedIds,
+  onSelect,
 }: {
   title: string;
   reports: ModerationReport[];
@@ -224,6 +372,9 @@ function QueueSection({
   onToggle: (id: string | null) => void;
   onRestore: (id: string) => void;
   onRemove: (id: string) => void;
+  bulkMode: boolean;
+  selectedIds: Set<string>;
+  onSelect: (id: string) => void;
 }) {
   return (
     <View style={styles.section}>
@@ -233,10 +384,13 @@ function QueueSection({
           key={report.id}
           report={report}
           allReports={allReports}
-          expanded={expandedId === report.id}
+          expanded={!bulkMode && expandedId === report.id}
           onToggle={() => onToggle(expandedId === report.id ? null : report.id)}
           onRestore={() => onRestore(report.id)}
           onRemove={() => onRemove(report.id)}
+          bulkMode={bulkMode}
+          selected={selectedIds.has(report.id)}
+          onSelect={() => onSelect(report.id)}
         />
       ))}
     </View>
@@ -250,6 +404,9 @@ function ReportCard({
   onToggle,
   onRestore,
   onRemove,
+  bulkMode,
+  selected,
+  onSelect,
 }: {
   report: ModerationReport;
   allReports: ModerationReport[];
@@ -257,6 +414,9 @@ function ReportCard({
   onToggle: () => void;
   onRestore: () => void;
   onRemove: () => void;
+  bulkMode: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const age = formatAge(report.timestamp);
   const displayName = report.place_name ?? report.category_id;
@@ -323,14 +483,24 @@ function ReportCard({
   });
 
   return (
-    <View style={[styles.card, isHidden && styles.cardHidden]}>
+    <View style={[styles.card, isHidden && styles.cardHidden, bulkMode && selected && styles.cardSelected]}>
       <Pressable
-        onPress={onToggle}
-        accessibilityRole="button"
+        onPress={bulkMode ? onSelect : onToggle}
+        accessibilityRole={bulkMode ? 'checkbox' : 'button'}
+        accessibilityState={bulkMode ? { checked: selected } : undefined}
         accessibilityLabel={`${displayName}, ${report.category_id}, ${age}`}
-        accessibilityHint={expanded ? 'Collapse details' : 'Expand details'}
+        accessibilityHint={bulkMode ? (selected ? 'Deselect' : 'Select') : (expanded ? 'Collapse details' : 'Expand details')}
         style={({ pressed }) => [styles.cardHeader, pressed && pressedDim]}
       >
+        {bulkMode && (
+          <View style={styles.checkbox} accessibilityElementsHidden importantForAccessibility="no">
+            {selected ? (
+              <CheckCircle size={24} color={colors.freshgreen} weight="fill" />
+            ) : (
+              <Circle size={24} color={colors.wiltedgreen} />
+            )}
+          </View>
+        )}
         <View style={styles.cardLeft}>
           <Text style={styles.cardCategory}>{report.category_id}</Text>
           <Text style={styles.cardName} numberOfLines={1}>
@@ -358,11 +528,13 @@ function ReportCard({
               <Text style={styles.badgeTextVerified}>verified</Text>
             </View>
           )}
-          <CaretRight
-            size={16}
-            color={colors.wiltedgreen}
-            style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
-          />
+          {!bulkMode && (
+            <CaretRight
+              size={16}
+              color={colors.wiltedgreen}
+              style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
+            />
+          )}
         </View>
       </Pressable>
 
@@ -550,6 +722,73 @@ function ReportCard({
   );
 }
 
+function BulkActionBar({
+  count,
+  acting,
+  onRestore,
+  onRemove,
+}: {
+  count: number;
+  acting: boolean;
+  onRestore: () => void;
+  onRemove: () => void;
+}) {
+  const { holdProgress, pressHandlers } = useHoldToConfirm({
+    thresholdMs: 800,
+    onConfirm: onRemove,
+  });
+
+  return (
+    <View style={styles.bulkBar}>
+      <Text style={styles.bulkCount}>
+        {count} {count === 1 ? 'report' : 'reports'} selected
+      </Text>
+      <View style={styles.bulkActions}>
+        {acting ? (
+          <ActivityIndicator color={colors.wiltedgreen} />
+        ) : (
+          <>
+            <Pressable
+              onPress={onRestore}
+              accessibilityRole="button"
+              accessibilityLabel={`Restore ${count} ${count === 1 ? 'report' : 'reports'}`}
+              style={({ pressed }) => [styles.bulkBtn, styles.actionRestore, pressed && pressedDim]}
+            >
+              <ArrowCounterClockwise size={18} color={colors.freshgreen} />
+              <Text style={styles.actionTextRestore}>Restore</Text>
+            </Pressable>
+            <Pressable
+              {...pressHandlers}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${count} ${count === 1 ? 'report' : 'reports'}`}
+              accessibilityHint="Hold to confirm removal"
+              style={({ pressed }) => [styles.bulkBtn, styles.actionRemove, pressed && pressedDim]}
+            >
+              <Animated.View
+                style={[
+                  styles.holdRing,
+                  {
+                    transform: [
+                      {
+                        scaleX: holdProgress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+              <Trash size={18} color={colors.red} />
+              <Text style={styles.actionTextRemove}>Hold to remove</Text>
+            </Pressable>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
 function InvestigationPanel({
   icon,
   title,
@@ -680,6 +919,9 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     paddingBottom: spacing.xl * 2,
   },
+  scrollContentBulk: {
+    paddingBottom: spacing.xl * 2 + BULK_BAR_HEIGHT,
+  },
   centered: {
     paddingVertical: spacing.xl * 2,
     alignItems: 'center',
@@ -688,6 +930,27 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.bodyRegular),
     color: colors.wiltedgreen,
   },
+
+  // Toolbar
+  toolbar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+  },
+  toolbarBtn: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    minHeight: tapTarget44.height,
+    minWidth: tapTarget44.width,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolbarBtnText: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.freshgreen,
+  },
+
   section: {
     gap: spacing.sm,
   },
@@ -703,10 +966,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     ...shadows.e1,
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   cardHidden: {
     borderLeftWidth: 3,
     borderLeftColor: colors.orange,
+  },
+  cardSelected: {
+    borderColor: colors.freshgreen,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -714,6 +982,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: spacing.md,
     minHeight: tapTarget44.height,
+  },
+  checkbox: {
+    marginRight: spacing.sm,
   },
   cardLeft: {
     flex: 1,
@@ -927,7 +1198,7 @@ const styles = StyleSheet.create({
   },
   holdRing: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    backgroundColor: holdRingColor,
     transformOrigin: 'left',
   },
   actionTextRestore: {
@@ -937,5 +1208,37 @@ const styles = StyleSheet.create({
   actionTextRemove: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.red,
+  },
+
+  // Bulk action bar
+  bulkBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separatorSubtle,
+    ...shadows.e1,
+  },
+  bulkCount: {
+    ...dynamicType(typography.subheadlineEmphasized),
+    color: colors.black,
+  },
+  bulkActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  bulkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    minHeight: tapTarget44.height,
+    overflow: 'hidden',
   },
 });
