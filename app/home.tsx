@@ -6,36 +6,21 @@ import {
   useRouter,
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
-  ActivityIndicator,
   Alert,
-  Animated,
   Dimensions,
-  Easing,
   Linking,
   PanResponder,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ArrowClockwise } from 'phosphor-react-native/src/icons/ArrowClockwise';
-import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
-import { CaretLeft } from 'phosphor-react-native/src/icons/CaretLeft';
-import { CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
-import { Check } from 'phosphor-react-native/src/icons/Check';
-import { PathIcon } from 'phosphor-react-native/src/icons/Path';
-import { Star } from 'phosphor-react-native/src/icons/Star';
-import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
-import { X } from 'phosphor-react-native/src/icons/X';
 import PlacementPin from '../assets/illustrations/drag-and-drop.svg';
 import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
 import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
@@ -46,19 +31,17 @@ import { DestinationMarker } from '../components/DestinationMarker';
 import { EnRouteZone } from '../components/EnRouteZone';
 import { FuelStopMarker } from '../components/FuelStopMarker';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
-import { DaylightRouteLegend } from '../components/DaylightRouteLegend';
 import { DragHandle } from '../components/DragHandle';
-import { EdgeIndicator } from '../components/EdgeIndicator';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
+import { HomeEdgeIndicatorLayer } from '../components/HomeEdgeIndicatorLayer';
+import { HomePlacementOverlay } from '../components/HomePlacementOverlay';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
 import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { RouteHazardDetailCard } from '../components/RouteHazardDetailCard';
+import { RoutePreviewCard } from '../components/RoutePreviewCard';
 import { ZoneDetailCard } from '../components/ZoneDetailCard';
-import { MetaSeparator } from '../components/MetaSeparator';
-import { LoadingState } from '../components/StateCard';
-import { SavedPlaceBookmark } from '../components/SavedPlaceBookmark';
 import { SearchBar } from '../components/SearchBar';
 import { UserLocationMarker } from '../components/UserLocationMarker';
 import { useFuelProfile } from '../hooks/useFuelProfile';
@@ -67,8 +50,6 @@ import { usePreferences } from '../hooks/usePreferences';
 import { usePreferredStations } from '../hooks/usePreferredStations';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useCoachMark } from '../hooks/useCoachMark';
-import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
-import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useUser } from '../hooks/useUser';
@@ -83,10 +64,8 @@ import {
   DEFAULT_PREFERENCES,
   isZoneCategoryEnabled,
 } from '../lib/api/preferences';
-import { isRegularLocation } from '../lib/api/regular-destinations';
 import {
   getRoutesBetween,
-  primaryRoadName,
   type Route,
   type RouteSource,
   routeColors,
@@ -100,27 +79,14 @@ import {
   zoneColors,
   zoneDashPattern,
 } from '../lib/api/zones';
-import {
-  ALL_CLEAR_A11Y_LONG_TRIP,
-  LONG_TRIP_COPY_METERS,
-  LONG_TRIP_FOOTNOTE_COPY,
-  PARTIAL_DEBOUNCE_MS,
-} from '../lib/corridor/constants';
+import { PARTIAL_DEBOUNCE_MS } from '../lib/corridor/constants';
 import { maybeWarmZoneTile } from '../lib/corridor/passive-zone-tiles';
 import { getErrorMessage } from '../lib/error-message';
 import { pathLengthMeters } from '../lib/geo';
-import { clusterPointZones, regionToRevealCluster, regionToRevealCoordinates } from '../lib/clustering';
+import { clusterPointZones, regionToRevealCluster } from '../lib/clustering';
+import { DAYLIGHT_DASH_PATTERN, gradientSegments } from '../lib/daylight';
+import { formatDuration } from '../lib/format';
 import {
-  arrivalLightLabel,
-  DAYLIGHT_DASH_PATTERN,
-  gradientSegments,
-  suggestedDepartureForDaylight,
-} from '../lib/daylight';
-import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
-import { scheduleDepartureNotification } from '../lib/notifications';
-import {
-  edgePositionForPoint,
-  groupEdgeIndicators,
   isPointInRegion,
   type Region,
 } from '../lib/edge-indicators';
@@ -138,6 +104,15 @@ import {
   zoneToHazardCategory,
   type HazardCategory,
 } from '../lib/scoring';
+import {
+  firstRouteSafeOnPath,
+  ROUTE_HAZARD_ORDER,
+  routeHazardType,
+  routeHazardsOnPath,
+  type RouteHazardOnPath,
+  type RouteHazardType,
+  type RouteSafeType,
+} from '../lib/route-preview';
 import { colors } from '../theme/colors';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { mapStyle } from '../theme/map-style';
@@ -154,48 +129,6 @@ import { typography } from '../theme/typography';
 // user flips it in Settings; the zone data still drives scoring even
 // when overlays are hidden.
 
-// Hazard chip types charted on the route-preview card, in display order.
-// `community` leads — a community "someone felt unsafe HERE" is the most
-// directly relevant signal (the thesis claim), then the OSM-derived ones.
-// "All clear" shows only when a route passes NONE of these.
-const ROUTE_HAZARD_ORDER = [
-  'community',
-  'police',
-  'lowLight',
-  'wildlife',
-  'road',
-] as const;
-type RouteHazardType = (typeof ROUTE_HAZARD_ORDER)[number];
-
-// [singular, plural] chip labels per hazard type.
-const ROUTE_HAZARD_LABEL: Record<RouteHazardType, readonly [string, string]> = {
-  community: ['community flag', 'community flags'],
-  police: ['police zone', 'police zones'],
-  lowLight: ['low light zone', 'low light zones'],
-  wildlife: ['wildlife zone', 'wildlife zones'],
-  road: ['road condition', 'road conditions'],
-};
-
-// Safe-zone chips charted ALONGSIDE hazards on the route-preview card,
-// in display order. These surface the *offset* against the visible
-// hazards — the algorithm sums hazards (negative) and safe zones
-// (positive) into one net score, but only the negatives showed on the
-// chip row, making the recommendation feel wrong when a hazard-heavier
-// route won via more safe-tagged streets (user-flagged 2026-06-04:
-// "why is the route with 2 community flags the safest"). The two safe
-// signals are deliberately distinct: 'lit street' is an OSM lighting
-// signal (lit=yes / 24-7 / automatic); 'residential' is Jane Jacobs'
-// eyes-on-street theory rendered as the OSM landuse=residential tag.
-// Only renders when hazards are present (the All-clear chip alone
-// holds for genuinely-clear routes).
-const ROUTE_SAFE_ORDER = ['litStreet', 'residential'] as const;
-type RouteSafeType = (typeof ROUTE_SAFE_ORDER)[number];
-
-const ROUTE_SAFE_LABEL: Record<RouteSafeType, readonly [string, string]> = {
-  litStreet: ['lit street', 'lit streets'],
-  residential: ['residential block', 'residential blocks'],
-};
-
 // --- FAB-stack geometry ---------------------------------------------------
 // Named so the bottom-offset math reads as composition instead of magic
 // arithmetic. Earlier the Recenter FAB's bottom was `fabAnchorHeight + 24
@@ -208,104 +141,6 @@ const FAB_ANCHOR_GAP = 24;
 const FAB_HEIGHT = 56;
 /** Inter-FAB gap when two FABs stack vertically (Recenter above Report). */
 const FAB_STACK_GAP = 12;
-
-/**
- * Which safe chip a zone contributes to, or null if the zone isn't a
- * charted safe signal. The two we surface are the same `safe`-typed
- * zones that contribute the +2 to scoreRoute — lit streets (lighting
- * + safe) and residential landuse (landuse + safe). Felt-welcome /
- * black-owned community-report safes aren't charted here: those land
- * as the orange eye / heart pins on the map, not as route-level chips.
- */
-function routeSafeType(zone: Zone): RouteSafeType | null {
-  if (zone.type !== 'safe') return null;
-  if (zone.category === 'lighting') return 'litStreet';
-  if (zone.category === 'landuse') return 'residential';
-  return null;
-}
-
-/**
- * Which hazard chip a zone contributes to, or null if it's not a charted
- * hazard. Safe-typed zones (lit=yes, felt-welcome, black-owned, residential
- * landuse) never warn. community-report and lighting only chart their
- * AVOID variants (felt-unsafe/incident; lit=no) — a caution-level lighting
- * report isn't a low-light warning.
- */
-type RouteHazardOnPath = {
-  zone: Zone;
-  focus: Coordinate;
-  distanceAlongM: number;
-};
-
-/** All distinct hazards of a chip type on the route, ordered from start → end. */
-function routeHazardsOnPath(
-  hazardType: RouteHazardType,
-  routeCoordinates: Coordinate[],
-  zones: Zone[],
-): RouteHazardOnPath[] {
-  const seen = new Set<string>();
-  const hits: RouteHazardOnPath[] = [];
-
-  for (const zone of zones) {
-    if (routeHazardType(zone) !== hazardType) continue;
-    if (!routePassesZone(routeCoordinates, zone)) continue;
-    const anchor = zoneAnchor(zone);
-    if (!anchor) continue;
-    const dedupeKey = zone.canonicalHazardKey ?? zone.id;
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
-
-    const focus =
-      zone.category === 'community-report'
-        ? anchor
-        : nearestPointOnPolyline(anchor, routeCoordinates);
-    hits.push({
-      zone,
-      focus,
-      distanceAlongM: distanceAlongRouteMeters(focus, routeCoordinates),
-    });
-  }
-
-  hits.sort((a, b) => a.distanceAlongM - b.distanceAlongM);
-  return hits;
-}
-
-/** First zone on the route matching a safe chip type — map focus target. */
-function firstRouteSafeOnPath(
-  safeType: RouteSafeType,
-  routeCoordinates: Coordinate[],
-  zones: Zone[],
-): { zone: Zone; focus: Coordinate } | null {
-  for (const zone of zones) {
-    if (routeSafeType(zone) !== safeType) continue;
-    if (!routePassesZone(routeCoordinates, zone)) continue;
-    const anchor = zoneAnchor(zone);
-    if (!anchor) continue;
-    return {
-      zone,
-      focus: nearestPointOnPolyline(anchor, routeCoordinates),
-    };
-  }
-  return null;
-}
-
-function routeHazardType(zone: Zone): RouteHazardType | null {
-  if (zone.type === 'safe') return null;
-  switch (zone.category) {
-    case 'community-report':
-      return zone.type === 'avoid' ? 'community' : null;
-    case 'police':
-      return 'police';
-    case 'lighting':
-      return zone.type === 'avoid' ? 'lowLight' : null;
-    case 'wildlife':
-      return 'wildlife';
-    case 'road-condition':
-      return 'road';
-    default:
-      return null;
-  }
-}
 
 /** One-line route-preview context for ReportDetailCard when a report zone intersects the selected route. */
 function reportRouteContextLine(
@@ -377,16 +212,6 @@ export default function Home() {
   // device — the expanded default didn't give users a chance to
   // explore.
   const [thingsToDoCollapsed, setThingsToDoCollapsed] = useState(true);
-  // Neighborhood label for the browse-mode sheet header. Derived
-  // from a one-shot `Location.reverseGeocodeAsync` against the
-  // user's first GPS fix. Picks `subregion + city` (most natural
-  // for a neighborhood-level read) and falls back through `city +
-  // region` → `region` until something resolves. Null while in
-  // flight; HomeBrowseSheet renders "Your area" until it lands.
-  // Re-runs only when userLocation transitions from null → set;
-  // we deliberately don't refetch on every GPS tick (the label
-  // doesn't need real-time precision).
-  const [neighborhoodLabel, setNeighborhoodLabel] = useState<string | undefined>();
   // showZones is `false` while preferences are loading from AsyncStorage;
   // overlays just render on the next pass once the value resolves.
   const showZones = preferences?.showZones ?? false;
@@ -467,15 +292,6 @@ export default function Home() {
   // current destination is within ~200m of a destination the user
   // marked "regular" from a post-trip summary (regular-destinations
   // store). Closes the loop the long-standing TODO described.
-  const { regulars, markRegular, unmarkRegular } = useRegularDestinations();
-  const isRegularDestination =
-    !!params.destLat &&
-    !!params.destLng &&
-    isRegularLocation(
-      parseFloat(params.destLat),
-      parseFloat(params.destLng),
-      regulars,
-    );
   // Zones and routes both live in component state so they re-render the
   // map when fetched. Empty arrays initially → nothing renders → map shows
   // clean until data arrives a moment later. This is the "loading state"
@@ -634,7 +450,6 @@ export default function Home() {
   const selectedRoute =
     (selectedRouteId != null && routes.find((r) => r.id === selectedRouteId)) ||
     recommended;
-  const isRecommendedSelected = selectedRoute?.id === recommended?.id;
 
   const routeHazardSession = useMemo(() => {
     if (!selectedRoute || !selectedRouteHazard) return null;
@@ -659,89 +474,6 @@ export default function Home() {
   const markerSnapshotEpoch = mapRegion
     ? String(Math.round(mapRegion.latitudeDelta * 100))
     : 'init';
-
-  // Route cycling via the chevron pair in routeTopRow. `routes` is
-  // recommended-first; right chevron → next (dir: 1), left → previous
-  // (dir: -1). Clamped (no wrap) so the chevrons can hint the ends by
-  // going transparent. Each tap stamps `lastCycleDirRef` so the
-  // minutesOpacity entrance animation below knows which way the ETA
-  // should slide in from (right tap → slides in from the right, mirror
-  // for left). The earlier rev had a PanResponder-driven swipe on the
-  // ETA group; user-flagged 2026-06-03 — chevrons in the middle of the
-  // headline interrupted the ETA's reading flow, so they moved to the
-  // top row and the gesture became tap + a directional slide animation.
-  const lastCycleDirRef = useRef<1 | -1 | null>(null);
-  function cycleRoute(dir: 1 | -1) {
-    if (routes.length < 2) return;
-    const cur = routes.findIndex((r) => r.id === selectedRoute?.id);
-    const next = Math.min(routes.length - 1, Math.max(0, cur + dir));
-    if (next === cur) return;
-    lastCycleDirRef.current = dir;
-    Haptics.selectionAsync().catch(() => {});
-    setSelectedRouteId(routes[next].id);
-  }
-  const selectedIndex = routes.findIndex((r) => r.id === selectedRoute?.id);
-  const canPrevRoute = selectedIndex > 0;
-  const canNextRoute = selectedIndex >= 0 && selectedIndex < routes.length - 1;
-
-  // The primary road the recommended route travels (longest named
-  // step). This is what the "Via" line should surface — the main road
-  // you take to get there — NOT the destination, which already sits in
-  // the search bar above. Null when the source returned step-less or
-  // unnamed geometry (mock routes, some OSRM responses).
-  const viaRoad = primaryRoadName(selectedRoute?.steps);
-
-  // Arrival clock time = now + ETA. Distance from the route (m → mi).
-  // (All derive from selectedRoute so the card follows route switching.)
-  const arrivalTime =
-    selectedRoute != null
-      ? formatTimeOfDay(new Date(Date.now() + selectedRoute.estimatedMinutes * 60_000))
-      : null;
-  const METERS_PER_MILE = 1609.34;
-  const distanceLabel =
-    selectedRoute?.distanceMeters != null
-      ? formatDistance(selectedRoute.distanceMeters / METERS_PER_MILE)
-      : null;
-  // Arrival daylight band = the last gradient segment's band (≈ destination).
-  // Sighted users read this via the daylight legend (color + dash swatches +
-  // sun/moon glyphs) and the polyline; VoiceOver gets the legend label plus
-  // the arrival phrase in routeConditionsA11y when that caption ships.
-  const arrivalSegs = selectedRoute ? gradientSegments(selectedRoute) : [];
-  const arrivalBand = arrivalSegs.length
-    ? arrivalSegs[arrivalSegs.length - 1].band
-    : null;
-  const arrivalLabel = arrivalBand ? arrivalLightLabel(arrivalBand, cloudCoverPct) : null;
-
-  // Honest conditions caption: the recommended route IS the safest, so it
-  // gets the "Safest route" framing. An alternate the user switched to is
-  // NOT — relabeling it "safest" would lie — so it reads "Alternate route
-  // · {faster/longer}" instead. Safety still picked the recommended; this
-  // reflects the user's choice to take a different one.
-  const routeIsAlternate = selectedRoute != null && !isRecommendedSelected;
-  const routeSpeedVsRecommended =
-    selectedRoute && recommended
-      ? Math.round(selectedRoute.estimatedMinutes - recommended.estimatedMinutes)
-      : 0;
-  const routeSpeedLabel =
-    routeSpeedVsRecommended < 0
-      ? `${Math.abs(routeSpeedVsRecommended)} min faster`
-      : routeSpeedVsRecommended > 0
-        ? `${routeSpeedVsRecommended} min longer`
-        : 'about the same time';
-  const routeConditionsText = routeIsAlternate
-    ? `Alternate route · ${routeSpeedLabel}${arrivalLabel ? ` · ${arrivalLabel}` : ''}.`
-    : arrivalLabel
-      ? `Safest route · ${arrivalLabel}.`
-      : 'Safest route with current conditions.';
-  const routeConditionsA11y = routeIsAlternate
-    ? routeConditionsText
-    : arrivalLabel || arrivalTime
-      ? `Safest route. ${
-          arrivalLabel
-            ? arrivalLabel.charAt(0).toUpperCase() + arrivalLabel.slice(1)
-            : 'Arriving'
-        }${arrivalTime ? ` at ${arrivalTime}` : ''}.`
-      : 'Safest route with current conditions.';
 
   // Route polylines memoized so unrelated re-renders don't rebuild
   // them on the native side. Same pattern in /en-route.
@@ -879,83 +611,6 @@ export default function Home() {
     [reduceMotion],
   );
 
-  // Suggested departure for the "Schedule for X:XX AM" chip. Only set
-  // when leaving later actually buys more daylight (currently: pre-dawn
-  // departures). `null` hides the chip — see lib/daylight.ts for rules.
-  // v1 limitation: `now` is captured at first render, so a user who
-  // lingers across sunrise will see a stale chip until /home remounts
-  // (which happens on tab/route change). Acceptable for thesis demo;
-  // a minute-resolution tick would fix it cheaply if needed later.
-  const suggestedDeparture = useMemo(
-    () => (recommended ? suggestedDepartureForDaylight(recommended) : null),
-    [recommended],
-  );
-
-  // Route-preview zone-warning chip counts per Figma 1109:3264. Two
-  // categories surface on the departure card: "police zones" (any
-  // zone tagged `category: 'police'`) and "low light zones" (zones
-  // tagged `category: 'lighting'` AND `type: 'avoid'` — per the
-  // lib/api/zones.ts comment, `lit=no` maps to type=avoid). A zone
-  // counts as "on the route" if any waypoint along the recommended
-  // polyline falls inside it (uses `isPointInZone` which already
-  // handles polygon/polyline/point geometry with the project's
-  // standard proximity thresholds).
-  //
-  // Recomputes only when the recommended route or enabledZones change —
-  // not on every pan/zoom (mapRegion is intentionally not a dep).
-  // Uses `routePassesZone` (same route-level test as scoreRoute +
-  // routeConditions) so the chip COUNTS match the chip presence and the
-  // score — including the line-based detection that catches a police
-  // POINT zone the per-waypoint test would miss between sparse waypoints.
-  // Comprehensive hazard chips for the route-preview card: counts of every
-  // charted hazard type (community flags, police, low-light, wildlife, road)
-  // the SELECTED route passes — via routePassesZone, the same route-level
-  // line-based test the score uses, so chip presence + counts + score all
-  // agree. Earlier this only counted OSM police + low-light, so community
-  // reports (and wildlife/road) couldn't turn off "All clear" — a route
-  // with felt-unsafe pins on it still read "All clear" (user-flagged
-  // 2026-06-03). Returns chips in ROUTE_HAZARD_ORDER; empty → truly clear.
-  const routeHazardChips = useMemo(() => {
-    if (!selectedRoute) return [] as { type: RouteHazardType; count: number; label: string }[];
-    const counts = {} as Record<RouteHazardType, number>;
-    const seen = new Set<string>();
-    for (const zone of enabledZones) {
-      const type = routeHazardType(zone);
-      if (!type) continue;
-      if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
-      const dedupeKey = `${type}:${zone.canonicalHazardKey ?? zone.id}`;
-      if (seen.has(dedupeKey)) continue;
-      seen.add(dedupeKey);
-      counts[type] = (counts[type] ?? 0) + 1;
-    }
-    return ROUTE_HAZARD_ORDER.filter((t) => (counts[t] ?? 0) > 0).map((t) => {
-      const count = counts[t];
-      return { type: t, count, label: count === 1 ? ROUTE_HAZARD_LABEL[t][0] : ROUTE_HAZARD_LABEL[t][1] };
-    });
-  }, [selectedRoute, enabledZones]);
-
-  // Safe-zone chips — the OFFSET that the hazards score against. Same
-  // routePassesZone predicate as the chips + score, counted ONCE per
-  // distinct safe zone (NOT per waypoint — "Franklin passes 27 waypoints
-  // in lit zones" is meaningless; "Franklin passes 3 lit-street
-  // stretches" is intelligible). Only computed when hazards are present
-  // (the caller skips rendering otherwise — All-clear alone is the
-  // clean state for a truly-clear route, and showing safe counts there
-  // would clutter without serving the "why" question this surfaces).
-  const routeSafeChips = useMemo(() => {
-    if (!selectedRoute) return [] as { type: RouteSafeType; count: number; label: string }[];
-    const counts = {} as Record<RouteSafeType, number>;
-    for (const zone of enabledZones) {
-      const type = routeSafeType(zone);
-      if (!type) continue;
-      if (!routePassesZone(selectedRoute.coordinates, zone)) continue;
-      counts[type] = (counts[type] ?? 0) + 1;
-    }
-    return ROUTE_SAFE_ORDER.filter((t) => (counts[t] ?? 0) > 0).map((t) => {
-      const count = counts[t];
-      return { type: t, count, label: count === 1 ? ROUTE_SAFE_LABEL[t][0] : ROUTE_SAFE_LABEL[t][1] };
-    });
-  }, [selectedRoute, enabledZones]);
 
   // On-route hazard markers — the yellow EnRouteZone teardrop dropped on
   // the route line at each OSM hazard the route passes (low-light /
@@ -1166,94 +821,6 @@ export default function Home() {
     );
   }, []);
 
-  // Read-only over scoring: is a trusted station near the selected route?
-  // ~150m tolerance — "near your way", looser than the ~78m station-
-  // identity match. Does NOT influence which route is chosen.
-  const trustedStationOnRoute = useMemo(() => {
-    if (!selectedRoute || preferredStations.length === 0) return false;
-    return preferredStations.some((s) =>
-      isPointNearPolyline(
-        { latitude: s.latitude, longitude: s.longitude },
-        selectedRoute.coordinates,
-        150,
-      ),
-    );
-  }, [selectedRoute, preferredStations]);
-
-  // "station" vs "charger" by fuel type (fuelProfile is the existing
-  // useFuelProfile() value — use the file's actual variable name).
-  const trustedNoun = fuelProfile?.fuelType === 'electric' ? 'charger' : 'station';
-
-  // Route-preview headline reveal — fire a single light haptic + a
-  // 240ms opacity fade on the "{N} min" text the first time a given
-  // destination's route resolves. The em-dash → minutes transition
-  // is the most important moment on the card and previously had no
-  // entrance. Keyed on destination+minutes so it doesn't refire on
-  // every re-render. Reduce Motion → skip the fade, fire the haptic
-  // (the haptic doesn't depend on motion).
-  const minutesOpacity = useRef(new Animated.Value(1)).current;
-  // Paired with minutesOpacity for the route-cycle entrance — when a
-  // chevron tap drove the selectedRoute change, the ETA slides in from
-  // the direction of the tap (right chevron → slides in from +24pt;
-  // left → from -24pt). Re-uses minutesOpacity's duration/easing so the
-  // fade and slide land together. Reduce Motion → skip the translate,
-  // keep the fade (the haptic carries the change either way).
-  const routeShiftX = useRef(new Animated.Value(0)).current;
-  const lastMinutesRevealKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!selectedRoute || !params.destLat || !params.destLng) return;
-    const key = `${params.destLat}|${params.destLng}|${selectedRoute.id}|${selectedRoute.estimatedMinutes}`;
-    if (lastMinutesRevealKeyRef.current === key) return;
-    const isFirstReveal = lastMinutesRevealKeyRef.current === null;
-    lastMinutesRevealKeyRef.current = key;
-    Haptics.selectionAsync().catch(() => {});
-    // Skip the fade on the very first reveal — without this, the
-    // card briefly renders the "—" placeholder, fades to "12 min",
-    // then the user sees the entrance. Better entrance is just
-    // "appears" on first paint; subsequent route-changes get the
-    // fade as a "we recalculated" cue.
-    if (!isFirstReveal && !reduceMotion) {
-      const cycleDir = lastCycleDirRef.current;
-      lastCycleDirRef.current = null;
-      minutesOpacity.setValue(0);
-      // cycleDir non-null = the change came from a chevron tap, so
-      // pair the fade with a directional slide-in. null = the change
-      // came from somewhere else (route refetch, map-tap on an alt
-      // line) — fade only, no slide.
-      if (cycleDir != null) {
-        routeShiftX.setValue(cycleDir * 24);
-        Animated.parallel([
-          Animated.timing(routeShiftX, {
-            toValue: 0,
-            duration: 240,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(minutesOpacity, {
-            toValue: 1,
-            duration: 240,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]).start();
-      } else {
-        Animated.timing(minutesOpacity, {
-          toValue: 1,
-          duration: 240,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  }, [
-    selectedRoute,
-    params.destLat,
-    params.destLng,
-    reduceMotion,
-    minutesOpacity,
-    routeShiftX,
-  ]);
-
   // Clustered report markers — groups nearby points at low zoom to
   // prevent overlapping pins in dense neighborhoods. Recomputes on
   // every pan/zoom (mapRegion change) and when reports update.
@@ -1261,25 +828,6 @@ export default function Home() {
     if (!mapRegion || !mapSize) return [];
     return clusterPointZones(enabledReportZones, mapRegion, mapSize.width, mapSize.height);
   }, [enabledReportZones, mapRegion, mapSize]);
-
-  /**
-   * Toggle the current destination in/out of the regular-destinations
-   * store. Triggered by the star/bookmark control on the route-preview
-   * card (rendered in A4). Uses distinct haptic feedback so marking
-   * feels rewarding (success) and unmarking feels neutral (selection).
-   */
-  function handleToggleRegular() {
-    if (!params.destLat || !params.destLng) return;
-    const lat = parseFloat(params.destLat);
-    const lng = parseFloat(params.destLng);
-    if (isRegularDestination) {
-      Haptics.selectionAsync().catch(() => {});
-      void unmarkRegular(lat, lng);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      void markRegular({ name: params.destName ?? 'Destination', latitude: lat, longitude: lng });
-    }
-  }
 
   /**
    * Recenter the map on the user's current location. Standard nav-app
@@ -1689,39 +1237,6 @@ export default function Home() {
   // real-time precision (the user isn't crossing neighborhood
   // boundaries every second of every drive).
   //
-  // Format priority: `subregion + city` → `city + region` →
-  // `region`. Subregion in Expo's reverse-geocode response often
-  // resolves to a neighborhood name in dense cities (e.g.
-  // "Williamsburg, Brooklyn"); city + region is the standard
-  // fallback ("Brooklyn, NY"); region alone is the last resort if
-  // the geocoder only got that far.
-  useEffect(() => {
-    if (!userLocation || neighborhoodLabel) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const results = await Location.reverseGeocodeAsync(userLocation);
-        if (cancelled) return;
-        const place = results[0];
-        if (!place) return;
-        const label =
-          place.subregion && place.city
-            ? `${place.subregion}, ${place.city}`
-            : place.city && place.region
-              ? `${place.city}, ${place.region}`
-              : place.region ?? null;
-        if (label) setNeighborhoodLabel(label);
-      } catch {
-        // Geocoder failures soft-fail — HomeBrowseSheet renders its
-        // generic "Your area" fallback. Not a degraded experience
-        // worth surfacing.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userLocation, neighborhoodLabel]);
-
   // Cold-start centering: animate to the user's first GPS fix exactly
   // once. The Mobile, AL `initialRegion` is a build-time default; for
   // any user not in Mobile it reads as "wrong city" until something
@@ -2339,159 +1854,19 @@ export default function Home() {
         Edge-indicator overlay — pills on the screen edge pointing to
         POIs that are currently outside the viewport. Updates on every
         pan/zoom (via mapRegion state) and renders in screen-space
-        rather than the map's native layer. pointerEvents="box-none"
-        keeps taps falling through to the map elsewhere.
+        rather than the map's native layer.
       */}
-      {mapRegion && mapSize && (() => {
-        // Chrome-aware insets: edge markers shouldn't land under the
-        // search bar / menu button stack (top), the Report/Recenter
-        // FAB stack (right), or the bottom sheet.
-        //
-        // The EdgeIndicator is a 72×72 box centered on its (x, y), so its
-        // body reaches 36pt past its center toward each edge. Each inset
-        // therefore clears the chrome's reach PLUS that 36pt half —
-        // earlier they cleared only the chrome, so the indicator's CENTER
-        // sat at the chrome edge and its body bled ~36pt into the right
-        // FAB column and ~4pt off the left screen edge (user-flagged
-        // 2026-06-03). The direction math (edgePositionForPoint) already
-        // points the arrow at the POI relative to map center; this only
-        // moves where on the inset rectangle it lands.
-        const chromeInsets = {
-          top: 232,          // search + menu stack (~196) + 36 indicator half
-          right: 112,        // FAB column (to 72 from right) + 36 half + buffer
-          bottom: (bottomSheetHeight || 0) + 64, // sheet + 64 (already > 36 half)
-          left: 44,          // 8 minimal chrome + 36 half — keeps it on-screen
-        };
-        return (
-        <View style={styles.edgeOverlay} pointerEvents="box-none">
-          {(() => {
-            const offScreen = enabledReportZones
-              .filter(
-                (z) =>
-                  z.geometry === 'point' &&
-                  z.coordinates.length > 0 &&
-                  !isPointInRegion(z.coordinates[0], mapRegion),
-              )
-              .map((zone) => ({
-                item: zone,
-                edge: edgePositionForPoint(zone.coordinates[0], mapRegion, mapSize, chromeInsets),
-              }));
-            const groups = groupEdgeIndicators(offScreen);
-            return groups.map((group, i) => {
-              const variant = variantForCategoryId(group.items[0].reportCategoryId);
-              const first = group.items[0].coordinates[0];
-              return (
-                <EdgeIndicator
-                  key={`edge-group-${i}`}
-                  x={group.edge.x}
-                  y={group.edge.y}
-                  rotation={group.edge.rotation}
-                  variant={variant}
-                  // Pass the category id of the first item so single-
-                  // pin clusters render the correct per-category glyph
-                  // (e.g. lighting → bulb, not the variant-default eye).
-                  // Multi-pin clusters get the counter anyway, which
-                  // overrides the glyph at render time.
-                  categoryId={group.items[0].reportCategoryId}
-                  subTag={group.items[0].reportSubTag}
-                  count={group.items.length}
-                  accessibilityLabel={
-                    group.items.length === 1
-                      ? `${group.items[0].label} (off-screen — tap to center)`
-                      : `${group.items.length} reports nearby (off-screen — tap to zoom)`
-                  }
-                  onPress={() => {
-                    if (group.items.length === 1) {
-                      mapRef.current?.animateToRegion(
-                        {
-                          latitude: first.latitude,
-                          longitude: first.longitude,
-                          latitudeDelta: mapRegion.latitudeDelta,
-                          longitudeDelta: mapRegion.longitudeDelta,
-                        },
-                        400,
-                      );
-                    } else {
-                      const coords = group.items.map((z) => z.coordinates[0]);
-                      mapRef.current?.animateToRegion(
-                        regionToRevealCoordinates(
-                          coords,
-                          mapSize.width,
-                          mapSize.height,
-                        ),
-                        400,
-                      );
-                    }
-                  }}
-                />
-              );
-            });
-          })()}
-          {home && !isPointInRegion(home, mapRegion) && (
-            (() => {
-              const edge = edgePositionForPoint(home, mapRegion, mapSize, chromeInsets);
-              return (
-                <EdgeIndicator
-                  x={edge.x}
-                  y={edge.y}
-                  rotation={edge.rotation}
-                  variant="positive"
-                  categoryId="home"
-                  accessibilityLabel={`${home.name} (off-screen — tap to center)`}
-                  onPress={() =>
-                    mapRef.current?.animateToRegion(
-                      {
-                        latitude: home.latitude,
-                        longitude: home.longitude,
-                        latitudeDelta: mapRegion.latitudeDelta,
-                        longitudeDelta: mapRegion.longitudeDelta,
-                      },
-                      400,
-                    )
-                  }
-                />
-              );
-            })()
-          )}
-          {trustedContact?.latitude != null &&
-            trustedContact.longitude != null &&
-            !isPointInRegion(
-              {
-                latitude: trustedContact.latitude,
-                longitude: trustedContact.longitude,
-              },
-              mapRegion,
-            ) &&
-            (() => {
-              const point = {
-                latitude: trustedContact.latitude!,
-                longitude: trustedContact.longitude!,
-              };
-              const edge = edgePositionForPoint(point, mapRegion, mapSize, chromeInsets);
-              return (
-                <EdgeIndicator
-                  x={edge.x}
-                  y={edge.y}
-                  rotation={edge.rotation}
-                  variant="positive"
-                  categoryId="trusted-friend"
-                  accessibilityLabel={`${trustedContact.name} (off-screen — tap to center)`}
-                  onPress={() =>
-                    mapRef.current?.animateToRegion(
-                      {
-                        ...point,
-                        latitudeDelta: mapRegion.latitudeDelta,
-                        longitudeDelta: mapRegion.longitudeDelta,
-                      },
-                      400,
-                    )
-                  }
-                />
-              );
-            })()}
-        </View>
-        );
-      })()}
+      {mapRegion && mapSize && (
+        <HomeEdgeIndicatorLayer
+          mapRegion={mapRegion}
+          mapSize={mapSize}
+          enabledReportZones={enabledReportZones}
+          home={home}
+          trustedContact={trustedContact}
+          bottomSheetHeight={bottomSheetHeight}
+          mapRef={mapRef}
+        />
+      )}
 
       {/*
         Top overlay: search bar + menu button. pointerEvents="box-none"
@@ -2651,7 +2026,6 @@ export default function Home() {
           // capped maxHeight bounds the scroller's `flex: 1`.
           <HomeBrowseSheet
             firstName={userFirstName}
-            neighborhoodLabel={neighborhoodLabel}
             userLocation={userLocation}
             refreshKey={focusRefreshKey}
             collapsed={thingsToDoCollapsed}
@@ -2688,491 +2062,25 @@ export default function Home() {
             }}
           />
         ) : (
-          <>
-        {/*
-          Route-preview card per Figma 1109:3264 ("Route (Default)").
-          Layout top-to-bottom: "{N} min" headline (wiltedgreen) on the
-          left + daylight strip on the right, "Via {street}" sub-row,
-          conditions caption, zone-warning chips, then the actions row.
-          The pre-Round-5 "Ready to face the day?" greeting is dropped
-          from this state — Figma replaces it with the trip headline.
-
-          Street-name extraction (real OSRM step data) is a follow-up.
-          For now `params.destName` is used as the "Via" target — for
-          most cases it's the destination POI name rather than the
-          actual street, but the row reads naturally either way.
-
-          Clear-destination X sits absolutely at the top-right of the
-          card content. Figma doesn't show it in the actions row, but
-          dropping the affordance entirely leaves no one-tap escape
-          back to browse mode — search-bar + pick-new-dest is too
-          many steps. Same fillsTertiary circular pattern as the
-          recordings delete-confirm modal X.
-        */}
-        <ScrollView
-          style={styles.bottomSheetScroll}
-          contentContainerStyle={styles.bottomSheetContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/*
-            Clear-destination row — right-aligned 44pt X plus, when
-            there's more than one route, a chevron pair to switch
-            between them. Chevrons sit immediately left of the X so
-            all three controls right-align together as one cluster.
-            Previously the chevrons flanked the ETA inline (with a
-            swipe gesture as the primary interaction); user-flagged
-            2026-06-03 — that interrupted the headline's reading
-            flow, so they moved up here and the gesture became a
-            tap + a directional slide-in animation on the ETA.
-          */}
-          <View style={styles.routeTopRow}>
-            {routes.length > 1 && (
-              <>
-                <Pressable
-                  onPress={() => cycleRoute(-1)}
-                  disabled={!canPrevRoute}
-                  accessibilityRole="button"
-                  accessibilityLabel="Previous route"
-                  accessibilityState={{ disabled: !canPrevRoute }}
-                  style={({ pressed }) => [
-                    tapTarget44,
-                    !canPrevRoute && styles.routeCycleBtnDisabled,
-                    pressed && canPrevRoute && pressedDim,
-                  ]}
-                >
-                  <CaretLeft size={22} weight="bold" color={colors.labelSecondary} />
-                </Pressable>
-                {/* Sighted route count — the chevron pair alone doesn't say
-                    how many alternates exist; this anchors "where am I in
-                    the set." VoiceOver already gets it from the ETA label,
-                    so hide this from AT to avoid a double read. */}
-                <Text
-                  style={styles.routeCountLabel}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                >
-                  {selectedIndex + 1} of {routes.length}
-                </Text>
-                <Pressable
-                  onPress={() => cycleRoute(1)}
-                  disabled={!canNextRoute}
-                  accessibilityRole="button"
-                  accessibilityLabel="Next route"
-                  accessibilityState={{ disabled: !canNextRoute }}
-                  style={({ pressed }) => [
-                    tapTarget44,
-                    !canNextRoute && styles.routeCycleBtnDisabled,
-                    pressed && canNextRoute && pressedDim,
-                  ]}
-                >
-                  <CaretRight size={22} weight="bold" color={colors.labelSecondary} />
-                </Pressable>
-              </>
-            )}
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                // router.replace with no params clears destLat/destLng/
-                // destName from the URL; /home re-renders in browse mode.
-                router.replace({ pathname: '/home', params: {} });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Clear destination and return to browsing"
-              style={({ pressed }) => [styles.routeClearBtn, pressed && pressedDim]}
-            >
-              <X size={16} color={colors.labelSecondary} weight="bold" />
-            </Pressable>
-          </View>
-
-          {/*
-            Route-preview body — three branches:
-              1. Calculating — fetch in flight, no data yet. Render
-                 LoadingState ("Calculating route…") so the user knows
-                 work is happening, especially on long-route fetches
-                 that can take a few seconds.
-              2. No-route — Mapbox+OSRM both said the destination is
-                 unroutable (transoceanic, road-network disconnect,
-                 or beyond MAX_ROUTE_DISTANCE_MILES). Render EmptyState
-                 with copy that prompts the user to pick something else.
-              3. Default — route is loaded. Existing headline + via +
-                 caption + chips render. The Clear-X above stays
-                 mounted across all three branches so the user can
-                 escape back to browse mode.
-          */}
-          {isCalculatingRoute ? (
-            <LoadingState text="Mapping the safest way there…" style={styles.routePreviewState} />
-          ) : routeFetchSource === 'no-route' ? (
-            // Interim no-route empty state: wiltedgreen Path glyph until a
-            // bespoke illustration lands (see next-session if revisiting).
-            // The wrapping View is the single a11y node (icon is decorative;
-            // the label carries the meaning).
-            <View
-              style={styles.noRouteState}
-              accessible
-              accessibilityRole="text"
-              accessibilityLabel={`No route available. We couldn’t find a driving route to ${params.destName ?? 'your destination'}. Try a different destination.`}
-            >
-              <PathIcon size={40} color={colors.wiltedgreen} weight="duotone" />
-              <View style={styles.noRouteText}>
-                <Text style={styles.noRouteHeadline}>No route available</Text>
-                <Text style={styles.noRouteBody}>
-                  We couldn’t find a driving route to{' '}
-                  {params.destName ?? 'your destination'}. Try a different
-                  destination.
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <>
-          {/*
-            Trip-summary block — destination title, hero duration +
-            arrival, and distance are ONE unit, so they sit in a tight
-            4pt group rather than each taking the card's 16pt inter-row
-            gap (which read airy/sparse when applied between these three
-            closely-related lines).
-          */}
-          <View style={styles.routeSummaryBlock}>
-          {/*
-            Destination title — card title + tappable save-as-regular
-            toggle. Saved regulars show the bookmark glyph (not underline).
-          */}
-          <Pressable
-            onPress={handleToggleRegular}
-            accessibilityRole="button"
-            accessibilityLabel={`${params.destName ?? 'Destination'}. ${
-              isRegularDestination ? 'Saved as a regular' : 'Not a regular'
-            }.`}
-            accessibilityHint={
-              isRegularDestination
-                ? 'Removes this destination from your regulars'
-                : 'Saves this destination as a regular'
-            }
-            style={({ pressed }) => [styles.routeDestTitleHit, pressed && pressedDim]}
-          >
-            <View style={styles.routeDestTitleRow}>
-              <Text style={styles.routeDestTitle} numberOfLines={1}>
-                {params.destName ?? 'your destination'}
-              </Text>
-              {/* Bookmark is always present as the save affordance — hollow
-                  (default) when not yet saved so the action is discoverable
-                  before the tap, filled (selected) once saved. Trailing,
-                  per the iOS Maps/Reminders save-affordance convention. */}
-              <SavedPlaceBookmark
-                size={16}
-                variant={isRegularDestination ? 'selected' : 'default'}
-              />
-            </View>
-          </Pressable>
-
-          {/*
-            Hero row: "{N} min" headline + promoted arrival time.
-            routeHeroRow owns the 24pt gutter so the old routeHeadlineRow
-            wrapper (which also had paddingHorizontal: 24) is gone —
-            the Animated.Text is moved directly inside here to avoid
-            double-padding. The animated style array is preserved verbatim.
-          */}
-          <View style={styles.routeHeroRow}>
-            {/* ETA — reads clean as the headline number. Route-switching
-                lives in the chevron pair in routeTopRow above (tap to
-                advance) and as direct taps on the gray alternate route
-                lines on the map. The translateX paired with opacity gives
-                the ETA a directional slide-in when a chevron drives the
-                change — right chevron → slides in from +24pt, left chevron
-                → from -24pt — so the swap feels spatially anchored to
-                which side was tapped. */}
-            <Animated.Text
-              style={[
-                styles.routeMinutes,
-                { opacity: minutesOpacity, transform: [{ translateX: routeShiftX }] },
-              ]}
-              accessibilityLabel={`${
-                selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : 'No route'
-              }${routes.length > 1 ? `, route ${selectedIndex + 1} of ${routes.length}` : ''}`}
-              // S3 of PR E review: defensive numberOfLines at 34pt. The
-              // current longest formatDuration output ("59 hr 59 min")
-              // fits comfortably on SE (~200pt vs 272pt available), but
-              // future copy expansion or localization shouldn't be able
-              // to wrap the headline number to a second line and break
-              // the card's vertical rhythm. Matches the H17 guard.
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >
-              {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
-            </Animated.Text>
-            {(arrivalTime || distanceLabel) && (
-              <View
-                style={styles.routeMetaCluster}
-                accessibilityRole="text"
-                accessibilityLabel={[
-                  arrivalTime ? `arrive ${arrivalTime}` : null,
-                  distanceLabel,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
-              >
-                {arrivalTime && (
-                  <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>
-                )}
-                {arrivalTime && distanceLabel && (
-                  <MetaSeparator style={styles.routeMetaSeparator} />
-                )}
-                {distanceLabel && (
-                  <Text style={styles.routeDistance}>{distanceLabel}</Text>
-                )}
-              </View>
-            )}
-          </View>
-          </View>
-
-          {recommended &&
-            (tripZonesFetchFailed ||
-              routeHazardChips.length > 0 ||
-              (tripZonesStatus === 'ready' && tripZonesCorridorComplete)) && (
-            <>
-            <RouteChipsAnimatedWrap style={styles.routeChipsBlock}>
-              {tripZonesFetchFailed ? (
-                <View style={styles.routeChipsRow} accessibilityLiveRegion="polite">
-                  <RouteZonesFetchFailedChip
-                    onRetry={() => setCorridorRetryTick((t) => t + 1)}
-                  />
-                </View>
-              ) : routeHazardChips.length > 0 ? (
-                <>
-                  <Text style={styles.routeChipsHeader}>Along this route:</Text>
-                  <View
-                    style={styles.routeChipsRow}
-                    // Hazards then safes in one sentence — VoiceOver gets
-                    // the full picture instead of just the negative half.
-                    accessibilityLabel={[
-                      ...routeHazardChips.map((c) => `${c.count} ${c.label}`),
-                      ...routeSafeChips.map((c) => `${c.count} ${c.label}`),
-                    ]
-                      .join(', ')
-                      .concat(' along this route.')}
-                  >
-                    {routeHazardChips.map((c) => (
-                      <RouteWarningChip
-                        key={c.type}
-                        count={c.count}
-                        label={c.label}
-                        onPress={() => handleRouteHazardChipPress(c.type)}
-                      />
-                    ))}
-                    {/* Safe-zone chips render AFTER the hazards — they're
-                        the offset that lets a hazard-heavier route win on
-                        net score (e.g. Franklin Ave's many lit-street
-                        stretches outweigh its 2 community flags). Showing
-                        the negative half alone made the recommendation
-                        feel wrong (user-flagged 2026-06-04). */}
-                    {routeSafeChips.map((c) => (
-                      <RouteSafeChip
-                        key={c.type}
-                        count={c.count}
-                        label={c.label}
-                        onPress={() => handleRouteSafeChipPress(c.type)}
-                      />
-                    ))}
-                  </View>
-                </>
-              ) : (
-                <View
-                  style={styles.routeChipsRow}
-                  accessibilityLabel={
-                    selectedRoute &&
-                    pathLengthMeters(selectedRoute.coordinates) >
-                      LONG_TRIP_COPY_METERS
-                      ? ALL_CLEAR_A11Y_LONG_TRIP
-                      : 'No reported hazards or flagged zones along this route.'
-                  }
-                >
-                  <RouteAllClearChip />
-                </View>
-              )}
-            </RouteChipsAnimatedWrap>
-            {selectedRoute &&
-              pathLengthMeters(selectedRoute.coordinates) >
-                LONG_TRIP_COPY_METERS &&
-              tripZonesStatus === 'ready' &&
-              tripZonesCorridorComplete &&
-              !tripZonesFetchFailed && (
-                <Text
-                  style={[
-                    styles.routeChipsFootnote,
-                    dynamicType(typography.footnoteRegular),
-                  ]}
-                  accessibilityRole="text"
-                >
-                  {LONG_TRIP_FOOTNOTE_COPY}
-                </Text>
-              )}
-            </>
-          )}
-
-          {/*
-            Via + daylight share a row — both secondary context. The
-            via label flexes to fill the left column, daylight strip
-            anchors the right at its fixed 96pt width.
-
-            "Via" surfaces the *main road* the recommended route takes
-            (the longest named step), the Google/Waze convention — the
-            destination already lives in the title above, so repeating
-            it here is redundant. We fall back to the destination name
-            only when the route source returned no named geometry
-            (mock / step-less routes).
-
-            Via never carries the saved-regular marker — the title owns it.
-          */}
-          <View style={styles.routeViaRow}>
-            <Text style={styles.routeViaLabel} numberOfLines={1}>
-              Via {viaRoad ?? params.destName ?? 'your destination'}
-            </Text>
-            <DaylightRouteLegend
-              cloudCoverPct={cloudCoverPct}
-              style={styles.daylightStripInline}
-            />
-          </View>
-
-          {recommended && trustedStationOnRoute && (
-            <View style={styles.trustedOnRouteRow}>
-              <Star size={16} color={colors.burntgreen} weight="fill" />
-              <Text style={styles.trustedOnRouteText}>
-                A {trustedNoun} you trust is on this route.
-              </Text>
-            </View>
-          )}
-
-          {suggestedDeparture && (
-            <View style={styles.tradeoffRow}>
-              <Text
-                style={[
-                  styles.tradeoffCopy,
-                  dynamicType(relaxedLineHeight(typography.footnoteRegular)),
-                ]}
-              >
-                Heads up! You can leave in a bit and still make it on time with
-                some added daylight on your route.
-              </Text>
-            </View>
-          )}
-            </>
-          )}
-        </ScrollView>
-
-        {/*
-          Actions row — Schedule (outline wiltedgreen) on the left,
-          Go (filled freshgreen) on the right per Figma 1109:3264.
-          When suggestedDeparture is null, the Schedule slot collapses
-          and Go takes the full width.
-
-          Hidden during calculating and no-route states — no Go/Schedule
-          target exists in those branches. Clear-X stays available
-          above as the only escape.
-
-          Clear-destination X was dropped from this row in the v2
-          redesign. To return to browse mode, the user taps the search
-          bar at the top and picks a different destination, or system-
-          back out of /home. A floating X may return as a future polish
-          PR if the loss of affordance bites in practice.
-        */}
-        {!isCalculatingRoute && routeFetchSource !== 'no-route' && (
-        <View style={styles.actionsRow}>
-          {suggestedDeparture && (
-            <Pressable
-              style={({ pressed }) => [styles.scheduleBtn, pressed && pressedDim]}
-              onPress={async () => {
-                Haptics.selectionAsync().catch(() => {});
-                const timeLabel = formatTimeOfDay(suggestedDeparture);
-                // Real local-notification scheduling via expo-notifications.
-                // The helper requests permission inline on first use; result
-                // shape lets us pick the right Alert per outcome.
-                const result = await scheduleDepartureNotification(
-                  suggestedDeparture,
-                  params.destName,
-                );
-                if (result.ok) {
-                  Haptics.notificationAsync(
-                    Haptics.NotificationFeedbackType.Success,
-                  ).catch(() => {});
-                  Alert.alert(
-                    `Scheduled for ${timeLabel}`,
-                    `We'll send a heads-up at ${timeLabel} so you can leave when the daylight's right.`,
-                    [{ text: 'Got it' }],
-                  );
-                } else if (result.reason === 'permission-denied') {
-                  Alert.alert(
-                    'Notification access needed',
-                    'Allow Notifications in Settings to get a heads-up when it\'s time to leave. You can still leave at the suggested time manually.',
-                  );
-                } else if (result.reason === 'past-time') {
-                  Alert.alert(
-                    "Can't schedule that time",
-                    "That moment has already passed. Try picking a new destination.",
-                  );
-                } else {
-                  const { title, body } = getErrorMessage('save', 'transient');
-                  Alert.alert(title, body);
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
-            >
-              {/*
-                H17: numberOfLines + adjustsFontSizeToFit so "Schedule
-                for 7:30 AM" (~130-135pt at 13pt) doesn't overflow on
-                iPhone SE (per-button width ~120pt at 320pt viewport).
-                accessibilityLabel above retains the full phrase.
-              */}
-              <Text
-                style={styles.scheduleText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-              >
-                Schedule for {formatTimeOfDay(suggestedDeparture)}
-              </Text>
-            </Pressable>
-          )}
-
-          <Pressable
-            style={({ pressed }) => [styles.goBtn, pressed && pressedDim]}
-            onPress={() =>
-              router.push({
-                pathname: '/en-route',
-                params: {
-                  ...(params.destLat ? { destLat: params.destLat } : {}),
-                  ...(params.destLng ? { destLng: params.destLng } : {}),
-                  ...(params.destName ? { destName: params.destName } : {}),
-                  // Prime /en-route with the SELECTED route's
-                  // estimatedMinutes + distanceMeters so its ETA,
-                  // duration, and mileage all render immediately on
-                  // mount instead of waiting for /en-route's own
-                  // OSRM fetch to resolve. /en-route still re-fetches
-                  // and refines the values; this just removes the
-                  // visible "—" placeholders during the network call.
-                  // destRouteRank carries WHICH route the user chose
-                  // (0 = recommended/safest, 1+ = an alternate) so
-                  // /en-route starts navigating that one, not its own
-                  // default recommended.
-                  ...(selectedRoute
-                    ? {
-                        destEstMinutes: String(selectedRoute.estimatedMinutes),
-                        destDistanceMeters: String(selectedRoute.distanceMeters),
-                        destRouteRank: String(Math.max(0, selectedIndex)),
-                      }
-                    : {}),
-                },
-              })
-            }
-            accessibilityRole="button"
-            accessibilityLabel="Start navigation"
-          >
-            <ArrowRight size={24} color={colors.white} weight="bold" />
-            <Text style={styles.goText}>Go</Text>
-          </Pressable>
-        </View>
-        )}
-          </>
+          <RoutePreviewCard
+            routes={routes}
+            recommended={recommended}
+            selectedRoute={selectedRoute}
+            onSelectRoute={setSelectedRouteId}
+            enabledZones={enabledZones}
+            params={params}
+            cloudCoverPct={cloudCoverPct}
+            isCalculatingRoute={isCalculatingRoute}
+            routeFetchSource={routeFetchSource}
+            tripZonesStatus={tripZonesStatus}
+            tripZonesFetchFailed={tripZonesFetchFailed}
+            tripZonesCorridorComplete={tripZonesCorridorComplete}
+            onCorridorRetry={() => setCorridorRetryTick((t) => t + 1)}
+            onHazardChipPress={handleRouteHazardChipPress}
+            onSafeChipPress={handleRouteSafeChipPress}
+            preferredStations={preferredStations}
+            fuelType={fuelProfile?.fuelType}
+          />
         )}
       </SafeAreaView>}
 
@@ -3250,52 +2158,10 @@ export default function Home() {
 
       {/* Placement mode controls — confirm / cancel bar at the bottom. */}
       {placingReport && (
-        <SafeAreaView
-          style={styles.placementBar}
-          edges={['bottom']}
-          pointerEvents="box-none"
-        >
-          <View style={styles.placementDragHandleWrap}>
-            <DragHandle />
-          </View>
-          <View style={styles.placementBarInner}>
-            {/*
-              Subtle placement hint. Figma v2 (1109:8139) had dropped this
-              on the theory the orange pin's visual affordance was
-              self-evident — but live testing showed users didn't realize
-              the pin moves on map-tap, so it's restored as quiet
-              footnote copy (usability over the Figma call). Sits 16pt
-              above the action row via placementBarInner's gap.
-            */}
-            <Text style={styles.placementHint}>
-              Tap the map to move the pin. Drag to move around.
-            </Text>
-            <View style={styles.placementActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.placementConfirm,
-                  pressed && pressedDim,
-                ]}
-                onPress={handleConfirmPlacement}
-                accessibilityRole="button"
-                accessibilityLabel="Confirm report location"
-              >
-                <Text style={styles.placementConfirmText}>Confirm</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.placementCancel,
-                  pressed && pressedDim,
-                ]}
-                onPress={handleCancelPlacement}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel report placement"
-              >
-                <X size={20} color={colors.labelSecondary} weight="bold" />
-              </Pressable>
-            </View>
-          </View>
-        </SafeAreaView>
+        <HomePlacementOverlay
+          onConfirm={handleConfirmPlacement}
+          onCancel={handleCancelPlacement}
+        />
       )}
 
       {/* Report detail card — appears when tapping an on-map marker.
@@ -3439,143 +2305,6 @@ export default function Home() {
   );
 }
 
-/**
- * Inline chip for the route-preview card's zone-warning row (Figma
- * 1109:3264). Each chip is a light pill with an orange WarningDiamond
- * icon on the left and a count-prefixed label on the right
- * ("1 police zone"). Rendered conditionally — chips never show with
- * count=0. The accessibilityLabel is provided at the row level (so
- * VoiceOver reads "1 police zone and 1 low-light zone along this
- * route" once, not per-chip).
- */
-function RouteChipsAnimatedWrap({
-  children,
-  style,
-}: {
-  children: ReactNode;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const entrance = useEntranceAnimation(0);
-  return <Animated.View style={[style, entrance.style]}>{children}</Animated.View>;
-}
-
-function RouteWarningChip({
-  count,
-  label,
-  onPress,
-}: {
-  count: number;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.routeChip,
-        styles.routeChipPressable,
-        pressed && pressedDim,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={`Show ${count} ${label} on map`}
-    >
-      {/* H4: 24pt → 16pt. Chip is ~40pt tall; a 24pt glyph filled 60%
-          of the pill height and dominated the chip's tag-row register.
-          16pt matches the topline-callout chip family's icon weight. */}
-      <WarningDiamond size={16} color={colors.orange} weight="fill" />
-      <Text style={styles.routeChipText}>
-        {count} {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-/**
- * Positive counterpart to RouteWarningChip. Renders when the route
- * has zero police/low-light intersections — the most reassuring
- * read on the route-preview card is "we checked and you're clear,"
- * and an absent chips row reads as "feature not loaded." Single
- * fadedgreen pill with a check glyph, same row position as the
- * warning chips so the slot stays consistent across route variants.
- */
-function RouteAllClearChip() {
-  return (
-    <View style={styles.routeAllClearChip} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {/* H4: 24pt → 16pt to match RouteWarningChip icon sizing. */}
-      <Check size={16} color={colors.burntgreen} weight="bold" />
-      <Text style={styles.routeAllClearText}>All clear</Text>
-    </View>
-  );
-}
-
-/** Gray chip while OSM zones for this trip are still loading / refining. */
-function RouteZonesLoadingChip() {
-  return (
-    <View
-      style={styles.routeZonesLoadingChip}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <ActivityIndicator size="small" color={colors.labelSecondary} />
-      <Text style={styles.routeZonesLoadingText}>Checking route…</Text>
-    </View>
-  );
-}
-
-/** Gray chip when corridor OSM fetch failed — not All clear. */
-function RouteZonesFetchFailedChip({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Pressable
-      onPress={onRetry}
-      style={({ pressed }) => [styles.routeZonesRetryChip, pressed && pressedDim]}
-      accessibilityRole="button"
-      accessibilityLabel="Couldn't check this route for hazards"
-      accessibilityHint="Re-checks this route for hazards"
-    >
-      <ArrowClockwise size={16} color={colors.labelSecondary} weight="bold" />
-      <Text style={styles.routeZonesLoadingText}>Couldn&apos;t check route</Text>
-      <MetaSeparator style={styles.routeZonesMetaSeparator} />
-      <Text style={styles.routeZonesLoadingText}>Retry</Text>
-    </Pressable>
-  );
-}
-
-/**
- * Safe-zone chip — renders alongside the orange RouteWarningChips in the
- * "Along this route:" row to surface what's OFFSETTING the visible
- * hazards (lit streets the route passes, residential blocks, etc.).
- * Same fadedgreen/burntgreen safety-affirmative register as
- * RouteAllClearChip, distinguished from the warning chips by color (not
- * shape) and by a smaller Check glyph matching the family's 16pt icon
- * scale. Visually says "this counts FOR the route's safety."
- */
-function RouteSafeChip({
-  count,
-  label,
-  onPress,
-}: {
-  count: number;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.routeAllClearChip,
-        styles.routeChipPressable,
-        pressed && pressedDim,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={`Show ${count} ${label} on map`}
-    >
-      <Check size={16} color={colors.burntgreen} weight="bold" />
-      <Text style={styles.routeAllClearText}>
-        {count} {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 const styles = StyleSheet.create({
   root: {
@@ -3622,13 +2351,6 @@ const styles = StyleSheet.create({
   mapCoachButtonText: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.white,
-  },
-  edgeOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   topOverlay: {
     position: 'absolute',
@@ -3719,365 +2441,6 @@ const styles = StyleSheet.create({
   bottomSheetContent: {
     gap: spacing.md,
   },
-  // Wraps the LoadingState card rendered inside the route-preview
-  // bottom sheet during the calculating state. (The no-route state no
-  // longer uses this — it renders inline via noRouteState below.)
-  // Negative top margin pulls the card up toward the Clear-X row so
-  // the card doesn't sit awkwardly low; alignSelf:center keeps the
-  // fixed-width state card horizontally centered against the wider
-  // sheet content padding.
-  routePreviewState: {
-    marginTop: -spacing.sm,
-    alignSelf: 'center',
-  },
-  // A21 interim no-route state. Mirrors the populated route-preview
-  // card's vocabulary — 24pt left gutter, wiltedgreen headline,
-  // labelTertiary supporting line, white sheet surface — so it reads
-  // as part of the sheet rather than a borrowed gray EmptyState card.
-  // Left-aligned (like the headline/via/caption stack), icon above the
-  // text block.
-  noRouteState: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    gap: spacing.md,
-    alignItems: 'flex-start',
-  },
-  noRouteText: {
-    gap: spacing.xs,
-  },
-  noRouteHeadline: {
-    // title3Emphasized (not the 34pt largeTitle of "12 min") — a
-    // measured empty-state weight that won't shout or wrap, sharing
-    // the populated headline's wiltedgreen accent.
-    ...dynamicType(typography.title3Emphasized),
-    color: colors.wiltedgreen,
-  },
-  noRouteBody: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-  },
-  // (Browse-sheet scroller styles moved into HomeBrowseSheet, which
-  // now owns its own ScrollView so the category chips can pin via
-  // stickyHeaderIndices.)
-  headers: {
-    gap: spacing.sm,
-  },
-  // v1 route-preview styles removed in Round 5 (greeting / greetingRow
-  // / daylightStrip / mainCopyRow / mainCopy / minutes). See git blame.
-  // `destination` kept — new layout still uses it for the
-  // recurring-destination underline.
-  // --- Route-preview card (Figma 1109:3264) ---
-  // Trip-summary group — title + hero (duration/arrival) + distance read
-  // as one unit, so they cluster at 4pt instead of the card's 16pt
-  // inter-row gap. Children keep their own 24pt horizontal gutter.
-  routeSummaryBlock: {
-    gap: spacing.xs,
-  },
-  // Wraps the destination-title Text so the tappable save-as-regular
-  // affordance meets the 44pt painted floor — the 20pt title alone is
-  // ~25pt tall, and .cursorrules forbids hitSlop as the compliance
-  // mechanism for a standalone CTA. minHeight + center, not hitSlop.
-  routeDestTitleHit: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  routeDestTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  // Destination title — card title + tappable save-as-regular toggle.
-  routeDestTitle: {
-    ...dynamicType(typography.title3Emphasized),
-    color: colors.black,
-    flex: 1,
-  },
-  // Hero row: headline + arrival time on the same baseline.
-  // Owns the 24pt gutter; the old routeHeadlineRow wrapper is gone.
-  routeHeroRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  // Arrival + distance meta cluster — grouped so the interpunct sits
-  // between siblings with symmetric padding, not after a flex gap.
-  routeMetaCluster: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingBottom: spacing.sm,
-  },
-  // Arrival clock time — sits baseline-aligned with the duration headline.
-  routeArrival: {
-    ...dynamicType(typography.subheadlineRegular),
-    color: colors.labelSecondary,
-  },
-  routeMetaSeparator: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-  },
-  routeDistance: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-  },
-  routeMinutes: {
-    // H12: title2Emphasized (22pt) → largeTitleEmphasized (34pt). The
-    // "12 min" is the route card's anchor number — at 22pt it read
-    // as a section header, not as the headline. Waze and Apple Maps
-    // put their ETA in the 34-36pt range. The card already has a
-    // type ladder beneath (footnote Via line, caption1 conditions)
-    // so the 34pt headline doesn't crush anything.
-    ...dynamicType(typography.largeTitleEmphasized),
-    color: colors.wiltedgreen,
-  },
-  // Via + daylight strip share a row per Figma — both are secondary
-  // context (street name + arrival-light forecast). Via flexes to
-  // fill, daylight strip anchors right at its fixed 96pt width.
-  routeViaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  daylightStripInline: {
-    // Fixed 96pt right-column width per Figma. The width is shared
-    // with the v1 standalone placement — only the parent row context
-    // changed (now paired with via, not the headline).
-    width: 96,
-    gap: spacing.xs,
-  },
-  routeViaLabel: {
-    // Bolder pass: color shifted from labelTertiary → labelSecondary.
-    // The via line carries the road-name signal (Google/Waze convention)
-    // and reads with more confidence at the secondary tier — tertiary
-    // gray was washed out enough to look like an afterthought beside
-    // the 34pt headline. Weight stays Regular so it remains subordinate
-    // to the headline and destination title.
-    ...dynamicType(typography.subheadlineRegular),
-    color: colors.labelSecondary,
-    // flex into the left column so the daylight strip on the right
-    // gets its fixed 96pt while the via text takes whatever's left.
-    flex: 1,
-  },
-  routeConditionsCaption: {
-    // footnoteRegular (13pt) — bumped from caption1Regular (12pt) to
-    // match the conditions tail's increased role: it now surfaces the
-    // arrivalLabel ("arriving in daylight" etc.) that was previously
-    // only in the VoiceOver a11y label. labelSecondary (#3C3C43)
-    // provides ~7:1 contrast on white vs labelTertiary's ~5:1.
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelSecondary,
-    paddingHorizontal: spacing.lg,
-  },
-  trustedOnRouteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.lg,
-  },
-  trustedOnRouteText: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.burntgreen,
-  },
-  routeChipsBlock: {
-    gap: spacing.sm,
-    // H16: lifted paddingHorizontal from each child (routeChipsHeader,
-    // routeChipsRow) to the parent. Earlier pattern had each child
-    // re-declare 24 independently — fragile coupling that would break
-    // if a new chip type was added without copying the value.
-    paddingHorizontal: spacing.lg,
-  },
-  routeChipsFootnote: {
-    color: colors.labelTertiary,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  routeChipsHeader: {
-    // Briefing-framing header above the chips ("Along this route:")
-    // — reframes the orange WarningDiamond chips from alarm to
-    // informational, per the mobile-ux audit on PR B.
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-  },
-  routeChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  // Clear-destination row — dedicated top slot so the 44pt X doesn't
-  // overlap the daylight strip's moon glyph below. Also houses the
-  // route-cycle chevron pair (when there's >1 route), sitting left of
-  // the X so all three controls right-align as one cluster. alignItems
-  // centers the smaller chevrons vertically against the 44pt X. The
-  // chevrons are bare (transparent bg) so the X stays the only filled
-  // circle in the row — three fillsTertiary circles would read heavy.
-  routeTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-  },
-  // Disabled state — route-cycle chevrons use shared tapTarget44. — chevron stays visible but the whole control dims
-  // so users see "you've reached the end of the list, this direction is
-  // unavailable" rather than the affordance vanishing. Earlier rev
-  // rendered the caret transparent at the ends; user-flagged 2026-06-03
-  // — disappearing chevrons look broken, dimmed chevrons read as
-  // "off." Opacity on the wrapper is the iOS-standard disabled-button
-  // treatment (the Pressable's `disabled` prop already cuts taps).
-  routeCycleBtnDisabled: {
-    opacity: 0.25,
-  },
-  routeCountLabel: {
-    ...dynamicType(typography.caption1Regular),
-    color: colors.labelTertiary,
-    minWidth: 44,
-    textAlign: 'center',
-  },
-  // 44pt painted tap target per HIG, same fillsTertiary circular
-  // treatment as the recordings delete-confirm modal X for visual
-  // consistency across destructive-or-dismissal affordances.
-  routeClearBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.xl,
-    backgroundColor: colors.fillsTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  routeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.slightlyDarkOrange,
-    backgroundColor: colors.white,
-  },
-  routeChipPressable: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  routeChipText: {
-    // Caption1/Emphasized per Figma 1109:3264 (12pt Medium 510 →
-    // RN's 500 weight). Post-H4 the 16pt WarningDiamond + orange border
-    // together carry chip recognizability; the text reads as count +
-    // label at the smaller size without competing with the glyph for
-    // emphasis.
-    ...dynamicType(typography.caption1Emphasized),
-    color: colors.black,
-  },
-  // Positive variant — the "we scanned, you're clear" chip. Same
-  // pill shape as RouteWarningChip but in the safety-green register
-  // (fadedgreen fill + burntgreen text/glyph) so the affordance
-  // reads as affirmative rather than informational. No border —
-  // the green fill carries the affordance on its own.
-  routeAllClearChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.pill,
-    backgroundColor: colors.fadedgreen,
-  },
-  routeAllClearText: {
-    // Match RouteWarningChip's caption1Emphasized so the two chip
-    // variants read as a family — same row slot, same type register,
-    // different palette for the binary watch/clear semantic.
-    ...dynamicType(typography.caption1Emphasized),
-    color: colors.burntgreen,
-  },
-  routeZonesLoadingChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.pill,
-    backgroundColor: colors.fillsTertiary,
-  },
-  routeZonesRetryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: 44,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.pill,
-    backgroundColor: colors.fillsTertiary,
-  },
-  routeZonesLoadingText: {
-    ...dynamicType(typography.caption1Emphasized),
-    color: colors.labelSecondary,
-  },
-  routeZonesMetaSeparator: {
-    color: colors.labelSecondary,
-  },
-  tradeoffRow: {
-    // H13: 16 → 24 to match the route card's canonical gutter
-    // (routeHeadlineRow, routeViaRow, routeConditionsCaption,
-    // routeChipsHeader, routeChipsRow, routeTopRow all use 24).
-    // Tradeoff copy was indenting 8pt shallower than everything
-    // else — visible left-gutter misalignment.
-    paddingHorizontal: spacing.lg,
-  },
-  tradeoffCopy: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.mutedTertiary,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    // H14: 16 → 24 to align Schedule/Go button edges with the
-    // route-card content gutter above (Via text + daylight strip end
-    // at 24pt from edge; buttons were ending at 16pt, leaving the Go
-    // pill's right edge 8pt short of the daylight strip's moon glyph).
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  scheduleBtn: {
-    flex: 1,
-    // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
-    height: 44,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.wiltedgreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scheduleText: {
-    ...dynamicType(typography.footnoteEmphasized),
-    color: colors.wiltedgreen,
-  },
-  goBtn: {
-    flex: 1,
-    // 44pt height per iOS HIG (Figma specs 36 — HIG wins per .cursorrules).
-    height: 44,
-    borderRadius: radii.pill,
-    // freshgreen — primary CTA brand exception (cursorrules). White text
-    // at bodyEmphasized (17pt bold) on freshgreen = 2.9:1, defensible at
-    // large-text threshold. goBtn is the screen's one primary action.
-    backgroundColor: colors.freshgreen,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    // e1 = chrome over map per shadows.ts. Previously inlined as an
-    // exact duplicate of e1's values.
-    ...shadows.e1,
-  },
-  goText: {
-    // bodyEmphasized (17pt) — primary CTA should outweigh Schedule's
-    // 13pt footnote secondary. Apple Maps "Directions" / Waze "GO"
-    // both sit near 17pt semibold.
-    ...dynamicType(typography.bodyEmphasized),
-    color: colors.white,
-  },
   // --- Placement mode ---
   // The pin frame just centers the SVG inside an alignment box; the
   // pin shape + shadow are part of the SVG itself, so we don't draw
@@ -4088,77 +2451,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placementBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    // zIndex above the browse/route sheet (zIndex 10) — defensive
-    // even though we unmount that sheet during placement, so future
-    // changes don't accidentally re-introduce the overlap regression.
-    // Match radius to the main sheet (28pt) so the surface family
-    // reads as consistent across phases.
-    zIndex: 11,
-    backgroundColor: colors.white,
-    borderTopLeftRadius: radii.sheet,
-    borderTopRightRadius: radii.sheet,
-    ...shadows.sheet,
-  },
-  placementDragHandleWrap: {
-    // Centered drag handle, matching the home browse sheet and the
-    // safety modal. Decorative — placement bar dismissal is via the
-    // X cancel button, not a swipe gesture.
-    paddingTop: spacing.md,
-    alignItems: 'center',
-  },
-  placementBarInner: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
-  },
-  placementHint: {
-    // Quiet footnote instruction above the Confirm/cancel row. Tertiary
-    // gray so it reads as a hint, not a heading.
-    ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
-    color: colors.labelTertiary,
-    // Centered in the placement bar. Earlier rev anchored this left to
-    // the Confirm CTA on the theory the asymmetric Confirm+X row pulled
-    // the visual center off-axis; user-tested and overridden 2026-06-03 —
-    // centered reads as instruction (addressed to the whole bar), left
-    // read as a stray caption beside the buttons.
-    textAlign: 'center',
-  },
-  placementActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'center',
-  },
-  placementCancel: {
-    // 48pt circular FAB per v2 (1109:8139) — matches the size family of
-    // the bottom-sheet FAB pair (recenter / report on /en-route).
-    // shadows.e1 for the lift above the white sheet surface.
-    width: 48,
-    height: 48,
-    borderRadius: radii.pill,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.e1,
-  },
-  placementConfirm: {
-    flex: 1,
-    height: 44,
-    borderRadius: radii.pill,
-    // freshgreen — primary CTA brand exception (cursorrules). Confirm
-    // placement is the one primary action in this mode.
-    backgroundColor: colors.freshgreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.e1,
-  },
-  placementConfirmText: {
-    ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.white,
-  } as const,
 });

@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { CaretDown } from 'phosphor-react-native/src/icons/CaretDown';
 import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 import { ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
@@ -75,7 +76,6 @@ import { joinMetaParts } from './MetaSeparator';
  */
 export function HomeBrowseSheet({
   firstName,
-  neighborhoodLabel,
   userLocation,
   refreshKey,
   collapsed,
@@ -85,8 +85,6 @@ export function HomeBrowseSheet({
 }: {
   /** Display name for the eyebrow; falls back to "Local" if undefined. */
   firstName?: string;
-  /** Geocoded neighborhood label; falls back to a generic when null. */
-  neighborhoodLabel?: string;
   /**
    * User's current GPS — drives the proximity filter on community
    * submissions (10mi) AND the Google Places `searchText`
@@ -130,6 +128,33 @@ export function HomeBrowseSheet({
   const reduceMotion = useReduceMotion();
   const [showAllRows, setShowAllRows] = useState(false);
   const [trustedRowCollapsed, setTrustedRowCollapsed] = useState(false);
+
+  const [neighborhoodLabel, setNeighborhoodLabel] = useState<string | undefined>();
+  useEffect(() => {
+    if (!userLocation || neighborhoodLabel) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Location.reverseGeocodeAsync(userLocation);
+        if (cancelled) return;
+        const place = results[0];
+        if (!place) return;
+        const label =
+          place.subregion && place.city
+            ? `${place.subregion}, ${place.city}`
+            : place.city && place.region
+              ? `${place.city}, ${place.region}`
+              : place.region ?? null;
+        if (label) setNeighborhoodLabel(label);
+      } catch {
+        // Geocoder failures soft-fail — sheet renders its generic
+        // "Your area" fallback.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation, neighborhoodLabel]);
 
   // This sheet OWNS its vertical scroller (moved in from app/home.tsx).
   // It has to: `stickyHeaderIndices` only pins a ScrollView's *direct*
