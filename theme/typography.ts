@@ -1,6 +1,6 @@
 // Fresh Greens — typography tokens
 // Source of truth: Figma file 7DDh6c7tk7OKF4WiA7pEkp (sizes/weights);
-// families: Jost display + Libre Franklin body — see theme/fonts.ts.
+// families: Space Grotesk display + Libre Franklin body — see theme/fonts.ts.
 //
 // Naming follows the iOS Human Interface Guidelines type ramp:
 // largeTitle / title1 / body / subheadline / footnote / caption1 / caption2,
@@ -17,30 +17,32 @@ import { fonts } from './fonts';
 
 export const typography = {
   largeTitleEmphasized: {
-    fontFamily: fonts.jost.bold,
+    fontFamily: fonts.spaceGrotesk.bold,
     fontSize: 34,
     lineHeight: 41,
-    letterSpacing: 0.15,
+    // Space Grotesk sets wider than Jost; drop the geometric-opening tracking.
+    letterSpacing: 0,
   },
-  // SOS countdown numeral — Jost ExtraBold per brand type system.
+  // SOS countdown numeral — Space Grotesk Bold (heaviest available weight).
   sosCountdown: {
-    fontFamily: fonts.jost.extraBold,
+    fontFamily: fonts.spaceGrotesk.bold,
     fontSize: 40,
     lineHeight: 44,
-    letterSpacing: 0.5,
+    // Neutral tracking keeps the single numeral optically centered in the disc.
+    letterSpacing: 0,
   },
   title1Emphasized: {
-    fontFamily: fonts.jost.bold,
+    fontFamily: fonts.spaceGrotesk.bold,
     fontSize: 28,
     lineHeight: 34,
-    letterSpacing: 0.12,
+    letterSpacing: 0,
   },
   // In-modal user-prompt register — see .cursorrules ("Typography").
   title1Regular: {
-    fontFamily: fonts.jost.regular,
+    fontFamily: fonts.spaceGrotesk.regular,
     fontSize: 28,
     lineHeight: 34,
-    letterSpacing: 0.12,
+    letterSpacing: 0,
   },
   title2Regular: {
     fontFamily: fonts.franklin.regular,

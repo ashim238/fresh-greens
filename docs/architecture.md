@@ -98,7 +98,7 @@ Hazard avoidance has a ceiling: even the highest-scoring route passes through ri
 
 Theme tokens:
 - `theme/colors.ts` — type-safe color palette (Freshgreen, Wiltedgreen, Burntgreen, etc.).
-- `theme/fonts.ts` — Jost + Libre Franklin family name constants.
+- `theme/fonts.ts` — Space Grotesk + Libre Franklin family name constants.
 - `theme/typography.ts` — iOS-style type ramp with per-token `fontFamily` (largeTitleEmphasized, title1Emphasized, bodyRegular, …).
 
 Shared components (`components/`):

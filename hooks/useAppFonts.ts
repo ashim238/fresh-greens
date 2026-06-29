@@ -1,8 +1,7 @@
 import {
-  Jost_400Regular,
-  Jost_700Bold,
-  Jost_800ExtraBold,
-} from '@expo-google-fonts/jost';
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
 import {
   LibreFranklin_400Regular,
   LibreFranklin_500Medium,
@@ -12,14 +11,13 @@ import {
 import { useFonts } from 'expo-font';
 
 /**
- * Loads Jost + Libre Franklin once at app root. Gate navigation on the
- * returned boolean (see app/_layout.tsx).
+ * Loads Space Grotesk + Libre Franklin once at app root. Gate navigation on
+ * the returned boolean (see app/_layout.tsx).
  */
 export function useAppFonts(): boolean {
   const [loaded] = useFonts({
-    Jost_400Regular,
-    Jost_700Bold,
-    Jost_800ExtraBold,
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_700Bold,
     LibreFranklin_400Regular,
     LibreFranklin_500Medium,
     LibreFranklin_600SemiBold,
