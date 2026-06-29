@@ -21,10 +21,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { useHoldToConfirm } from '../hooks/useHoldToConfirm';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { getAuthHeaders } from '../lib/supabase-auth';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
@@ -36,7 +37,6 @@ import { typography } from '../theme/typography';
 
 const NEARBY_RADIUS_METERS = 500;
 const BULK_BAR_HEIGHT = 80;
-const holdRingColor = 'rgba(255, 59, 48, 0.15)';
 
 type ModerationReport = {
   id: string;
@@ -74,8 +74,11 @@ export default function Moderation() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkActing, setBulkActing] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchQueue = useCallback(async () => {
+    setFetchError(false);
     try {
       const headers = await getAuthHeaders();
       const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
@@ -83,12 +86,14 @@ export default function Moderation() {
       const res = await fetch(url, { headers });
       if (!res.ok) {
         console.warn('[moderation] fetch failed:', res.status);
+        setFetchError(true);
         return;
       }
       const rows = (await res.json()) as ModerationReport[];
       setReports(Array.isArray(rows) ? rows : []);
     } catch (error) {
       console.warn('[moderation] fetch error:', error);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -122,6 +127,7 @@ export default function Moderation() {
   }
 
   async function handleRestore(reportId: string) {
+    setActionError(null);
     try {
       const headers = await getAuthHeaders();
       const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
@@ -137,13 +143,19 @@ export default function Moderation() {
       if (res.ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         void fetchQueue();
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        setActionError('Restore failed — try again.');
       }
     } catch (error) {
       console.warn('[moderation] restore error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      setActionError('Restore failed — check connection.');
     }
   }
 
   async function handleRemove(reportId: string) {
+    setActionError(null);
     try {
       const headers = await getAuthHeaders();
       const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
@@ -159,9 +171,14 @@ export default function Moderation() {
       if (res.ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         void fetchQueue();
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        setActionError('Remove failed — try again.');
       }
     } catch (error) {
       console.warn('[moderation] remove error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      setActionError('Remove failed — check connection.');
     }
   }
 
@@ -171,6 +188,7 @@ export default function Moderation() {
     );
     if (applicable.length === 0) return;
     setBulkActing(true);
+    setActionError(null);
     try {
       const headers = await getAuthHeaders();
       const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
@@ -186,21 +204,30 @@ export default function Moderation() {
             }),
           });
           if (!res.ok) throw new Error(`${res.status}`);
+          return r.id;
         }),
       );
-      const failures = results.filter((r) => r.status === 'rejected');
-      if (failures.length > 0) {
-        console.warn(`[moderation] bulk restore: ${failures.length}/${results.length} failed`);
+      const failedIds = new Set<string>();
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') failedIds.add(applicable[i].id);
+      });
+      if (failedIds.size > 0) {
+        console.warn(`[moderation] bulk restore: ${failedIds.size}/${results.length} failed`);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        setActionError(`${failedIds.size} of ${results.length} restores failed. They remain selected.`);
+        setSelectedIds(failedIds);
+        setBulkActing(false);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        setBulkActing(false);
+        exitBulkMode();
       }
       void fetchQueue();
     } catch (error) {
       console.warn('[moderation] bulk restore error:', error);
-    } finally {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      setActionError('Bulk restore failed — check connection.');
       setBulkActing(false);
-      exitBulkMode();
     }
   }
 
@@ -210,6 +237,7 @@ export default function Moderation() {
     );
     if (applicable.length === 0) return;
     setBulkActing(true);
+    setActionError(null);
     try {
       const headers = await getAuthHeaders();
       const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
@@ -225,21 +253,30 @@ export default function Moderation() {
             }),
           });
           if (!res.ok) throw new Error(`${res.status}`);
+          return r.id;
         }),
       );
-      const failures = results.filter((r) => r.status === 'rejected');
-      if (failures.length > 0) {
-        console.warn(`[moderation] bulk remove: ${failures.length}/${results.length} failed`);
+      const failedIds = new Set<string>();
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') failedIds.add(applicable[i].id);
+      });
+      if (failedIds.size > 0) {
+        console.warn(`[moderation] bulk remove: ${failedIds.size}/${results.length} failed`);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        setActionError(`${failedIds.size} of ${results.length} removals failed. They remain selected.`);
+        setSelectedIds(failedIds);
+        setBulkActing(false);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        setBulkActing(false);
+        exitBulkMode();
       }
       void fetchQueue();
     } catch (error) {
       console.warn('[moderation] bulk remove error:', error);
-    } finally {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      setActionError('Bulk remove failed — check connection.');
       setBulkActing(false);
-      exitBulkMode();
     }
   }
 
@@ -288,10 +325,34 @@ export default function Moderation() {
             </View>
           )}
 
-          {!loading && reports.length === 0 && (
+          {!loading && fetchError && (
             <View style={styles.centered}>
-              <Text style={styles.emptyText}>No reports to review.</Text>
+              <Text style={styles.errorText}>Could not load queue — check connection.</Text>
+              <Pressable
+                onPress={() => { setLoading(true); void fetchQueue(); }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading queue"
+                style={({ pressed }) => [styles.retryBtn, pressed && pressedDim]}
+              >
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </Pressable>
             </View>
+          )}
+
+          {!loading && !fetchError && reports.length === 0 && (
+            <View style={styles.centered}>
+              <Text style={styles.emptyText}>No reports to review</Text>
+            </View>
+          )}
+
+          {actionError && (
+            <Pressable
+              onPress={() => setActionError(null)}
+              accessibilityRole="alert"
+              style={styles.actionErrorBanner}
+            >
+              <Text style={styles.actionErrorText}>{actionError}</Text>
+            </Pressable>
           )}
 
           {hiddenReports.length > 0 && (
@@ -477,10 +538,11 @@ function ReportCard({
     return () => { cancelled = true; };
   }, [showFlags, flags, report.id]);
 
-  const { holdProgress, pressHandlers } = useHoldToConfirm({
+  const { holdProgress, pressHandlers, isVoiceOverOn } = useHoldToConfirm({
     thresholdMs: 800,
     onConfirm: onRemove,
   });
+  const reduceMotion = useReduceMotion();
 
   return (
     <View style={[styles.card, isHidden && styles.cardHidden, bulkMode && selected && styles.cardSelected]}>
@@ -639,7 +701,7 @@ function ReportCard({
               {!flagsLoading && flags !== null && flags.length > 0 && (
                 <>
                   {detectCoordination(flags) && (
-                    <View style={styles.coordinationWarning}>
+                    <View style={styles.coordinationWarning} accessibilityRole="alert">
                       <Text style={styles.coordinationText}>
                         Possible coordinated flagging detected
                       </Text>
@@ -693,26 +755,26 @@ function ReportCard({
                 {...pressHandlers}
                 accessibilityRole="button"
                 accessibilityLabel="Remove report"
-                accessibilityHint="Hold to confirm removal"
+                accessibilityHint={isVoiceOverOn ? 'Double-tap to remove' : 'Hold to confirm removal'}
                 style={({ pressed }) => [styles.actionBtn, styles.actionRemove, pressed && pressedDim]}
               >
-                <Animated.View
-                  style={[
-                    styles.holdRing,
-                    {
-                      transform: [
-                        {
-                          scaleX: holdProgress.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, 1],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                />
+                {!reduceMotion && (
+                  <Animated.View
+                    style={[
+                      styles.holdRing,
+                      {
+                        width: holdProgress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                        }),
+                      },
+                    ]}
+                  />
+                )}
                 <Trash size={18} color={colors.red} />
-                <Text style={styles.actionTextRemove}>Hold to remove</Text>
+                <Text style={styles.actionTextRemove}>
+                  {isVoiceOverOn ? 'Remove' : 'Hold to remove'}
+                </Text>
               </Pressable>
             )}
           </View>
@@ -733,15 +795,18 @@ function BulkActionBar({
   onRestore: () => void;
   onRemove: () => void;
 }) {
-  const { holdProgress, pressHandlers } = useHoldToConfirm({
+  const { holdProgress, pressHandlers, isVoiceOverOn } = useHoldToConfirm({
     thresholdMs: 800,
     onConfirm: onRemove,
   });
+  const reduceMotion = useReduceMotion();
+  const insets = useSafeAreaInsets();
+  const noun = count === 1 ? 'report' : 'reports';
 
   return (
-    <View style={styles.bulkBar}>
+    <View style={[styles.bulkBar, { paddingBottom: Math.max(spacing.sm, insets.bottom) }]}>
       <Text style={styles.bulkCount}>
-        {count} {count === 1 ? 'report' : 'reports'} selected
+        {count} {noun} selected
       </Text>
       <View style={styles.bulkActions}>
         {acting ? (
@@ -751,7 +816,7 @@ function BulkActionBar({
             <Pressable
               onPress={onRestore}
               accessibilityRole="button"
-              accessibilityLabel={`Restore ${count} ${count === 1 ? 'report' : 'reports'}`}
+              accessibilityLabel={`Restore ${count} ${noun}`}
               style={({ pressed }) => [styles.bulkBtn, styles.actionRestore, pressed && pressedDim]}
             >
               <ArrowCounterClockwise size={18} color={colors.freshgreen} />
@@ -760,27 +825,27 @@ function BulkActionBar({
             <Pressable
               {...pressHandlers}
               accessibilityRole="button"
-              accessibilityLabel={`Remove ${count} ${count === 1 ? 'report' : 'reports'}`}
-              accessibilityHint="Hold to confirm removal"
+              accessibilityLabel={`Remove ${count} ${noun}`}
+              accessibilityHint={isVoiceOverOn ? 'Double-tap to remove' : 'Hold to confirm removal'}
               style={({ pressed }) => [styles.bulkBtn, styles.actionRemove, pressed && pressedDim]}
             >
-              <Animated.View
-                style={[
-                  styles.holdRing,
-                  {
-                    transform: [
-                      {
-                        scaleX: holdProgress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, 1],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              />
+              {!reduceMotion && (
+                <Animated.View
+                  style={[
+                    styles.holdRing,
+                    {
+                      width: holdProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0%', '100%'],
+                      }),
+                    },
+                  ]}
+                />
+              )}
               <Trash size={18} color={colors.red} />
-              <Text style={styles.actionTextRemove}>Hold to remove</Text>
+              <Text style={styles.actionTextRemove}>
+                {isVoiceOverOn ? 'Remove' : 'Hold to remove'}
+              </Text>
             </Pressable>
           </>
         )}
@@ -815,7 +880,7 @@ function InvestigationPanel({
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityLabel={`${title}${countLabel}`}
-        accessibilityHint={open ? 'Collapse' : 'Expand'}
+        accessibilityState={{ expanded: open }}
         style={({ pressed }) => [styles.panelHeader, pressed && pressedDim]}
       >
         {icon}
@@ -896,7 +961,7 @@ function formatAge(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
@@ -929,6 +994,35 @@ const styles = StyleSheet.create({
   emptyText: {
     ...dynamicType(typography.bodyRegular),
     color: colors.wiltedgreen,
+  },
+  errorText: {
+    ...dynamicType(typography.bodyRegular),
+    color: colors.red,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+    backgroundColor: colors.chipVerifiedFill,
+    minHeight: tapTarget44.height,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryBtnText: {
+    ...dynamicType(typography.bodyEmphasized),
+    color: colors.freshgreen,
+  },
+  actionErrorBanner: {
+    backgroundColor: colors.chipAvoidFill,
+    borderRadius: radii.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  actionErrorText: {
+    ...dynamicType(typography.caption1Emphasized),
+    color: colors.red,
   },
 
   // Toolbar
@@ -970,8 +1064,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardHidden: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.orange,
+    backgroundColor: colors.chipCautionFill,
   },
   cardSelected: {
     borderColor: colors.freshgreen,
@@ -991,7 +1084,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   cardCategory: {
-    ...dynamicType(typography.caption2Regular),
+    ...dynamicType(typography.caption1Regular),
     color: colors.wiltedgreen,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
@@ -1130,7 +1223,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   panelRowCategory: {
-    ...dynamicType(typography.caption2Regular),
+    ...dynamicType(typography.caption1Regular),
     color: colors.wiltedgreen,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.4,
@@ -1140,7 +1233,7 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   panelRowAge: {
-    ...dynamicType(typography.caption2Regular),
+    ...dynamicType(typography.caption1Regular),
     color: colors.mutedSecondary,
   },
   panelRowDistance: {
@@ -1148,7 +1241,7 @@ const styles = StyleSheet.create({
     color: colors.wiltedgreen,
   },
   flagMeta: {
-    ...dynamicType(typography.caption2Regular),
+    ...dynamicType(typography.caption1Regular),
     color: colors.mutedSecondary,
   },
   miniBadge: {
@@ -1161,7 +1254,7 @@ const styles = StyleSheet.create({
     color: colors.red,
   },
   miniBadgeTextHidden: {
-    ...dynamicType(typography.caption2Regular),
+    ...dynamicType(typography.caption1Regular),
     color: colors.orange,
   },
   coordinationWarning: {
@@ -1197,9 +1290,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chipAvoidFill,
   },
   holdRing: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: holdRingColor,
-    transformOrigin: 'left',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    backgroundColor: colors.chipAvoidFill,
   },
   actionTextRestore: {
     ...dynamicType(typography.subheadlineEmphasized),
