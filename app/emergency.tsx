@@ -495,8 +495,11 @@ const styles = StyleSheet.create({
   // rule: "Need help?" is a user prompt at a decision moment, not a
   // directive. Regular holds the question open; Emphasized would read
   // as a command on a stress-state screen.
+  // "Need help?" — the most important question in the app. Promoted
+  // from title1Regular (28pt) to largeTitleEmphasized (34pt Bold) so
+  // it reads as an unmissable prompt on the emergency card.
   title: {
-    ...dynamicType(typography.title1Regular),
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.black,
     textAlign: 'center',
   },
@@ -524,7 +527,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     alignSelf: 'stretch',
-    height: 52,
+    height: 56,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.lg,
   },
@@ -534,6 +537,11 @@ const styles = StyleSheet.create({
   // that register.
   actionBtnContact: {
     backgroundColor: colors.navy,
+    // Extra 16pt top margin adds to the card's 16pt gap for a total
+    // 32pt (spacing.xl) separation between the title+subtitle cluster
+    // and the action buttons — visually groups the question above and
+    // the choices below as distinct zones.
+    marginTop: spacing.md,
   },
   // Reserved-color red — the 911 escalation gets the full alert color.
   actionBtn911: {
