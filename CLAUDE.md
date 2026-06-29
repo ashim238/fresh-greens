@@ -35,6 +35,10 @@ When a user gives feedback worth keeping across sessions, save it as a new `feed
 - `useState` + Context (no Redux / Zustand)
 - Theme tokens at `theme/colors.ts`, `theme/typography.ts`, `theme/shadows.ts`, `theme/interaction.ts` — consume from here, never inline a design value.
 
+## Auto critique + audit at merge
+
+After squash-merging a UI PR to main, count `feat`/`fix` commits touching `app/` or `components/` since the newest file in `.impeccable/critique/`. If >= 5, automatically run `/impeccable critique` + `/impeccable audit` on the changed routes before reporting done. No user prompt needed — this is part of the merge step.
+
 ## What this file isn't
 
 A rulebook. The rules live in the files linked above. This is a map to find them. If a rule changes, change it at the source, not here.
