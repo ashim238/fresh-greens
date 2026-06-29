@@ -823,6 +823,20 @@ function GuidanceView({
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // D7: "Recording started" → "Recording…" label transition.
+  // Shows "Recording started" for 1.5s on mount, then settles to
+  // "Recording…". Gated on reduce motion (shows "Recording…" immediately).
+  const [recordingLabelStarted, setRecordingLabelStarted] = useState(
+    !reduceMotion && !recordingStopped && micGranted,
+  );
+  useEffect(() => {
+    if (reduceMotion || recordingStopped || !micGranted) return;
+    // D7: light haptic on recording widget mount
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const timer = setTimeout(() => setRecordingLabelStarted(false), 1500);
+    return () => clearTimeout(timer);
+  }, [reduceMotion, recordingStopped, micGranted]);
+
   // useMemo: bullet list shouldn't be rebuilt every render — the
   // showFirearmGuidance + disclosureDuty values are stable for the
   // life of the modal once the location has resolved. The firearm
@@ -947,7 +961,9 @@ function GuidanceView({
       ) : (
         <View style={guidanceStyles.recordingWidget}>
           <View style={guidanceStyles.recordingTextBlock}>
-            <Text style={guidanceStyles.recordingLabel}>Recording…</Text>
+            <Text style={guidanceStyles.recordingLabel}>
+              {recordingLabelStarted ? 'Recording started' : 'Recording…'}
+            </Text>
             <Text style={guidanceStyles.recordingTimer}>{timeString}</Text>
           </View>
 

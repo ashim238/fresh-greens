@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Check } from 'phosphor-react-native/src/icons/Check';
@@ -5,6 +6,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
+import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
 import { useMutation } from '../hooks/useMutation';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import {
   addCommunityReport,
@@ -25,6 +29,7 @@ import { formatDistance, formatDuration } from '../lib/format';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
+import { motion } from '../theme/motion';
 import { radii } from '../theme/radii';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -109,11 +114,52 @@ const INFERENCE_META: Record<
   },
 };
 
+/**
+ * D3: "Added to the community map" confirmation line — fades in over
+ * 220ms after the user confirms an inference. Only rendered post-accept;
+ * the opacity tween fires on mount. Gated on reduce motion.
+ */
+function CommunityMapLine({ reduceMotion }: { reduceMotion: boolean }) {
+  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const anim = Animated.timing(opacity, {
+      toValue: 1,
+      duration: motion.duration.quick,
+      easing: motion.easing.out,
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [reduceMotion, opacity]);
+
+  return (
+    <Animated.Text
+      style={[styles.communityMapLine, { opacity }]}
+      accessibilityLiveRegion="polite"
+    >
+      Added to the community map
+    </Animated.Text>
+  );
+}
+
 export default function TripSummary() {
   const router = useRouter();
   const { label, distanceMeters, estimatedMinutes, inferences, destLat, destLng } =
     useLocalSearchParams<TripSummaryParams>();
   const { markRegular } = useRegularDestinations();
+  const reduceMotion = useReduceMotion();
+
+  // D1: completion check-circle entrance animation
+  const checkEntrance = useEntranceAnimation(8);
+
+  // D1: success haptic on arrival — fires once on mount
+  useEffect(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {},
+    );
+  }, []);
 
   const acceptMutation = useMutation(addCommunityReport);
   const regularMutation = useMutation(markRegular);
@@ -204,6 +250,8 @@ export default function TripSummary() {
   async function handleAccept(inf: Inference) {
     const meta = INFERENCE_META[inf.category];
     if (!meta) return;
+    // D3: selection haptic on confirm
+    Haptics.selectionAsync().catch(() => {});
     setStatuses((s) => ({ ...s, [inf.id]: 'accepted' }));
     // Clear any prior retry-state for this inference (a retry tap should
     // not leave a stale "tap to retry" if the new attempt succeeds).
@@ -254,6 +302,17 @@ export default function TripSummary() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* D1: completion check-circle — entrance animation gated on reduce motion */}
+          <Animated.View
+            style={[
+              styles.checkCircle,
+              reduceMotion ? undefined : checkEntrance.style,
+            ]}
+            accessibilityLabel="Trip complete"
+          >
+            <Check size={28} color={colors.white} weight="bold" />
+          </Animated.View>
+
           <Text style={styles.title} accessibilityRole="header">
             Trip Summary
           </Text>
@@ -325,17 +384,22 @@ export default function TripSummary() {
                           </Pressable>
                         </View>
                       ) : (
-                        <Text
-                          accessibilityLiveRegion="polite"
-                          style={[
-                            styles.inferenceResult,
-                            status === 'accepted'
-                              ? styles.inferenceResultAccepted
-                              : styles.inferenceResultRejected,
-                          ]}
-                        >
-                          {status === 'accepted' ? 'Confirmed' : 'Dismissed'}
-                        </Text>
+                        <View>
+                          <Text
+                            accessibilityLiveRegion="polite"
+                            style={[
+                              styles.inferenceResult,
+                              status === 'accepted'
+                                ? styles.inferenceResultAccepted
+                                : styles.inferenceResultRejected,
+                            ]}
+                          >
+                            {status === 'accepted' ? 'Confirmed' : 'Dismissed'}
+                          </Text>
+                          {status === 'accepted' && (
+                            <CommunityMapLine reduceMotion={reduceMotion} />
+                          )}
+                        </View>
                       )}
                     </View>
                     {retryableAccepts[inf.id] && (
@@ -409,6 +473,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  // D1: completion indicator — 48pt freshgreen circle, centered
+  checkCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.pill,
+    backgroundColor: colors.freshgreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: spacing.md,
   },
   title: {
     ...dynamicType(typography.title1Regular),
@@ -515,5 +590,11 @@ const styles = StyleSheet.create({
   setDefaultRetryText: {
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
+  },
+  // D3: "Added to the community map" secondary line below "Confirmed"
+  communityMapLine: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.wiltedgreen,
+    marginTop: spacing.xs,
   },
 });
