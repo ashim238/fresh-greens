@@ -353,8 +353,34 @@ export async function addCommunityReport(
   const all = await readLocalOnly();
   all.push(report);
   await writeLocalOnly(all);
-  void scheduleCommunityCloudSync(report);
+
+  try {
+    const cloud = await import('./sources/community-cloud');
+    if (cloud.isCommunityCloudConfigured()) {
+      const result = await cloud.pushCommunityReportToCloud(report);
+      if (!result.ok) {
+        // Remove the optimistic local save on server rejection
+        const remaining = (await readLocalOnly()).filter((r) => r.id !== report.id);
+        await writeLocalOnly(remaining);
+        throw new ReportSubmitRejection(result.error);
+      }
+    }
+  } catch (error) {
+    if (error instanceof ReportSubmitRejection) throw error;
+    // Network failure — keep local, queue for retry
+    void scheduleCommunityCloudSync(report);
+  }
+
   return report;
+}
+
+export class ReportSubmitRejection extends Error {
+  code: import('./sources/community-cloud').ReportSubmitError;
+  constructor(code: import('./sources/community-cloud').ReportSubmitError) {
+    super(`Report rejected: ${code}`);
+    this.name = 'ReportSubmitRejection';
+    this.code = code;
+  }
 }
 
 /**

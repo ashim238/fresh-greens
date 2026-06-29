@@ -12,6 +12,7 @@ import { MapPinArea } from 'phosphor-react-native/src/icons/MapPinArea';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { Question } from 'phosphor-react-native/src/icons/Question';
 import { Shield } from 'phosphor-react-native/src/icons/Shield';
+import { ShieldCheck } from 'phosphor-react-native/src/icons/ShieldCheck';
 // Legacy API (documentDirectory + copyAsync) — same import the /report
 // photo flow uses; SDK 54 moved the classic surface under /legacy.
 import * as FileSystem from 'expo-file-system/legacy';
@@ -46,6 +47,7 @@ import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { resetCoachMarks } from '../hooks/useCoachMark';
+import { useModeratorRole } from '../hooks/useModeratorRole';
 import { useUser } from '../hooks/useUser';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
@@ -128,6 +130,7 @@ export default function Menu() {
     clearAll: clearFuelProfile,
   } = useFuelProfile();
   const { clearAll: clearInsuranceProfile } = useInsuranceProfile();
+  const { isModerator } = useModeratorRole();
   const [signingOut, setSigningOut] = useState(false);
 
   const {
@@ -271,6 +274,10 @@ export default function Menu() {
 
   function handleSavedPlaces() {
     router.push('/saved-places');
+  }
+
+  function handleModeration() {
+    router.push('/moderation');
   }
 
   async function handleMapGuide() {
@@ -473,6 +480,13 @@ export default function Menu() {
               label="Map guide"
               onPress={handleMapGuide}
             />
+            {isModerator && (
+              <SettingsRow
+                icon={<ShieldCheck size={24} color={colors.black} weight="duotone" />}
+                label="Moderation"
+                onPress={handleModeration}
+              />
+            )}
           </RowGroup>
 
           {/* Progressive setup tiles — placed BELOW the primary app-config

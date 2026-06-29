@@ -119,6 +119,7 @@ export default function RootLayout() {
           surface, not a sub-flow.
         */}
         <Stack.Screen name="legal" />
+        <Stack.Screen name="moderation" />
         {/*
           Report uses transparentModal (not modal) so the map underneath
           stays visible — the popup is a centered card over a 20% scrim,

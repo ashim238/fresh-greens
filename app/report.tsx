@@ -45,8 +45,10 @@ import {
   CATEGORIES,
   type CommunityReport,
   type ReportCategory,
+  ReportSubmitRejection,
   removeCommunityReport,
 } from '../lib/api/community-reports';
+import { getReportSubmitErrorCopy } from '../lib/report-submit-errors';
 import type { Coordinate } from '../lib/api/zones';
 import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
@@ -873,11 +875,19 @@ function DetailView({
         no-location case.
       */}
       {submitError && (
-        <SafetyErrorMessage
-          domain="report"
-          disposition="transient"
-          error={submitErrorPayload}
-        />
+        submitErrorPayload instanceof ReportSubmitRejection ? (
+          <View style={errorStyles.root}>
+            <Text style={errorStyles.text}>
+              {getReportSubmitErrorCopy(submitErrorPayload.code).body}
+            </Text>
+          </View>
+        ) : (
+          <SafetyErrorMessage
+            domain="report"
+            disposition="transient"
+            error={submitErrorPayload}
+          />
+        )
       )}
       <Button
         // Make the wait legible instead of a bare disabled button: while
@@ -1319,5 +1329,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+});
+
+const errorStyles = StyleSheet.create({
+  root: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  text: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.red,
+    textAlign: 'center',
   },
 });

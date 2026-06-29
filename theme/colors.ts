@@ -28,6 +28,9 @@ export const colors = {
   // as a familiar "iOS blue dot" rather than a brand-themed pin.
   systemBlue: '#007AFF',
 
+  // iOS system green — verified/positive state badge in moderation.
+  systemGreen: '#34C759',
+
   // iOS system labels — semantic grays used for secondary/tertiary text,
   // icon tints, and placeholder copy. Tokenized here so screens don't
   // scatter raw rgba/hex values for the same semantic role.
@@ -99,6 +102,7 @@ export const colors = {
    *  See .cursorrules reserved-color carve-out #12. */
   chipAvoidFill: 'rgba(255, 59, 48, 0.08)',
   chipCautionFill: 'rgba(255, 149, 0, 0.08)',
+  chipVerifiedFill: 'rgba(52, 199, 89, 0.1)',
 } as const;
 
 // Type helper: lets TypeScript autocomplete color names and catch typos.
