@@ -105,9 +105,13 @@ CREATE TABLE IF NOT EXISTS device_bans (
   banned_by uuid REFERENCES auth.users(id) NOT NULL,
   banned_at timestamptz NOT NULL DEFAULT now()
 );
+-- Plain composite index — Postgres rejects `WHERE banned_until > now()`
+-- as a partial-index predicate because `now()` is not IMMUTABLE (the
+-- predicate would silently change over time). The rate-limit trigger
+-- does `WHERE device_uuid = X AND banned_until > now()`, which uses
+-- this composite index efficiently anyway.
 CREATE INDEX IF NOT EXISTS device_bans_active_idx
-  ON device_bans (device_uuid, banned_until)
-  WHERE banned_until > now();
+  ON device_bans (device_uuid, banned_until);
 
 -- --------------------------------------------------------------------------
 -- moderation_actions — audit log (immutable)
