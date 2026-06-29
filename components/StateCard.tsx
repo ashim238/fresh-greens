@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headline: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.title3Emphasized),
     textAlign: 'center',
   },
   body: {
