@@ -35,10 +35,10 @@ export default function SignOut() {
         <View style={styles.content}>
           <View style={styles.illustration}>
             <View style={styles.locationWrap}>
-              <PermissionsLocation width={26.881} height={33.797} />
+              <PermissionsLocation width={67} height={84} />
             </View>
             <View style={styles.carWrap}>
-              <PermissionsCar width={57} height={40} />
+              <PermissionsCar width={143} height={100} />
             </View>
           </View>
 
@@ -80,28 +80,29 @@ const styles = StyleSheet.create({
   // Illustration cluster — location pin sits up-and-right, car sits
   // below-and-left, mirroring Figma 1133:12898 layout.
   illustration: {
-    width: 57,
-    height: 89,
+    width: 143,
+    height: 222,
   },
   locationWrap: {
     position: 'absolute',
     top: 0,
-    left: 10.71,
-    width: 35.891,
-    height: 40.374,
+    left: 27,
+    width: 90,
+    height: 101,
     transform: [{ rotate: '17.72deg' }],
     alignItems: 'center',
     justifyContent: 'center',
   },
   carWrap: {
     position: 'absolute',
-    top: 48.55,
+    top: 121,
     left: 0,
-    width: 57,
-    height: 40,
+    width: 143,
+    height: 100,
   },
   copy: {
     gap: 16,
+    marginTop: 24,
   },
   title: {
     // Bolder pass: 28pt → 34pt (largeTitleEmphasized). The goodbye line

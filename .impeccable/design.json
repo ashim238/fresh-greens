@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-06-23",
+  "generatedAt": "2026-06-29",
   "title": "Design System: Fresh Greens",
   "extensions": {
     "colorMeta": {
@@ -34,15 +34,34 @@
       { "name": "sheet", "value": "0 -4px 8px rgba(0,0,0,0.15)", "purpose": "Directional, points up: bottom sheets rising out of the bottom edge. Android elevation 8." }
     ],
     "motion": [
-      { "name": "press-dim", "value": "opacity 0.7", "purpose": "Universal pressed/disabled feedback on every Pressable (theme/interaction.ts pressedDim). The single feedback gesture." },
-      { "name": "transition-standard", "value": "150-250ms ease-out", "purpose": "Product-register convention for state transitions. Motion conveys state, never decoration; no orchestrated page-load sequences." }
+      { "name": "instant", "value": "120ms", "purpose": "Press feedback, micro-interactions. Paired with outQuart easing." },
+      { "name": "quick", "value": "220ms", "purpose": "State changes, entrance animations. Paired with cubic out easing." },
+      { "name": "calm", "value": "320ms", "purpose": "Entrance reveals, layout spring (0.86 damping). Ceiling for all motion." },
+      { "name": "press-dim", "value": "opacity 0.7", "purpose": "Universal pressed/disabled feedback on every Pressable (theme/interaction.ts pressedDim)." }
     ],
     "breakpoints": [
       { "name": "figma-baseline", "value": "390px" },
       { "name": "iphone-se", "value": "375px" },
       { "name": "iphone-pro-max", "value": "430px" }
     ],
-    "responsiveNote": "Native iOS app (Expo / React Native). The real responsive axis is iOS Dynamic Type (via theme/dynamic-type.ts), not CSS breakpoints. Device widths above are informational only."
+    "responsiveNote": "Native iOS app (Expo / React Native). The real responsive axis is iOS Dynamic Type (via theme/dynamic-type.ts), not CSS breakpoints. Device widths above are informational only.",
+    "radii": [
+      { "name": "xs", "value": "4px", "purpose": "Tight inner chips, checkboxes, indicator dots, skeleton lines." },
+      { "name": "sm", "value": "8px", "purpose": "Small chips, footer pills." },
+      { "name": "md", "value": "12px", "purpose": "Standard cards (default)." },
+      { "name": "lg", "value": "16px", "purpose": "Elevated modal cards (LifelineModal, RouteComparisonSheet)." },
+      { "name": "xl", "value": "20px", "purpose": "Centered popup modals (/emergency, /report, /pulled-over)." },
+      { "name": "sheet", "value": "28px", "purpose": "Bottom-sheet and modal top corners." },
+      { "name": "pill", "value": "999px", "purpose": "Capsule buttons, location chips." }
+    ],
+    "spacing": [
+      { "name": "xs", "value": "4px" },
+      { "name": "sm", "value": "8px" },
+      { "name": "md", "value": "16px" },
+      { "name": "lg", "value": "24px" },
+      { "name": "xl", "value": "32px" },
+      { "name": "xxl", "value": "48px" }
+    ]
   },
   "components": [
     {

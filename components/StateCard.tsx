@@ -86,7 +86,7 @@ export function EmptyState({
 // -- LoadingState ----------------------------------------------------------
 
 export function LoadingState({
-  text = 'Charting course…',
+  text = 'Finding what matters nearby…',
   style,
 }: {
   text?: string;

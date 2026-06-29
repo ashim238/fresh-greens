@@ -2800,7 +2800,7 @@ export default function Home() {
                  escape back to browse mode.
           */}
           {isCalculatingRoute ? (
-            <LoadingState text="Calculating route…" style={styles.routePreviewState} />
+            <LoadingState text="Mapping the safest way there…" style={styles.routePreviewState} />
           ) : routeFetchSource === 'no-route' ? (
             // Interim no-route empty state: wiltedgreen Path glyph until a
             // bespoke illustration lands (see next-session if revisiting).

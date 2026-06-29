@@ -28,6 +28,7 @@ import WeatherGlyph from '../assets/illustrations/weather-glyph.svg';
 
 import { Clock } from 'phosphor-react-native/src/icons/Clock';
 import { Compass } from 'phosphor-react-native/src/icons/Compass';
+import { PlusCircle } from 'phosphor-react-native/src/icons/PlusCircle';
 import { usePressScale } from '../hooks/usePressScale';
 import { useRecommendationsBatch, type BrowseRowSpec } from '../hooks/useRecommendationsBatch';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -1396,6 +1397,12 @@ function EmptyState({
       <PhotoPlaceholderGlyph category={category} />
       <Text style={styles.emptyTitle}>{copy.title}</Text>
       <Text style={styles.emptyBody}>{copy.body}</Text>
+      {onTap && (
+        <View style={styles.emptyCtaRow}>
+          <PlusCircle size={18} weight="bold" color={colors.freshgreen} />
+          <Text style={styles.emptyCtaText}>Add a spot</Text>
+        </View>
+      )}
     </>
   );
   if (!onTap) {
@@ -1856,5 +1863,15 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     textAlign: 'center',
+  },
+  emptyCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.xs,
+  },
+  emptyCtaText: {
+    ...dynamicType(typography.footnoteEmphasized),
+    color: colors.freshgreen,
   },
 });

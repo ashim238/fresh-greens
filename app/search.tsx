@@ -966,7 +966,7 @@ export default function Search() {
 
         {phase === 'loading' && (
           <View style={styles.stateCardWrap}>
-            <LoadingState text="Charting course…" />
+            <LoadingState text="Searching spots the community trusts…" />
           </View>
         )}
 
