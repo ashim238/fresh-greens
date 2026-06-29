@@ -356,32 +356,12 @@ export default function Home() {
   // FABs are not.
   const [fabAnchorHeight, setFabAnchorHeight] = useState(0);
 
-  // --- Sheet crossfade choreography ---
+  // --- Sheet crossfade choreography (state) ---
+  // The effect that drives this lives below `reduceMotion` (declared later)
+  // because the effect's reduce-motion guard depends on it.
   const isRouteMode = !!(params.destLat && params.destLng);
   const [sheetMode, setSheetMode] = useState(isRouteMode);
   const sheetOpacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (isRouteMode === sheetMode) return;
-    if (reduceMotion) {
-      setSheetMode(isRouteMode);
-      return;
-    }
-    Animated.timing(sheetOpacity, {
-      toValue: 0,
-      duration: 80,
-      easing: motion.easing.outQuart,
-      useNativeDriver: true,
-    }).start(() => {
-      setSheetMode(isRouteMode);
-      Animated.timing(sheetOpacity, {
-        toValue: 1,
-        duration: 200,
-        easing: motion.easing.out,
-        useNativeDriver: true,
-      }).start();
-    });
-  }, [isRouteMode]);
 
   // --- Report placement mode (tap-to-move) ---
   // When true, a placement marker appears at the user's location.
@@ -600,6 +580,32 @@ export default function Home() {
   // LayoutAnimation transitions the resulting height change so the
   // snap doesn't feel jarring.
   const reduceMotion = useReduceMotion();
+
+  // Sheet crossfade effect — drives the browse↔route opacity transition.
+  // State + Animated.Value declared earlier near the bottom-sheet block;
+  // lives here so it can read `reduceMotion` from the line above.
+  useEffect(() => {
+    if (isRouteMode === sheetMode) return;
+    if (reduceMotion) {
+      setSheetMode(isRouteMode);
+      return;
+    }
+    Animated.timing(sheetOpacity, {
+      toValue: 0,
+      duration: 80,
+      easing: motion.easing.outQuart,
+      useNativeDriver: true,
+    }).start(() => {
+      setSheetMode(isRouteMode);
+      Animated.timing(sheetOpacity, {
+        toValue: 1,
+        duration: 200,
+        easing: motion.easing.out,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [isRouteMode, sheetMode, reduceMotion, sheetOpacity]);
+
   const mapCoach = useCoachMark('home-map-intro');
   const dragHandleResponder = useMemo(
     () =>

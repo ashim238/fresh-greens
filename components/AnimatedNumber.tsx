@@ -11,7 +11,11 @@ const SLIDE_DISTANCE = 12;
 export type AnimatedNumberProps = {
   /** The formatted display string, e.g. "16", "6.0", "69°". */
   value: string;
-  /** Text style from the parent — sets font, size, color, lineHeight. */
+  /**
+   * Text style from the parent — sets font, size, color, lineHeight.
+   * Must be wrapped in `dynamicType()` by the caller (see `theme/dynamic-type.ts`).
+   * The component does not apply it internally so the caller controls the token.
+   */
   style?: TextStyle;
   /** Optional suffix rendered without animation, e.g. " min", " mi". */
   suffix?: string;
@@ -169,7 +173,13 @@ function AnimatedNumberInner({ value, style, suffix }: AnimatedNumberProps) {
 
       {/* Invisible spacer: reserves width for the longest of old/new value
           so the container doesn't collapse when both layers are absolute. */}
-      <Text style={[style, styles.spacer]} numberOfLines={1} aria-hidden>
+      <Text
+        style={[style, styles.spacer]}
+        numberOfLines={1}
+        aria-hidden
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
+      >
         {value.length >= (prevValueRef.current?.length ?? 0)
           ? value
           : prevValueRef.current}
