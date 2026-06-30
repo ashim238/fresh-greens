@@ -4,6 +4,16 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## feat/hazard-subtypes-and-ui-polish — two layout traps and the Apple Maps pattern (2026-06-29)
+
+**1. SafeAreaView `edges={['bottom']}` already adds ~34pt home-indicator inset — don't stack `paddingBottom` on top.** HomeBrowseSheet had `paddingBottom: 40` inside a SafeAreaView bottom-edge container, producing ~74pt of dead whitespace below the last scroll item. Fix was `paddingBottom: spacing.md` (16pt) — the SafeAreaView inset handles the rest. Worth keeping: **before adding bottom padding inside a SafeAreaView, check which edges it owns.** The inset IS the padding.
+
+**2. `position: absolute` + `maxHeight` without a definite `height` collapses `flex: 1` children.** Home's expanded browse sheet had `flex: 1` on the scroll wrapper inside an absolutely-positioned container with `maxHeight: 85%`. RN's layout engine couldn't resolve the flex basis — ScrollView got 0 height and refused to scroll. First fix attempt (adding `flex: 1` to the Animated.View wrapper) didn't work for the same reason. Actual fix: conditional `height: Dimensions.get('window').height * 0.85` when expanded, giving the flex children a definite constraint to resolve against. Worth keeping: **flex: 1 inside absolute + maxHeight is a no-op in RN — the container needs a definite height for children to flex into.**
+
+**3. FABs overlapping the turn card on sheet expand → hide-on-expand (Apple Maps pattern).** The en-route bottom sheet's search + alternates FABs sat in the etaRow. When the sheet expanded to Full (hazard panel + end trip), the sheet grew upward and the FABs layered over the turn card. Dynamic maxHeight calculation was the complex fix; the clean one was `{!sheetExpanded && <FAB />}` — the expanded state is for reading details, not for switching routes. FABs reappear on collapse. Worth keeping: **when a bottom sheet's expanded state serves a different intent than collapsed, the collapsed-state controls should hide, not compete for space.**
+
+---
+
 ## feat/moderation-bulk-mode — Promise.allSettled needs result inspection (2026-06-29)
 
 `Promise.allSettled` never throws, so wrapping it in `try/catch` is dead code — the `catch` fires only on errors *before* the settled promise (like `getAuthHeaders` failing). The settled results array must be inspected: each entry is either `{status: 'fulfilled'}` or `{status: 'rejected', reason}`. Without checking, bulk actions silently swallowed per-request 4xx/5xx and fired a success haptic. **Pattern for bulk RPCs:** `allSettled` → filter rejected → error haptic if any failed, success haptic if all passed. Also: when mixing report states across sections (hidden + visible + removed), filter to only send applicable RPCs (don't restore an already-visible report). And: transparent base borders prevent layout shift when toggling a selection border — set `borderWidth` + `borderColor: 'transparent'` on the default state, then selected state only changes color.

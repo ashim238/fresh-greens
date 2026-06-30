@@ -2321,7 +2321,10 @@ export default function EnRoute() {
             where via-text + daylight strip already share a row.
           */}
           <View
-            style={styles.secondaryRow}
+            style={[
+              styles.secondaryRow,
+              !sheetExpanded && styles.secondaryRowCollapsed,
+            ]}
             accessibilityRole="text"
             accessibilityLabel={`${
               distanceMiles != null ? formatDistance(distanceMiles) : '—'
@@ -2943,6 +2946,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
+  },
+  secondaryRowCollapsed: {
+    justifyContent: 'center',
   },
   secondaryRowMeta: {
     flexDirection: 'row',
