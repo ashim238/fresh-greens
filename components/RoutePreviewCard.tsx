@@ -488,7 +488,7 @@ export function RoutePreviewCard({
                     {params.destName ?? 'your destination'}
                   </Text>
                   <SavedPlaceBookmark
-                    size={16}
+                    size={22}
                     variant={isRegularDestination ? 'selected' : 'default'}
                   />
                 </View>
@@ -1074,6 +1074,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     marginTop: spacing.xs,
+    marginBottom: spacing.md,
     paddingHorizontal: spacing.lg,
   },
   trustedOnRouteText: {
@@ -1092,7 +1093,13 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    // paddingBottom was spacing.xl (32pt). The parent `bottomSheet`
+    // (app/home.tsx) is a SafeAreaView with edges=['bottom'], which
+    // already adds the home-indicator inset (~34pt on iPhone 17 Pro).
+    // The extra 32pt stacked on top read as dead white space below
+    // the Go button. spacing.sm (8pt) is the visual breath that
+    // separates Go from the safe-area inset without doubling it.
+    paddingBottom: spacing.sm,
   },
   scheduleBtn: {
     flex: 1,

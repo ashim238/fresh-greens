@@ -30,6 +30,7 @@ import {
  */
 export function RouteHazardDetailCard({
   category,
+  roadSubtype,
   lengthMiles,
   hazardIndex,
   hazardCount,
@@ -39,6 +40,12 @@ export function RouteHazardDetailCard({
   onDismiss,
 }: {
   category: HazardCategory;
+  /** Mapbox-derived subtype for road-condition hazards (construction /
+      accident / closure / weather / flooding). When present, the
+      detail card swaps in specific copy so the read-time surface
+      carries the data layer's resolution that chips intentionally
+      collapse. */
+  roadSubtype?: 'construction' | 'accident' | 'closure' | 'weather' | 'flooding';
   lengthMiles: number;
   hazardIndex: number;
   hazardCount: number;
@@ -50,7 +57,7 @@ export function RouteHazardDetailCard({
   onDismiss: () => void;
 }) {
   const router = useRouter();
-  const content = routeHazardDetailContent(category);
+  const content = routeHazardDetailContent(category, roadSubtype);
   const showPager = hazardCount > 1;
   // Detail-card morph-in — same family-wide 220ms slide+fade
   // ReportDetailCard uses, so tapping any map-pin → detail-card

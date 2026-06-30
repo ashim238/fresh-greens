@@ -46,6 +46,38 @@ function impactToZoneType(impact?: string, incidentType?: string): ZoneType {
 }
 
 /**
+ * Map Mapbox's typed incident → the Zone.roadSubtype field consumed
+ * by /en-route's hazard panel. Returns undefined when Mapbox's type
+ * doesn't map to a curated subtype (the panel falls back to the
+ * generic "Rough road ahead" copy).
+ *
+ * Mapbox incident `type` strings observed in production: `accident`,
+ * `congestion`, `construction`, `disabled_vehicle`, `lane_restriction`,
+ * `mass_transit`, `miscellaneous`, `other_news`, `planned_event`,
+ * `road_closure`, `road_hazard`, `weather`. We bucket the ones a
+ * driver acts on the same way; everything else falls through.
+ */
+function incidentTypeToRoadSubtype(
+  incidentType?: string,
+): 'construction' | 'accident' | 'closure' | 'weather' | 'flooding' | undefined {
+  switch (incidentType) {
+    case 'construction':
+    case 'planned_event':
+      return 'construction';
+    case 'accident':
+    case 'disabled_vehicle':
+      return 'accident';
+    case 'road_closure':
+    case 'lane_restriction':
+      return 'closure';
+    case 'weather':
+      return 'weather';
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Slice the route polyline for a Mapbox incident span. When start === end
  * (common), grow the slice along the route until it has a readable length.
  */
@@ -112,6 +144,7 @@ function incidentsOnCoordinates(
       geometry: slice.length <= 1 ? 'point' : 'polyline',
       coordinates: slice,
       category: 'road-condition',
+      roadSubtype: incidentTypeToRoadSubtype(inc.type),
     });
   }
   return zones;

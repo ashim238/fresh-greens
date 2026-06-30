@@ -12,6 +12,7 @@ import {
   Alert,
   Animated,
   AppState,
+  Dimensions,
   Pressable,
   StyleSheet,
   Text,
@@ -298,12 +299,34 @@ function formatCacheAge(ms: number | null): string {
 // (Figma 1133:13329). `humanReadableHazard` returns labels for
 // VoiceOver interpolation; this returns the full-sentence variant
 // the driver reads on the panel itself.
-function hazardFullCopy(category: HazardCategory): string {
+//
+// When category is 'road-condition' and a Mapbox-derived subtype is
+// available, we surface the specific kind ("Construction ahead") so
+// the driver can decide whether to reroute or just slow down. The
+// generic "Rough road ahead" remains the fallback for OSM surface
+// tags (no per-tag subtyping) and for incident types we don't bucket.
+function hazardFullCopy(
+  category: HazardCategory,
+  roadSubtype?: 'construction' | 'accident' | 'closure' | 'weather' | 'flooding',
+): string {
   switch (category) {
     case 'lighting':
       return 'Low lighting on this stretch';
     case 'road-condition':
-      return 'Rough road ahead';
+      switch (roadSubtype) {
+        case 'construction':
+          return 'Construction ahead';
+        case 'accident':
+          return 'Accident reported ahead';
+        case 'closure':
+          return 'Road closed ahead';
+        case 'weather':
+          return 'Weather affecting the road';
+        case 'flooding':
+          return 'Flooding reported ahead';
+        default:
+          return 'Rough road ahead';
+      }
     case 'wildlife':
       return 'Wildlife crossing ahead';
     case 'community-alert':
@@ -962,10 +985,13 @@ export default function EnRoute() {
   // a zone.
   const displayedHazard = useMemo<{
     category: HazardCategory;
+    roadSubtype?: 'construction' | 'accident' | 'closure' | 'weather' | 'flooding';
     lengthMiles: number | null;
   } | null>(() => {
     for (const { zone, category, lengthMiles } of enRouteZones) {
-      if (enteredZoneIds.has(zone.id)) return { category, lengthMiles };
+      if (enteredZoneIds.has(zone.id)) {
+        return { category, roadSubtype: zone.roadSubtype, lengthMiles };
+      }
     }
     if (turnHazards[0] != null) {
       return { category: turnHazards[0], lengthMiles: null };
@@ -1620,7 +1646,12 @@ export default function EnRoute() {
         style={styles.map}
         initialCamera={{
           center: { latitude: 30.6954, longitude: -88.0399 },
-          pitch: 45,
+          // Pitch 45 → 30: at 45° Apple MapKit drops road labels because
+          // they'd skew unreadably across 3D buildings. 30° keeps the
+          // perspective feel while letting street names render — the
+          // navigation-product requirement that the driver can read
+          // upcoming road names without leaning forward.
+          pitch: 30,
           heading: 0,
           zoom: 17,
           altitude: 1000,
@@ -1893,7 +1924,7 @@ export default function EnRoute() {
               nextStepInfo?.status === 'off-route'
                 ? undefined
                 : nextStepInfo?.step.kind,
-              56,
+              44,
               colors.white,
             )}
           </View>
@@ -2217,27 +2248,19 @@ export default function EnRoute() {
             iconography lands on each side.
           */}
           <View style={styles.etaRow}>
-            <FloatingActionButton
-              size="48"
-              accessibilityLabel="Change destination"
-              accessibilityHint="Opens search to pick a new destination mid-trip"
-              onPress={() => {
-                // Mid-trip destination change. /search reads
-                // ?from=enroute and routes the result back here
-                // instead of /home; the existing destLat/destLng
-                // useEffect refetches the route + steps in place.
-                // The active-route cache from the previous
-                // destination self-replaces on the next successful
-                // OSRM fetch (single-slot, destination-keyed); no
-                // need to clearActiveRoute here, which would race
-                // the new saveActiveRoute and risk leaving the user
-                // with no offline fallback during the swap window.
-                haptics.tap();
-                router.push('/search?from=enroute');
-              }}
-            >
-              <EnRouteSearch width={24} height={24} />
-            </FloatingActionButton>
+            {!sheetExpanded && (
+              <FloatingActionButton
+                size="48"
+                accessibilityLabel="Change destination"
+                accessibilityHint="Opens search to pick a new destination mid-trip"
+                onPress={() => {
+                  haptics.tap();
+                  router.push('/search?from=enroute');
+                }}
+              >
+                <EnRouteSearch width={24} height={24} />
+              </FloatingActionButton>
+            )}
 
             <View style={styles.etaCluster}>
               {/*
@@ -2270,19 +2293,33 @@ export default function EnRoute() {
               )}
             </View>
 
-            <FloatingActionButton
-              size="48"
-              accessibilityLabel="Compare routes"
-              accessibilityHint="Compare alternate routes and switch"
-              onPress={() => {
-                haptics.tap();
-                setShowComparison(true);
-              }}
-            >
-              <EnRoutePath width={24} height={24} />
-            </FloatingActionButton>
+            {!sheetExpanded && (
+              <FloatingActionButton
+                size="48"
+                accessibilityLabel="Compare routes"
+                accessibilityHint="Compare alternate routes and switch"
+                onPress={() => {
+                  haptics.tap();
+                  setShowComparison(true);
+                }}
+              >
+                <EnRoutePath width={24} height={24} />
+              </FloatingActionButton>
+            )}
           </View>
 
+          {/*
+            Trip-context row — distance · duration on the left, the
+            daylight gradient legend on the right when the sheet is
+            Full. Previously these were two separate rows: the metadata
+            cluster sat center-aligned, and the legend hung as a
+            standalone right-aligned row below it, reading as orphaned
+            content with empty space on its left. Now they share one
+            row via space-between, which (a) reads as one "trip context"
+            cluster, (b) reclaims vertical space the hazard panel below
+            can use, and (c) mirrors the /home route-preview pattern
+            where via-text + daylight strip already share a row.
+          */}
           <View
             style={styles.secondaryRow}
             accessibilityRole="text"
@@ -2290,25 +2327,19 @@ export default function EnRoute() {
               distanceMiles != null ? formatDistance(distanceMiles) : '—'
             }, ${durationMinutes != null ? formatDuration(durationMinutes) : '—'}`}
           >
-            <Text style={styles.secondaryDistance}>
-              {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
-            </Text>
-            <MetaSeparator style={styles.secondarySeparator} />
-            <Text style={styles.secondaryDuration}>
-              {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
-            </Text>
-          </View>
-
-          {/*
-            Daylight key — expanded sheet only so the collapsed ETA row
-            stays glanceable while driving. Mirrors /home's route-preview
-            legend (color + dash swatches + sun/moon).
-          */}
-          {sheetExpanded && (
-            <View style={styles.daylightLegendRow}>
-              <DaylightRouteLegend cloudCoverPct={cloudCoverPct} />
+            <View style={styles.secondaryRowMeta}>
+              <Text style={styles.secondaryDistance}>
+                {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
+              </Text>
+              <MetaSeparator style={styles.secondarySeparator} />
+              <Text style={styles.secondaryDuration}>
+                {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
+              </Text>
             </View>
-          )}
+            {sheetExpanded && (
+              <DaylightRouteLegend cloudCoverPct={cloudCoverPct} />
+            )}
+          </View>
 
           {/*
             Refuel reminders entry — Full state only, gated on the user
@@ -2373,8 +2404,8 @@ export default function EnRoute() {
               accessibilityRole="text"
               accessibilityLabel={
                 displayedHazard.lengthMiles != null
-                  ? `Heads up: ${hazardFullCopy(displayedHazard.category)} for ${formatHazardMiles(displayedHazard.lengthMiles)}`
-                  : `Heads up: ${hazardFullCopy(displayedHazard.category)}`
+                  ? `Heads up: ${hazardFullCopy(displayedHazard.category, displayedHazard.roadSubtype)} for ${formatHazardMiles(displayedHazard.lengthMiles)}`
+                  : `Heads up: ${hazardFullCopy(displayedHazard.category, displayedHazard.roadSubtype)}`
               }
             >
               {/*
@@ -2382,10 +2413,10 @@ export default function EnRoute() {
                 black glyph + stroke) at 96pt. The text column
                 takes the remaining width.
               */}
-              <Hazard category={displayedHazard.category} size={96} />
+              <Hazard category={displayedHazard.category} size={64} />
               <View style={styles.hazardCopyColumn}>
                 <Text style={styles.hazardCopy}>
-                  {hazardFullCopy(displayedHazard.category)}
+                  {hazardFullCopy(displayedHazard.category, displayedHazard.roadSubtype)}
                 </Text>
                 {displayedHazard.lengthMiles != null && (
                   <Text style={styles.hazardLengthCopy}>
@@ -2539,7 +2570,7 @@ const styles = StyleSheet.create({
   turnSign: {
     backgroundColor: colors.wiltedgreen,
     flexDirection: 'row',
-    gap: spacing.lg,
+    gap: spacing.md,
     alignItems: 'flex-start',
     // 16pt of additional top padding on top of SafeAreaView's
     // status-bar inset. Without it the turn arrow + instruction sit
@@ -2548,7 +2579,12 @@ const styles = StyleSheet.create({
     // below the time/battery icons.
     paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    // Bottom padding sm (was md). With the smaller maneuver icon (44
+    // not 56) and tighter typography on the secondary line, the
+    // card no longer needs xl-feeling bottom breathing room — sm
+    // keeps the wiltedgreen panel from feeling oversized vs the
+    // map area it's framing.
+    paddingBottom: spacing.sm,
   },
   // Direction column per Figma 825:3754 — turn arrow at top, distance
   // at bottom, stretched to the turnSign row's full content height
@@ -2577,7 +2613,11 @@ const styles = StyleSheet.create({
   },
   turnText: {
     flex: 1,
-    gap: spacing.md,
+    // Tightened from spacing.md (16pt). The instruction and the
+    // secondary "now" / "in 120 m" line read as one unit, not as
+    // separate sections — sm (8pt) gives them tight grouping the
+    // way Apple Maps / Google Maps stack their turn-card lines.
+    gap: spacing.sm,
   },
   turnInstruction: {
     // dynamicType + relaxedLineHeight — turn instructions are the most
@@ -2588,7 +2628,15 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   turnStreet: {
-    ...dynamicType(typography.title2Emphasized),
+    // Secondary line — distance countdown ("in 120 m") or timing
+    // ("now") that pairs with the title2 turnInstruction above.
+    // Dropped from title2Emphasized to title3Regular: still well
+    // above the AX5 safe floor (~20pt at default scale) but no
+    // longer competing in weight with the primary instruction the
+    // way two stacked title2-emphasized lines did. The composition
+    // now reads as "instruction THEN timing" instead of two
+    // equal-weight lines stacked.
+    ...dynamicType(typography.title3Regular),
     color: colors.fadedgreen,
     // F7: tabular-nums prevents glyph-width jitter as the "in 120 m"
     // distance counts down each second. SF Pro on iOS uses proportional
@@ -2735,6 +2783,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    // Cap at 65% of screen height so the expanded Full state (hazard
+    // panel + ETA + end trip) can't grow up over the turn card. The
+    // turn card needs the top ~30–35% of the screen at minimum for
+    // its maneuver arrow + street name + "Then ↶" hint to read.
+    maxHeight: Dimensions.get('window').height * 0.65,
     backgroundColor: colors.white,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
@@ -2768,17 +2821,25 @@ const styles = StyleSheet.create({
   // earlier scaffolding (a 68pt rotated square wrapper with a
   // Phosphor glyph inside) is retired now that the canonical SVG
   // is in place.
+  // Hazard panel marks the alert section, visually distinct from the
+  // trip-context metadata above it. Two layout signals carry that:
+  // (1) a hairline divider on top (separatorSubtle) so the panel reads
+  //     as a deliberate section break, not a continuation of metadata,
+  // (2) generous marginTop (lg/24pt) that breaks the otherwise-uniform
+  //     16pt rhythm — varied spacing IS the hierarchy here, per the
+  //     layout reference's "tight inside, generous between sections."
+  // F8's uniform-rhythm rationale was right when there were only two
+  // info rows above; once the panel inserts as the alert section, the
+  // uniform rhythm flattens the hierarchy it was trying to preserve.
   hazardPanel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingHorizontal: spacing.md,
-    // W2 of PR D review: dropped paddingTop: 8. With sheetContent's
-    // gap now at 16 (F8), the extra 8pt here turned the slot above
-    // the hazard panel into 24pt while everything else in the sheet
-    // sits at 16pt — defeating F8's whole point (uniform vertical
-    // rhythm). Without paddingTop, the panel inherits the sheet's
-    // canonical 16pt gap on both edges.
+    paddingTop: spacing.md,
+    marginTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separatorSubtle,
   },
   // Text column inside the hazard panel. Stacks the Title3/Emphasized
   // sentence above an optional Subheadline/Regular "For X mi." line.
@@ -2787,7 +2848,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   hazardCopy: {
-    ...dynamicType(relaxedLineHeight(typography.title3Emphasized)),
+    // Bumped from title3Emph → title2Emph. The driver's read-time
+    // question is "what's the problem?" — the answer deserves more
+    // weight, not less glyph. title2 + relaxedLineHeight balances the
+    // 64pt yellow diamond so the sentence-with-glyph pairing reads as
+    // one statement instead of an oversized icon next to medium text.
+    ...dynamicType(relaxedLineHeight(typography.title2Emphasized)),
     color: colors.black,
   },
   hazardLengthCopy: {
@@ -2866,14 +2932,21 @@ const styles = StyleSheet.create({
   // Body/Emphasized 17pt per Figma 364:3133/3135 — bumped from v1's
   // 15pt Subheadline. Distance + duration both emphasized; the "·"
   // separator stays Subheadline/Regular gray for a quiet beat.
+  // Trip-context row. Layout pivot: was center-justified meta-only
+  // with the daylight legend hanging as a separate right-aligned row
+  // below; now both share one row with space-between. The horizontal
+  // padding matches the sheet's inner-content gutter (etaRow uses 20pt
+  // for FAB alignment with the side column above; lg/24pt here keeps
+  // text and the legend off the rounded sheet corners).
   secondaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
   },
-  daylightLegendRow: {
-    alignItems: 'flex-end',
-    paddingTop: spacing.xs,
+  secondaryRowMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   secondaryDistance: {
     ...dynamicType(typography.bodyEmphasized),

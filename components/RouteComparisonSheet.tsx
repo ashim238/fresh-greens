@@ -7,7 +7,7 @@ import { Flag } from 'phosphor-react-native/src/icons/Flag';
 import { Moon } from 'phosphor-react-native/src/icons/Moon';
 import { PawPrint } from 'phosphor-react-native/src/icons/PawPrint';
 import { ShieldStar } from 'phosphor-react-native/src/icons/ShieldStar';
-import { Wrench } from 'phosphor-react-native/src/icons/Wrench';
+import { Warning } from 'phosphor-react-native/src/icons/Warning';
 import { X } from 'phosphor-react-native/src/icons/X';
 
 import { MetaSeparator } from './MetaSeparator';
@@ -37,7 +37,7 @@ const CONDITION_META: Record<RouteCondition, { label: string; Icon: PhosphorIcon
   'low-light': { label: 'Low light', Icon: Moon },
   wildlife: { label: 'Wildlife', Icon: PawPrint },
   police: { label: 'Police', Icon: ShieldStar },
-  road: { label: 'Road', Icon: Wrench },
+  road: { label: 'Road', Icon: Warning },
 };
 
 /**

@@ -12,6 +12,7 @@ export type RouteHazardDetailContent = {
 
 export function routeHazardDetailContent(
   category: HazardCategory,
+  roadSubtype?: 'construction' | 'accident' | 'closure' | 'weather' | 'flooding',
 ): RouteHazardDetailContent {
   switch (category) {
     case 'lighting':
@@ -41,13 +42,66 @@ export function routeHazardDetailContent(
         preferenceLink: false,
       };
     case 'road-condition':
-      return {
-        title: 'Road condition on this route',
-        dataSource:
-          'OpenStreetMap tags degraded surface condition along this stretch.',
-        affectsRoutes: 'Fresh Greens factors road condition into your route score.',
-        preferenceLink: false,
-      };
+      // Subtype-aware copy when Mapbox Incidents tagged the specific
+      // kind of road event. Falls back to the generic OSM-surface
+      // copy for both untyped Mapbox incidents and OSM tags (which
+      // have no per-tag subtype). Chip-level UI stays generic on
+      // purpose; specificity earns its keep at read-time, not glance.
+      switch (roadSubtype) {
+        case 'construction':
+          return {
+            title: 'Construction on this route',
+            dataSource:
+              'Mapbox traffic flagged active construction along this stretch.',
+            affectsRoutes:
+              'Fresh Greens treats construction zones as avoid-weighted in route scoring.',
+            preferenceLink: false,
+          };
+        case 'accident':
+          return {
+            title: 'Accident reported on this route',
+            dataSource:
+              'Mapbox traffic flagged an accident or disabled vehicle along this stretch.',
+            affectsRoutes:
+              'Fresh Greens treats accident-flagged stretches as avoid-weighted while the report is active.',
+            preferenceLink: false,
+          };
+        case 'closure':
+          return {
+            title: 'Road closure on this route',
+            dataSource:
+              'Mapbox traffic flagged a closed road or lane restriction along this stretch.',
+            affectsRoutes:
+              'Fresh Greens routes around full closures and weights lane restrictions toward alternates.',
+            preferenceLink: false,
+          };
+        case 'weather':
+          return {
+            title: 'Weather affecting this route',
+            dataSource:
+              'Mapbox traffic flagged a weather-related impact along this stretch.',
+            affectsRoutes:
+              'Fresh Greens weights weather-flagged stretches based on the impact severity Mapbox reports.',
+            preferenceLink: false,
+          };
+        case 'flooding':
+          return {
+            title: 'Flooding reported on this route',
+            dataSource:
+              'Mapbox traffic flagged flooding along this stretch.',
+            affectsRoutes:
+              'Fresh Greens treats flooded stretches as avoid-weighted while the report is active.',
+            preferenceLink: false,
+          };
+        default:
+          return {
+            title: 'Road condition on this route',
+            dataSource:
+              'OpenStreetMap tags degraded surface condition along this stretch.',
+            affectsRoutes: 'Fresh Greens factors road condition into your route score.',
+            preferenceLink: false,
+          };
+      }
     case 'community-alert':
       return {
         title: 'Community alert on this route',

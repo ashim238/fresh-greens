@@ -182,6 +182,16 @@ export type Zone = {
    * fork-and-knife icon for different `subTag` values).
    */
   reportSubTag?: string;
+  /**
+   * Set only when `category === 'road-condition'` and the upstream
+   * adapter carried a typed subcategory (currently only Mapbox
+   * Incidents, whose `inc.type` distinguishes construction / accident
+   * / closure / weather). Lets the en-route hazard panel render
+   * "Construction ahead" vs "Accident reported" vs the generic
+   * "Rough road ahead" without re-querying the adapter or losing
+   * the data layer's resolution.
+   */
+  roadSubtype?: 'construction' | 'accident' | 'closure' | 'weather' | 'flooding';
   /** Community-report detail text (the optional user-written message). */
   reportDetail?: string;
   /** Community-report submission timestamp (ms since epoch). */

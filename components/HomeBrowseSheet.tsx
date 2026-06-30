@@ -1019,7 +1019,7 @@ function WeatherDrivingCard({
       </View>
       <View style={styles.weatherRow}>
         <DrivingGlyph width={16} height={16} />
-        <Text style={styles.weatherText}>{condition}</Text>
+        <Text style={styles.weatherText}>Driving · {condition}</Text>
       </View>
     </View>
   );
@@ -1480,9 +1480,12 @@ const styles = StyleSheet.create({
     // section header / rows). lg (24pt) gives generous separation
     // between major sections; internal cluster gaps stay at sm/md.
     gap: spacing.lg,
-    // 40pt = 24pt shadow clearance for the last card + 16pt of bottom
-    // breathing room (what the old wrapper View provided).
-    paddingBottom: 40,
+    // 16pt: card-shadow clearance + a small breath. The parent
+    // bottomSheet adds the SafeAreaView['bottom'] home-indicator
+    // inset (~34pt on iPhone 17 Pro), so 40pt here was double-
+    // stacking the safe-area clearance and read as dead space
+    // below the last card.
+    paddingBottom: spacing.md,
   },
   // Sticky chip wrapper — solid white bg so when the ScrollView pins
   // this slot via stickyHeaderIndices during vertical scroll,

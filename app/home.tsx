@@ -2012,7 +2012,18 @@ export default function Home() {
         !selectedReport &&
         !selectedZone &&
         !selectedRouteHazard && <SafeAreaView
-        style={styles.bottomSheet}
+        style={[
+          styles.bottomSheet,
+          // When the browse sheet is expanded, switch from maxHeight to
+          // a definite height. flex:1 on the inner Animated.View only
+          // claims real space if the parent has a definite height — with
+          // bare maxHeight + position:absolute, the SafeAreaView wraps
+          // its content and ScrollView's content size equals its frame
+          // size, so RN reports "no overflow" and refuses to scroll. The
+          // collapsed state stays wrap-content so the small header card
+          // doesn't waste 85% of screen.
+          !sheetMode && !thingsToDoCollapsed && styles.bottomSheetExpanded,
+        ]}
         edges={['bottom']}
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
@@ -2044,7 +2055,7 @@ export default function Home() {
           <DragHandle />
         )}
 
-        <Animated.View style={{ opacity: sheetOpacity }}>
+        <Animated.View style={{ opacity: sheetOpacity, flex: 1 }}>
           {!sheetMode ? (
             <HomeBrowseSheet
               firstName={userFirstName}
@@ -2240,6 +2251,7 @@ export default function Home() {
         return (
           <RouteHazardDetailCard
             category={category}
+            roadSubtype={entry.zone.roadSubtype}
             lengthMiles={zoneLengthMiles(
               entry.zone,
               selectedRoute?.coordinates,
@@ -2329,6 +2341,12 @@ const styles = StyleSheet.create({
   },
   mapCoachScrim: {
     ...StyleSheet.absoluteFillObject,
+    // Raise above the bottom sheet (zIndex: 10) so the coach mark
+    // doesn't render *behind* the sheet when /menu's "Map guide"
+    // resets coach state and routes here. Without this the scrim
+    // appears in document order on top of the map but underneath
+    // the absolute-positioned sheet.
+    zIndex: 20,
     backgroundColor: colors.modalScrimStrong,
     justifyContent: 'flex-start',
     alignItems: 'center',
@@ -2442,6 +2460,13 @@ const styles = StyleSheet.create({
     // Shadow points UP since the sheet floats above content from the
     // bottom edge — `shadows.sheet` bundles the directional offset.
     ...shadows.sheet,
+  },
+  // Definite-height variant applied only when browse-expanded. See the
+  // comment at the SafeAreaView's style array for the why. 85% matches
+  // the maxHeight cap so the visual landing is identical to the prior
+  // wrap-content behaviour when content was tall.
+  bottomSheetExpanded: {
+    height: Dimensions.get('window').height * 0.85,
   },
   // ScrollView wrapper around the route-mode body content. flexShrink: 1
   // lets the scroller cede space to the always-visible actionsRow when
