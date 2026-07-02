@@ -16,7 +16,7 @@ export const colors = {
   // ── Reserved — UI signals only ────────────────────────────────
   // See .cursorrules for documented exceptions.
   orange: '#FF9500',       // hazard / speed limit / construction
-  red: '#FF3B30',          // alert
+  red: '#FF3B30',          // alert SIGNAL (icons, dots, banner fills, destructive labels, dark-surface error text). For readable error COPY on light surfaces use severityCritical — see .cursorrules carve-out #8.
   yellow: '#FFCC00',       // caution
   navy: '#041E49',         // safety affordances (en-route shield button, etc.)
 
@@ -93,6 +93,10 @@ export const colors = {
   // recording waveforms, report chips, incident UI, trust signals.
   // Derived from the reserved palette but tuned for foreground +
   // background pairing at WCAG AA contrast.
+  //
+  // severityCritical doubles as the readable-error-COPY token on light
+  // surfaces (~5.6:1 on white, passes AA — vs red's ~3.5:1 which fails).
+  // See .cursorrules carve-out #8 for the error-copy-vs-signal split.
   severityCritical: '#C62828',
   severityCriticalBg: 'rgba(198, 40, 40, 0.08)',
   severityWarning: '#D97706',

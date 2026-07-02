@@ -243,6 +243,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...dynamicType(typography.footnoteRegular),
+    // Stays red (NOT severityCritical) — this sits on the dark
+    // wiltedgreen/burntgreen auth ground, where the brighter red has
+    // more contrast than #C62828. See .cursorrules #8 (dark-surface case).
     color: colors.red,
     textAlign: 'center',
   },

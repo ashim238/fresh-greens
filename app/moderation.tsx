@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...dynamicType(typography.bodyRegular),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     textAlign: 'center',
   },
   retryBtn: {
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
   },
   actionErrorText: {
     ...dynamicType(typography.caption1Emphasized),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
   },
 
   // Toolbar

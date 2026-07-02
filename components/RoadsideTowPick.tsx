@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     marginTop: spacing.md,
   },
   list: {

@@ -115,6 +115,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   footerError: {
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
   },
 });

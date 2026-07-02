@@ -500,12 +500,12 @@ const styles = StyleSheet.create({
   },
   destError: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     marginTop: spacing.sm,
   },
   inlineError: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     marginBottom: spacing.sm,
   },
   // Card list mirrors /pulled-over's armed picker (armedStyles

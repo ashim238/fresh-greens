@@ -1339,7 +1339,7 @@ const errorStyles = StyleSheet.create({
   },
   text: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     textAlign: 'center',
   },
 });
