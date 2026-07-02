@@ -72,7 +72,10 @@ export function LifelineModal({ visible, onClose, contact }: Props) {
         accessible={false}
         accessibilityElementsHidden
       >
-        <Pressable style={styles.card} onPress={() => {}}>
+        {/* View + onStartShouldSetResponder swallows the tap so it doesn't
+            reach the scrim's onClose, without registering as a VoiceOver
+            button (an empty-onPress Pressable would announce a phantom button). */}
+        <View style={styles.card} onStartShouldSetResponder={() => true}>
           <DragHandle />
 
           <View style={styles.body}>
@@ -116,7 +119,7 @@ export function LifelineModal({ visible, onClose, contact }: Props) {
               />
             </View>
           </View>
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );
@@ -130,8 +133,8 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     paddingBottom: spacing.lg,
   },
   body: {

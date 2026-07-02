@@ -145,7 +145,11 @@ export function ErrorState({
 
 const styles = StyleSheet.create({
   card: {
-    width: 326,
+    // maxWidth (not fixed width) so the card shrinks on iPhone SE (320pt
+    // logical width) instead of overflowing. width:'100%' lets it fill up
+    // to the 326pt Figma ceiling on larger devices.
+    width: '100%',
+    maxWidth: 326,
     padding: spacing.xl,
     borderRadius: radii.lg,
     alignItems: 'center',

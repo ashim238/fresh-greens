@@ -2667,7 +2667,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.whiteFill20,
     alignSelf: 'flex-start',
   },
   offlinePillTextRow: {

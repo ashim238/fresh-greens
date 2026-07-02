@@ -85,6 +85,8 @@ export const colors = {
   dragHandleBar: 'rgba(128, 128, 128, 0.55)',
   dividerNeutral: 'rgba(202, 196, 208, 1)',
   whiteFill12: 'rgba(255, 255, 255, 0.12)',
+  whiteFill20: 'rgba(255, 255, 255, 0.2)',   // pill fill on dark map chrome (en-route offline pill)
+  whiteSubdued70: 'rgba(255, 255, 255, 0.7)', // subdued white text on dark (emergency countdown unit)
 
   // ── Severity scale ────────────────────────────────────────────
   // Named safety-severity tokens for emotionally-charged UI:

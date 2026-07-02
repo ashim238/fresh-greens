@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   errorNote: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     marginBottom: spacing.sm,
   },
   // Card list mirrors /pulled-over's armed picker (and the matching
@@ -323,9 +323,9 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   rowTitleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),

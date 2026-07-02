@@ -605,7 +605,7 @@ function GenericBrowseRow({
           decelerationRate={reduceMotion ? 'normal' : 'fast'}
           snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
           snapToAlignment="start"
-          accessibilityRole={'list' as any}
+          role="list"
           accessibilityLabel={title}
         >
           <View style={styles.carouselLeadingSpacer} />
@@ -777,7 +777,7 @@ function TrustedByCommunityRow({
       decelerationRate={reduceMotion ? 'normal' : 'fast'}
       snapToInterval={reduceMotion ? undefined : CARD_WIDTH + CARD_GAP}
       snapToAlignment="start"
-      accessibilityRole={'list' as any}
+      role="list"
       accessibilityLabel="Trusted by your community"
     >
       <View style={styles.carouselLeadingSpacer} />
@@ -1557,6 +1557,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: 13,
+    // Floor so the chip stays ≥44pt even if Dynamic Type shrinks the
+    // 13+13+18 math below the tap-target minimum.
+    minHeight: 44,
     borderRadius: radii.pill,
     backgroundColor: colors.fillsTertiary,
     justifyContent: 'center',
@@ -1896,7 +1899,7 @@ const styles = StyleSheet.create({
   emptyCtaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm,
     marginTop: spacing.xs,
   },
   emptyCtaText: {

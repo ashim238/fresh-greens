@@ -127,12 +127,14 @@ export default function SafetySettings() {
               label="Trusted Contact"
               value={trustedContactValue}
               onPress={handleEditTrustedContact}
+              accessibilityHint="Opens the screen to choose or change who Fresh Greens reaches for you"
             />
             <SettingsRow
               icon={<Microphone size={24} color={colors.labelSecondary} weight="regular" />}
               label="Recordings"
               value={recordingsValue}
               onPress={handleRecordings}
+              accessibilityHint="Opens your saved stop recordings"
             />
           </RowGroup>
 

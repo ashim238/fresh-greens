@@ -74,7 +74,9 @@ export default function SignOut() {
           </View>
 
           <View style={styles.copy}>
-            <Text style={styles.title}>You've been logged out.</Text>
+            <Text style={styles.title} accessibilityRole="header">
+              You&apos;ve been logged out.
+            </Text>
             {subtitleVisible && (
               <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
                 Drive safe.
@@ -149,6 +151,8 @@ const styles = StyleSheet.create({
   },
   button: {
     alignSelf: 'flex-start',
-    width: 163, // per Figma container width
+    // minWidth (not fixed width) per Figma 163pt container, but lets the
+    // button grow to fit its label under Dynamic Type instead of clipping.
+    minWidth: 163,
   },
 });

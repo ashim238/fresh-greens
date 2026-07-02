@@ -132,7 +132,9 @@ export function FuelStopsSheet({
         accessible={false}
         accessibilityViewIsModal
       >
-        <Pressable style={styles.card} onPress={() => {}}>
+        {/* View + onStartShouldSetResponder swallows the tap without
+            registering as a phantom VoiceOver button (see LifelineModal). */}
+        <View style={styles.card} onStartShouldSetResponder={() => true}>
           <SafeAreaView edges={['bottom']}>
             <View style={styles.handleWrap}>
               <DragHandle />
@@ -149,7 +151,7 @@ export function FuelStopsSheet({
                 onPress={onClose}
                 accessibilityRole="button"
                 accessibilityLabel="Close fuel stops"
-                style={tapTarget44}
+                style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
               >
                 <X size={24} color={colors.labelSecondary} weight="regular" />
               </Pressable>
@@ -244,7 +246,7 @@ export function FuelStopsSheet({
               />
             )}
           </SafeAreaView>
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );

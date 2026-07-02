@@ -74,7 +74,7 @@ export default function Legal() {
           onClose={() => router.replace('/home')}
         />
 
-        <View style={styles.tabRow}>
+        <View style={styles.tabRow} accessibilityRole="tablist">
           {SECTIONS.map((s) => {
             const isActive = activeSection === s.id;
             return (
@@ -86,7 +86,7 @@ export default function Legal() {
                   isActive && styles.tabActive,
                   pressed && pressedDim,
                 ]}
-                accessibilityRole="button"
+                accessibilityRole="tab"
                 accessibilityLabel={`Jump to ${s.label}`}
                 accessibilityState={{ selected: isActive }}
               >

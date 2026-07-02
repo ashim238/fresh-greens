@@ -1104,7 +1104,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
           ]}
           onPress={hasContact ? undefined : handleAddContact}
           disabled={hasContact}
-          accessibilityRole={hasContact ? undefined : 'button'}
+          accessibilityRole={hasContact ? 'text' : 'button'}
           accessibilityLabel={
             hasContact
               ? `${displayName}, trusted contact`
@@ -1279,7 +1279,6 @@ function ReviewView({
               onPress={onBack}
               accessibilityRole="button"
               accessibilityLabel="Previous"
-              hitSlop={12}
               style={({ pressed }) => [
                 tapTarget44,
                 pressed && pressedDim,
@@ -1326,7 +1325,6 @@ function ReviewView({
               onPress={onNext}
               accessibilityRole="button"
               accessibilityLabel="Next"
-              hitSlop={12}
               style={({ pressed }) => [
                 tapTarget44,
                 pressed && pressedDim,

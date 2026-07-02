@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -195,6 +196,14 @@ export default function Onboarding() {
   // width gives the page index.
   function handleScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+    if (newIndex !== pagerIndex && PANELS[newIndex]) {
+      // Physical swipes don't fire the adjustable increment/decrement
+      // announcement, so VoiceOver users get no confirmation the page
+      // changed. Announce the new panel's title + position explicitly.
+      AccessibilityInfo.announceForAccessibility(
+        `${PANELS[newIndex].title}. Page ${newIndex + 1} of ${PANELS.length}.`,
+      );
+    }
     setPagerIndex(newIndex);
   }
 
