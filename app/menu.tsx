@@ -57,6 +57,12 @@ import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
+// Portfolio-screenshot / demo escape hatch: hide the Moderation row even
+// for confirmed moderators. Prod behavior is unchanged when unset. Set
+// EXPO_PUBLIC_HIDE_MODERATION_ROW=true in .env.local before taking
+// screenshots that shouldn't include the admin surface.
+const HIDE_MODERATION_ROW = process.env.EXPO_PUBLIC_HIDE_MODERATION_ROW === 'true';
+
 /**
  * Menu Page — the settings hub, pushed from /home's avatar (car) button.
  *
@@ -480,7 +486,7 @@ export default function Menu() {
               label="Map guide"
               onPress={handleMapGuide}
             />
-            {isModerator && (
+            {isModerator && !HIDE_MODERATION_ROW && (
               <SettingsRow
                 icon={<ShieldCheck size={24} color={colors.labelSecondary} weight="regular" />}
                 label="Moderation"
