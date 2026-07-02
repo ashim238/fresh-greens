@@ -1739,7 +1739,7 @@ const chipStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: radii.xs,
-    backgroundColor: colors.red,
+    backgroundColor: colors.severityCritical,
     marginRight: spacing.sm,
   },
   label: {
@@ -1943,7 +1943,7 @@ const guidanceStyles = StyleSheet.create({
     gap: spacing.lg,
   },
   recordingWidget: {
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfaceTinted,
     borderRadius: radii.xl,
     padding: spacing.md,
     gap: spacing.sm,
@@ -1982,7 +1982,7 @@ const guidanceStyles = StyleSheet.create({
   waveformBar: {
     width: 3,
     borderRadius: radii.xs,
-    backgroundColor: colors.red,
+    backgroundColor: colors.severityCritical,
   },
   recordingFootnote: {
     ...dynamicType(typography.caption1Regular),
@@ -2047,17 +2047,12 @@ const contactStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.title1Regular),
+    ...dynamicType(typography.brandDisplay),
     color: colors.black,
   },
   subtitle: {
-    ...dynamicType(typography.subheadlineRegular),
-    // P9: mutedTertiary (rgba(80,80,80,0.7)) at 15pt = ~3.0-3.5:1 contrast,
-    // below WCAG AA for normal text. This is reassuring informational copy
-    // user needs to read, not decorative metadata — labelTertiary (#3D3D3D)
-    // is the intended token for tertiary-text-that-still-must-read. Per
-    // .cursorrules reserved-color rule.
-    color: colors.labelTertiary,
+    ...dynamicType(typography.bodyRegular),
+    color: colors.labelSecondary,
   },
   avatarBlock: {
     gap: spacing.md,

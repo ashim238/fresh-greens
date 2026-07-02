@@ -124,7 +124,7 @@ function SavedPlaceRow({
 
   return (
     <View style={styles.row}>
-      <Glyph size={24} color={colors.black} weight="duotone" />
+      <Glyph size={24} color={colors.labelSecondary} weight="regular" />
       <View style={styles.rowTextStack}>
         <Text
           style={styles.rowLabel}

@@ -457,7 +457,7 @@ export default function TripSummary() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfacePage,
   },
   safe: {
     flex: 1,
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     color: colors.mutedSecondary,
   },
   destination: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.black,
     marginTop: spacing.xs,
   },

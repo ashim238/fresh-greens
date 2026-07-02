@@ -214,12 +214,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    // Bolder pass: 28pt → 34pt (largeTitleEmphasized). "Get started" is
-    // the hero moment on the auth entry screen — at title1 it sat as a
-    // mid-screen page header, at largeTitle it commits as the brand
-    // greeting it actually is. Keeps the existing 88pt gap to the
-    // action group so the title gets the space it deserves.
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.white,
     textAlign: 'center',
   },

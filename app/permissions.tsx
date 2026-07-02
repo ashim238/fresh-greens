@@ -192,7 +192,7 @@ export default function Permissions() {
                     <NavigationArrow
                       size={14}
                       color={colors.freshgreen}
-                      weight="duotone"
+                      weight="regular"
                     />
                   </View>
                   <Text style={styles.subText}>Location</Text>
@@ -201,8 +201,8 @@ export default function Permissions() {
                   <View style={styles.thumb}>
                     <Microphone
                       size={14}
-                      color={colors.black}
-                      weight="duotone"
+                      color={colors.labelSecondary}
+                      weight="regular"
                     />
                   </View>
                   <Text style={styles.subText}>Microphone</Text>

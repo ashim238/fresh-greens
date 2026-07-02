@@ -210,10 +210,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    // Bolder pass: 28pt → 34pt (largeTitleEmphasized). Mirrors the
-    // /get-started title bump — "Welcome back" is the hero moment for
-    // returning users and earns the largest brand voice.
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.white,
     textAlign: 'center',
   },
