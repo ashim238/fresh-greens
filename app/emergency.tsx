@@ -433,7 +433,7 @@ function CountdownView({
             accessibilityLabel={pivotA11yLabel ?? pivotLabel}
             style={({ pressed }) => [styles.pivotBtn, pressed && pressedDim]}
           >
-            <Phone size={16} color={colors.labelSecondary} weight="duotone" />
+            <Phone size={16} color={colors.labelSecondary} weight="regular" />
             <Text style={styles.pivotLabel}>{pivotLabel}</Text>
           </Pressable>
         )}
@@ -583,11 +583,13 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   countdownNumber: {
+    // dynamic-type exempt: fixed-proportion SOS countdown numeral in a
+    // safety-critical disc — scaling overflows the disc and breaks the
+    // at-a-glance readability drivers need during a 911 countdown.
     ...typography.sosCountdown,
     color: colors.white,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
-    lineHeight: 40,
   },
   countdownUnit: {
     ...dynamicType(typography.caption1Regular),

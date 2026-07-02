@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    ...dynamicType(typography.caption1Regular),
+    ...dynamicType(typography.footnoteRegular),
     color: colors.mutedSecondary,
   },
   destination: {

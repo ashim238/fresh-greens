@@ -1135,7 +1135,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
                   <UserPlus
                     size={56}
                     color={colors.freshgreen}
-                    weight="duotone"
+                    weight="regular"
                   />
                 )}
               </View>
@@ -1177,7 +1177,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             }
             accessibilityState={{ disabled: !canCall }}
           >
-            <Phone size={24} color={colors.white} weight="duotone" />
+            <Phone size={24} color={colors.white} weight="fill" />
             <Text style={contactStyles.callBtnText}>Call</Text>
           </Pressable>
 
@@ -1200,7 +1200,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             <ChatCircle
               size={24}
               color={colors.wiltedgreen}
-              weight="duotone"
+              weight="fill"
             />
             <Text style={contactStyles.textBtnText}>Text</Text>
           </Pressable>
@@ -1704,7 +1704,7 @@ function WhatToKnowView() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
   },
@@ -1790,7 +1790,7 @@ const armedStyles = StyleSheet.create({
     height: safetyCardHeight,
     padding: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     justifyContent: 'center',
     // A22 / P1: was inline (height:1, opacity:0.15, radius:3, elevation:2)
     // — exact match to shadows.e1. Replaced with the canonical spread per
@@ -2002,7 +2002,7 @@ const guidanceStyles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
   },
   continueText: {
     ...dynamicType(typography.subheadlineEmphasized),

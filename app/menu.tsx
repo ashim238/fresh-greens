@@ -550,7 +550,7 @@ export default function Menu() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
   },
   safe: {
     flex: 1,
