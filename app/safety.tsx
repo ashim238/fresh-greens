@@ -271,7 +271,7 @@ export default function SafetyModal() {
               <CaretRight
                 size={20}
                 color={colors.labelTertiary}
-                weight="bold"
+                weight="regular"
               />
             </Pressable>
           </View>
@@ -284,7 +284,7 @@ export default function SafetyModal() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     // The rounded top corners read because the modal slides up from
     // bottom — the OS shows the previous screen behind/above this one
     // briefly during the transition.
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 96,
     borderRadius: radii.sm,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
     alignItems: 'center',
     justifyContent: 'center',
     // Theme tier for the per-tile lift. e1 matches the v2 Figma
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     borderRadius: radii.sm,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
     ...shadows.e1,
   },
   sosBarIcon: {

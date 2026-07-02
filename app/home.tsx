@@ -2354,7 +2354,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxl * 3 + spacing.xl, // clear top chrome (search + chips)
   },
   mapCoachCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.lg,
     padding: spacing.lg,
     gap: spacing.sm + spacing.xs, // 12pt
@@ -2426,7 +2426,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     borderRadius: radii.lg,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
     borderWidth: 1,
     borderColor: colors.separatorSubtle,
   },
@@ -2452,7 +2452,7 @@ const styles = StyleSheet.create({
     // than clipped — the user can scroll inside the sheet to reach
     // the bottom of a long card.
     maxHeight: Dimensions.get('window').height * 0.85,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
     paddingTop: 12,

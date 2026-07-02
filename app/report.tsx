@@ -758,8 +758,8 @@ function DetailView({
                                   active
                                     ? colors.white
                                     : sev.level === 'avoid'
-                                      ? colors.red
-                                      : colors.orange
+                                      ? colors.severityCritical
+                                      : colors.severityWarning
                                 }
                                 weight="fill"
                               />
@@ -1013,7 +1013,7 @@ const styles = StyleSheet.create({
     // lets the popup honor the cap rather than overflowing the parent.
     maxHeight: '90%',
     flexShrink: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.xl,
     // v2 spec (1112:8900): px-24 py-32 gap-24. Bumped horizontal from
     // 16 → 24 to honor the v2 breathing room while keeping the vertical
@@ -1112,7 +1112,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 96,
     borderRadius: radii.sm,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
     alignItems: 'center',
     justifyContent: 'center',
     // Theme tier — same depth as the safety modal tiles and the
@@ -1147,7 +1147,7 @@ const styles = StyleSheet.create({
   textInput: {
     minHeight: 61,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderWarm,
     borderRadius: radii.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
@@ -1158,7 +1158,7 @@ const styles = StyleSheet.create({
   photoStub: {
     height: 120,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderWarm,
     borderStyle: 'dashed',
     borderRadius: radii.lg,
     alignItems: 'center',
@@ -1235,7 +1235,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.freshgreen,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
   },
   chipActive: {
     // wiltedgreen so the white active-state label clears WCAG AA.
@@ -1251,26 +1251,26 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   chipAvoid: {
-    borderColor: colors.red,
+    borderColor: colors.severityCritical,
     backgroundColor: colors.chipAvoidFill,
   },
   chipAvoidActive: {
-    backgroundColor: colors.red,
-    borderColor: colors.red,
+    backgroundColor: colors.severityCritical,
+    borderColor: colors.severityCritical,
   },
   chipAvoidLabel: {
-    color: colors.red,
+    color: colors.severityCritical,
   },
   chipCaution: {
-    borderColor: colors.orange,
+    borderColor: colors.severityWarning,
     backgroundColor: colors.chipCautionFill,
   },
   chipCautionActive: {
-    backgroundColor: colors.orange,
-    borderColor: colors.orange,
+    backgroundColor: colors.severityWarning,
+    borderColor: colors.severityWarning,
   },
   chipCautionLabel: {
-    color: colors.orange,
+    color: colors.severityWarning,
   },
   // Stretches the v2 `Button` across the popup's content width. Without
   // this, the unified Button picks up its natural width from its label
@@ -1291,7 +1291,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   thankYouTitle: {
-    ...dynamicType(typography.title1Emphasized),
+    ...dynamicType(typography.brandDisplay),
     color: colors.black,
   },
   thankYouSubtitle: {
@@ -1303,7 +1303,7 @@ const styles = StyleSheet.create({
   // above the keyboard. Right-aligned "Done" matches iOS Mail / Notes
   // and is the platform-conventional dismiss target.
   inputAccessory: {
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
     paddingHorizontal: spacing.md,
     // No vertical padding — the Done button's minHeight: 44 sizes the bar
     // to ~44pt total, matching the native iOS keyboard toolbar. Earlier
@@ -1312,7 +1312,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.cardBorderSubtle,
+    borderTopColor: colors.borderWarm,
   },
   inputAccessoryDone: {
     ...dynamicType(typography.bodyEmphasized),

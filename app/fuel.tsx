@@ -401,7 +401,7 @@ export default function Fuel() {
                 <Switch
                   value={enabled}
                   onValueChange={setEnabled}
-                  trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+                  trackColor={{ false: colors.borderSubtle, true: colors.accent }}
                   thumbColor={colors.white}
                   accessibilityLabel="Refuel reminders"
                 />
@@ -439,7 +439,7 @@ export default function Fuel() {
                     <Switch
                       value={distanceEnabled}
                       onValueChange={setDistanceEnabled}
-                      trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+                      trackColor={{ false: colors.borderSubtle, true: colors.accent }}
                       thumbColor={colors.white}
                       accessibilityLabel="Also use distance to trigger reminders"
                     />
@@ -604,7 +604,7 @@ export default function Fuel() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.systemGroupedBackground },
+  root: { flex: 1, backgroundColor: colors.surfacePage },
   safe: { flex: 1 },
   kav: { flex: 1 },
   scrollContent: { padding: spacing.lg, gap: spacing.xl },
@@ -649,8 +649,8 @@ const styles = StyleSheet.create({
     borderColor: colors.separatorSubtle,
   },
   segmentItemSelected: {
-    backgroundColor: colors.freshgreen,
-    borderColor: colors.freshgreen,
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   segmentText: { ...dynamicType(typography.subheadlineEmphasized), color: colors.labelSecondary },
   segmentTextSelected: { color: colors.white },
@@ -706,8 +706,8 @@ const styles = StyleSheet.create({
     borderColor: colors.separatorSubtle,
   },
   rangeOptionSelected: {
-    backgroundColor: colors.freshgreen,
-    borderColor: colors.freshgreen,
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   rangeOptionText: {
     ...dynamicType(typography.subheadlineEmphasized),
@@ -731,14 +731,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: colors.freshgreen,
+    borderColor: colors.accent,
   },
   fillBtnSelected: {
-    backgroundColor: colors.freshgreen,
+    backgroundColor: colors.accent,
   },
   fillBtnText: {
     ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.freshgreen,
+    color: colors.accent,
   },
   fillBtnTextSelected: {
     color: colors.white,
