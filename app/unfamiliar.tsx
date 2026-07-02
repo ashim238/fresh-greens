@@ -487,7 +487,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    // Held-Question Rule (.cursorrules Typography): in-modal user prompts
+    // like "What's going on?" use Title1 Regular — held question, not
+    // directive. Size + placement carry the emphasis; Bold would read
+    // as a command on a stress-state screen.
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,

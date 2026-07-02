@@ -1775,7 +1775,12 @@ const armedStyles = StyleSheet.create({
     color: colors.labelTertiary,
   },
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    // Held-Question Rule (.cursorrules Typography): the armed prompt
+    // "Are you armed?" is a user question at peak stress; Regular
+    // holds space open instead of commanding. Size (28pt) + placement
+    // carry the emphasis. Consistent with /safety, /unfamiliar,
+    // /share-location.
+    ...dynamicType(typography.title1Regular),
     color: colors.black,
   },
   answersWrapper: {

@@ -197,8 +197,13 @@ export default function SafetyModal() {
             <SidebtnSafety width={32} height={32} accessible={false} />
           </View>
           <View style={styles.titleBlock}>
-            <Text style={styles.title}>Safety</Text>
-            <Text style={styles.subtitle}>What’s going on?</Text>
+            {/* Held-Question Rule: "What's going on?" is the user prompt
+                and belongs at title-level in Title1 Regular. The icon
+                above already carries the "safety" register — no
+                redundant "Safety" label needed above the question. */}
+            <Text style={styles.title} accessibilityRole="header">
+              What&rsquo;s going on?
+            </Text>
           </View>
         </View>
 
@@ -339,13 +344,6 @@ const styles = StyleSheet.create({
     // but placement matches: left-aligned icon + title + subtitle stack.
     ...dynamicType(typography.title1Regular),
     color: colors.black,
-    alignSelf: 'stretch',
-  },
-  subtitle: {
-    // Supporting line under the Title1 Regular prompt — left-aligned to
-    // match /report's picker + detail subtitle placement.
-    ...dynamicType(typography.bodyRegular),
-    color: colors.labelTertiary,
     alignSelf: 'stretch',
   },
   body: {
