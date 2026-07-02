@@ -149,7 +149,7 @@ export default function RoadsideSetup() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.surfaceElevated },
   safe: { flex: 1, paddingHorizontal: spacing.lg },
   kav: { flex: 1 },
   header: {
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     color: colors.black,
     minHeight: 44,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderSubtle,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
   },
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   ctaDisabled: {
-    backgroundColor: colors.cardBorderSubtle,
+    backgroundColor: colors.borderWarm,
   },
   ctaLabel: {
     ...dynamicType(typography.bodyEmphasized),

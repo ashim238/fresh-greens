@@ -473,9 +473,9 @@ function ActionMenu({
             <Switch
               value={shareOn}
               onValueChange={handleShareToggle}
-              trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+              trackColor={{ false: colors.borderWarm, true: colors.freshgreen }}
               thumbColor={colors.white}
-              ios_backgroundColor={colors.cardBorderSubtle}
+              ios_backgroundColor={colors.borderWarm}
             />
           </View>
         ) : (
@@ -749,7 +749,7 @@ function WrongSpotModal({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.surfaceElevated },
   safe: { flex: 1 },
   // Drag-handle wrapper mirrors /safety's dragHandleWrapper: vertical
   // padding seats the 4pt bar in its own slot rather than slapping it
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    ...dynamicType(typography.brandDisplay),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
@@ -821,9 +821,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderSubtle,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   modalCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.lg,
     padding: spacing.lg,
     width: '100%',
@@ -899,14 +899,14 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.bodyRegular),
     color: colors.black,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderSubtle,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   modalError: {
     ...dynamicType(relaxedLineHeight(typography.footnoteRegular)),
-    color: colors.red,
+    color: colors.severityCritical,
   },
   modalCta: {
     backgroundColor: colors.freshgreen,
@@ -915,7 +915,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaDisabled: {
-    backgroundColor: colors.cardBorderSubtle,
+    backgroundColor: colors.borderWarm,
   },
   modalCtaLabel: {
     ...dynamicType(typography.bodyEmphasized),
@@ -951,7 +951,7 @@ const styles = StyleSheet.create({
   },
   // Step 3 — live status
   sharedCard: {
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfaceInset,
     borderRadius: radii.md,
     padding: spacing.md,
     marginBottom: spacing.lg,

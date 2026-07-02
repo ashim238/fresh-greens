@@ -258,7 +258,7 @@ export default function TrustedContactSetup() {
                     <UserPlus
                       size={56}
                       color={colors.freshgreen}
-                      weight="duotone"
+                      weight="regular"
                     />
                   }
                   headline="No contact set yet."
@@ -354,9 +354,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    // Large Title/Emphasized (34pt) per Figma v2 — gives the
-    // page-anchoring title weight equal to the onboarding panels.
-    ...dynamicType(typography.largeTitleEmphasized),
+    // Brand display large (34pt DM Serif) — warm serif for
+    // emotional onboarding hero headings per visual-identity system.
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.white,
   },
   body: {
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
 
   errorText: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical,
     textAlign: 'center',
   },
 
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
 // X" at the call sites.
 const stylesWhite = StyleSheet.create({
   root: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfacePage,
   },
   title: {
     color: colors.black,
@@ -454,10 +454,9 @@ const stylesWhite = StyleSheet.create({
     color: colors.labelSecondary,
   },
   preview: {
-    // systemGroupedBackground (iOS Settings light gray) gives the
-    // preview card the same visual register as a settings list row,
-    // matching where the user just came from (/safety-settings).
-    backgroundColor: colors.systemGroupedBackground,
+    // surfaceTinted — warm personality surface for the contact
+    // preview card, replacing cool-gray systemGroupedBackground.
+    backgroundColor: colors.surfaceTinted,
   },
   avatar: {
     // wiltedgreen pops cleanly against the light-gray preview card
