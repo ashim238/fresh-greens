@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   profileGreeting: {
-    ...dynamicType(typography.brandDisplaySmall),
+    ...dynamicType(typography.title2Emphasized),
     color: colors.wiltedgreen,
   },
   profileName: {

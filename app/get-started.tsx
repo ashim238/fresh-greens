@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...dynamicType(typography.brandDisplayLarge),
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
     textAlign: 'center',
   },

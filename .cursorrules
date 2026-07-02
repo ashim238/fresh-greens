@@ -49,7 +49,7 @@ Yellow, Red, Orange, Navy, and the daylight gradient are **UI signals**. In-flow
 The shadow is a physical-metaphor cue, not a fixed style.
 
 ## Typography
-- Space Grotesk + Libre Franklin (OFL via @expo-google-fonts), iOS type ramp for sizes
+- Libre Franklin + DM Serif Display (OFL via @expo-google-fonts), iOS type ramp for sizes. Two-font system: Franklin covers the full hierarchy (display through captions); DM Serif breaks register at emotional brand moments only (crisis reassurance, arrival, greeting).
 - Guidance/instruction screens: Title1 **Emphasized** (bold)
 - **In-modal user prompts use Title1 Regular.** When a modal asks the user something — Felt-unsafe "Talk to us. What's going on?", Lighting "Street lights down or dimmer than normal?", Thank-You "Thanks for submitting." — regular weight reads as a held question. Bold would feel imperative on a moment that should feel like an invitation. Same exception covers emotionally charged full-screens (Contact "You're not alone.", Trip Summary arrival).
 

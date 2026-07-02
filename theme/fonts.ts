@@ -1,8 +1,11 @@
 /**
  * Brand typefaces:
- *   Space Grotesk  — structural display / wayfinding
- *   Libre Franklin — body / UI
+ *   Libre Franklin — structural display + body / UI
  *   DM Serif Display — brand-voice moments (warmth, not geometry)
+ *
+ * Two-font system: Franklin covers the full hierarchy from 40pt
+ * display down to 11pt captions. DM Serif breaks register only
+ * at emotional moments (crisis reassurance, arrival, greeting).
  *
  * Loaded via `hooks/useAppFonts` at app root; OFL via @expo-google-fonts/*.
  *
@@ -10,10 +13,6 @@
  * with `fontWeight`; pick the weight file in typography tokens instead.
  */
 export const fonts = {
-  spaceGrotesk: {
-    regular: 'SpaceGrotesk_400Regular',
-    bold: 'SpaceGrotesk_700Bold',
-  },
   franklin: {
     regular: 'LibreFranklin_400Regular',
     medium: 'LibreFranklin_500Medium',

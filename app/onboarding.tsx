@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   title: {
-    ...dynamicType(typography.brandDisplayLarge),
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
   },
   body: {

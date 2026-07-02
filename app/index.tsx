@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     marginBottom: 160,
   },
   title: {
-    ...dynamicType(typography.brandDisplayLarge),
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
   },
   subtitle: {

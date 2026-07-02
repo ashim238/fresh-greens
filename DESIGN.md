@@ -48,13 +48,13 @@ typography:
     lineHeight: "30px"
     letterSpacing: "0px"
   display:
-    fontFamily: "Space Grotesk"
+    fontFamily: "Libre Franklin"
     fontSize: "34px"
     fontWeight: 700
     lineHeight: "41px"
     letterSpacing: "0px"
   headline:
-    fontFamily: "Space Grotesk"
+    fontFamily: "Libre Franklin"
     fontSize: "28px"
     fontWeight: 700
     lineHeight: "34px"
@@ -142,14 +142,14 @@ components:
 
 Fresh Greens rides shotgun. It is the calm voice beside the driver, not the dashboard barking orders — a tool used in both a quiet planning moment at home and a charged one on the roadside, and it has to stay legible and reassuring in both. Every surface is built so that safety is communicated through composure: generous space, a muted earthy-green palette, soft and intentional motion. The interface earns trust by showing its work — the "Along this route:" briefing, the all-clear chip, the daylight strip — never by asserting authority. Underneath the calm sits the warmth the thesis rests on: this was built by and for a community, and the Green Book lineage is felt, not stated.
 
-The system is HIG-native by conviction, not convenience. It speaks iOS — the grouped-settings register, Space Grotesk/Franklin typography, 44pt tap targets painted on the visual — so that the safety content, not the chrome, is what the user notices. Color is rationed: brand greens carry the entire interactive surface, and a small reserved palette (red, orange, yellow, navy) is held back for moments that carry real safety meaning. That rationing is the whole game. A red dot means something here precisely because red appears nowhere else.
+The system is HIG-native by conviction, not convenience. It speaks iOS — the grouped-settings register, Libre Franklin/DM Serif typography, 44pt tap targets painted on the visual — so that the safety content, not the chrome, is what the user notices. Color is rationed: brand greens carry the entire interactive surface, and a small reserved palette (red, orange, yellow, navy) is held back for moments that carry real safety meaning. That rationing is the whole game. A red dot means something here precisely because red appears nowhere else.
 
 This system explicitly rejects four neighbors. It is **not** generic ride-share / SaaS (glossy dark-mode maps, neon route lines, aggressive conversion CTAs). It is **not** alarmist safety-app red (red everywhere, siren energy, fear as the primary emotion). It is **not** over-designed AI slop (gradient text, glassmorphism, eyebrow labels, identical card grids). And it is **not** sterile / clinical (cold enterprise-dashboard or medical-device coldness that loses the person, and the history, behind the route).
 
 **Key Characteristics:**
 - Calm, grounded, earthy — composure as the primary safety signal.
 - Reserved-color discipline: greens for UI, signals for meaning, never decoration.
-- iOS HIG-native: Space Grotesk/Franklin type ramp, grouped surfaces, 44pt painted tap targets.
+- iOS HIG-native: Libre Franklin/DM Serif type ramp, grouped surfaces, 44pt painted tap targets.
 - Token-driven: every value pulled from `theme/`, never inlined — including `theme/motion.ts`.
 - Confident, not loud: full-screen hero moments take the larger Large Title voice; settings eyebrows shift to Wilted Green so the brand carries the chrome.
 - Motion is part of the component, not a coat of paint: entrance morphs on detail cards, a 0.98 press-scale on large tap targets, all gated by Reduce Motion.
@@ -217,17 +217,17 @@ Named tokens for emotionally-charged UI — recording waveforms, report chips, i
 
 ## 3. Typography
 
-**Display / Body / Label Font:** **Space Grotesk** (structural display — large titles, Title 1, SOS countdown) + **Libre Franklin** (body — Title 2 downward, all reading UI) + **DM Serif Display** (brand-voice moments — emotional headings, greetings, hero copy). OFL via `@expo-google-fonts`, loaded in `hooks/useAppFonts.ts`. Sizes follow the iOS HIG ramp in `theme/typography.ts`.
+**Two-font system:** **Libre Franklin** (full hierarchy — display through captions, Regular/Medium/SemiBold/Bold) + **DM Serif Display** (brand-voice moments — emotional headings, greetings, hero copy, one weight only). OFL via `@expo-google-fonts`, loaded in `hooks/useAppFonts.ts`. Sizes follow the iOS HIG ramp in `theme/typography.ts`.
 
-**Character:** Space Grotesk carries wayfinding confidence (geometric bones, distinctive proportional forms from its Space Mono lineage); Franklin carries human guidance and American print warmth; DM Serif Display adds warmth and gravitas to brand-voice moments — the warm serif against the geometric display creates an emotional register the app shifts into for "you're not alone," "welcome back," "need help?" and other moments where the interface becomes a companion, not a tool. One weight (Regular), headings only. System San Francisco remains on **dynamic-type exempt** surfaces only (speed-limit disc, lifeline avatar initial) — see `.cursorrules`.
+**Character:** Franklin carries both wayfinding confidence (Bold at display sizes) and human guidance (Regular/SemiBold at body sizes), anchoring the entire structural hierarchy in one typeface so the system reads as one voice. DM Serif Display breaks register only at emotional moments — the serif against the humanist sans creates a deliberate shift the app enters for "you're not alone," "need help?", and other moments where the interface becomes a companion, not a tool. The two-font boundary is the boundary between structure and warmth. System San Francisco remains on **dynamic-type exempt** surfaces only (speed-limit disc, lifeline avatar initial) — see `.cursorrules`.
 
 ### Hierarchy
-- **Brand Display Large** (DM Serif Display Regular, 34/42, 0 tracking): Emotional hero moments — "Get started," "Welcome back," "Need help?", trip destination, sign-out farewell. The warm serif companion to Space Grotesk's structural voice.
-- **Brand Display** (DM Serif Display Regular, 28/36, 0 tracking): In-flow emotional moments — "You're not alone." on the pulled-over contact phase.
+- **Brand Display Large** (DM Serif Display Regular, 34/42, 0 tracking): Emotional hero moments — "Need help?", "You're not alone", trip destination, sign-out farewell. The warm serif register break.
+- **Brand Display** (DM Serif Display Regular, 28/36, 0 tracking): In-flow emotional moments — pulled-over contact phase reassurance.
 - **Brand Display Small** (DM Serif Display Regular, 22/30, 0 tracking): Personality surfaces — "Hey there," settings greeting.
-- **Large Title — Emphasized** (Space Grotesk Bold, 34/41, 0 tracking): The largest structural heading; wayfinding confidence.
-- **SOS Countdown** (Space Grotesk Bold, 40/44, 0 tracking): A single focal numeral inside the /emergency countdown disc.
-- **Headline / Title 1** (Space Grotesk, 28/34, 0 tracking): Primary screen titles. **Regular** twin for in-modal held questions.
+- **Large Title — Emphasized** (Franklin Bold, 34/41, 0 tracking): The largest structural heading; wayfinding confidence. Get-started hero, onboarding titles.
+- **SOS Countdown** (Franklin Bold, 40/44, 0 tracking): A single focal numeral inside the /emergency countdown disc.
+- **Headline / Title 1** (Franklin, 28/34, 0 tracking): Primary screen titles. **Regular** twin for in-modal held questions.
 - **Title 2 / Title 3** (22/28, 20/25): Section headers and card titles.
 - **Body** (Franklin Regular, 17/23, −0.25 tracking): The reading register; Emphasized uses Franklin SemiBold. CTA labels use `bodyEmphasized`.
 - **Subheadline / Footnote** (15/20, 13/18): Secondary copy, chip labels, metadata.
@@ -242,7 +242,7 @@ Named tokens for emotionally-charged UI — recording waveforms, report chips, i
 
 **The Hero-Title Rule.** Page-anchor titles that own a full screen — the get-started welcome, login prompt, sign-out goodbye line — now set in **Brand Display Large** (DM Serif Display, 34pt). The warm serif signals "the app is speaking to you as a companion, not as a tool." Reserve for the moment that *is* the screen; never for utility headings.
 
-**The Brand-Voice Rule.** Any screen moment where the interface becomes a companion — reassurance copy, greetings, emotional prompts, success confirmations — uses DM Serif Display. Utility headings (navigation titles, section headers, settings labels) stay in Space Grotesk. The serif/grotesque boundary is the boundary between warmth and structure.
+**The Brand-Voice Rule.** Any screen moment where the interface becomes a companion — reassurance copy, greetings, emotional prompts, success confirmations — uses DM Serif Display. Utility headings (navigation titles, section headers, settings labels) stay in Franklin. The serif/sans boundary is the boundary between warmth and structure.
 
 ### Icon System
 **Library:** Phosphor React Native. **Default weight:** `"regular"` (outlined). This is the unified icon language across the entire app — consistent stroke weight, corner radius, optical sizing. **Emphasis state:** `"fill"` for active/selected states only (e.g., camera badge, selected tabs). **Exception:** `"bold"` only for specific affordance emphasis (close buttons, stepper controls, confirmation checkmarks). Never use `"duotone"` — the mixed fill reads as a second design language. **Tint:** Settings row icons use `colors.labelSecondary` (not black) for the quieter chrome register.

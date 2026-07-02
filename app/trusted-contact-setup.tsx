@@ -354,9 +354,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    // Brand display large (34pt DM Serif) — warm serif for
-    // emotional onboarding hero headings per visual-identity system.
-    ...dynamicType(typography.brandDisplayLarge),
+    ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
   },
   body: {
