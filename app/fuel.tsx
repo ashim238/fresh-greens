@@ -328,7 +328,7 @@ export default function Fuel() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <RowGroup>
+            <RowGroup footer="Your fuel type sets the tank-range presets below. The car name is just so reminders feel like yours.">
               <View style={styles.field}>
                 <Text style={styles.fieldLabel}>Car name (optional)</Text>
                 <TextInput
@@ -393,6 +393,8 @@ export default function Fuel() {
               footer={
                 enabled && distanceEnabled
                   ? "Reminders fire on your schedule OR after this many in-app navigated miles, whichever comes first. Miles only count trips you navigate in the app."
+                  : enabled
+                  ? "We can't see your tank, so we just count the days. Pick how often you'd like a nudge — no fuel guessing needed."
                   : undefined
               }
             >
@@ -401,7 +403,7 @@ export default function Fuel() {
                 <Switch
                   value={enabled}
                   onValueChange={setEnabled}
-                  trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+                  trackColor={{ false: colors.borderSubtle, true: colors.accent }}
                   thumbColor={colors.white}
                   accessibilityLabel="Refuel reminders"
                 />
@@ -439,7 +441,7 @@ export default function Fuel() {
                     <Switch
                       value={distanceEnabled}
                       onValueChange={setDistanceEnabled}
-                      trackColor={{ false: colors.cardBorderSubtle, true: colors.freshgreen }}
+                      trackColor={{ false: colors.borderSubtle, true: colors.accent }}
                       thumbColor={colors.white}
                       accessibilityLabel="Also use distance to trigger reminders"
                     />
@@ -448,6 +450,9 @@ export default function Fuel() {
                   {distanceEnabled && (
                     <View style={styles.field}>
                       <Text style={styles.fieldLabel}>Tank range</Text>
+                      <Text style={styles.fieldHint}>
+                        Roughly how far you go on a full tank. Pick the closest — a ballpark is fine.
+                      </Text>
                       {showFuelChangeNote && (
                         <Text style={styles.fuelChangeNote} accessibilityLiveRegion="polite">
                           Pick a tank range for your new fuel type.
@@ -604,7 +609,7 @@ export default function Fuel() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.systemGroupedBackground },
+  root: { flex: 1, backgroundColor: colors.surfacePage },
   safe: { flex: 1 },
   kav: { flex: 1 },
   scrollContent: { padding: spacing.lg, gap: spacing.xl },
@@ -622,6 +627,16 @@ const styles = StyleSheet.create({
   // RowGroup title size, so section titles and field labels speak the
   // same register. No new weight or color — restraint preserved.
   fieldLabel: { ...dynamicType(typography.subheadlineEmphasized), color: colors.labelSecondary },
+  // One-line plain-language hint under a field label — footnote tier,
+  // muted secondary. Sits a rung below the label (subheadline/600) so it
+  // reads as explanatory caption, not another control label. Negative
+  // top margin trims the field's own gap:sm so the hint hugs its label
+  // rather than floating equidistant between label and control.
+  fieldHint: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.mutedSecondary,
+    marginTop: -spacing.xs,
+  },
   input: {
     ...dynamicType(typography.bodyRegular),
     color: colors.black,
@@ -649,8 +664,8 @@ const styles = StyleSheet.create({
     borderColor: colors.separatorSubtle,
   },
   segmentItemSelected: {
-    backgroundColor: colors.freshgreen,
-    borderColor: colors.freshgreen,
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   segmentText: { ...dynamicType(typography.subheadlineEmphasized), color: colors.labelSecondary },
   segmentTextSelected: { color: colors.white },
@@ -706,8 +721,8 @@ const styles = StyleSheet.create({
     borderColor: colors.separatorSubtle,
   },
   rangeOptionSelected: {
-    backgroundColor: colors.freshgreen,
-    borderColor: colors.freshgreen,
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   rangeOptionText: {
     ...dynamicType(typography.subheadlineEmphasized),
@@ -731,14 +746,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: colors.freshgreen,
+    borderColor: colors.accent,
   },
   fillBtnSelected: {
-    backgroundColor: colors.freshgreen,
+    backgroundColor: colors.accent,
   },
   fillBtnText: {
     ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.freshgreen,
+    color: colors.accent,
   },
   fillBtnTextSelected: {
     color: colors.white,

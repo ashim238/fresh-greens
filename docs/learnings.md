@@ -4,6 +4,21 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## claude/fresh-greens-visual-identity — audit findings can conflict with documented rules (2026-07-02)
+
+Ran `/impeccable critique + audit` across all changed screens (Design 34/40, Audit 16.5/20, detector clean, zero AI-slop tells), then applied every *safe* P0–P2 fix. Two things worth keeping:
+
+**1. An audit finding contradicted a documented design decision — surfaced it, then resolved by *splitting the rule*.** The audit's most-widespread finding (P2-1: swap `colors.red` → `colors.severityCritical` for error text across 11 sites) conflicted with `.cursorrules` reserved-color **carve-out #8**, which sanctioned `colors.red` for inline/async errors. Rather than pick a side, we rewrote carve-out #8 to split on *readability* and *background* — because the two reds measure differently against the contrast bar:
+  - Error **message copy on light surfaces** → `severityCritical` (#C62828 ≈ 5.6:1 on white, passes AA). `#FF3B30` ≈ 3.5:1 there and **fails** AA for body text. (9 sites swapped.)
+  - Error **signals** (icons, dots, banner fills, destructive labels, short action labels inside an error affordance like the red RecordingSaveErrorBanner's "Retry") → stay `red`.
+  - **Error text on DARK surfaces stays `red`.** This is the non-obvious catch: on the wiltedgreen/burntgreen auth screens the relationship *inverts* — the brighter #FF3B30 has more contrast than the darker #C62828, which would read as near-invisible on dark green. login/get-started kept red (annotated in-code). **Lesson: (a) an automated token-swap flagged across N sites is exactly the case to check against `.cursorrules` carve-outs before applying — the audit sees inconsistency, the codebase may have encoded a deliberate exception; (b) "use the AA-tuned color" is background-dependent — a foreground token that passes on light can fail on dark, so a blanket swap is wrong even when the finding is right.** The carve-out conflated a readable-message case (contrast-sensitive) with a small-signal case (convention-sensitive); separating them honored both documents.
+
+**2. Hand-rolled buttons resist the Button-component refactor because they encode states Button lacks.** Audit flagged 3 bespoke pill buttons (RoutePreviewCard `goBtn`/`scheduleBtn`, HomePlacementOverlay `placementConfirm`, RoadsideTowPick `callBtn`) as Button-component duplication. But `callBtn` has a gray *muted* state (non-callable business) Button can't render — its `disabled` only applies `pressedDim` (dimmed green); and `goBtn`/`placementConfirm` deliberately omit the wiltedgreen border Button's `primaryFill` forces. **Lesson: "duplicates the shared component" ≠ "safe to replace." Bespoke variants often exist precisely because the shared component lacks a needed state. Refactoring means extending Button first (a design decision), not a mechanical swap.**
+
+**3. Pressable-tap-swallow → phantom VoiceOver button.** Four modal components used `<Pressable style={card} onPress={() => {}}>` to stop taps reaching the scrim's dismiss handler. VoiceOver announces that empty-onPress as a tappable button that does nothing. Fix is uniform: `<View onStartShouldSetResponder={() => true}>`. When swapping, remember to change the *matching closing tag* too (`</Pressable>` → `</View>`) — `tsc` catches the mismatch but the JSX-close edit is easy to forget.
+
+---
+
 ## feat/hazard-subtypes-and-ui-polish — two layout traps and the Apple Maps pattern (2026-06-29)
 
 **1. SafeAreaView `edges={['bottom']}` already adds ~34pt home-indicator inset — don't stack `paddingBottom` on top.** HomeBrowseSheet had `paddingBottom: 40` inside a SafeAreaView bottom-edge container, producing ~74pt of dead whitespace below the last scroll item. Fix was `paddingBottom: spacing.md` (16pt) — the SafeAreaView inset handles the rest. Worth keeping: **before adding bottom padding inside a SafeAreaView, check which edges it owns.** The inset IS the padding.

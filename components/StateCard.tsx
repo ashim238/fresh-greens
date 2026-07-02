@@ -7,6 +7,7 @@ import { useEntranceAnimation } from '../hooks/useEntranceAnimation';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -144,26 +145,30 @@ export function ErrorState({
 
 const styles = StyleSheet.create({
   card: {
-    width: 326,
-    padding: 32,
+    // maxWidth (not fixed width) so the card shrinks on iPhone SE (320pt
+    // logical width) instead of overflowing. width:'100%' lets it fill up
+    // to the 326pt Figma ceiling on larger devices.
+    width: '100%',
+    maxWidth: 326,
+    padding: spacing.xl,
     borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
   },
   cardEmptyDefault: {
-    backgroundColor: colors.fillsSecondary,
+    backgroundColor: colors.surfaceTinted,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderSubtle,
   },
   cardSelected: {
     backgroundColor: colors.burntgreen,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderSubtle,
   },
   content: {
-    gap: 16,
-    paddingVertical: 16,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
@@ -182,7 +187,7 @@ const styles = StyleSheet.create({
   },
   textColumn: {
     flex: 1,
-    gap: 16,
+    gap: spacing.md,
     justifyContent: 'center',
   },
   textVertical: {
@@ -198,7 +203,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   textFresh: {
-    color: colors.freshgreen,
+    color: colors.accent,
   },
   textOnDark: {
     color: colors.freshgreen,

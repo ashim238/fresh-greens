@@ -12,6 +12,7 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { motion } from '../theme/motion';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -73,7 +74,9 @@ export default function SignOut() {
           </View>
 
           <View style={styles.copy}>
-            <Text style={styles.title}>You've been logged out.</Text>
+            <Text style={styles.title} accessibilityRole="header">
+              You&apos;ve been logged out.
+            </Text>
             {subtitleVisible && (
               <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
                 Drive safe.
@@ -107,9 +110,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingBottom: 56,
-    gap: 43,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.xxl,
   },
   // Illustration cluster — location pin sits up-and-right, car sits
   // below-and-left, mirroring Figma 1133:12898 layout.
@@ -135,29 +138,21 @@ const styles = StyleSheet.create({
     height: 100,
   },
   copy: {
-    gap: 16,
-    marginTop: 24,
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
   title: {
-    // Bolder pass: 28pt → 34pt (largeTitleEmphasized). The goodbye line
-    // is the screen's emotional anchor — a confident largeTitle on the
-    // wiltedgreen surface reads as a deliberate farewell rather than a
-    // utility confirmation. Pairs with the existing 15pt subtitle so
-    // the type ladder still has clear hierarchy.
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.white,
   },
   subtitle: {
-    // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
-    // The sign-out screen pairs a 28pt title with this supporting
-    // sentence; 13pt dropped two tiers below the title (caption
-    // tier), reading as fine print on what's actually an onboarding-
-    // class screen. 15pt keeps it subordinate without burying it.
     ...dynamicType(typography.subheadlineRegular),
     color: colors.signOutSubtitle,
   },
   button: {
     alignSelf: 'flex-start',
-    width: 163, // per Figma container width
+    // minWidth (not fixed width) per Figma 163pt container, but lets the
+    // button grow to fit its label under Dynamic Type instead of clipping.
+    minWidth: 163,
   },
 });

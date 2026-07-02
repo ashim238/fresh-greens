@@ -225,7 +225,7 @@ export default function Recordings() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.titleRow}>
-            <Microphone size={48} color={colors.black} weight="duotone" />
+            <Microphone size={48} color={colors.labelSecondary} weight="regular" />
             <Text style={styles.pageTitle}>Recordings</Text>
           </View>
 
@@ -240,7 +240,7 @@ export default function Recordings() {
           ) : state.recordings.length === 0 ? (
             <EmptyStateCard
               icon={
-                <Microphone size={56} color={colors.freshgreen} weight="duotone" />
+                <Microphone size={56} color={colors.accent} weight="regular" />
               }
               headline={justDeletedAll ? 'All deleted.' : 'No recordings yet'}
               text={
@@ -522,7 +522,7 @@ function formatArmed(armed: ArmedAnswer | null): string {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfacePage,
   },
   safe: {
     flex: 1,

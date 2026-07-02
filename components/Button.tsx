@@ -30,6 +30,28 @@ import { typography } from '../theme/typography';
  * `Type=Secondary, Fill=Transparent` is intentionally not a Figma
  * variant (would be too low-emphasis on most surfaces). Type
  * narrowing below enforces the same constraint at the type level.
+ *
+ * Deliberately-NOT-migrated hand-rolled buttons (distill pass, 2026-07-02).
+ * These four looked like Button candidates but each diverges in a way that
+ * migrating would regress; the divergence is the point, so they stay local:
+ *   - RoutePreviewCard `scheduleBtn` — secondaryOutline shape, but label is
+ *     `footnoteEmphasized` (13pt) + `adjustsFontSizeToFit` to survive the
+ *     iPhone-SE two-button split. Button hardcodes a 17pt label with no
+ *     shrink-to-fit; migrating enlarges the label and reintroduces overflow.
+ *   - RoutePreviewCard `goBtn` and HomePlacementOverlay `placementConfirm` —
+ *     freshgreen fill + e1 shadow that DELIBERATELY OMIT primaryFill's
+ *     wiltedgreen 1pt border. That border is the documented WCAG-contrast
+ *     fix for white surfaces (see `primaryFill` below); both sit inside
+ *     cards where it isn't needed and was dropped on purpose.
+ *     `placementConfirm` also renders a 15pt `subheadlineEmphasized` label.
+ *   - RoadsideTowPick `callBtn` — primaryFill's fill+border exactly, but
+ *     carries a gray MUTED state (fillsTertiary bg + labelTertiary text,
+ *     shown when a business has no phone) that Button's `disabled` (which
+ *     only applies pressedDim, a dimmed-green) cannot reproduce.
+ * A shared component that absorbed all four would need a label-size prop, a
+ * border opt-out, and a gray-muted variant — the border opt-out in
+ * particular is a footgun that lets callers silently defeat the white-surface
+ * contrast fix. Conservative call: keep them hand-rolled, keep this note.
  */
 
 type FillVariant = 'fill' | 'outline' | 'transparent';

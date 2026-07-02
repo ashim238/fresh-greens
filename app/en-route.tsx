@@ -217,21 +217,21 @@ function maneuverIcon(kind: ManeuverKind | undefined, size: number, color: strin
     case 'left':
     case 'slight-left':
     case 'sharp-left':
-      return <ArrowBendUpLeft size={size} color={color} weight="duotone" />;
+      return <ArrowBendUpLeft size={size} color={color} weight="regular" />;
     case 'right':
     case 'slight-right':
     case 'sharp-right':
-      return <ArrowBendUpRight size={size} color={color} weight="duotone" />;
+      return <ArrowBendUpRight size={size} color={color} weight="regular" />;
     case 'arrive':
-      return <FlagCheckered size={size} color={color} weight="duotone" />;
+      return <FlagCheckered size={size} color={color} weight="regular" />;
     case 'roundabout':
-      return <ArrowsClockwise size={size} color={color} weight="duotone" />;
+      return <ArrowsClockwise size={size} color={color} weight="regular" />;
     case 'merge':
-      return <ArrowsMerge size={size} color={color} weight="duotone" />;
+      return <ArrowsMerge size={size} color={color} weight="regular" />;
     case 'depart':
     case 'straight':
     default:
-      return <NavigationArrow size={size} color={color} weight="duotone" />;
+      return <NavigationArrow size={size} color={color} weight="regular" />;
   }
 }
 
@@ -374,7 +374,7 @@ const sideFabRowStyles = StyleSheet.create({
     position: 'absolute',
     right: '100%',
     marginRight: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -1993,7 +1993,7 @@ export default function EnRoute() {
                     : 'Demo route — network and saved route both unavailable. Approximate path shown.'
                 }
               >
-                <WifiSlash size={14} color={colors.white} weight="duotone" />
+                <WifiSlash size={14} color={colors.white} weight="regular" />
                 <View style={styles.offlinePillTextRow}>
                   {routeSource === 'cache' ? (
                     <>
@@ -2105,7 +2105,7 @@ export default function EnRoute() {
               accessibilityLabel="Show map controls guide"
               accessibilityHint="Re-shows the labels for these buttons"
             >
-              <Question size={24} color={colors.black} weight="duotone" />
+              <Question size={24} color={colors.black} weight="regular" />
             </FloatingActionButton>
           </SideFabRow>
           <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
@@ -2667,7 +2667,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.whiteFill20,
     alignSelf: 'flex-start',
   },
   offlinePillTextRow: {
@@ -2791,7 +2791,7 @@ const styles = StyleSheet.create({
     // turn card needs the top ~30–35% of the screen at minimum for
     // its maneuver arrow + street name + "Then ↶" hint to read.
     maxHeight: Dimensions.get('window').height * 0.65,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
     // Top padding lives on `dragHandleTapTarget` now (the first
@@ -2888,7 +2888,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radii.pill,
-    backgroundColor: colors.freshgreen,
+    backgroundColor: colors.accent,
   },
   fuelStopsDueText: {
     ...dynamicType(typography.caption1Emphasized),
@@ -2969,7 +2969,7 @@ const styles = StyleSheet.create({
 
   // --- Per-route duration badges (tap to switch active route) ---
   routeBadge: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,

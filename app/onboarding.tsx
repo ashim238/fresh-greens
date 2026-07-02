@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -22,6 +23,7 @@ import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -194,6 +196,14 @@ export default function Onboarding() {
   // width gives the page index.
   function handleScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+    if (newIndex !== pagerIndex && PANELS[newIndex]) {
+      // Physical swipes don't fire the adjustable increment/decrement
+      // announcement, so VoiceOver users get no confirmation the page
+      // changed. Announce the new panel's title + position explicitly.
+      AccessibilityInfo.announceForAccessibility(
+        `${PANELS[newIndex].title}. Page ${newIndex + 1} of ${PANELS.length}.`,
+      );
+    }
     setPagerIndex(newIndex);
   }
 
@@ -371,11 +381,11 @@ const styles = StyleSheet.create({
   },
   titleAndCopy: {
     width: '100%',
-    gap: 32,
+    gap: spacing.xl,
     // Page gutter lives here now (was on `panel`). Pulling the
     // padding inward keeps the title/body in their original column
     // while letting the bottom illustration sit edge-to-edge.
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
   },
   title: {
     ...dynamicType(typography.largeTitleEmphasized),
@@ -395,8 +405,8 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
-    paddingHorizontal: 32,
-    gap: 16,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
   },
   btnStretch: {
     alignSelf: 'stretch',

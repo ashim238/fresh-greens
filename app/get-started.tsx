@@ -214,11 +214,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    // Bolder pass: 28pt → 34pt (largeTitleEmphasized). "Get started" is
-    // the hero moment on the auth entry screen — at title1 it sat as a
-    // mid-screen page header, at largeTitle it commits as the brand
-    // greeting it actually is. Keeps the existing 88pt gap to the
-    // action group so the title gets the space it deserves.
     ...dynamicType(typography.largeTitleEmphasized),
     color: colors.white,
     textAlign: 'center',
@@ -248,6 +243,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...dynamicType(typography.footnoteRegular),
+    // Stays red (NOT severityCritical) — this sits on the dark
+    // wiltedgreen/burntgreen auth ground, where the brighter red has
+    // more contrast than #C62828. See .cursorrules #8 (dark-surface case).
     color: colors.red,
     textAlign: 'center',
   },

@@ -797,7 +797,7 @@ export default function Search() {
                           <CalendarBlank
                             size={24}
                             color={colors.labelTertiary}
-                            weight="duotone"
+                            weight="regular"
                           />
                           <View style={styles.recentTextColumn}>
                             <Text style={styles.recentText} numberOfLines={1}>
@@ -830,7 +830,7 @@ export default function Search() {
                           <CalendarBlank
                             size={24}
                             color={colors.labelTertiary}
-                            weight="duotone"
+                            weight="regular"
                           />
                           <View style={styles.recentTextColumn}>
                             <Text style={styles.recentText} numberOfLines={1}>
@@ -936,7 +936,7 @@ export default function Search() {
                     accessibilityRole="button"
                     accessibilityLabel={`Re-route to ${recent.name} at ${recent.address}. Long-press to remove.`}
                   >
-                    <Clock size={24} color={colors.labelTertiary} weight="duotone" />
+                    <Clock size={24} color={colors.labelTertiary} weight="regular" />
                     {/*
                       Two-line row: name on top, address as subtitle.
                       The address disambiguates multiple locations of
@@ -986,7 +986,7 @@ export default function Search() {
                   <MagnifyingGlass
                     size={56}
                     color={colors.labelTertiary}
-                    weight="duotone"
+                    weight="regular"
                   />
                 ) : undefined
               }
@@ -1004,7 +1004,7 @@ export default function Search() {
               <MagnifyingGlass
                 size={20}
                 color={colors.labelTertiary}
-                weight="duotone"
+                weight="regular"
               />
               <Text style={styles.resultsHeaderText} numberOfLines={1}>
                 "{query}" results in {resultsCity}
@@ -1142,7 +1142,7 @@ export default function Search() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
   },
   safe: {
     flex: 1,
@@ -1162,9 +1162,9 @@ const styles = StyleSheet.create({
   },
   quickTool: {
     width: 144,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.cardBorderSubtle,
+    borderColor: colors.borderSubtle,
     borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1228,7 +1228,7 @@ const styles = StyleSheet.create({
   },
   recentClear: {
     ...dynamicType(typography.footnoteEmphasized),
-    color: colors.freshgreen,
+    color: colors.accent,
   },
   recentClearBtn: {
     minHeight: 44,

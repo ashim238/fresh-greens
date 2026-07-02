@@ -71,7 +71,7 @@ export function NotifyingPulse({
     return (
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [rowStyle, pressed && pressedDim]}
+        style={({ pressed }) => [rowStyle, styles.button, pressed && pressedDim]}
         accessibilityRole="button"
         accessibilityLabel={resolvedLabel}
         accessibilityHint="Opens Messages with a safety check-in text"
@@ -100,6 +100,11 @@ const styles = StyleSheet.create({
   },
   alignStart: {
     justifyContent: 'flex-start',
+  },
+  button: {
+    // Footnote text (~18pt) leaves the row below the 44pt tap-target floor;
+    // pin the interactive variant to 44 so the pressable meets the minimum.
+    minHeight: 44,
   },
   dot: {
     width: 8,

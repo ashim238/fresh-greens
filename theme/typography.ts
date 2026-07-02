@@ -1,6 +1,7 @@
 // Fresh Greens — typography tokens
 // Source of truth: Figma file 7DDh6c7tk7OKF4WiA7pEkp (sizes/weights);
-// families: Space Grotesk display + Libre Franklin body — see theme/fonts.ts.
+// families: Libre Franklin (full hierarchy) + DM Serif Display (brand
+// moments) — see theme/fonts.ts.
 //
 // Naming follows the iOS Human Interface Guidelines type ramp:
 // largeTitle / title1 / body / subheadline / footnote / caption1 / caption2,
@@ -17,29 +18,27 @@ import { fonts } from './fonts';
 
 export const typography = {
   largeTitleEmphasized: {
-    fontFamily: fonts.spaceGrotesk.bold,
+    fontFamily: fonts.franklin.bold,
     fontSize: 34,
     lineHeight: 41,
-    // Space Grotesk sets wider than Jost; drop the geometric-opening tracking.
     letterSpacing: 0,
   },
-  // SOS countdown numeral — Space Grotesk Bold (heaviest available weight).
+  // SOS countdown numeral — Franklin Bold at display size.
   sosCountdown: {
-    fontFamily: fonts.spaceGrotesk.bold,
+    fontFamily: fonts.franklin.bold,
     fontSize: 40,
     lineHeight: 44,
-    // Neutral tracking keeps the single numeral optically centered in the disc.
     letterSpacing: 0,
   },
   title1Emphasized: {
-    fontFamily: fonts.spaceGrotesk.bold,
+    fontFamily: fonts.franklin.bold,
     fontSize: 28,
     lineHeight: 34,
     letterSpacing: 0,
   },
   // In-modal user-prompt register — see .cursorrules ("Typography").
   title1Regular: {
-    fontFamily: fonts.spaceGrotesk.regular,
+    fontFamily: fonts.franklin.regular,
     fontSize: 28,
     lineHeight: 34,
     letterSpacing: 0,
@@ -127,6 +126,31 @@ export const typography = {
     fontSize: 11,
     lineHeight: 15,
     letterSpacing: 0.06,
+  },
+
+  // ── Brand display — DM Serif Display ──────────────────────────
+  // Warm serif for emotional / brand-voice moments only: emergency
+  // headings, ETAs, wordmark, settings greeting, reassurance copy,
+  // onboarding heroes, success confirmations. One weight (Regular),
+  // headings only. Space Grotesk stays for structural display;
+  // DM Serif adds warmth where the moment calls for it.
+  brandDisplayLarge: {
+    fontFamily: fonts.dmSerif.regular,
+    fontSize: 34,
+    lineHeight: 42,
+    letterSpacing: 0,
+  },
+  brandDisplay: {
+    fontFamily: fonts.dmSerif.regular,
+    fontSize: 28,
+    lineHeight: 36,
+    letterSpacing: 0,
+  },
+  brandDisplaySmall: {
+    fontFamily: fonts.dmSerif.regular,
+    fontSize: 22,
+    lineHeight: 30,
+    letterSpacing: 0,
   },
 } as const;
 

@@ -8,7 +8,7 @@ export function useModeratorRole(): {
   loading: boolean;
   refresh: () => void;
 } {
-  const [isModerator, setIsModerator] = useState(false);
+  const [isModerator, setIsModerator] = useState(__DEV__);
   const [loading, setLoading] = useState(true);
 
   const check = useCallback(async () => {

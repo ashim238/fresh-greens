@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 import * as haptics from '../lib/haptics';
 import { type ReactNode, useEffect, useMemo, useRef } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Easing,
@@ -602,13 +601,7 @@ export function RoutePreviewCard({
                   tripZonesStatus === 'ready' &&
                   tripZonesCorridorComplete &&
                   !tripZonesFetchFailed && (
-                    <Text
-                      style={[
-                        styles.routeChipsFootnote,
-                        dynamicType(typography.footnoteRegular),
-                      ]}
-                      accessibilityRole="text"
-                    >
+                    <Text style={styles.routeChipsFootnote} accessibilityRole="text">
                       {LONG_TRIP_FOOTNOTE_COPY}
                     </Text>
                   )}
@@ -807,20 +800,6 @@ function RouteAllClearChip() {
   );
 }
 
-/** Gray chip while OSM zones for this trip are still loading / refining. */
-function RouteZonesLoadingChip() {
-  return (
-    <View
-      style={styles.routeZonesLoadingChip}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <ActivityIndicator size="small" color={colors.labelSecondary} />
-      <Text style={styles.routeZonesLoadingText}>Checking route…</Text>
-    </View>
-  );
-}
-
 /** Gray chip when corridor OSM fetch failed — not All clear. */
 function RouteZonesFetchFailedChip({ onRetry }: { onRetry: () => void }) {
   return (
@@ -954,6 +933,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   routeChipsFootnote: {
+    ...dynamicType(typography.footnoteRegular),
     color: colors.labelTertiary,
     marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -1023,15 +1003,6 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.caption1Emphasized),
     color: colors.burntgreen,
   },
-  routeZonesLoadingChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.pill,
-    backgroundColor: colors.fillsTertiary,
-  },
   routeZonesRetryChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1085,7 +1056,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   tradeoffCopy: {
-    ...dynamicType(typography.footnoteRegular),
+    // Type comes from the render site's dynamicType(relaxedLineHeight(...))
+    // — the stress-relaxed variant. Keeping a base footnote here would just
+    // be overridden every render, so only color lives in the StyleSheet.
     color: colors.mutedTertiary,
   },
   actionsRow: {

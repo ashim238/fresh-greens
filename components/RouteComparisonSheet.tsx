@@ -58,9 +58,18 @@ export function RouteComparisonSheet({
   onClose: () => void;
 }) {
   return (
-    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.scrim} onPress={onClose} accessible={false} accessibilityViewIsModal>
-        <Pressable style={styles.card} onPress={() => {}}>
+    <Modal
+      visible={visible}
+      transparent
+      statusBarTranslucent
+      animationType="slide"
+      onRequestClose={onClose}
+      accessibilityViewIsModal
+    >
+      <Pressable style={styles.scrim} onPress={onClose} accessible={false}>
+        {/* View + onStartShouldSetResponder swallows the tap without
+            registering as a phantom VoiceOver button (see LifelineModal). */}
+        <View style={styles.card} onStartShouldSetResponder={() => true}>
           <SafeAreaView edges={['bottom']}>
             <View style={styles.header}>
               <Text style={styles.title}>Routes</Text>
@@ -122,7 +131,7 @@ export function RouteComparisonSheet({
               )}
             />
           </SafeAreaView>
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );

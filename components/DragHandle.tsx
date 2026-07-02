@@ -4,7 +4,13 @@ import { colors } from '../theme/colors';
 import { radii } from '../theme/radii';
 
 export function DragHandle() {
-  return <View style={styles.handle} />;
+  return (
+    <View
+      style={styles.handle}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    />
+  );
 }
 
 const styles = StyleSheet.create({

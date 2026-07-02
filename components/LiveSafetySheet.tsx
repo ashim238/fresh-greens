@@ -126,13 +126,14 @@ export function LiveSafetySheet({
         accessibilityRole="button"
         accessibilityLabel={`Safety check-in with ${contact.name}, ${duration}. Tap to expand.`}
       >
+        {/* No onPress in the collapsed pill: the pill itself expands the
+            sheet, and a nested NotifyingPulse button would create a
+            double-tap trap (expand vs. re-send). Re-send lives in the
+            expanded state below. */}
         <NotifyingPulse
           contactName={contact.name}
           labelParts={[sessionTypeLabel, duration]}
           align="start"
-          onPress={() => {
-            void resend.run(undefined);
-          }}
         />
         <CaretUp size={18} color={colors.labelSecondary} weight="bold" />
       </Pressable>
@@ -151,7 +152,9 @@ export function LiveSafetySheet({
           accessible={false}
           accessibilityElementsHidden
         >
-          <Pressable style={styles.expandedCard} onPress={() => {}}>
+          {/* View + onStartShouldSetResponder swallows the tap without
+              registering as a phantom VoiceOver button (see LifelineModal). */}
+          <View style={styles.expandedCard} onStartShouldSetResponder={() => true}>
             <DragHandle />
 
             <View style={styles.expandedBody}>
@@ -204,7 +207,7 @@ export function LiveSafetySheet({
                 />
               </View>
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </>
@@ -236,8 +239,8 @@ const styles = StyleSheet.create({
   },
   expandedCard: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     paddingBottom: spacing.lg,
   },
   expandedBody: {

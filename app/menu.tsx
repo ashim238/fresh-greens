@@ -368,7 +368,7 @@ export default function Menu() {
       label: 'Connect your calendar',
       subtitle:
         'Route to your next appointment from the home screen — no typing required.',
-      icon: <CalendarBlank size={32} color={colors.wiltedgreen} weight="duotone" />,
+      icon: <CalendarBlank size={32} color={colors.accent} weight="regular" />,
       onPress: () => {
         Haptics.selectionAsync().catch(() => {});
         void connectCalendar();
@@ -390,7 +390,7 @@ export default function Menu() {
         <SettingsHeader
           title="Settings"
           large
-          icon={<Gear size={28} color={colors.wiltedgreen} weight="bold" />}
+          icon={<Gear size={28} color={colors.wiltedgreen} weight="regular" />}
           onClose={handleBack}
         />
 
@@ -455,34 +455,34 @@ export default function Menu() {
           {/* App-config group */}
           <RowGroup>
             <SettingsRow
-              icon={<GasPump size={24} color={colors.black} weight="duotone" />}
+              icon={<GasPump size={24} color={colors.labelSecondary} weight="regular" />}
               label="Refuel reminders"
               onPress={handleFuel}
             />
             <SettingsRow
-              icon={<MapPinArea size={24} color={colors.black} weight="duotone" />}
+              icon={<MapPinArea size={24} color={colors.labelSecondary} weight="regular" />}
               label="Zone Preferences"
               onPress={handleZonePreferences}
             />
             <SettingsRow
-              icon={<Shield size={24} color={colors.black} weight="duotone" />}
+              icon={<Shield size={24} color={colors.labelSecondary} weight="regular" />}
               label="Safety"
               onPress={handleSafety}
             />
             <SettingsRow
-              icon={<Bookmark size={24} color={colors.black} weight="duotone" />}
+              icon={<Bookmark size={24} color={colors.labelSecondary} weight="regular" />}
               label="Saved places"
               value={savedPlacesValue}
               onPress={handleSavedPlaces}
             />
             <SettingsRow
-              icon={<Question size={24} color={colors.black} weight="duotone" />}
+              icon={<Question size={24} color={colors.labelSecondary} weight="regular" />}
               label="Map guide"
               onPress={handleMapGuide}
             />
             {isModerator && (
               <SettingsRow
-                icon={<ShieldCheck size={24} color={colors.black} weight="duotone" />}
+                icon={<ShieldCheck size={24} color={colors.labelSecondary} weight="regular" />}
                 label="Moderation"
                 onPress={handleModeration}
               />
@@ -525,7 +525,7 @@ export default function Menu() {
               chrome-identical) destructive Sign-out group below. */}
           <RowGroup title="About">
             <SettingsRow
-              icon={<FileText size={24} color={colors.black} weight="duotone" />}
+              icon={<FileText size={24} color={colors.labelSecondary} weight="regular" />}
               label="Privacy & Terms"
               onPress={handleLegal}
             />
@@ -550,7 +550,7 @@ export default function Menu() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
   },
   safe: {
     flex: 1,
@@ -562,13 +562,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.xl,
   },
-  // Profile card — white card on the grouped-gray surface. Echoes the
-  // RowGroup register so the identity anchor reads as a peer card.
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceTinted,
     borderRadius: radii.md,
     padding: spacing.md,
     ...shadows.e1,
@@ -580,18 +578,13 @@ const styles = StyleSheet.create({
     height: 80,
   },
   profileAvatar: {
-    // 80pt circular slot per Figma 1120:7476. Defensive fill +
-    // borderRadius ensure a visible circle even when the PNG fails
-    // to load or has a transparent background — the previous
-    // setup (no fill, no radius) made a missing image read as a
-    // blank space rather than a placeholder. Image fills via
-    // resizeMode='cover' at the JSX site. Real-photo support shipped
-    // 2026-06-02: source switches to { uri: user.avatarUri } when set.
     width: 80,
     height: 80,
     borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: colors.freshgreen,
   },
   // Camera badge pinned to the avatar's bottom-right — the editable cue.
   avatarBadge: {
@@ -609,26 +602,13 @@ const styles = StyleSheet.create({
   },
   profileTextStack: {
     flex: 1,
-    gap: 8,
+    gap: spacing.xs,
   },
   profileGreeting: {
-    // M2: was title3Emphasized (20pt/600). At only 2pt smaller than
-    // profileName's title2Emphasized (22pt/700), the greeting and the
-    // name read as near-peers — the weight delta is the only real
-    // differentiator and 600→700 is too subtle to do hierarchy work.
-    // Dropping to title3Regular (20pt/400) lets the regular-vs-bold
-    // weight contrast carry the "atmospheric label / identity anchor"
-    // distinction the layout intends.
-    ...dynamicType(typography.title3Regular),
-    color: colors.black,
+    ...dynamicType(typography.title2Emphasized),
+    color: colors.wiltedgreen,
   },
   profileName: {
-    // Bolder pass: 22pt → 28pt (title1Emphasized). The name is the
-    // identity anchor on /menu — at 22pt it sat as a peer to the
-    // app-config row labels below, at 28pt it owns the profile card
-    // and reads as "this is who you are in this app." The Regular-vs-
-    // Emphasized weight contrast against the 20pt Regular greeting
-    // above stays the structural cue.
     ...dynamicType(typography.title1Emphasized),
     color: colors.black,
   },
@@ -648,12 +628,12 @@ const styles = StyleSheet.create({
   // + 12pt rounded corners + 16pt padding. NO shadow (the border
   // carries the elevation visually, vs v1's shadow approach).
   tileCard: {
-    gap: 8,
-    padding: 16,
+    gap: spacing.sm,
+    padding: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderWidth: 1,
-    borderColor: colors.wiltedgreen,
+    borderColor: colors.accent,
   },
   tileIcon: {
     width: 32,
@@ -683,6 +663,6 @@ const styles = StyleSheet.create({
     // keeping the supporting copy one tier below the title preserves
     // the within-card hierarchy.
     ...dynamicType(relaxedLineHeight(typography.subheadlineRegular)),
-    color: colors.wiltedgreen,
+    color: colors.accent,
   },
 });

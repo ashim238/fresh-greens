@@ -313,10 +313,12 @@ export default function TripSummary() {
             <Check size={28} color={colors.white} weight="bold" />
           </Animated.View>
 
-          <Text style={styles.title} accessibilityRole="header">
-            Trip Summary
-          </Text>
-          {label ? <Text style={styles.destination}>{label}</Text> : null}
+          <Text style={styles.title}>Trip Summary</Text>
+          {label ? (
+            <Text style={styles.destination} accessibilityRole="header">
+              {label}
+            </Text>
+          ) : null}
 
           {(distanceText || durationText) && (
             <View style={styles.stats}>
@@ -457,7 +459,7 @@ export default function TripSummary() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfacePage,
   },
   safe: {
     flex: 1,
@@ -486,11 +488,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    ...dynamicType(typography.caption1Regular),
+    ...dynamicType(typography.footnoteRegular),
     color: colors.mutedSecondary,
   },
   destination: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.black,
     marginTop: spacing.xs,
   },
@@ -578,6 +580,9 @@ const styles = StyleSheet.create({
   inferenceRetryLine: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xs,
+    // Floor: md padding (12) + footnote line (18) = 42pt, 2pt under target.
+    minHeight: 44,
+    justifyContent: 'center',
   },
   inferenceRetryText: {
     ...dynamicType(typography.footnoteRegular),
@@ -586,6 +591,9 @@ const styles = StyleSheet.create({
   setDefaultRetryLine: {
     paddingVertical: spacing.md,
     alignItems: 'center',
+    // Floor: md padding (12) + footnote line (18) = 42pt, 2pt under target.
+    minHeight: 44,
+    justifyContent: 'center',
   },
   setDefaultRetryText: {
     ...dynamicType(typography.footnoteRegular),

@@ -123,23 +123,25 @@ export default function SafetySettings() {
 
           <RowGroup footer="The person Fresh Greens reaches for you, and the audio it captures during a stop.">
             <SettingsRow
-              icon={<UserCircle size={24} color={colors.black} weight="duotone" />}
+              icon={<UserCircle size={24} color={colors.labelSecondary} weight="regular" />}
               label="Trusted Contact"
               value={trustedContactValue}
               onPress={handleEditTrustedContact}
+              accessibilityHint="Opens the screen to choose or change who Fresh Greens reaches for you"
             />
             <SettingsRow
-              icon={<Microphone size={24} color={colors.black} weight="duotone" />}
+              icon={<Microphone size={24} color={colors.labelSecondary} weight="regular" />}
               label="Recordings"
               value={recordingsValue}
               onPress={handleRecordings}
+              accessibilityHint="Opens your saved stop recordings"
             />
           </RowGroup>
 
           <RowGroup footer="Carrier and policy number for What to Have during a stop. Scan your card or type it in.">
             <SettingsRow
               icon={
-                <IdentificationCard size={24} color={colors.black} weight="duotone" />
+                <IdentificationCard size={24} color={colors.labelSecondary} weight="regular" />
               }
               label="Auto insurance"
               value={insuranceValue}

@@ -433,7 +433,7 @@ function CountdownView({
             accessibilityLabel={pivotA11yLabel ?? pivotLabel}
             style={({ pressed }) => [styles.pivotBtn, pressed && pressedDim]}
           >
-            <Phone size={16} color={colors.labelSecondary} weight="duotone" />
+            <Phone size={16} color={colors.labelSecondary} weight="regular" />
             <Text style={styles.pivotLabel}>{pivotLabel}</Text>
           </Pressable>
         )}
@@ -465,14 +465,9 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 20,
     maxWidth: 400,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.xl,
     paddingHorizontal: spacing.lg,
-    // Symmetric 32pt vertical padding. Earlier rounds tried 16/32 and
-    // 24/24; the user still read both as tight (2026-06-01). 32pt on
-    // both edges gives the title clear breathing from the card's
-    // rounded top corner AND keeps the bottom edge below the exit
-    // cluster from feeling cramped.
     paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
     gap: spacing.md,
@@ -499,7 +494,7 @@ const styles = StyleSheet.create({
   // from title1Regular (28pt) to largeTitleEmphasized (34pt Bold) so
   // it reads as an unmissable prompt on the emergency card.
   title: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.black,
     textAlign: 'center',
   },
@@ -545,7 +540,7 @@ const styles = StyleSheet.create({
   },
   // Reserved-color red — the 911 escalation gets the full alert color.
   actionBtn911: {
-    backgroundColor: colors.red,
+    backgroundColor: colors.severityCritical,
   },
   actionBtnText: {
     ...dynamicType(typography.bodyEmphasized),
@@ -582,23 +577,23 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: radii.pill,
-    backgroundColor: colors.red,
+    backgroundColor: colors.severityCritical,
     alignItems: 'center',
     justifyContent: 'center',
-    // No marginVertical — the card's own `gap: spacing.md` handles the
-    // separation. Stacking margin AND gap was the congestion source.
     ...shadows.e1,
   },
   countdownNumber: {
+    // dynamic-type exempt: fixed-proportion SOS countdown numeral in a
+    // safety-critical disc — scaling overflows the disc and breaks the
+    // at-a-glance readability drivers need during a 911 countdown.
     ...typography.sosCountdown,
     color: colors.white,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
-    lineHeight: 40,
   },
   countdownUnit: {
     ...dynamicType(typography.caption1Regular),
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colors.whiteSubdued70,
     textAlign: 'center',
     marginTop: -spacing.xs,
   },

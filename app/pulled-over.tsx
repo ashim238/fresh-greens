@@ -1104,7 +1104,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
           ]}
           onPress={hasContact ? undefined : handleAddContact}
           disabled={hasContact}
-          accessibilityRole={hasContact ? undefined : 'button'}
+          accessibilityRole={hasContact ? 'text' : 'button'}
           accessibilityLabel={
             hasContact
               ? `${displayName}, trusted contact`
@@ -1135,7 +1135,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
                   <UserPlus
                     size={56}
                     color={colors.freshgreen}
-                    weight="duotone"
+                    weight="regular"
                   />
                 )}
               </View>
@@ -1177,7 +1177,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             }
             accessibilityState={{ disabled: !canCall }}
           >
-            <Phone size={24} color={colors.white} weight="duotone" />
+            <Phone size={24} color={colors.white} weight="fill" />
             <Text style={contactStyles.callBtnText}>Call</Text>
           </Pressable>
 
@@ -1200,7 +1200,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             <ChatCircle
               size={24}
               color={colors.wiltedgreen}
-              weight="duotone"
+              weight="fill"
             />
             <Text style={contactStyles.textBtnText}>Text</Text>
           </Pressable>
@@ -1279,7 +1279,6 @@ function ReviewView({
               onPress={onBack}
               accessibilityRole="button"
               accessibilityLabel="Previous"
-              hitSlop={12}
               style={({ pressed }) => [
                 tapTarget44,
                 pressed && pressedDim,
@@ -1326,7 +1325,6 @@ function ReviewView({
               onPress={onNext}
               accessibilityRole="button"
               accessibilityLabel="Next"
-              hitSlop={12}
               style={({ pressed }) => [
                 tapTarget44,
                 pressed && pressedDim,
@@ -1704,7 +1702,7 @@ function WhatToKnowView() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
   },
@@ -1739,7 +1737,7 @@ const chipStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: radii.xs,
-    backgroundColor: colors.red,
+    backgroundColor: colors.severityCritical,
     marginRight: spacing.sm,
   },
   label: {
@@ -1790,7 +1788,7 @@ const armedStyles = StyleSheet.create({
     height: safetyCardHeight,
     padding: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
     justifyContent: 'center',
     // A22 / P1: was inline (height:1, opacity:0.15, radius:3, elevation:2)
     // — exact match to shadows.e1. Replaced with the canonical spread per
@@ -1943,7 +1941,7 @@ const guidanceStyles = StyleSheet.create({
     gap: spacing.lg,
   },
   recordingWidget: {
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfaceTinted,
     borderRadius: radii.xl,
     padding: spacing.md,
     gap: spacing.sm,
@@ -1982,7 +1980,7 @@ const guidanceStyles = StyleSheet.create({
   waveformBar: {
     width: 3,
     borderRadius: radii.xs,
-    backgroundColor: colors.red,
+    backgroundColor: colors.severityCritical,
   },
   recordingFootnote: {
     ...dynamicType(typography.caption1Regular),
@@ -2002,7 +2000,7 @@ const guidanceStyles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceElevated,
   },
   continueText: {
     ...dynamicType(typography.subheadlineEmphasized),
@@ -2047,17 +2045,12 @@ const contactStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.title1Regular),
+    ...dynamicType(typography.brandDisplay),
     color: colors.black,
   },
   subtitle: {
-    ...dynamicType(typography.subheadlineRegular),
-    // P9: mutedTertiary (rgba(80,80,80,0.7)) at 15pt = ~3.0-3.5:1 contrast,
-    // below WCAG AA for normal text. This is reassuring informational copy
-    // user needs to read, not decorative metadata — labelTertiary (#3D3D3D)
-    // is the intended token for tertiary-text-that-still-must-read. Per
-    // .cursorrules reserved-color rule.
-    color: colors.labelTertiary,
+    ...dynamicType(typography.bodyRegular),
+    color: colors.labelSecondary,
   },
   avatarBlock: {
     gap: spacing.md,

@@ -4,6 +4,7 @@ import type { TrustedContact } from '../lib/api/trusted-contact';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
 import { radii } from '../theme/radii';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -47,8 +48,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 16,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
   },
   text: {
     ...dynamicType(typography.footnoteRegular),

@@ -298,7 +298,7 @@ export default function InsuranceSetup() {
                         <Camera
                           size={24}
                           color={colors.black}
-                          weight="duotone"
+                          weight="regular"
                         />
                       )
                     }
@@ -425,7 +425,7 @@ export default function InsuranceSetup() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.systemGroupedBackground },
+  root: { flex: 1, backgroundColor: colors.surfacePage },
   safe: { flex: 1 },
   loadingBody: {
     alignItems: 'center',
@@ -474,11 +474,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   inputError: {
-    borderColor: colors.red,
+    borderColor: colors.severityCritical,
   },
   fieldError: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical,
   },
   saveBtn: {
     minHeight: 50,

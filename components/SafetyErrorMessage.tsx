@@ -13,7 +13,8 @@ import { typography } from '../theme/typography';
 /**
  * Inline error surface. Renders the body text from getErrorMessage,
  * styled to match the existing inline error pattern in /report
- * (footnoteRegular + colors.red + centered).
+ * (footnoteRegular + colors.severityCritical + centered — the
+ * readable-error-copy token on light surfaces, per .cursorrules #8).
  *
  * The title is omitted in the inline case — the domain context is
  * usually visible at the call site (the user is on the form that
@@ -54,7 +55,7 @@ const styles = StyleSheet.create({
   },
   text: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     textAlign: 'center',
   },
 });

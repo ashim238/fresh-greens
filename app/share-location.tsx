@@ -237,7 +237,7 @@ function ActiveView({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.surfaceSheet },
   safe: { flex: 1 },
   // Drag-handle wrapper mirrors /safety's dragHandleWrapper + /roadside's
   // updated pattern: 16pt above AND below the bar so the breathing room
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   errorNote: {
     ...dynamicType(typography.footnoteRegular),
-    color: colors.red,
+    color: colors.severityCritical, // readable error copy on light surface — .cursorrules #8
     marginBottom: spacing.sm,
   },
   // Card list mirrors /pulled-over's armed picker (and the matching
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   // content vertically centered. Exact match to /pulled-over's
   // answerCard (was flat systemGroupedBackground at minHeight 76).
   twoLineRow: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
@@ -323,9 +323,9 @@ const styles = StyleSheet.create({
     ...shadows.e1,
   },
   rowTitleRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),

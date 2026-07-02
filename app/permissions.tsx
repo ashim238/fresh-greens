@@ -192,7 +192,7 @@ export default function Permissions() {
                     <NavigationArrow
                       size={14}
                       color={colors.freshgreen}
-                      weight="duotone"
+                      weight="regular"
                     />
                   </View>
                   <Text style={styles.subText}>Location</Text>
@@ -201,8 +201,8 @@ export default function Permissions() {
                   <View style={styles.thumb}>
                     <Microphone
                       size={14}
-                      color={colors.black}
-                      weight="duotone"
+                      color={colors.labelSecondary}
+                      weight="regular"
                     />
                   </View>
                   <Text style={styles.subText}>Microphone</Text>
@@ -342,10 +342,11 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   cta: {
-    // Width per Figma 1100:8115 — 163pt Container that wraps the
-    // button. Left-aligned with the rest of the content.
+    // minWidth per Figma 1100:8115 — 163pt Container that wraps the
+    // button. Left-aligned with the rest of the content. minWidth (not
+    // fixed width) so the label can grow under Dynamic Type without clipping.
     alignSelf: 'flex-start',
-    width: 163,
+    minWidth: 163,
   },
   // Recovery-affordance row — same inline-link pattern as Get Started's
   // "Already have an account? Log in" (footnoteRegular white prompt +
@@ -362,8 +363,8 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   settingsLink: {
+    ...dynamicType(typography.footnoteEmphasized),
     color: colors.freshgreen,
-    fontFamily: typography.footnoteEmphasized.fontFamily,
     textDecorationLine: 'underline',
   },
 });

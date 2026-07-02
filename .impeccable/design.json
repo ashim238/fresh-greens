@@ -20,11 +20,13 @@
       "daylight-night": { "role": "functional", "displayName": "Daylight Night", "canonical": "#2D1B69" }
     },
     "typographyMeta": {
-      "display": { "displayName": "Large Title / Emphasized", "purpose": "Largest heading register, full-screen moments. iOS HIG largeTitle." },
-      "headline": { "displayName": "Title 1", "purpose": "Primary screen titles. Its Regular twin is the in-modal held-question register." },
-      "title": { "displayName": "Title 2 / Title 3", "purpose": "Section headers and card titles." },
-      "body": { "displayName": "Body", "purpose": "Reading register and the app-wide CTA label weight (Emphasized 600)." },
-      "label": { "displayName": "Footnote", "purpose": "Secondary copy, chip labels, metadata. Caption 1 (12pt) is the informational floor." }
+      "fontSystem": "Two-font system: Libre Franklin (full structural hierarchy, display through captions) + DM Serif Display (emotional brand moments only — emergency, pulled-over, sign-out, arrival, roadside thank-you, report confirmation).",
+      "display": { "displayName": "Large Title / Emphasized", "fontFamily": "Libre Franklin Bold", "purpose": "Largest heading register, full-screen structural moments. iOS HIG largeTitle." },
+      "brandDisplay": { "displayName": "Brand Display", "fontFamily": "DM Serif Display Regular", "purpose": "Emotional warmth moments — safety screens, farewells, confirmations. Never for navigation or settings." },
+      "headline": { "displayName": "Title 1", "fontFamily": "Libre Franklin Bold / Regular", "purpose": "Primary screen titles. Its Regular twin is the in-modal held-question register." },
+      "title": { "displayName": "Title 2 / Title 3", "fontFamily": "Libre Franklin SemiBold / Regular", "purpose": "Section headers and card titles." },
+      "body": { "displayName": "Body", "fontFamily": "Libre Franklin SemiBold / Regular", "purpose": "Reading register and the app-wide CTA label weight (SemiBold 600)." },
+      "label": { "displayName": "Footnote", "fontFamily": "Libre Franklin Medium / Regular", "purpose": "Secondary copy, chip labels, metadata. Caption 1 (12pt) is the informational floor." }
     },
     "shadows": [
       { "name": "e1", "value": "0 1px 3px rgba(0,0,0,0.15)", "purpose": "Chrome over map: FAB stack, ETA pill, search bar, button fills. Lightest lift. Android elevation 2." },
@@ -135,7 +137,7 @@
     "keyCharacteristics": [
       "Calm, grounded, earthy: composure as the primary safety signal.",
       "Reserved-color discipline: greens for UI, signals for meaning, never decoration.",
-      "iOS HIG-native: system typeface, grouped surfaces, 44pt painted tap targets.",
+      "iOS HIG-native: two-font system (Libre Franklin structural + DM Serif Display emotional), grouped surfaces, 44pt painted tap targets.",
       "Token-driven: every value pulled from theme/, never inlined.",
       "Auditable by design: the UI surfaces why, it doesn't just assert."
     ],
