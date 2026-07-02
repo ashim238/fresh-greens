@@ -1,5 +1,6 @@
 // Fresh Greens — color tokens
-// Source of truth: Figma file 7DDh6c7tk7OKF4WiA7pEkp
+// Source of truth: Figma file m6hjFiAT2fnhJhs1d53qOt (Fresh Greens — Design System library)
+// Consumed by design work in file 7DDh6c7tk7OKF4WiA7pEkp.
 // See ../.cursorrules ("Reserved-color rule") for usage rules and exceptions.
 //
 // Usage:
