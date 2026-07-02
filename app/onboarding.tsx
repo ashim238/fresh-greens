@@ -22,6 +22,7 @@ import { Button } from '../components/Button';
 import { PageControl } from '../components/PageControl';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
+import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
 /**
@@ -371,11 +372,11 @@ const styles = StyleSheet.create({
   },
   titleAndCopy: {
     width: '100%',
-    gap: 32,
+    gap: spacing.xl,
     // Page gutter lives here now (was on `panel`). Pulling the
     // padding inward keeps the title/body in their original column
     // while letting the bottom illustration sit edge-to-edge.
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl,
   },
   title: {
     ...dynamicType(typography.brandDisplayLarge),
@@ -395,8 +396,8 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
-    paddingHorizontal: 32,
-    gap: 16,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
   },
   btnStretch: {
     alignSelf: 'stretch',

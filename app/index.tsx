@@ -199,7 +199,7 @@ export default function Welcome() {
             >
               <View style={styles.checkbox}>
                 {termsAccepted && (
-                  <Check size={18} color={colors.freshgreen} weight="bold" />
+                  <Check size={18} color={colors.accent} weight="fill" />
                 )}
               </View>
             </Pressable>
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     marginBottom: 160,
   },
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    ...dynamicType(typography.brandDisplayLarge),
     color: colors.white,
   },
   subtitle: {
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: colors.freshgreen,
+    borderColor: colors.accent,
     borderRadius: radii.xs,
     alignItems: 'center',
     justifyContent: 'center',
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   link: {
-    color: colors.freshgreen,
+    color: colors.accent,
     textDecorationLine: 'underline',
   },
   buttonStretch: {

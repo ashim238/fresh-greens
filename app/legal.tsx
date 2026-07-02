@@ -358,7 +358,7 @@ function BoldInline({ children }: { children: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.systemGroupedBackground },
+  root: { flex: 1, backgroundColor: colors.surfacePage },
   safe: { flex: 1 },
   tabRow: {
     flexDirection: 'row',
@@ -372,10 +372,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
   },
   tabActive: {
-    backgroundColor: colors.freshgreen,
+    backgroundColor: colors.accent,
   },
   tabLabel: {
     // subheadlineEmphasized (15pt) per the 2026-06-01 text-size
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   // card now; jumpTo scrolls to a y that's short by the card's own top
   // offset (~spacing.md), an imperceptible overshoot on a long doc.
   contentCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radii.md,
     padding: spacing.lg,
     ...shadows.e1,

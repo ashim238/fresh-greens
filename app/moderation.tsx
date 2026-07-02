@@ -290,7 +290,7 @@ export default function Moderation() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <SettingsHeader
           title="Moderation"
-          icon={<ShieldCheck size={28} color={colors.wiltedgreen} weight="bold" />}
+          icon={<ShieldCheck size={28} color={colors.wiltedgreen} weight="regular" />}
           large
           onClose={() => router.back()}
         />
@@ -573,7 +573,7 @@ function ReportCard({
         <View style={styles.cardBadges}>
           {isHidden && (
             <View style={[styles.badge, styles.badgeHidden]}>
-              <EyeSlash size={12} color={colors.orange} />
+              <EyeSlash size={12} color={colors.severityWarning} />
               <Text style={styles.badgeTextHidden}>
                 {report.hidden_reason ?? 'hidden'}
               </Text>
@@ -581,7 +581,7 @@ function ReportCard({
           )}
           {isRemoved && (
             <View style={[styles.badge, styles.badgeRemoved]}>
-              <Trash size={12} color={colors.red} />
+              <Trash size={12} color={colors.severityCritical} />
               <Text style={styles.badgeTextRemoved}>removed</Text>
             </View>
           )}
@@ -771,7 +771,7 @@ function ReportCard({
                     ]}
                   />
                 )}
-                <Trash size={18} color={colors.red} />
+                <Trash size={18} color={colors.severityCritical} />
                 <Text style={styles.actionTextRemove}>
                   {isVoiceOverOn ? 'Remove' : 'Hold to remove'}
                 </Text>
@@ -842,7 +842,7 @@ function BulkActionBar({
                   ]}
                 />
               )}
-              <Trash size={18} color={colors.red} />
+              <Trash size={18} color={colors.severityCritical} />
               <Text style={styles.actionTextRemove}>
                 {isVoiceOverOn ? 'Remove' : 'Hold to remove'}
               </Text>
@@ -971,7 +971,7 @@ function formatAge(timestamp: number): string {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
   },
   safe: {
     flex: 1,
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radii.md,
     ...shadows.e1,
     overflow: 'hidden',
@@ -1121,11 +1121,11 @@ const styles = StyleSheet.create({
   },
   badgeTextHidden: {
     ...dynamicType(typography.caption1Emphasized),
-    color: colors.orange,
+    color: colors.severityWarning,
   },
   badgeTextRemoved: {
     ...dynamicType(typography.caption1Emphasized),
-    color: colors.red,
+    color: colors.severityCritical,
   },
   badgeTextVerified: {
     ...dynamicType(typography.caption1Emphasized),
@@ -1168,7 +1168,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   panel: {
-    backgroundColor: colors.systemGroupedBackground,
+    backgroundColor: colors.surfacePage,
     borderRadius: radii.sm,
     overflow: 'hidden',
   },
@@ -1251,11 +1251,11 @@ const styles = StyleSheet.create({
   },
   miniBadgeText: {
     ...dynamicType(typography.caption2Regular),
-    color: colors.red,
+    color: colors.severityCritical,
   },
   miniBadgeTextHidden: {
     ...dynamicType(typography.caption1Regular),
-    color: colors.orange,
+    color: colors.severityWarning,
   },
   coordinationWarning: {
     backgroundColor: colors.chipCautionFill,
@@ -1265,7 +1265,7 @@ const styles = StyleSheet.create({
   },
   coordinationText: {
     ...dynamicType(typography.caption1Emphasized),
-    color: colors.orange,
+    color: colors.severityWarning,
   },
 
   actions: {
@@ -1302,7 +1302,7 @@ const styles = StyleSheet.create({
   },
   actionTextRemove: {
     ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.red,
+    color: colors.severityCritical,
   },
 
   // Bulk action bar
@@ -1310,7 +1310,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,

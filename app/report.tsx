@@ -506,7 +506,7 @@ function PickerView({
           // earlier hitSlop-as-compliance pattern (audit #10).
           style={tapTarget44}
         >
-          <X size={20} color={colors.labelTertiary} weight="bold" />
+          <X size={20} color={colors.labelSecondary} weight="regular" />
         </Pressable>
       </View>
 
@@ -638,7 +638,7 @@ function DetailView({
           // (audit #10 fix; was hitSlop={12} on a 24pt caret).
           style={tapTarget44}
         >
-          <CaretLeft size={24} color={colors.labelTertiary} weight="regular" />
+          <CaretLeft size={24} color={colors.labelSecondary} weight="regular" />
         </Pressable>
         <View style={{ flex: 1 }} />
         <Pressable
@@ -647,7 +647,7 @@ function DetailView({
           accessibilityLabel="Close"
           style={tapTarget44}
         >
-          <X size={20} color={colors.labelTertiary} weight="bold" />
+          <X size={20} color={colors.labelSecondary} weight="regular" />
         </Pressable>
       </View>
 
@@ -848,7 +848,7 @@ function DetailView({
                   accessibilityRole="button"
                   accessibilityLabel="Remove photo"
                 >
-                  <X size={16} color={colors.labelSecondary} weight="bold" />
+                  <X size={16} color={colors.labelSecondary} weight="regular" />
                   <Text style={styles.photoRemoveText}>Remove photo</Text>
                 </Pressable>
               </View>
@@ -859,7 +859,7 @@ function DetailView({
                 accessibilityRole="button"
                 accessibilityLabel="Add a photo"
               >
-                <Camera size={32} color={colors.labelTertiary} weight="duotone" />
+                <Camera size={32} color={colors.labelSecondary} weight="regular" />
               </Pressable>
             )}
           </>
@@ -948,7 +948,7 @@ function ThankYouView({
           // hitSlop-as-compliance pattern.
           style={tapTarget44}
         >
-          <CaretLeft size={24} color={colors.labelTertiary} weight="regular" />
+          <CaretLeft size={24} color={colors.labelSecondary} weight="regular" />
         </Pressable>
         <View style={{ flex: 1 }} />
         <Pressable
@@ -957,7 +957,7 @@ function ThankYouView({
           accessibilityLabel="Close"
           style={tapTarget44}
         >
-          <X size={20} color={colors.labelTertiary} weight="bold" />
+          <X size={20} color={colors.labelSecondary} weight="regular" />
         </Pressable>
       </View>
 
