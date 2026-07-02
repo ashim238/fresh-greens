@@ -128,6 +128,31 @@ export const typography = {
     lineHeight: 15,
     letterSpacing: 0.06,
   },
+
+  // ── Brand display — DM Serif Display ──────────────────────────
+  // Warm serif for emotional / brand-voice moments only: emergency
+  // headings, ETAs, wordmark, settings greeting, reassurance copy,
+  // onboarding heroes, success confirmations. One weight (Regular),
+  // headings only. Space Grotesk stays for structural display;
+  // DM Serif adds warmth where the moment calls for it.
+  brandDisplayLarge: {
+    fontFamily: fonts.dmSerif.regular,
+    fontSize: 34,
+    lineHeight: 42,
+    letterSpacing: 0,
+  },
+  brandDisplay: {
+    fontFamily: fonts.dmSerif.regular,
+    fontSize: 28,
+    lineHeight: 36,
+    letterSpacing: 0,
+  },
+  brandDisplaySmall: {
+    fontFamily: fonts.dmSerif.regular,
+    fontSize: 22,
+    lineHeight: 30,
+    letterSpacing: 0,
+  },
 } as const;
 
 export type TypographyToken = keyof typeof typography;

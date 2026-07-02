@@ -7,99 +7,113 @@
 //   <View style={{ backgroundColor: colors.freshgreen }} />
 
 export const colors = {
-  // Brand greens — use freely for UI
+  // ── Brand greens ──────────────────────────────────────────────
   freshgreen: '#41AD49',   // primary CTA, in-flow links
   wiltedgreen: '#326936',  // secondary CTAs, atmospheric headers
   burntgreen: '#003F04',   // deep accents (e.g. turn-card "Then" footer)
   fadedgreen: '#A0D6A4',   // supporting fills
 
-  // Reserved — UI signals only. See .cursorrules for documented exceptions.
+  // ── Reserved — UI signals only ────────────────────────────────
+  // See .cursorrules for documented exceptions.
   orange: '#FF9500',       // hazard / speed limit / construction
   red: '#FF3B30',          // alert
   yellow: '#FFCC00',       // caution
   navy: '#041E49',         // safety affordances (en-route shield button, etc.)
 
-  // Neutrals
+  // ── Neutrals ──────────────────────────────────────────────────
   white: '#FFFFFF',
   black: '#000000',
 
-  // iOS system blue — the canonical MKUserLocation tint. Used by
-  // UserLocationMarker's pulse + inner dot so the custom marker reads
-  // as a familiar "iOS blue dot" rather than a brand-themed pin.
+  // iOS system blue — the canonical MKUserLocation tint.
   systemBlue: '#007AFF',
 
   // iOS system green — verified/positive state badge in moderation.
   systemGreen: '#34C759',
 
-  // iOS system labels — semantic grays used for secondary/tertiary text,
-  // icon tints, and placeholder copy. Tokenized here so screens don't
-  // scatter raw rgba/hex values for the same semantic role.
+  // ── Labels ────────────────────────────────────────────────────
+  // Semantic grays for text, icon tints, and placeholder copy.
   labelSecondary: '#3C3C43',
   labelTertiary: '#3D3D3D',
   mutedSecondary: 'rgba(60, 60, 67, 0.6)',
   mutedTertiary: 'rgba(80, 80, 80, 0.7)',
 
-  // iOS system backgrounds
-  // Lightened from iOS-stock #F2F2F7 → #F6F6FA (user-flagged 2026-06-02:
-  // the grouped gray read a touch heavy). Subtle lift toward white while
-  // keeping the cool tint; white RowGroup cards stay distinct via their
-  // shadows.e1. Used app-wide as the light-gray page bg, not just settings.
-  systemGroupedBackground: '#F6F6FA',
+  // ── Warm surface ramp ─────────────────────────────────────────
+  // OKLCH-derived at ~0.008–0.012 chroma, hue 142° (brand-green
+  // axis). Replaces iOS-default cool grays with warm paper tones
+  // so brand markers pop and cards separate from backgrounds
+  // without hard borders.
+  //
+  // Migration note: `systemGroupedBackground` retains its name for
+  // backward compat but shifts from cool #F6F6FA to warm #F4F4ED.
+  // New code should prefer the semantic `surface*` tokens.
+  systemGroupedBackground: '#F4F4ED',
 
-  // Daylight gradient anchors — documented exception to the reserved-
-  // color rule (orange used as functional daylight encoding, not as
-  // signaling). Three-stop palette mirrored on /home's bottom-sheet
-  // strip and on the route polyline in lib/daylight.ts so the legend
-  // and the polyline agree by *shared name*, not just shared values.
-  // See .cursorrules.
+  surfacePage: '#F4F4ED',          // page background — warm paper
+  surfaceCard: '#FEFDFB',          // card surface, distinct from page
+  surfaceSheet: '#FAF9F4',         // bottom-sheet background
+  surfaceElevated: '#FFFFFF',      // modals — max elevation = pure white
+  surfaceTinted: '#ECF0E6',        // personality surfaces (profile card, greeting)
+  surfaceInset: '#ECEAE3',         // inset areas, grouped sections on warm bg
+
+  // ── Warm borders & dividers ───────────────────────────────────
+  borderWarm: '#D5D2C9',           // standard border
+  borderSubtle: '#E3E1D9',         // subtle separator / hairline
+
+  // ── Daylight gradient ─────────────────────────────────────────
   daylightDawn: '#FFB347',
   daylightDusk: '#C4785A',
   daylightNight: '#2D1B69',
 
-  // iOS system fills — neutral surface tints used for inactive controls,
-  // tertiary input fields, and tag/chip backgrounds. Four-tier ramp
-  // mirrors the iOS Fills system (Primary > Secondary > Tertiary >
-  // Quaternary). `fillsTertiary` is the standard search-bar gray on a
-  // flat (non-map) surface; `fillsPrimary` is the densest tag pill in
-  // the browse-sheet (rating / category chips); `fillsSecondary` is
-  // the slightly-lighter chip background; `fillsQuaternary` is the
-  // weather card backdrop.
+  // ── System fills ──────────────────────────────────────────────
   fillsPrimary: 'rgba(120, 120, 128, 0.2)',
   fillsSecondary: 'rgba(120, 120, 128, 0.16)',
   fillsTertiary: 'rgba(120, 120, 128, 0.12)',
   fillsQuaternary: 'rgba(120, 120, 128, 0.08)',
 
-  // Sign-out goodbye-line off-white. Figma-specified; distinct from
-  // pure white so the parting copy reads as quietly secondary.
   signOutSubtitle: '#F5F5F5',
 
-  // Edge-marker palette per Figma `1133:13250`. Darker, more
-  // saturated than the brand orange/green — designed to read
-  // crisply against busy map content at the small (36pt) edge-
-  // marker size. Used only by `components/EdgeIndicator.tsx`; the
-  // brand orange/green still cover everything else.
+  // ── Edge-marker palette ───────────────────────────────────────
   slightlyDarkOrange: '#D34400',
   slightlyWiltedGreen: '#1F8122',
 
-  // Borders + scrims + separators. Tokenized so the same semantic role
-  // doesn't get re-derived as raw rgba per screen.
-  modalScrim: 'rgba(0, 0, 0, 0.2)',          // dim layer behind /report popup
-  modalScrimStrong: 'rgba(0, 0, 0, 0.4)',    // heavier dim for safety-sheet overlays (LiveSafetySheet expand, LifelineModal)
-  cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',    // input/card outlines
-  separatorSubtle: 'rgba(0, 0, 0, 0.1)',     // hairline dividers on light bg
-  dividerOnDark: 'rgba(160, 214, 164, 0.25)',// hairline dividers on wiltedgreen
-  dragHandleBar: 'rgba(128, 128, 128, 0.55)',// the gray bar atop modal sheets
-  dividerNeutral: 'rgba(202, 196, 208, 1)',  // vertical/horizontal card dividers
-
-  /** Subtle white fill on dark surfaces (12% opacity). Used by:
-   *   - LaneStrip active-lane cell background — gives active lanes
-   *     a faint glow without competing with freshgreen brand color.
-   *  Generalizable to any "active state on a dark surface" pattern. */
+  // ── Borders + scrims + separators ─────────────────────────────
+  modalScrim: 'rgba(0, 0, 0, 0.2)',
+  modalScrimStrong: 'rgba(0, 0, 0, 0.4)',
+  cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',
+  separatorSubtle: 'rgba(0, 0, 0, 0.1)',
+  dividerOnDark: 'rgba(160, 214, 164, 0.25)',
+  dragHandleBar: 'rgba(128, 128, 128, 0.55)',
+  dividerNeutral: 'rgba(202, 196, 208, 1)',
   whiteFill12: 'rgba(255, 255, 255, 0.12)',
 
-  /** Report severity-chip 8% fills — red (avoid-level) / orange
-   *  (caution-level) at 8% over the chip's reserved border color.
-   *  See .cursorrules reserved-color carve-out #12. */
+  // ── Severity scale ────────────────────────────────────────────
+  // Named safety-severity tokens for emotionally-charged UI:
+  // recording waveforms, report chips, incident UI, trust signals.
+  // Derived from the reserved palette but tuned for foreground +
+  // background pairing at WCAG AA contrast.
+  severityCritical: '#C62828',
+  severityCriticalBg: 'rgba(198, 40, 40, 0.08)',
+  severityWarning: '#D97706',
+  severityWarningBg: 'rgba(217, 119, 6, 0.08)',
+  severityCaution: '#B8860B',
+  severityCautionBg: 'rgba(184, 134, 11, 0.08)',
+  severityPositive: '#2E7D32',
+  severityPositiveBg: 'rgba(46, 125, 50, 0.08)',
+
+  // ── Secondary accent (non-safety UI) ──────────────────────────
+  // Warm teal for fuel, trips, search categories, empty-state
+  // prompts — so green stays reserved for safety = good / go / trust.
+  accent: '#247D7D',
+  accentLight: '#E3F1F1',
+  accentMuted: 'rgba(36, 125, 125, 0.12)',
+
+  // ── Focus / active / pressed ──────────────────────────────────
+  // Derived from brand green; use via interaction tokens, not raw.
+  pressedGreen: '#369B3E',
+  activeGreen: 'rgba(65, 173, 73, 0.12)',
+  focusRing: 'rgba(65, 173, 73, 0.4)',
+
+  // ── Report severity-chip fills ────────────────────────────────
   chipAvoidFill: 'rgba(255, 59, 48, 0.08)',
   chipCautionFill: 'rgba(255, 149, 0, 0.08)',
   chipVerifiedFill: 'rgba(52, 199, 89, 0.1)',

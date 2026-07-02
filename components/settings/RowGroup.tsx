@@ -93,13 +93,9 @@ const styles = StyleSheet.create({
   },
   // Inner view clips the rows + separators to the rounded corners.
   cardClip: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surfaceCard,
     borderRadius: radii.md,
     overflow: 'hidden',
-    // A bit of vertical air so the first/last rows don't sit flush to
-    // the card's rounded edges (user-flagged 2026-06-02). Insets the
-    // rows top + bottom; the hairline separators between rows are
-    // unaffected.
     paddingVertical: spacing.xs,
   },
   // Hairline separator inset to clear the row's icon column so it runs
@@ -110,7 +106,7 @@ const styles = StyleSheet.create({
   // which is acceptable for this app's groups.
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.cardBorderSubtle,
+    backgroundColor: colors.borderSubtle,
     marginLeft: spacing.md + 24 + spacing.md,
   },
   footer: {
