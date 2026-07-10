@@ -511,6 +511,10 @@ export default function EnRoute() {
   // children relative to the measured value, conditionally render so we
   // never paint at the wrong position.
   const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
+  // Measured turn-banner height — feeds the FAB column's clear-region
+  // clamp below (#2) so the bottom-anchored column can never rise into
+  // the top-anchored banner regardless of either's content height.
+  const [headerHeight, setHeaderHeight] = useState(0);
   // Bottom sheet Collapsed ↔ Full per Figma 1133:13328 (Collapsed)
   // and 1133:13329 (Full). Tap the drag handle to toggle. Full
   // surfaces a hazard notice panel below the ETA when at least one
@@ -535,6 +539,31 @@ export default function EnRoute() {
   // 12pt gap above. Columns sit at this offset when the pill shows,
   // else the default 24pt above the sheet.
   const columnBottomOffset = safetyPillShowing ? 92 : 24;
+  // #2 — Clear-region fit check for the side FAB column. The column is
+  // bottom-anchored (bottom = sheet + offset) and grows UP; the banner
+  // is top-anchored and grows DOWN. Standard nav-app practice is to lay
+  // floating controls out within the map's clear inset, and to REDUCE
+  // the control set when that inset is too small — never to clip a
+  // control (clipping would cut the SOS hold ring or a hazard warning).
+  //
+  // We measure the clear region between the banner's bottom edge and the
+  // sheet's top edge. When it can't fit all five 56pt buttons (only
+  // iPhone SE-class viewports, and only with the safety pill showing,
+  // once #1 bounds the banner), we drop the single least-critical
+  // control — Guide, the coach-mark re-trigger — so the remaining four
+  // safety controls sit fully within the clear region instead of
+  // colliding with the banner.
+  const windowHeight = Dimensions.get('window').height;
+  const NATURAL_SIDE_COLUMN_HEIGHT = 5 * 56 + 4 * spacing.md; // five FABs + gaps
+  const sideColumnClearHeight =
+    headerHeight > 0 && bottomSheetHeight > 0
+      ? windowHeight -
+        headerHeight -
+        spacing.md - // gap below the banner
+        bottomSheetHeight -
+        columnBottomOffset
+      : Infinity;
+  const showGuideFab = sideColumnClearHeight >= NATURAL_SIDE_COLUMN_HEIGHT;
 
   const prefs = preferences ?? DEFAULT_PREFERENCES;
   const corridorZones = useMemo(() => {
@@ -1883,6 +1912,7 @@ export default function EnRoute() {
         style={styles.headerWrap}
         edges={['top']}
         pointerEvents="box-none"
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         {/*
           Lane guidance strip — Apple Maps-style cells showing which
@@ -1935,9 +1965,20 @@ export default function EnRoute() {
             ) : nextStepInfo?.status === 'off-route' ? (
               <Text style={styles.turnInstruction}>Recalculating…</Text>
             ) : nextStepInfo?.step ? (
-              <Text style={styles.turnInstruction}>
-                {nextStepInfo.step.instruction}
-                {'\n'}
+              // Turn banner is bounded (Apple/Google convention): the
+              // maneuver instruction is capped to ONE line with tail
+              // ellipsis so a long street name ("Head out on The
+              // Embarcadero…") can't grow the card and collide with the
+              // FAB column. Arrow + distance are the load-bearing info
+              // and are never truncated; the street name is confirmatory.
+              <>
+                <Text
+                  style={styles.turnInstruction}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {nextStepInfo.step.instruction}
+                </Text>
                 <Text style={styles.turnStreet}>
                   {/* Special-case "now" so the visible UI doesn't
                       read "in now" — the formatStepDistance helper
@@ -1947,28 +1988,52 @@ export default function EnRoute() {
                     ? 'now'
                     : `in ${formatStepDistance(nextStepInfo.distanceMeters)}`}
                 </Text>
-              </Text>
+              </>
             ) : routeSource === 'no-route' ? (
-              <Text style={styles.turnInstruction}>
-                No route available{'\n'}
-                <Text style={styles.turnStreet}>
-                  Try a different destination
+              <>
+                <Text
+                  style={styles.turnInstruction}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  No route available
                 </Text>
-              </Text>
+                <Text style={styles.turnStreet}>Try a different destination</Text>
+              </>
             ) : routeSource === 'mock' || routeSource === 'cache' ? (
-              <Text style={styles.turnInstruction}>
-                Following route to{'\n'}
-                <Text style={styles.turnStreet}>
+              <>
+                <Text
+                  style={styles.turnInstruction}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  Following route to
+                </Text>
+                <Text
+                  style={styles.turnStreet}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {params.destName ?? 'your destination'}
                 </Text>
-              </Text>
+              </>
             ) : (
-              <Text style={styles.turnInstruction}>
-                Heading toward{'\n'}
-                <Text style={styles.turnStreet}>
+              <>
+                <Text
+                  style={styles.turnInstruction}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  Heading toward
+                </Text>
+                <Text
+                  style={styles.turnStreet}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {params.destName ?? 'your destination'}
                 </Text>
-              </Text>
+              </>
             )}
             {turnHazards.length > 0 && (
               <View
@@ -2059,10 +2124,19 @@ export default function EnRoute() {
           ]}
           pointerEvents="box-none"
         >
-          <View style={styles.speedLimitCurrentPill}>
+          <View
+            style={styles.speedLimitCurrentPill}
+            accessible
+            accessibilityLabel={
+              speedMph != null
+                ? `Current speed ${speedMph} miles per hour`
+                : 'Current speed unavailable'
+            }
+          >
             <Text style={styles.speedLimitCurrentNumber} numberOfLines={1}>
               {speedMph ?? '—'}
             </Text>
+            <Text style={styles.speedLimitCurrentUnit}>mph</Text>
           </View>
         </View>
       )}
@@ -2098,16 +2172,21 @@ export default function EnRoute() {
             emergency). Distinct from Shield: Shield opens the full
             safety MENU; this jumps straight to the acute SOS control.
           */}
-          <SideFabRow label="Guide" showLabel={sideFabCoach.visible}>
-            <FloatingActionButton
-              size="56"
-              onPress={() => sideFabCoach.show()}
-              accessibilityLabel="Show map controls guide"
-              accessibilityHint="Re-shows the labels for these buttons"
-            >
-              <Question size={24} color={colors.black} weight="regular" />
-            </FloatingActionButton>
-          </SideFabRow>
+          {/* Guide is the least safety-critical control (coach-mark
+              re-trigger) — dropped first when the clear region can't fit
+              all five buttons (#2 clear-region fit check). */}
+          {showGuideFab && (
+            <SideFabRow label="Guide" showLabel={sideFabCoach.visible}>
+              <FloatingActionButton
+                size="56"
+                onPress={() => sideFabCoach.show()}
+                accessibilityLabel="Show map controls guide"
+                accessibilityHint="Re-shows the labels for these buttons"
+              >
+                <Question size={24} color={colors.black} weight="regular" />
+              </FloatingActionButton>
+            </SideFabRow>
+          )}
           <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
             <View style={styles.sosColumn}>
               <View style={styles.sosHoldWrap}>
@@ -2736,48 +2815,47 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   // Current speed pill (driver's GPS-measured speed) reads as a
-  // *digital car dashboard speedometer*: black panel, white digits.
-  // The prior white-on-white treatment doubled up with the speed-
-  // limit sign below it — both looked like road signs, and the
-  // visual hierarchy collapsed. User-flagged 2026-06-01.
-  // The caution-zone signal now lives only on the speed-limit sign
-  // (which flips to yellow inside a zone, mirroring real US
-  // school/curve caution speed-limit signs); doubling the yellow
-  // here was redundant.
+  // *digital car dashboard speedometer*: black panel, white digits +
+  // a small "mph" unit label so the number is self-explanatory.
+  // NOTE: the earlier white speed-LIMIT sign that stacked below this
+  // pill (OSM `maxspeed`, caution-zone yellow flip) is not wired in
+  // v1, so this is a standalone current-speed readout. The prior
+  // paddingBottom/marginBottom values existed to clear that removed
+  // sign's -12pt overlap — dropped here. The `speedLimit*` names are
+  // retained to avoid churn; they'll fold back in if the limit sign
+  // lands.
   speedLimitCurrentPill: {
     backgroundColor: colors.black,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderRadius: 12,
     paddingHorizontal: spacing.sm,
-    paddingTop: 10, // optical value — preserve; see note above
-    // 22, not 10: the digit is bottom-aligned (justifyContent flex-end),
-    // and the pill's bottom 12pt are hidden behind the speed-limit sign
-    // (marginBottom -12 overlap). At paddingBottom 10 the digit's baseline
-    // landed INSIDE that 12pt overlap — it sat crowded against, and ~2pt
-    // clipped by, the sign below (a "0" read as a tight squeeze, user-
-    // flagged 2026-06-03). 22 = 12 (overlap) + 10 (real clearance) so the
-    // digit clears the sign.
-    paddingBottom: 22,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    // 64pt: paddingTop 10 + 28pt digit line + paddingBottom 22. The extra
-    // 8pt over the old 56 buys the clearance above without shrinking the
-    // visible digit area. Grows upward (anchored above the bottom sheet).
-    height: 64,
-    // Overlap with the speed-limit sign below per Figma — `mb-[-12px]`.
-    // Gives the appearance of a unified stack.
-    marginBottom: -12,
+    justifyContent: 'center',
   },
   speedLimitCurrentNumber: {
     // SF Pro Bold stand-in for Overpass Bold (the canonical US speed-
     // limit-sign typeface). Visually close; swap when Overpass loads.
     fontWeight: '700',
-    // dynamic-type exempt (.cursorrules): fixed-proportion speed-limit signage
+    // dynamic-type exempt (.cursorrules): fixed-proportion dashboard readout
     fontSize: 24,
     lineHeight: 28,
     color: colors.white,
     textAlign: 'center',
     letterSpacing: -0.26,
+  },
+  speedLimitCurrentUnit: {
+    // Unit label under the speedometer digits. Tucked up close to the
+    // number so the two read as one "29 mph" unit. Muted white so the
+    // number stays the focal glyph.
+    fontWeight: '600',
+    // dynamic-type exempt (.cursorrules): fixed-proportion dashboard readout
+    fontSize: 11,
+    lineHeight: 13,
+    color: colors.white,
+    opacity: 0.7,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: -1,
   },
 
   // --- Bottom sheet ---
