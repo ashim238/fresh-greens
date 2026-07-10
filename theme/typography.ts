@@ -129,11 +129,13 @@ export const typography = {
   },
 
   // ── Brand display — DM Serif Display ──────────────────────────
-  // Warm serif for emotional / brand-voice moments only: emergency
-  // headings, ETAs, wordmark, settings greeting, reassurance copy,
-  // onboarding heroes, success confirmations. One weight (Regular),
-  // headings only. Space Grotesk stays for structural display;
-  // DM Serif adds warmth where the moment calls for it.
+  // Warm serif for six emotional moments ONLY (source of truth:
+  // .impeccable/design.json): the /emergency heading, pulled-over
+  // reassurance, sign-out farewell, arrival, roadside thank-you, and
+  // report confirmation. NEVER for navigation, settings, the "Hey
+  // there," greeting, ETAs, the wordmark, or onboarding titles —
+  // those stay Franklin. One weight (Regular), headings only.
+  // brandDisplaySmall is defined but currently unused (reserved).
   brandDisplayLarge: {
     fontFamily: fonts.dmSerif.regular,
     fontSize: 34,
