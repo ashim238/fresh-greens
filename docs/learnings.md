@@ -4,6 +4,14 @@ Running notes on things that bit me, surprised me, or clicked. One line per entr
 
 ---
 
+## main — simulator GPS never reaches watchPositionAsync; poll the one-shot API in dev (2026-07-10)
+
+Simulated location (simctl set/start, Simulator ▸ Features ▸ Location scenarios) updates `getCurrentPositionAsync` reliably but **never fired our `watchPositionAsync` subscription** in the native dev build — the en-route screen froze mid-"drive" while the home screen (one-shot fetch) tracked fine. Burned three diagnosis rounds assuming stale-bundle/permissions before isolating it via the speed pill (a watcher-only state that stayed "—" through every simulated drive). Fix that also improved the product: (a) route watcher callbacks through a named `handleFix`, (b) in `__DEV__` only, poll `getCurrentPositionAsync` at 1s into the same handler, (c) derive speed/heading from two-fix deltas when the platform reports -1 (simulated fixes always do; real GPS does at low speed) gated on ≥3 m so standstill jitter doesn't spin the camera. Camera-follow (`animateCamera` per moving fix, heading-rotated) only animates when the fix shows real movement so a parked car doesn't fight manual pans. **Lesson: when a location feature works on one screen and freezes on another in the simulator, diff the API used — watch vs one-shot — before blaming the bundle; and a dev-only polling fallback through the same handler keeps demo recordings honest without touching release behavior.**
+
+## main — coach-mark chips grew into a spotlight tour; the persistence layer didn't change (2026-07-10)
+
+The en-route FAB labels (PR #237's label chips + "Hold" hint) taught discoverability but couldn't carry "press and HOLD" for SOS. Replaced with `FirstDriveGuide` — darkened scrim, per-control cutout + ring, step cards ("Hold for SOS" is the hero step). Two reusable moves: (1) **the persistence contract stayed put** — same `useCoachMark('en-route-side-fabs')` key decides *when*, the tour only decides *what*, so first-run/replay semantics and the Guide-button re-trigger survived a full UI swap; (2) **measure targets at tour-open, not layout time** (`measureInWindow` after a settle delay, skip targets that fail to measure) — the FAB fit-check drops rows and Dynamic Type changes heights, so cached layout rects would misplace spotlights. Scrim is four plain rects around the cutout — no mask library; the few px of corner leak outside the rounded ring is invisible over map tiles.
+
 ## claude/fresh-greens-visual-identity — audit findings can conflict with documented rules (2026-07-02)
 
 Ran `/impeccable critique + audit` across all changed screens (Design 34/40, Audit 16.5/20, detector clean, zero AI-slop tells), then applied every *safe* P0–P2 fix. Two things worth keeping:

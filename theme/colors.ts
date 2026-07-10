@@ -80,6 +80,10 @@ export const colors = {
   // ── Borders + scrims + separators ─────────────────────────────
   modalScrim: 'rgba(0, 0, 0, 0.2)',
   modalScrimStrong: 'rgba(0, 0, 0, 0.4)',
+  // Spotlight-tour scrim (FirstDriveGuide). Darker than the modal
+  // scrims because the un-dimmed cutout has to read as the single
+  // bright focal point over a busy map.
+  guideScrim: 'rgba(0, 0, 0, 0.65)',
   cardBorderSubtle: 'rgba(0, 0, 0, 0.3)',
   separatorSubtle: 'rgba(0, 0, 0, 0.1)',
   dividerOnDark: 'rgba(160, 214, 164, 0.25)',

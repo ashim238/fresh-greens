@@ -65,6 +65,7 @@ import { DestinationMarker } from '../components/DestinationMarker';
 import { DaylightRouteLegend } from '../components/DaylightRouteLegend';
 import { DragHandle } from '../components/DragHandle';
 import { EnRouteZone } from '../components/EnRouteZone';
+import { FirstDriveGuide, type GuideStep } from '../components/FirstDriveGuide';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
@@ -338,28 +339,21 @@ function hazardFullCopy(
 }
 
 function SideFabRow({
-  label,
-  showLabel,
   children,
+  innerRef,
 }: {
-  label: string;
-  showLabel: boolean;
   children: React.ReactNode;
+  innerRef?: React.Ref<View>;
 }) {
-  // Device-smoke 2026-06-21: previously rendered `children` bare when
-  // !showLabel, then wrapped in a flexRow with the labelChip when
-  // showLabel — switching between the two on Guide tap shifted the
-  // FAB's x-position because the row added labelChip+gap width on the
-  // left. The fix: render the same row container in both cases and
-  // position the labelChip ABSOLUTELY so it hangs to the left of the
-  // FAB without participating in flex sizing. The FAB stays anchored.
+  // History: this row used to carry an absolutely-positioned label
+  // chip shown on first visit / Guide tap (PR #237). The chips grew
+  // into the FirstDriveGuide spotlight tour — same persistence key,
+  // same Guide re-trigger, but the tour can teach the SOS hold
+  // affordance where a static chip couldn't. The row wrapper stays:
+  // it anchors the FAB and gives the tour a measurable target
+  // (innerRef + collapsable={false} so measureInWindow always works).
   return (
-    <View style={sideFabRowStyles.row}>
-      {showLabel && (
-        <View style={sideFabRowStyles.labelChip}>
-          <Text style={sideFabRowStyles.labelText}>{label}</Text>
-        </View>
-      )}
+    <View ref={innerRef} collapsable={false} style={sideFabRowStyles.row}>
       {children}
     </View>
   );
@@ -370,25 +364,6 @@ const sideFabRowStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-  },
-  labelChip: {
-    position: 'absolute',
-    right: '100%',
-    marginRight: spacing.sm,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    ...shadows.e1,
-  },
-  labelText: {
-    // Bumped from caption2Regular (11pt) → footnoteRegular (13pt). The
-    // 12pt Floor Rule reserves the caption2 tier for ornament; these
-    // are informational labels that name the SOS / Safety / Report /
-    // Recenter FABs, so they need to clear the floor. Wrapped in
-    // dynamicType so Larger Text scales them like other reading copy.
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelSecondary,
   },
 });
 
@@ -428,6 +403,107 @@ export default function EnRoute() {
   const reduceMotion = useReduceMotion();
   const etaPulseAnim = useRef(new Animated.Value(1)).current;
   const sideFabCoach = useCoachMark('en-route-side-fabs');
+  // First-drive guide — spotlight walkthrough over the en-route
+  // controls. sideFabCoach's persisted flag decides WHEN it shows
+  // (auto on first drive; Guide-button replays via show()); the rects
+  // measured below decide WHERE each spotlight lands. Measured at
+  // tour-open, not layout time, so they're correct after the FAB
+  // fit-check drops rows or Dynamic Type changes heights.
+  const bannerGuideRef = useRef<View>(null);
+  const speedGuideRef = useRef<View>(null);
+  const sosGuideRef = useRef<View>(null);
+  const safetyGuideRef = useRef<View>(null);
+  const reportGuideRef = useRef<View>(null);
+  const recenterGuideRef = useRef<View>(null);
+  const [guideSteps, setGuideSteps] = useState<GuideStep[] | null>(null);
+
+  useEffect(() => {
+    if (!sideFabCoach.visible) {
+      setGuideSteps(null);
+      return;
+    }
+    const targets: {
+      key: string;
+      title: string;
+      body: string;
+      shape: GuideStep['shape'];
+      ref: React.RefObject<View | null>;
+    }[] = [
+      {
+        key: 'banner',
+        shape: 'rounded',
+        ref: bannerGuideRef,
+        title: 'Your next turn',
+        body: 'Street and distance for the upcoming maneuver. A hazard chip appears here when something’s reported near the turn.',
+      },
+      {
+        key: 'speed',
+        shape: 'rounded',
+        ref: speedGuideRef,
+        title: 'The road’s limit, and you',
+        body: 'The white sign is the posted speed limit; the black pill is your speed. The sign flips yellow or orange inside a flagged zone.',
+      },
+      {
+        key: 'sos',
+        shape: 'circle',
+        ref: sosGuideRef,
+        title: 'Hold for SOS',
+        body: 'Press and hold — the ring fills, then SOS opens with 911 and your trusted contact. Holding, not tapping, prevents pocket dials.',
+      },
+      {
+        key: 'safety',
+        shape: 'circle',
+        ref: safetyGuideRef,
+        title: 'Safety toolkit',
+        body: 'Pulled over, roadside trouble, unfamiliar area, or share your live drive with someone you trust.',
+      },
+      {
+        key: 'report',
+        shape: 'circle',
+        ref: reportGuideRef,
+        title: 'Report something',
+        body: 'Flag ice, closures, or hazards for the drivers behind you.',
+      },
+      {
+        key: 'recenter',
+        shape: 'circle',
+        ref: recenterGuideRef,
+        title: 'Recenter',
+        body: 'Snap the map back to your car. Replay this walkthrough anytime with the ? button.',
+      },
+    ];
+    // Settle delay: the tour can open on first mount, before the FAB
+    // column and banner finish layout. Targets that fail to measure
+    // (e.g. the banner before routes resolve) are skipped, not shown
+    // with a misplaced spotlight.
+    const timer = setTimeout(() => {
+      const collected: (GuideStep | undefined)[] = new Array(targets.length);
+      let pending = targets.length;
+      const finish = () => {
+        setGuideSteps(collected.filter((s): s is GuideStep => s != null));
+      };
+      targets.forEach((target, i) => {
+        const node = target.ref.current;
+        if (!node) {
+          if (--pending === 0) finish();
+          return;
+        }
+        node.measureInWindow((x, y, width, height) => {
+          if (width > 0 && height > 0) {
+            collected[i] = {
+              key: target.key,
+              title: target.title,
+              body: target.body,
+              shape: target.shape,
+              rect: { x, y, width, height },
+            };
+          }
+          if (--pending === 0) finish();
+        });
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [sideFabCoach.visible]);
   // P0-2 safety guard: SOS jumps to /emergency which is a high-stakes
   // crisis surface. A bare one-tap is too easy to brush accidentally
   // during routine driving. Hold-to-confirm at 800ms with a visual +
@@ -1508,10 +1584,113 @@ export default function EnRoute() {
   }, [routeSource, params.destLat, params.destLng]);
 
   // Subscribe to live GPS for the EnRouteCarMarker (heading-driven
-  // car glyph). Same setup as /home — high accuracy, 1s/5m thresholds,
-  // cleanup on unmount.
+  // car glyph), speed pill, camera-follow, and trip odometer. Same
+  // upstream setup as /home — high accuracy, 1s/5m thresholds,
+  // cleanup on unmount. In dev builds a 1s poll of the one-shot API
+  // feeds the same handler, because simctl-driven location changes
+  // reach getCurrentPositionAsync but not always the watch
+  // subscription (simulator demo drives were frozen without it).
   useEffect(() => {
     let subscription: Location.LocationSubscription | undefined;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
+    // Previous fix, kept so speed/heading can be derived from the
+    // two-fix delta when the platform reports -1 — iOS does that
+    // until CoreLocation detects motion, and simulated fixes always do.
+    let lastFix: { latitude: number; longitude: number; t: number } | null =
+      null;
+
+    const handleFix = (pos: Location.LocationObject) => {
+      const fix = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      };
+      setUserLocation(fix);
+
+      // Derived-motion fallback. Gated on >= 3 m of travel so
+      // standstill GPS jitter doesn't fake movement or spin the camera.
+      const t = pos.timestamp ?? Date.now();
+      let derivedSpeedMs: number | null = null;
+      let derivedHeading: number | null = null;
+      if (lastFix) {
+        const dtS = (t - lastFix.t) / 1000;
+        const latToM = 111320;
+        const lonToM = 111320 * Math.cos((fix.latitude * Math.PI) / 180);
+        const dyM = (fix.latitude - lastFix.latitude) * latToM;
+        const dxM = (fix.longitude - lastFix.longitude) * lonToM;
+        const dM = Math.hypot(dxM, dyM);
+        if (dtS > 0 && dM >= 3) {
+          derivedSpeedMs = dM / dtS;
+          derivedHeading =
+            ((Math.atan2(dxM, dyM) * 180) / Math.PI + 360) % 360;
+        }
+      }
+      lastFix = { ...fix, t };
+
+      // pos.coords.speed is in m/s. iOS returns -1 before motion is
+      // detected; fall back to the two-fix derivation above.
+      const ms =
+        typeof pos.coords.speed === 'number' && pos.coords.speed >= 0
+          ? pos.coords.speed
+          : derivedSpeedMs;
+      if (typeof ms === 'number' && ms >= 0) {
+        setSpeedMph(Math.round(ms * 2.237));
+      }
+      // pos.coords.heading is in degrees (0=north). Same -1 gate +
+      // derived fallback, so the car doesn't snap back to north every
+      // time the driver stops at a red light.
+      const hdg =
+        typeof pos.coords.heading === 'number' && pos.coords.heading >= 0
+          ? pos.coords.heading
+          : derivedHeading;
+      if (typeof hdg === 'number' && hdg >= 0) {
+        setHeading(hdg);
+      }
+      // Camera follows the drive — same pitched framing as the mount
+      // animation and Recenter, rotated to face travel direction
+      // (turn-by-turn convention). Only animates when this fix shows
+      // real movement, so a parked car doesn't fight manual pans.
+      const moving =
+        derivedSpeedMs != null ||
+        (typeof pos.coords.speed === 'number' && pos.coords.speed > 0);
+      if (moving) {
+        mapRef.current?.animateCamera(
+          {
+            center: fix,
+            pitch: 45,
+            heading: typeof hdg === 'number' && hdg >= 0 ? hdg : 0,
+            zoom: 17,
+          },
+          { duration: 900 },
+        );
+      }
+      // --- Trip odometer: project this fix onto the route, advance the
+      // monotonic max arc-length, flush in >= 0.5 mi increments. Two
+      // guardrails (spec Unit 1.1): skip junk fixes (accuracy > 50m),
+      // and only meter while the distance trigger is armed.
+      if (!odoMeteringEnabledRef.current) return;
+      const acc = pos.coords.accuracy;
+      if (typeof acc === 'number' && acc > 50) return; // junk fix
+      const coords = odoActiveCoordsRef.current;
+      const cumulative = odoCumulativeRef.current;
+      if (coords.length < 2 || cumulative.length !== coords.length) return;
+
+      // Project onto the route line (snap), then look up its arc-length.
+      // nearestPointOnPolyline gives the snapped coordinate;
+      // arcLengthAtNearestPoint gives how far along the route that is.
+      const snapped = nearestPointOnPolyline(fix, coords);
+      const arc = arcLengthAtNearestPoint(snapped, coords, cumulative);
+      // Monotonic: progress never decreases (jitter/backward GPS absorbed).
+      if (arc > odoMaxArcRef.current) odoMaxArcRef.current = arc;
+
+      const FLUSH_METERS = 0.5 * 1609.344;
+      const pendingMeters = odoMaxArcRef.current - odoLastFlushedArcRef.current;
+      if (pendingMeters >= FLUSH_METERS) {
+        const deltaMiles = metersToMiles(pendingMeters);
+        odoLastFlushedArcRef.current = odoMaxArcRef.current;
+        void addMilesSinceFilled(deltaMiles);
+      }
+    };
+
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
@@ -1521,61 +1700,24 @@ export default function EnRoute() {
           timeInterval: 1000,
           distanceInterval: 5,
         },
-        (pos) => {
-          setUserLocation({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          });
-          // pos.coords.speed is in m/s. iOS returns -1 before motion
-          // is detected; treat anything <0 as "not yet known."
-          const ms = pos.coords.speed;
-          if (typeof ms === 'number' && ms >= 0) {
-            setSpeedMph(Math.round(ms * 2.237));
-          }
-          // pos.coords.heading is in degrees (0=north). iOS returns
-          // -1 when the device hasn't detected motion. Same gate as
-          // speed — only update when we have a real heading, so the
-          // car doesn't snap back to north every time the driver
-          // stops at a red light.
-          const hdg = pos.coords.heading;
-          if (typeof hdg === 'number' && hdg >= 0) {
-            setHeading(hdg);
-          }
-          // --- Trip odometer: project this fix onto the route, advance the
-          // monotonic max arc-length, flush in >= 0.5 mi increments. Two
-          // guardrails (spec Unit 1.1): skip junk fixes (accuracy > 50m),
-          // and only meter while the distance trigger is armed.
-          if (!odoMeteringEnabledRef.current) return;
-          const acc = pos.coords.accuracy;
-          if (typeof acc === 'number' && acc > 50) return; // junk fix
-          const coords = odoActiveCoordsRef.current;
-          const cumulative = odoCumulativeRef.current;
-          if (coords.length < 2 || cumulative.length !== coords.length) return;
-
-          const fix = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          // Project onto the route line (snap), then look up its arc-length.
-          // nearestPointOnPolyline gives the snapped coordinate;
-          // arcLengthAtNearestPoint gives how far along the route that is.
-          const snapped = nearestPointOnPolyline(fix, coords);
-          const arc = arcLengthAtNearestPoint(snapped, coords, cumulative);
-          // Monotonic: progress never decreases (jitter/backward GPS absorbed).
-          if (arc > odoMaxArcRef.current) odoMaxArcRef.current = arc;
-
-          const FLUSH_METERS = 0.5 * 1609.344;
-          const pendingMeters = odoMaxArcRef.current - odoLastFlushedArcRef.current;
-          if (pendingMeters >= FLUSH_METERS) {
-            const deltaMiles = metersToMiles(pendingMeters);
-            odoLastFlushedArcRef.current = odoMaxArcRef.current;
-            void addMilesSinceFilled(deltaMiles);
-          }
-        },
+        handleFix,
       );
+      if (__DEV__) {
+        // Simulator escape hatch — see the effect-level comment.
+        // Compiles out of release builds; real devices ride the
+        // subscription alone.
+        pollTimer = setInterval(() => {
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          })
+            .then(handleFix)
+            .catch(() => {});
+        }, 1000);
+      }
     })();
     return () => {
       subscription?.remove();
+      if (pollTimer) clearInterval(pollTimer);
     };
   }, []);
 
@@ -1938,6 +2080,7 @@ export default function EnRoute() {
         single block; the inset sits as transparent padding above.
       */}
       <SafeAreaView
+        ref={bannerGuideRef}
         style={styles.headerWrap}
         edges={['top']}
         pointerEvents="box-none"
@@ -2147,6 +2290,8 @@ export default function EnRoute() {
       */}
       {bottomSheetHeight > 0 && (
         <View
+          ref={speedGuideRef}
+          collapsable={false}
           style={[
             styles.speedLimitWrap,
             { bottom: bottomSheetHeight + columnBottomOffset },
@@ -2235,18 +2380,18 @@ export default function EnRoute() {
               re-trigger) — dropped first when the clear region can't fit
               all five buttons (#2 clear-region fit check). */}
           {showGuideFab && (
-            <SideFabRow label="Guide" showLabel={sideFabCoach.visible}>
+            <SideFabRow>
               <FloatingActionButton
                 size="56"
                 onPress={() => sideFabCoach.show()}
                 accessibilityLabel="Show map controls guide"
-                accessibilityHint="Re-shows the labels for these buttons"
+                accessibilityHint="Replays the walkthrough of these controls"
               >
                 <Question size={24} color={colors.black} weight="regular" />
               </FloatingActionButton>
             </SideFabRow>
           )}
-          <SideFabRow label="SOS" showLabel={sideFabCoach.visible}>
+          <SideFabRow innerRef={sosGuideRef}>
             <View style={styles.sosColumn}>
               <View style={styles.sosHoldWrap}>
                 <Animated.View
@@ -2271,13 +2416,11 @@ export default function EnRoute() {
               {/*
                 Device-smoke 2026-06-21: SOS is the only side-FAB whose
                 primary gesture is hold-to-confirm, not tap. Gated on the
-                same coach-mark visibility as the column labels — auto-
-                shows on first visit + when the user taps Guide to refresh.
-                Persistent caption read as jarring + low-signal in smoke;
-                tying it to the existing coach-mark reuses a
-                discoverability path the user already learns (PR #237).
-                Aria-hidden because the instruction is also in the FAB's
-                accessibilityHint for VoiceOver users.
+                coach-mark visibility so it appears inside the tour's SOS
+                spotlight cutout, reinforcing the card's "press and hold"
+                while the button itself is lit. Aria-hidden because the
+                instruction is also in the FAB's accessibilityHint (and
+                the tour announces it) for VoiceOver users.
               */}
               {sideFabCoach.visible && (
                 <Text
@@ -2291,7 +2434,7 @@ export default function EnRoute() {
               )}
             </View>
           </SideFabRow>
-          <SideFabRow label="Safety" showLabel={sideFabCoach.visible}>
+          <SideFabRow innerRef={safetyGuideRef}>
             <FloatingActionButton
               size="56"
               onPress={() => router.push('/safety')}
@@ -2301,7 +2444,7 @@ export default function EnRoute() {
               <SidebtnSafety width={32} height={32} />
             </FloatingActionButton>
           </SideFabRow>
-          <SideFabRow label="Report" showLabel={sideFabCoach.visible}>
+          <SideFabRow innerRef={reportGuideRef}>
             <FloatingActionButton
               size="56"
               onPress={() => router.push('/report')}
@@ -2310,7 +2453,7 @@ export default function EnRoute() {
               <SidebtnReport width={32} height={32} />
             </FloatingActionButton>
           </SideFabRow>
-          <SideFabRow label="Recenter" showLabel={sideFabCoach.visible}>
+          <SideFabRow innerRef={recenterGuideRef}>
             <FloatingActionButton
               size="56"
               onPress={handleRecenter}
@@ -2321,12 +2464,8 @@ export default function EnRoute() {
           </SideFabRow>
         </View>
       )}
-      {sideFabCoach.visible && (
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={sideFabCoach.dismiss}
-          accessible={false}
-        />
+      {sideFabCoach.visible && guideSteps != null && guideSteps.length > 0 && (
+        <FirstDriveGuide steps={guideSteps} onDone={sideFabCoach.dismiss} />
       )}
 
       {/*
