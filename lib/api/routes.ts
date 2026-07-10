@@ -121,6 +121,16 @@ export type Route = {
   steps?: RouteStep[];
   /** Live traffic incidents from Mapbox Directions (`legs[].incidents`). */
   mapboxIncidentZones?: Zone[];
+  /**
+   * Posted speed limit per route segment, in mph, from Mapbox Directions
+   * (`legs[].annotation.maxspeed`, requested via `annotations=maxspeed`).
+   * Aligned to `coordinates`: entry `i` is the limit on the segment
+   * coordinates[i] → coordinates[i+1], so length is `coordinates.length - 1`.
+   * `null` for a segment Mapbox reports as `{none}` (no posted limit) or
+   * `{unknown}` (no data). Undefined on the whole route when the source
+   * isn't Mapbox, or on coarse long routes (annotations need overview=full).
+   */
+  maxspeedsMph?: (number | null)[];
 };
 
 /**
@@ -605,6 +615,13 @@ function buildMapboxUrl(
     params.set('steps', 'true');
     params.set('banner_instructions', 'true');
   }
+  // Posted speed limits (legs[].annotation.maxspeed). Mapbox aligns
+  // annotations to the FULL-resolution geometry, so only request them on
+  // full-overview routes — on coarse long routes the indices wouldn't
+  // map to our simplified coordinate array. Coarse routes surface "—".
+  if (!opts.coarse) {
+    params.set('annotations', 'maxspeed');
+  }
   return `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coords}?${params.toString()}`;
 }
 
@@ -805,6 +822,7 @@ function parseMapboxRoute(r: any, index: number, destination: Coordinate): Route
     .filter((s: RouteStep | null): s is RouteStep => s !== null);
   const steps: RouteStep[] | undefined = parsed.length > 0 ? parsed : undefined;
   const mapboxIncidentZones = zonesFromMapboxLegIncidents(legs, coordinates);
+  const maxspeedsMph = parseMaxspeedsMph(legs, coordinates.length);
 
   return {
     id: `mapbox-route-${index}`,
@@ -815,7 +833,40 @@ function parseMapboxRoute(r: any, index: number, destination: Coordinate): Route
     steps,
     mapboxIncidentZones:
       mapboxIncidentZones.length > 0 ? mapboxIncidentZones : undefined,
+    maxspeedsMph,
   };
+}
+
+/**
+ * Parses Mapbox `legs[].annotation.maxspeed` into per-segment posted
+ * limits in mph, aligned to the (post-trim) coordinate array.
+ *
+ * Each raw entry is `{ speed, unit }` (unit 'mph' | 'km/h'), `{ none }`
+ * (road with no posted limit), or `{ unknown }` (no data) — the last two
+ * map to null. Legs are concatenated: a no-waypoint route is one leg, so
+ * this is usually just `legs[0].annotation.maxspeed`. The array is sliced
+ * to `coordCount - 1` because `trimToDestination` may have dropped tail
+ * coordinates at the destination; annotations only ever trim from the end
+ * (a segment is coordinates[i] → coordinates[i+1]).
+ *
+ * Returns undefined when no annotation is present (annotations weren't
+ * requested — coarse route — or Mapbox omitted them), so the consumer
+ * renders "—".
+ */
+function parseMaxspeedsMph(
+  legs: any[],
+  coordCount: number,
+): (number | null)[] | undefined {
+  const raw: any[] = legs.flatMap((leg) => leg?.annotation?.maxspeed ?? []);
+  if (raw.length === 0) return undefined;
+  const KMH_TO_MPH = 0.621371;
+  const perSegment = raw.map((m): number | null => {
+    if (!m || m.none || m.unknown || typeof m.speed !== 'number') return null;
+    const mph = m.unit === 'km/h' ? m.speed * KMH_TO_MPH : m.speed;
+    return Math.round(mph);
+  });
+  // Align to the trimmed coordinate array (segments = coords - 1).
+  return perSegment.slice(0, Math.max(0, coordCount - 1));
 }
 
 /**

@@ -686,6 +686,45 @@ export function nearestPointOnPolyline(
 }
 
 /**
+ * Index of the polyline segment (i → i+1) nearest to `point`. Companion
+ * to nearestPointOnPolyline — identical projection, but returns the
+ * segment index instead of the snapped coordinate. Used to read a
+ * per-segment route annotation (e.g. Mapbox posted speed limit) at the
+ * driver's live position. Returns 0 for a degenerate (<2 point) polyline.
+ */
+export function nearestSegmentIndexOnPolyline(
+  point: Coordinate,
+  polyline: Coordinate[],
+): number {
+  if (polyline.length < 2) return 0;
+  const latToMeters = 111000;
+  const lngToMeters = 111000 * Math.cos((point.latitude * Math.PI) / 180);
+  let bestDistSq = Infinity;
+  let bestIdx = 0;
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = polyline[i];
+    const b = polyline[i + 1];
+    const px = (point.longitude - a.longitude) * lngToMeters;
+    const py = (point.latitude - a.latitude) * latToMeters;
+    const sx = (b.longitude - a.longitude) * lngToMeters;
+    const sy = (b.latitude - a.latitude) * latToMeters;
+    const segLenSq = sx * sx + sy * sy;
+    const t =
+      segLenSq === 0
+        ? 0
+        : Math.max(0, Math.min(1, (px * sx + py * sy) / segLenSq));
+    const dx = px - sx * t;
+    const dy = py - sy * t;
+    const distSq = dx * dx + dy * dy;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}
+
+/**
  * Meters from the route start to the nearest point on the polyline to
  * `point`. Used to order hazard chips along the driven path.
  */

@@ -138,6 +138,7 @@ import {
   hazardsNearTurn,
   isPointInZone,
   nearestPointOnPolyline,
+  nearestSegmentIndexOnPolyline,
   pickWinner,
   routeConditions,
   zoneAnchor,
@@ -745,6 +746,34 @@ export default function EnRoute() {
     }
     return inside;
   }, [enRouteZones, userLocation]);
+
+  // Posted speed limit (mph) on the route segment nearest the driver's
+  // live position, from Mapbox `annotations=maxspeed`. Null when the
+  // route carries no limit data (OSRM/cache/mock, coarse long route) or
+  // Mapbox reports the current segment as {none}/{unknown} — the sign
+  // renders "—" in that case (honesty-of-disclosure).
+  const postedLimitMph = useMemo(() => {
+    const coords = activeRoute?.coordinates;
+    const limits = activeRoute?.maxspeedsMph;
+    if (!userLocation || !coords || !limits || coords.length < 2) return null;
+    const idx = nearestSegmentIndexOnPolyline(userLocation, coords);
+    return limits[idx] ?? null;
+  }, [activeRoute, userLocation]);
+
+  // Severity of the caution/avoid zone the driver is currently INSIDE,
+  // if any — drives the speed-limit sign's color flip (reserved-color
+  // safety signal): avoid → orange, caution → yellow, none → white US
+  // sign. Avoid wins when the driver straddles both.
+  const enteredZoneSeverity = useMemo<'caution' | 'avoid' | null>(() => {
+    if (enteredZoneIds.size === 0) return null;
+    let severity: 'caution' | 'avoid' | null = null;
+    for (const { zone } of enRouteZones) {
+      if (!enteredZoneIds.has(zone.id)) continue;
+      if (zone.type === 'avoid') return 'avoid';
+      if (zone.type === 'caution') severity = 'caution';
+    }
+    return severity;
+  }, [enRouteZones, enteredZoneIds]);
 
   // C12b: caution/avoid zones the user came within range of at ANY
   // point during the trip — the inference set /trip-summary lets them
@@ -2124,6 +2153,36 @@ export default function EnRoute() {
           ]}
           pointerEvents="box-none"
         >
+          {/* Posted speed-limit sign — the white-sign SHAPE (rounded
+              rect, thick black border, number only) carries the "speed
+              limit" meaning without a text label, mirroring the Apple
+              Maps in-nav indicator. Sits ABOVE the current-speed pill so
+              the limit is the reference the driver's speed reads against.
+              Flips to the reserved caution/hazard fill when the driver is
+              inside a zone — yellow (caution) / orange (avoid), a
+              sanctioned safety-signal use of the reserved palette.
+              Renders "—" when no posted limit is known for the segment.
+              The "speed limit" meaning is spoken to VoiceOver via
+              accessibilityLabel since the visual label is dropped. */}
+          <View
+            style={[
+              styles.speedLimitSign,
+              enteredZoneSeverity === 'caution' && styles.speedLimitSignCaution,
+              enteredZoneSeverity === 'avoid' && styles.speedLimitSignAvoid,
+            ]}
+            accessible
+            accessibilityLabel={
+              postedLimitMph != null
+                ? `Speed limit ${postedLimitMph} miles per hour${
+                    enteredZoneSeverity ? `, ${enteredZoneSeverity} zone` : ''
+                  }`
+                : 'Speed limit unknown'
+            }
+          >
+            <Text style={styles.speedLimitSignNumber} numberOfLines={1}>
+              {postedLimitMph ?? '—'}
+            </Text>
+          </View>
           <View
             style={styles.speedLimitCurrentPill}
             accessible
@@ -2799,31 +2858,61 @@ const styles = StyleSheet.create({
   // sideBtn style block retired — the 5 side-column buttons consume
   // the FloatingActionButton component now (size="56").
 
-  // --- Speed Limit sign (Figma 364:3239) ---
-  // Mirrors the sideButtons column on the right edge of the screen.
-  // Two stacked elements: white pill on top (current speed), yellow
-  // card below (speed limit). Real-world speed-limit-sign proportions.
-  // Width bumped from Figma's 71pt → 88pt to give the 32pt-bold "25"
-  // numerals room to render on one line. Figma's tight 71 worked in
-  // Figma's text engine but RN with the 4pt borders + 8pt padding
-  // squeezed each digit into its own line. The visual proportion is
-  // still that of a US speed-limit sign.
+  // --- Speed stack (bottom-left, mirrors the sideButtons column) ---
+  // Two stacked elements, ~88pt wide (numerals need the width to render
+  // on one line — Figma's tight 71pt squeezed each digit onto its own
+  // row in RN's text engine):
+  //   • speedLimitSign  — posted limit (Mapbox annotations=maxspeed),
+  //     US MUTCD white-sign register, on TOP so it's the reference.
+  //     Flips to reserved yellow (caution) / orange (avoid) when the
+  //     driver is inside a zone.
+  //   • speedLimitCurrentPill — driver's GPS speed, black dashboard
+  //     readout, BELOW.
   speedLimitWrap: {
     position: 'absolute',
     left: 16,
     width: 88,
     alignItems: 'stretch',
+    gap: spacing.xs,
+  },
+  // Posted speed-limit sign — white US road-sign register. The
+  // number-only content leans on the shape (thick black border, rounded
+  // rect, white fill) to read as "speed limit" without a text label.
+  speedLimitSign: {
+    backgroundColor: colors.white,
+    borderWidth: 4,
+    borderColor: colors.black,
+    borderRadius: radii.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.e1,
+  },
+  // Caution zone — yellow fill (reserved-color safety signal). Black
+  // border + digits stay for WCAG contrast (yellow on black ~13:1).
+  speedLimitSignCaution: {
+    backgroundColor: colors.yellow,
+  },
+  // Avoid zone — orange fill (reserved-color safety signal).
+  speedLimitSignAvoid: {
+    backgroundColor: colors.orange,
+  },
+  speedLimitSignNumber: {
+    // SF Pro Bold stand-in for Overpass Bold (canonical US limit-sign
+    // face). Swap when Overpass loads.
+    fontWeight: '700',
+    // dynamic-type exempt (.cursorrules): fixed-proportion US signage
+    fontSize: 30,
+    lineHeight: 34,
+    color: colors.black,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   // Current speed pill (driver's GPS-measured speed) reads as a
   // *digital car dashboard speedometer*: black panel, white digits +
-  // a small "mph" unit label so the number is self-explanatory.
-  // NOTE: the earlier white speed-LIMIT sign that stacked below this
-  // pill (OSM `maxspeed`, caution-zone yellow flip) is not wired in
-  // v1, so this is a standalone current-speed readout. The prior
-  // paddingBottom/marginBottom values existed to clear that removed
-  // sign's -12pt overlap — dropped here. The `speedLimit*` names are
-  // retained to avoid churn; they'll fold back in if the limit sign
-  // lands.
+  // a small "mph" unit label so the number is self-explanatory. Sits
+  // BELOW the posted-limit sign (speedLimitSign) in the speed stack.
   speedLimitCurrentPill: {
     backgroundColor: colors.black,
     borderRadius: 12,
