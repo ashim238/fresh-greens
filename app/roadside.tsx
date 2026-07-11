@@ -245,6 +245,8 @@ export default function Roadside() {
                 ],
               );
             }}
+            onSetupRoadside={() => router.push('/roadside-setup')}
+            onSetupTrustedContact={() => router.push('/trusted-contact-setup')}
           />
         )}
         {step === 'tow-pick' && (
@@ -358,6 +360,8 @@ function ActionMenu({
   onOpenTowPick,
   onShareToggle,
   onFiguredOut,
+  onSetupRoadside,
+  onSetupTrustedContact,
 }: {
   problem: ProblemType | null;
   locationLabel: string;
@@ -368,8 +372,11 @@ function ActionMenu({
   onOpenTowPick: () => void;
   onShareToggle: (next: boolean) => void;
   onFiguredOut: () => void;
+  onSetupRoadside: () => void;
+  onSetupTrustedContact: () => void;
 }) {
-  const router = useRouter();
+  // Navigation lives in the parent (symmetric with LiveStatus) — no local
+  // useRouter here.
   const { profile: roadsideProfile } = useRoadsideProfile();
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
@@ -378,7 +385,7 @@ function ActionMenu({
 
   async function handleCall() {
     if (!roadsideProfile) {
-      router.push('/roadside-setup');
+      onSetupRoadside();
       return;
     }
     const tel = `tel:${roadsideProfile.phoneNumber.replace(/[^\d+]/g, '')}`;
@@ -404,7 +411,7 @@ function ActionMenu({
     // Setup returns via router.back() to this roadside modal on
     // Continue/Skip — that's the default since the 2026-06-01 routing
     // inversion. No `from` param needed.
-    router.push('/trusted-contact-setup');
+    onSetupTrustedContact();
   }
 
   return (
