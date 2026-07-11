@@ -239,7 +239,7 @@ export default function Search() {
   // S4: destructure `loading` so we can gate the empty-state branch
   // and avoid the flash of "Your recent destinations will show up here"
   // during the AsyncStorage read on first mount.
-  const { profile: fuelProfile } = useFuelProfile();
+  const { profile: fuelProfile, loading: fuelLoading } = useFuelProfile();
   const { recents, loading: recentsLoading, addRecent, removeRecent, clearRecents } = useRecentSearches();
   // Saved tile data — saved places + regular destinations, merged into
   // one ranked list (see buildSavedRows). Surfaced inline when the
@@ -868,11 +868,19 @@ export default function Search() {
                   <FuelIcon width={32} height={32} />
                   <Text style={styles.fuelTitle}>Fuel</Text>
                   <Text style={styles.fuelSubtitle}>
-                    {fuelProfile?.remindersEnabled && fuelProfile.nextReminderAt
-                      ? `Next reminder · ${new Date(
-                          fuelProfile.nextReminderAt,
-                        ).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
-                      : 'Set up refuel reminders for your car'}
+                    {/* Hold blank until the stored profile resolves: an
+                        already-configured user otherwise sees a one-frame
+                        "Set up refuel reminders" — a state that isn't true —
+                        before "Next reminder" lands. Honesty-of-disclosure:
+                        show nothing rather than a false prompt. Layout is
+                        stable (the line keeps its height). */}
+                    {fuelLoading
+                      ? ''
+                      : fuelProfile?.remindersEnabled && fuelProfile.nextReminderAt
+                        ? `Next reminder · ${new Date(
+                            fuelProfile.nextReminderAt,
+                          ).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                        : 'Set up refuel reminders for your car'}
                   </Text>
                 </Pressable>
 

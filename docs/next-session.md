@@ -267,7 +267,7 @@ Shipped via subagent-driven development. Final-review minors, non-blocking (the 
 - **Sequential geocoding** in `useUpcomingDestinations` — distinct unresolved venues are awaited in series on focus. Fine for a realistic week of events (cache dedupes repeats); if the Upcoming list grows, batch with `Promise.all` over distinct location texts.
 - `**(e.location as string)` cast** in `calendar.ts:111` — sound (guarded by the `typeof === 'string'` filter one line up), cosmetic; a filter-narrowing helper would drop it.
 - `**relativeWhen` drift** in `/search` — recomputes vs `Date.now()` per render; visible label + a11y label can differ by a render at the m/h/d granularity. Negligible.
-- `**showFuelTile` cold-load flash** — the calendar tile now gates on `!loading`; the fuel tile (pre-existing) still doesn't. Same one-frame flash for already-configured users. Apply the same `!loading` gate to `useFuelProfile` if it ever bothers anyone.
+- ~~`showFuelTile` cold-load flash~~ — **fixed (2026-07-11):** the `/search` fuel-tile subtitle now holds blank while `useFuelProfile` `loading`, so an already-configured user no longer flashes a false "Set up refuel reminders" before "Next reminder" lands (`app/search.tsx`). Honesty-of-disclosure over a one-frame stale prompt.
 
 ## Settings register refresh (Plan 1) — deferred minors (2026-06-01)
 
@@ -295,7 +295,7 @@ Shipped `51549ed`. Final-review minors not blocking merge:
 Minor findings from the focused static audit of the surfaces this session touched (the blocker + 4 importants were fixed in `99fe915`). All low-severity:
 
 - **Quick a11y nits** — ~~Saved-row period label~~ (fixed `57055bf`). ~~Shield FAB hint~~ / ~~safety-settings SOS hint~~ / ~~daylight strip hidden from AX tree~~ — verified present in code (2026-06 polish grep). Re-open only if device testing finds a gap.
-- `**/en-route` SOS haptic** — `selectionAsync`, identical to the Report tap; consider `notificationAsync(Warning)` so the emergency trigger feels distinct.
+- ~~`/en-route` SOS haptic~~ — **stale (superseded, verified 2026-07-11):** the en-route SOS FAB no longer fires a per-tap haptic; the emergency trigger lives in `app/emergency.tsx`, which already uses a distinct vocabulary (`notificationAsync` + `impactAsync` Medium/Light), so it's no longer "identical to the Report tap".
 - `**/menu` "What we flag" hierarchy** — sub-header vs toggle-label distinction rests on font-weight alone (`labelSecondary` #3C3C43 ≈ `labelTertiary` #3D3D3D). Approved for now; if it ever reads ambiguous, drop to `caption1Regular` or a genuinely lighter gray.
 - ~~**Spacing-token discipline (pervasive, pre-existing)**~~ — ✅ **Done 2026-06-23** (`polish/spacing-radii-pass`). Inline `padding/margin/gap` swept to `spacing.*` tokens across 15 screens + components; off-grid values snapped to nearest ramp step. Figma-specified outliers (`gap:88`, `marginLeft:10.71`, optical pill paddings) preserved with inline notes.
 - `**/search` tile toggle (pre-existing)** — deselecting a query tile (Food/Gas/Parking) leaves the search query set; minor interaction ambiguity, predates this work.
