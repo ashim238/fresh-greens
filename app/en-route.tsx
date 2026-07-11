@@ -347,7 +347,7 @@ function SideFabRow({
   // History: this row used to carry an absolutely-positioned label
   // chip shown on first visit / Guide tap (PR #237). The chips grew
   // into the FirstDriveGuide spotlight tour — same persistence key,
-  // same Guide re-trigger, but the tour can teach the SOS hold
+  // but no Guide re-trigger now, and the tour can teach the SOS hold
   // affordance where a static chip couldn't. The row wrapper stays:
   // it anchors the FAB and gives the tour a measurable target
   // (innerRef + collapsable={false} so measureInWindow always works).
@@ -404,7 +404,7 @@ export default function EnRoute() {
   const sideFabCoach = useCoachMark('en-route-side-fabs');
   // First-drive guide — spotlight walkthrough over the en-route
   // controls. sideFabCoach's persisted flag decides WHEN it shows
-  // (auto on first drive; Guide-button replays via show()); the rects
+  // (auto on first drive only; the Guide-button replay was retired); the rects
   // measured below decide WHERE each spotlight lands. Measured at
   // tour-open, not layout time, so they're correct after the FAB
   // fit-check drops rows or Dynamic Type changes heights.
@@ -468,7 +468,7 @@ export default function EnRoute() {
         shape: 'circle',
         ref: recenterGuideRef,
         title: 'Recenter',
-        body: 'Snap the map back to your car. Replay this walkthrough anytime with the ? button.',
+        body: 'Snap the map back to your car.',
       },
     ];
     // Settle delay: the tour can open on first mount, before the FAB
