@@ -588,9 +588,12 @@ export default function EnRoute() {
   // not raw heading — during heading-up camera-follow the map already
   // faces travel direction, and rotating the arrow by raw heading again
   // doubled the rotation (arrow visibly pointed off-road). Updated at
-  // every animateCamera call site; a plain ref because the paired
-  // setHeading/setUserLocation calls already re-render the marker.
-  const cameraHeadingRef = useRef(0);
+  // every animateCamera call site. State, not a ref: recenter and the
+  // mount animation reset it to north-up WITHOUT a paired GPS fix, so the
+  // marker must re-render off this change alone or the arrow keeps its
+  // stale rotation until the next fix (~1s). The moving-fix site batches
+  // this with setHeading/setUserLocation, so it costs no extra render.
+  const [cameraHeading, setCameraHeading] = useState(0);
   // Bottom-sheet height drives where the side button column floats. Same
   // pattern /home uses for the Report button: measure on layout, anchor
   // children relative to the measured value, conditionally render so we
@@ -1331,7 +1334,7 @@ export default function EnRoute() {
       // Animate to the driving-perspective camera (pitched, slight zoom).
       // initialCamera on MapView sets a static camera; animateCamera lets
       // us transition smoothly from whatever the map opens with.
-      cameraHeadingRef.current = 0;
+      setCameraHeading(0);
       mapRef.current?.animateCamera(
         {
           center,
@@ -1678,12 +1681,14 @@ export default function EnRoute() {
         derivedSpeedMs != null ||
         (typeof pos.coords.speed === 'number' && pos.coords.speed > 0);
       if (moving) {
-        cameraHeadingRef.current = typeof hdg === 'number' && hdg >= 0 ? hdg : 0;
+        const nextCameraHeading =
+          typeof hdg === 'number' && hdg >= 0 ? hdg : 0;
+        setCameraHeading(nextCameraHeading);
         mapRef.current?.animateCamera(
           {
             center: display,
             pitch: 45,
-            heading: cameraHeadingRef.current,
+            heading: nextCameraHeading,
             zoom: 17,
           },
           { duration: 900 },
@@ -1818,7 +1823,7 @@ export default function EnRoute() {
 
   function handleRecenter() {
     if (!userCenter) return;
-    cameraHeadingRef.current = 0;
+    setCameraHeading(0);
     mapRef.current?.animateCamera(
       {
         center: userCenter,
@@ -1865,14 +1870,14 @@ export default function EnRoute() {
   }
 
   // Car-arrow rotation in SCREEN space: travel heading minus the map's
-  // commanded camera heading (see cameraHeadingRef). Marker views are
+  // commanded camera heading (see cameraHeading). Marker views are
   // screen-aligned billboards, so this — not raw heading — is what makes
   // the arrow point down the road in both camera modes: ≈0 (straight up)
   // while the follow camera faces travel direction, raw heading when the
   // camera is north-up (mount/recenter).
   const screenHeading =
     heading != null
-      ? (((heading - cameraHeadingRef.current) % 360) + 360) % 360
+      ? (((heading - cameraHeading) % 360) + 360) % 360
       : null;
 
   return (
