@@ -31,7 +31,6 @@ import { ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise
 import { ArrowsMerge } from 'phosphor-react-native/src/icons/ArrowsMerge';
 import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
-import { Question } from 'phosphor-react-native/src/icons/Question';
 import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
@@ -583,6 +582,15 @@ export default function EnRoute() {
   // resolved so brief stationary moments don't snap the car back
   // to north.
   const [heading, setHeading] = useState<number | null>(null);
+  // Camera heading we last COMMANDED via animateCamera. Marker children
+  // are screen-aligned billboards (they do NOT counter-rotate with the
+  // map), so the car arrow must rotate by `heading - cameraHeading`,
+  // not raw heading — during heading-up camera-follow the map already
+  // faces travel direction, and rotating the arrow by raw heading again
+  // doubled the rotation (arrow visibly pointed off-road). Updated at
+  // every animateCamera call site; a plain ref because the paired
+  // setHeading/setUserLocation calls already re-render the marker.
+  const cameraHeadingRef = useRef(0);
   // Bottom-sheet height drives where the side button column floats. Same
   // pattern /home uses for the Report button: measure on layout, anchor
   // children relative to the measured value, conditionally render so we
@@ -616,31 +624,11 @@ export default function EnRoute() {
   // 12pt gap above. Columns sit at this offset when the pill shows,
   // else the default 24pt above the sheet.
   const columnBottomOffset = safetyPillShowing ? 92 : 24;
-  // #2 — Clear-region fit check for the side FAB column. The column is
-  // bottom-anchored (bottom = sheet + offset) and grows UP; the banner
-  // is top-anchored and grows DOWN. Standard nav-app practice is to lay
-  // floating controls out within the map's clear inset, and to REDUCE
-  // the control set when that inset is too small — never to clip a
-  // control (clipping would cut the SOS hold ring or a hazard warning).
-  //
-  // We measure the clear region between the banner's bottom edge and the
-  // sheet's top edge. When it can't fit all five 56pt buttons (only
-  // iPhone SE-class viewports, and only with the safety pill showing,
-  // once #1 bounds the banner), we drop the single least-critical
-  // control — Guide, the coach-mark re-trigger — so the remaining four
-  // safety controls sit fully within the clear region instead of
-  // colliding with the banner.
-  const windowHeight = Dimensions.get('window').height;
-  const NATURAL_SIDE_COLUMN_HEIGHT = 5 * 56 + 4 * spacing.md; // five FABs + gaps
-  const sideColumnClearHeight =
-    headerHeight > 0 && bottomSheetHeight > 0
-      ? windowHeight -
-        headerHeight -
-        spacing.md - // gap below the banner
-        bottomSheetHeight -
-        columnBottomOffset
-      : Infinity;
-  const showGuideFab = sideColumnClearHeight >= NATURAL_SIDE_COLUMN_HEIGHT;
+  // The column is four 56pt safety controls (SOS / Shield / Report /
+  // Recenter), which fit the clear region between banner and sheet on
+  // every supported viewport — the #2 clear-region fit check retired
+  // with the Guide FAB when the first-drive spotlight tour (auto-shown
+  // via sideFabCoach) replaced the coach-mark re-trigger button.
 
   const prefs = preferences ?? DEFAULT_PREFERENCES;
   const corridorZones = useMemo(() => {
@@ -983,6 +971,7 @@ export default function EnRoute() {
       activeRoute.steps,
       userLocation,
       minStepIndexRef.current,
+      activeRoute.coordinates,
     );
   }, [activeRoute, userLocation]);
 
@@ -1342,6 +1331,7 @@ export default function EnRoute() {
       // Animate to the driving-perspective camera (pitched, slight zoom).
       // initialCamera on MapView sets a static camera; animateCamera lets
       // us transition smoothly from whatever the map opens with.
+      cameraHeadingRef.current = 0;
       mapRef.current?.animateCamera(
         {
           center,
@@ -1604,7 +1594,39 @@ export default function EnRoute() {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
       };
-      setUserLocation(fix);
+
+      // Map-matching: snap the DISPLAYED position onto the active route so
+      // the marker + camera ride the road centerline instead of the raw
+      // GPS point (which, on jittery or simulated GPS, sits beside or
+      // through buildings). Guarded to 30 m — past that the driver is
+      // genuinely off-route, so we show the true position and let the
+      // reroute path react rather than snapping a wrong turn back onto the
+      // old line. `fix` (raw) still drives derived motion + the odometer.
+      const routeCoords = odoActiveCoordsRef.current;
+      let display = fix;
+      let tangentHeading: number | null = null;
+      if (routeCoords.length >= 2) {
+        const snapped = nearestPointOnPolyline(fix, routeCoords);
+        if (haversineMeters(fix, snapped) <= 30) {
+          display = snapped;
+          // Heading from the ROAD tangent at the snapped segment, not from
+          // GPS deltas — stable and road-aligned, so the camera tracks the
+          // street instead of swinging/tilting on fix-to-fix jitter.
+          const idx = nearestSegmentIndexOnPolyline(fix, routeCoords);
+          const a = routeCoords[idx];
+          const b = routeCoords[Math.min(idx + 1, routeCoords.length - 1)];
+          const segLatToM = 111320;
+          const segLonToM =
+            111320 * Math.cos((display.latitude * Math.PI) / 180);
+          const segDy = (b.latitude - a.latitude) * segLatToM;
+          const segDx = (b.longitude - a.longitude) * segLonToM;
+          if (segDx !== 0 || segDy !== 0) {
+            tangentHeading =
+              ((Math.atan2(segDx, segDy) * 180) / Math.PI + 360) % 360;
+          }
+        }
+      }
+      setUserLocation(display);
 
       // Derived-motion fallback. Gated on >= 3 m of travel so
       // standstill GPS jitter doesn't fake movement or spin the camera.
@@ -1635,29 +1657,33 @@ export default function EnRoute() {
       if (typeof ms === 'number' && ms >= 0) {
         setSpeedMph(Math.round(ms * 2.237));
       }
-      // pos.coords.heading is in degrees (0=north). Same -1 gate +
-      // derived fallback, so the car doesn't snap back to north every
-      // time the driver stops at a red light.
+      // Heading priority: road tangent when snapped (stable), else the
+      // platform course, else the two-fix derivation. The -1 gate + these
+      // fallbacks keep the car from snapping back to north at a red light.
       const hdg =
-        typeof pos.coords.heading === 'number' && pos.coords.heading >= 0
-          ? pos.coords.heading
-          : derivedHeading;
+        tangentHeading != null
+          ? tangentHeading
+          : typeof pos.coords.heading === 'number' && pos.coords.heading >= 0
+            ? pos.coords.heading
+            : derivedHeading;
       if (typeof hdg === 'number' && hdg >= 0) {
         setHeading(hdg);
       }
       // Camera follows the drive — same pitched framing as the mount
-      // animation and Recenter, rotated to face travel direction
-      // (turn-by-turn convention). Only animates when this fix shows
-      // real movement, so a parked car doesn't fight manual pans.
+      // animation and Recenter, centered on the snapped position and
+      // rotated to face travel direction (turn-by-turn convention). Only
+      // animates when this fix shows real movement, so a parked car
+      // doesn't fight manual pans.
       const moving =
         derivedSpeedMs != null ||
         (typeof pos.coords.speed === 'number' && pos.coords.speed > 0);
       if (moving) {
+        cameraHeadingRef.current = typeof hdg === 'number' && hdg >= 0 ? hdg : 0;
         mapRef.current?.animateCamera(
           {
-            center: fix,
+            center: display,
             pitch: 45,
-            heading: typeof hdg === 'number' && hdg >= 0 ? hdg : 0,
+            heading: cameraHeadingRef.current,
             zoom: 17,
           },
           { duration: 900 },
@@ -1792,6 +1818,7 @@ export default function EnRoute() {
 
   function handleRecenter() {
     if (!userCenter) return;
+    cameraHeadingRef.current = 0;
     mapRef.current?.animateCamera(
       {
         center: userCenter,
@@ -1836,6 +1863,17 @@ export default function EnRoute() {
   function handleEndTrip() {
     router.back();
   }
+
+  // Car-arrow rotation in SCREEN space: travel heading minus the map's
+  // commanded camera heading (see cameraHeadingRef). Marker views are
+  // screen-aligned billboards, so this — not raw heading — is what makes
+  // the arrow point down the road in both camera modes: ≈0 (straight up)
+  // while the follow camera faces travel direction, raw heading when the
+  // camera is north-up (mount/recenter).
+  const screenHeading =
+    heading != null
+      ? (((heading - cameraHeadingRef.current) % 360) + 360) % 360
+      : null;
 
   return (
     <View style={styles.root}>
@@ -2056,7 +2094,7 @@ export default function EnRoute() {
 
         {userLocation && (
           <EnRouteCarMarker
-            // Embed heading in the key so each meaningful rotation
+            // Embed the rotation in the key so each meaningful change
             // remounts the native Marker — iOS MapKit caches the
             // marker snapshot when `tracksViewChanges` is false, so
             // an in-place transform update wouldn't repaint. Rounding
@@ -2065,10 +2103,14 @@ export default function EnRoute() {
             // snapshot rebuilds, so rotation reads smoother and the
             // marker doesn't flicker while turning. 5° is below the
             // threshold a driver perceives as "wrong heading."
-            key={`car-${heading != null ? Math.round(heading / 5) * 5 : 'n'}`}
+            // During heading-up camera-follow screenHeading ≈ 0 (arrow
+            // points up the screen, down the road), so the key barely
+            // churns at all — remounts concentrate at recenter/mount
+            // where the camera snaps back to north-up.
+            key={`car-${screenHeading != null ? Math.round(screenHeading / 5) * 5 : 'n'}`}
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
-            heading={heading}
+            heading={screenHeading}
           />
         )}
       </MapView>
@@ -2376,21 +2418,6 @@ export default function EnRoute() {
             emergency). Distinct from Shield: Shield opens the full
             safety MENU; this jumps straight to the acute SOS control.
           */}
-          {/* Guide is the least safety-critical control (coach-mark
-              re-trigger) — dropped first when the clear region can't fit
-              all five buttons (#2 clear-region fit check). */}
-          {showGuideFab && (
-            <SideFabRow>
-              <FloatingActionButton
-                size="56"
-                onPress={() => sideFabCoach.show()}
-                accessibilityLabel="Show map controls guide"
-                accessibilityHint="Replays the walkthrough of these controls"
-              >
-                <Question size={24} color={colors.black} weight="regular" />
-              </FloatingActionButton>
-            </SideFabRow>
-          )}
           <SideFabRow innerRef={sosGuideRef}>
             <View style={styles.sosColumn}>
               <View style={styles.sosHoldWrap}>

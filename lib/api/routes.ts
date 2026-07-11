@@ -22,6 +22,7 @@
 import { zonesFromMapboxLegIncidents } from './sources/mapbox-incidents';
 import { loadActiveRoute, saveActiveRoute } from './route-cache';
 import type { Coordinate, Zone } from './zones';
+import { nearestPointOnPolyline } from '../scoring';
 
 export type RouteType = 'recommended' | 'alternate';
 
@@ -974,27 +975,39 @@ export type NextStepInfo = {
  * jitter or a slow turn (red light at the corner) made the closest-
  * by-GPS pick re-select the maneuver the user just completed.
  *
- * Thresholds scale with the current step's length (see body comment)
- * so urban precision (~30m advance / 150m off-route) doesn't regress
- * AND rural highway driving (multi-mile steps, naturally large GPS-to-
- * maneuver distances mid-segment) doesn't trigger false "off-route"
- * or advance too eagerly on wide rural turn radii.
+ * The advance threshold scales with the current step's length (see
+ * body comment) so urban precision (~30m advance) doesn't regress AND
+ * rural highway driving (multi-mile steps) doesn't advance too eagerly
+ * on wide rural turn radii. Off-route is a separate, geometry-based
+ * test (cross-track distance to `routeCoordinates`) — see body.
+ *
+ * `routeCoordinates` is the active route polyline. When supplied,
+ * off-route uses true map-matched cross-track distance; without it,
+ * off-route falls back to a loose maneuver-distance net. Optional so
+ * callers/tests that only have `steps` still work.
  *
  * Terminal states:
  *   - `arrived`: closest maneuver is `arrive` and user is within 30m
  *     (static threshold — arrive's step has distanceMeters=0).
- *   - `off-route`: closest maneuver is past the (scaled) off-route
- *     threshold — closest-by-GPS pick is unreliable, surface a
- *     recalculating UX instead of confidently displaying a wrong
- *     maneuver.
+ *   - `off-route`: user's cross-track distance to the route polyline
+ *     exceeds OFF_ROUTE_CROSS_TRACK_M — surface a recalculating UX
+ *     instead of confidently displaying a maneuver for a route the
+ *     driver has left.
  *
  * Returns null when steps is empty/undefined (mock fallback path) —
  * caller renders neutral "Heading toward {destination}" copy.
  */
+// Cross-track distance (meters) from the route polyline beyond which the
+// driver is treated as off-route. On-road GPS sits within a few meters of
+// the line; a wrong-street deviation is a full city block (~70m+) away, so
+// this sits comfortably in the gap while tolerating wide roads + GPS noise.
+const OFF_ROUTE_CROSS_TRACK_M = 55;
+
 export function findNextStep(
   steps: RouteStep[] | undefined,
   userLocation: Coordinate,
   minStepIndex: number = 0,
+  routeCoordinates?: Coordinate[],
 ): NextStepInfo | null {
   if (!steps || steps.length === 0) return null;
   // Search from minStepIndex forward — never regress.
@@ -1028,12 +1041,29 @@ export function findNextStep(
   //       fires; 1km is well past "natural mid-step GPS distance")
   const stepLen = current.distanceMeters;
   const advanceThreshold = Math.min(200, Math.max(30, stepLen / 25));
-  const offRouteThreshold = Math.min(1000, Math.max(150, stepLen / 6));
 
-  // Off-route guard: when even the closest maneuver is far, the
-  // closest-by-GPS heuristic is unreliable. Surface a recalculating
-  // UX instead of confidently displaying a wrong maneuver.
-  if (closestDist > offRouteThreshold) {
+  // Off-route guard. Measured as true cross-track distance to the route
+  // polyline (map-matching), NOT distance to the nearest maneuver.
+  // Distance-to-maneuver is invalid as an on-route test: a driver
+  // halfway down a long step is legitimately ~stepLen/2 from either
+  // bounding maneuver while dead-on the road — a 1km step (e.g. a long
+  // "Continue on Mission Street") put a perfectly-on-route driver 500m
+  // from the nearest turn, tripping the old stepLen/6 threshold and
+  // flashing "Recalculating…" mid-block. Cross-track distance is
+  // invariant to step length: on-road GPS sits within a handful of
+  // meters of the polyline; a genuine wrong-street deviation is a full
+  // block (~70m+) away. When the polyline isn't supplied, fall back to a
+  // deliberately loose maneuver-distance net (only fires when the user
+  // is farther than a whole step from every maneuver) so this never
+  // false-positives on normal driving.
+  const offRoute =
+    routeCoordinates && routeCoordinates.length >= 2
+      ? haversineMeters(
+          userLocation,
+          nearestPointOnPolyline(userLocation, routeCoordinates),
+        ) > OFF_ROUTE_CROSS_TRACK_M
+      : closestDist > Math.max(250, stepLen);
+  if (offRoute) {
     return {
       step: current,
       index: closestIdx,

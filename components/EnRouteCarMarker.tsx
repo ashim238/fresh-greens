@@ -18,9 +18,6 @@ const TRAIL_1_SIZE = 7;
 const TRAIL_2_OFFSET = 35;
 const TRAIL_2_SIZE = 4;
 
-const TILT_PERSPECTIVE = 300;
-const TILT_ANGLE = '40deg';
-
 export function EnRouteCarMarker({
   latitude,
   longitude,
@@ -46,25 +43,26 @@ export function EnRouteCarMarker({
       accessibilityRole="image"
       accessibilityLabel="Your car along the route"
     >
+      {/* Flat directional puck. Only the frame rotates — by heading — so
+          the arrow + motion trail point down the road. No perspective
+          tilt: the earlier fake-3D rotateX read as a "weird tilt" on the
+          near-top-down map (a billboard Marker can't truly lie on the
+          pitched ground plane, so the foreshortened disc just looked
+          skewed, and worse, its tilt axis spun with every heading
+          change). A clean flat disc is the anti-slop, universally-legible
+          nav puck. */}
       <View
         style={[styles.frame, { transform: [{ rotate: `${rotation}deg` }] }]}
       >
-        <View
-          style={[
-            styles.tilt,
-            {
-              transform: [
-                { perspective: TILT_PERSPECTIVE },
-                { rotateX: TILT_ANGLE },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.trail1} />
-          <View style={styles.trail2} />
-          <View style={styles.puck}>
-            <View style={styles.core}>
-              <View style={styles.crescent} />
+        <View style={styles.trail1} />
+        <View style={styles.trail2} />
+        <View style={styles.puck}>
+          <View style={styles.core}>
+            <View style={styles.crescent} />
+            {/* Phosphor's NavigationArrow glyph natively points northwest
+                (tip at the SVG's top-left corner), so bake in a +45°
+                offset to make heading 0 read as straight up. */}
+            <View style={styles.arrowUpright}>
               <NavigationArrow
                 size={ARROW_SIZE}
                 color={colors.white}
@@ -80,12 +78,6 @@ export function EnRouteCarMarker({
 
 const styles = StyleSheet.create({
   frame: {
-    width: FRAME_SIZE,
-    height: FRAME_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tilt: {
     width: FRAME_SIZE,
     height: FRAME_SIZE,
     alignItems: 'center',
@@ -108,6 +100,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  arrowUpright: {
+    transform: [{ rotate: '45deg' }],
   },
   crescent: {
     position: 'absolute',
