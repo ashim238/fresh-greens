@@ -301,7 +301,7 @@ function ProblemPicker({
           across step 1 → step 2 transitions. */}
       <View style={styles.backChevronPlaceholder} />
       <Text style={styles.subtitle}>Let&apos;s get you the help you need.</Text>
-      <Text style={styles.title} accessibilityRole="header">
+      <Text style={styles.question} accessibilityRole="header">
         What&apos;s going on?
       </Text>
 
@@ -800,6 +800,20 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
     marginTop: spacing.sm,
   },
+  // Step 1's picker prompt ("What's going on?") is a held question, so
+  // it follows the Held-Question Rule in Franklin Regular — matching the
+  // structurally-identical prompts in /unfamiliar and /share-location.
+  // DM Serif is reserved for the reassurance payoff on Steps 2–3 (the
+  // `title` style), not for asking the user something.
+  question: {
+    ...dynamicType(typography.title1Regular),
+    color: colors.black,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  // Reassurance headline for Steps 2–3 ("Got it." / "Hang tight." + a
+  // status line) — the roadside thank-you beat, one of the six DM Serif
+  // moments (see .impeccable/design.json).
   title: {
     ...dynamicType(typography.brandDisplay),
     color: colors.black,
