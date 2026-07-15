@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import {
   addRecording as addRecordingToStore,
@@ -48,6 +48,8 @@ export function useRecordings(): RecordingsState {
   const hydrated = useHydratedResource<Recording[]>(getRecordings, {
     mountOnly: true,
   });
+  const hydratedRef = useRef(hydrated);
+  hydratedRef.current = hydrated;
 
   // add — per-call exact-id reconciliation. Each call closes over its
   // own unique optimistic id so concurrent calls can't collide; rollback
@@ -119,12 +121,25 @@ export function useRecordings(): RecordingsState {
     },
   });
 
-  const clearAll = useMutation<void, void>(clearAllRecordings, {
-    onOptimistic: () => {
-      const snapshot = hydrated.ready && hydrated.ok ? hydrated.data : [];
-      hydrated.setData([]);
-      return () => hydrated.setData(snapshot);
-    },
+  // Stable boundaries are required by useMutation. The ref lets both
+  // callbacks inspect the current hydration branch without changing identity.
+  const persistClearAll = useCallback(async (): Promise<void> => {
+    const current = hydratedRef.current;
+    if (!current.ready || !current.ok) {
+      throw new Error('Recordings are not ready');
+    }
+    await clearAllRecordings();
+  }, []);
+  const optimisticallyClearAll = useCallback(() => {
+    const current = hydratedRef.current;
+    if (!current.ready || !current.ok) return;
+
+    const snapshot = current.data;
+    current.setData([]);
+    return () => current.setData(snapshot);
+  }, []);
+  const clearAll = useMutation<void, void>(persistClearAll, {
+    onOptimistic: optimisticallyClearAll,
   });
 
   if (!hydrated.ready) {

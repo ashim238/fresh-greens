@@ -52,6 +52,55 @@ describe('useRecordings clearAll', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetRecordings.mockResolvedValue(recordings);
+    mockClearAllRecordings.mockResolvedValue(undefined);
+  });
+
+  test('rejects clearAll during hydration without hiding the eventual recordings', async () => {
+    const pendingHydration = deferred<Recording[]>();
+    mockGetRecordings.mockReturnValue(pendingHydration.promise);
+    const { result } = await renderHook(() => useRecordings());
+
+    expect(result.current.ready).toBe(false);
+
+    let clearResult!: Awaited<
+      ReturnType<typeof result.current.clearAll.run>
+    >;
+    await act(async () => {
+      clearResult = await result.current.clearAll.run(undefined);
+    });
+
+    expect(clearResult).toEqual({
+      ok: false,
+      error: new Error('Recordings are not ready'),
+    });
+    expect(mockClearAllRecordings).not.toHaveBeenCalled();
+    expect(result.current.ready).toBe(false);
+
+    pendingHydration.resolve(recordings);
+    await waitFor(() => {
+      expect(
+        result.current.ready &&
+          result.current.ok &&
+          result.current.recordings,
+      ).toBe(recordings);
+    });
+  });
+
+  test('keeps clearAll.run stable across rerender and hydration', async () => {
+    const pendingHydration = deferred<Recording[]>();
+    mockGetRecordings.mockReturnValue(pendingHydration.promise);
+    const { result, rerender } = await renderHook(() => useRecordings());
+    const initialRun = result.current.clearAll.run;
+
+    await rerender(undefined);
+    expect(result.current.clearAll.run).toBe(initialRun);
+
+    pendingHydration.resolve(recordings);
+    await waitFor(() => {
+      expect(result.current.ready).toBe(true);
+    });
+
+    expect(result.current.clearAll.run).toBe(initialRun);
   });
 
   test('optimistically clears the list through the bulk adapter once', async () => {
