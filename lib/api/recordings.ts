@@ -46,6 +46,13 @@ export type Recording = {
   armed: ArmedAnswer | null;
 };
 
+export type AddRecordingInput = {
+  sourceUri: string;
+  durationMs: number;
+  armed: ArmedAnswer | null;
+  createdAt?: number;
+};
+
 // Lazy getter — `Paths.document` reads native state, so we resolve
 // it on first use rather than at module load.
 function getRecordingsDirectory(): Directory {
@@ -79,12 +86,7 @@ export async function getRecordings(): Promise<Recording[]> {
  * caller should handle (typically: warn and skip metadata save so
  * we don't leave dangling pointers).
  */
-export async function addRecording(input: {
-  sourceUri: string;
-  durationMs: number;
-  armed: ArmedAnswer | null;
-  createdAt?: number;
-}): Promise<Recording> {
+export async function addRecording(input: AddRecordingInput): Promise<Recording> {
   const id = `rec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = input.createdAt ?? Date.now();
 
