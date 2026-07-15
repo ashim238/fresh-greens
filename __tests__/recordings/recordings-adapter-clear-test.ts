@@ -123,6 +123,7 @@ describe('clearAllRecordings commit boundary', () => {
     await expect(clearAllRecordings()).resolves.toBeUndefined();
 
     expect(mockRemoveItem).toHaveBeenCalledTimes(1);
+    expect(mockSetItem).not.toHaveBeenCalled();
     expect(mockFileDelete).toHaveBeenCalledTimes(2);
     expect(mockFileDelete).toHaveBeenNthCalledWith(1, recordings[0].uri);
     expect(mockFileDelete).toHaveBeenNthCalledWith(2, recordings[1].uri);
