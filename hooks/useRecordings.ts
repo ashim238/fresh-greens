@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import {
   addRecording as addRecordingToStore,
+  clearAllRecordings,
   getRecordings,
   removeRecording as removeRecordingFromStore,
   type ArmedAnswer,
@@ -20,6 +21,7 @@ export type AddRecordingInput = {
 type RecordingsMutations = {
   add: Mutation<AddRecordingInput, Recording>;
   remove: Mutation<string, void>;
+  clearAll: Mutation<void, void>;
 };
 
 export type RecordingsState = RecordingsMutations &
@@ -117,8 +119,16 @@ export function useRecordings(): RecordingsState {
     },
   });
 
+  const clearAll = useMutation<void, void>(clearAllRecordings, {
+    onOptimistic: () => {
+      const snapshot = hydrated.ready && hydrated.ok ? hydrated.data : [];
+      hydrated.setData([]);
+      return () => hydrated.setData(snapshot);
+    },
+  });
+
   if (!hydrated.ready) {
-    return { ready: false, add, remove };
+    return { ready: false, add, remove, clearAll };
   }
   if (!hydrated.ok) {
     return {
@@ -127,6 +137,7 @@ export function useRecordings(): RecordingsState {
       error: hydrated.error,
       add,
       remove,
+      clearAll,
     };
   }
   return {
@@ -135,5 +146,6 @@ export function useRecordings(): RecordingsState {
     recordings: hydrated.data,
     add,
     remove,
+    clearAll,
   };
 }
