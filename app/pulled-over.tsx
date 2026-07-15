@@ -64,9 +64,14 @@ import {
   type DisclosureDuty,
   type SayBullet,
 } from '../lib/api/gun-laws';
+import type { AddRecordingInput } from '../lib/api/recordings';
 import { maskPolicyNumber } from '../lib/api/insurance';
 import { getErrorMessage } from '../lib/error-message';
-import type { RecordingStatus } from '../lib/recording-session';
+import {
+  persistRecordingInput,
+  stopAndPersistRecording,
+  type RecordingStatus,
+} from '../lib/recording-session';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -101,18 +106,15 @@ import { typography } from '../theme/typography';
  *                 Have → Say → Know), chevron navigation
  *
  * Recording lifecycle: starts on the user's first armed answer (i.e.
- * leaving the 'armed' phase) and runs until the modal dismisses. No
- * stop button — ambient protection isn't something the user manages
- * mid-encounter. The recording widget is *displayed* only on the
- * guidance phase, but the recorder keeps running and the elapsed
- * counter keeps ticking through the rest of the flow.
+ * leaving the 'armed' phase) and runs until the user stops it or the
+ * modal dismisses. The recording widget is *displayed* only on the
+ * guidance phase, while a truthful chip follows active recording into
+ * the contact and review phases.
  *
- * If the user denies the microphone permission (or recording fails),
- * the visual still works — the waveform falls back to a flat baseline
- * and the timer keeps ticking via setInterval. The "Saved to your
- * account" footnote in the widget is the contextual answer to "where
- * does this recording go," kept inside the widget so it doesn't crowd
- * the global TrustedContactStatus footer at the modal bottom.
+ * If the user denies microphone permission (or startup fails), guidance
+ * remains available without showing a recording timer or protected-state
+ * affordance. Save success is shown only after the local persistence
+ * mutation resolves.
  *
  * Route: /pulled-over
  * Entry: tap "I was pulled over" on /safety
@@ -196,12 +198,12 @@ export default function PulledOver() {
   // animation in the app NOT gated; now respects the system preference.
   // Per DESIGN.md Reduce-Motion-Honest Rule.
   const reduceMotion = useReduceMotion();
-  // Mic permission state — optimistic default (true) since we don't know
-  // the status until after requesting. Set to false if permission denied.
-  const [micGranted, setMicGranted] = useState(true);
-  // Track whether the user manually stopped recording (separate from
-  // auto-stop on modal dismiss). Controls the "Recording saved" state.
-  const [recordingStopped, setRecordingStopped] = useState(false);
+  const [recordingStatus, setRecordingStatus] =
+    useState<RecordingStatus>('idle');
+  const hasProtectedAudio =
+    recordingStatus === 'recording' ||
+    recordingStatus === 'saving' ||
+    recordingStatus === 'save-error';
 
   const { add } = useRecordings();
   // Mutation wrapper for the recording-save persist — see
@@ -213,13 +215,9 @@ export default function PulledOver() {
   // `add` from useRecordings is already a Mutation object (run/status/
   // error/reset) — aliasing preserves all the banner's existing reads.
   const saveRecordingMutation = add;
-  const lastRecordingSaveInputRef = useRef<{
-    sourceUri: string;
-    durationMs: number;
-    armed: ArmedAnswer | null;
-    createdAt: number;
-  } | null>(null);
+  const lastRecordingSaveInputRef = useRef<AddRecordingInput | null>(null);
   const pendingNavRef = useRef<{ action: NavigationAction } | null>(null);
+  const saveInFlightRef = useRef(false);
   // State-aware firearm guidance — variant resolved from the device's
   // current state via reverse-geocoding. Defaults to 'duty-to-inform'
   // while loading or on any failure path; see `useDisclosureDuty`
@@ -234,16 +232,9 @@ export default function PulledOver() {
   // it and try to start an already-recording recorder — which throws on
   // iOS. This ref is the "started exactly once" latch.
   const hasStartedRecordingRef = useRef(false);
-  // Mirror of hasStartedRecordingRef as state, so usePreventRemove
-  // (which only re-evaluates on render) sees the change. The ref is
-  // still the source of truth for the recording lifecycle effect; this
-  // state exists purely to drive the dismissal-prevention hook.
-  const [hasActiveRecording, setHasActiveRecording] = useState(false);
-  // Refs that capture the metadata snapshot at recording start, so the
-  // unmount cleanup can persist a Recording with the right armed
-  // context + timestamp even after `armed` state is gone. Refs (not
-  // state) because cleanup effects only run once at unmount and don't
-  // rebind to state values that have changed since the last commit.
+  // Refs capture the metadata snapshot at recording start so the shared
+  // save coordinator can persist the right armed context + timestamp
+  // even after `armed` state is gone.
   const recordingArmedRef = useRef<ArmedAnswer | null>(null);
   const recordingStartedAtRef = useRef<number | null>(null);
 
@@ -263,12 +254,10 @@ export default function PulledOver() {
   const showFirearmGuidance =
     armed === 'yes' || armed === 'preferred-not-to-answer';
 
-  // Recording timer — runs from the first armed answer until the modal
-  // dismisses. Independent of the audio recorder so the timer keeps
-  // ticking even if mic permission was denied (the visual experience
-  // still reads as "we're protecting you" via the elapsed counter).
+  // Recording timer follows the truthful recorder state. Permission denial,
+  // startup failure, saving, and saved states never keep a false timer alive.
   useEffect(() => {
-    if (phase === 'armed') return;
+    if (recordingStatus !== 'recording') return;
     if (timerRef.current) return;
     timerRef.current = setInterval(() => {
       setElapsed((prev) => prev + 1);
@@ -279,7 +268,7 @@ export default function PulledOver() {
         timerRef.current = null;
       }
     };
-  }, [phase]);
+  }, [recordingStatus]);
 
   // Transition → guidance is now user-initiated (explicit Continue
   // button) per WCAG 2.2.1 Timing Adjustable. The prior 3-second
@@ -318,17 +307,12 @@ export default function PulledOver() {
     if (phase === 'armed') return;
     if (hasStartedRecordingRef.current) return;
     hasStartedRecordingRef.current = true;
-    setHasActiveRecording(true);
-    // Snapshot metadata for the eventual Recording entry. Captured
-    // here (not in cleanup) because by the time cleanup runs, the
-    // `armed` state has already been cleared from the React tree.
-    recordingArmedRef.current = armed;
-    recordingStartedAtRef.current = Date.now();
+    setRecordingStatus('requesting-permission');
     (async () => {
       try {
-        const status = await requestRecordingPermissionsAsync();
-        if (!status.granted) {
-          setMicGranted(false);
+        const permission = await requestRecordingPermissionsAsync();
+        if (!permission.granted) {
+          setRecordingStatus('unavailable');
           console.warn('Microphone permission not granted; waveform disabled');
           return;
         }
@@ -338,10 +322,14 @@ export default function PulledOver() {
         });
         await recorder.prepareToRecordAsync();
         recorder.record();
+        recordingArmedRef.current = armed;
+        recordingStartedAtRef.current = Date.now();
+        setRecordingStatus('recording');
       } catch (err) {
         // Group B: surface to the user. They think recording is happening; if
         // it isn't, they need to know NOW. Recordings + permanent maps to
         // "Couldn't start recording / Try a different microphone or restart."
+        setRecordingStatus('unavailable');
         const { title, body } = getErrorMessage('recordings', 'permanent', err);
         Alert.alert(title, body);
       }
@@ -349,6 +337,90 @@ export default function PulledOver() {
     // recorder identity is stable from the hook; intentionally not in deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
+
+  const saveCurrentRecording = useCallback(
+    async (action?: NavigationAction) => {
+      const startedAt = recordingStartedAtRef.current;
+      if (startedAt == null) {
+        setRecordingStatus('save-error');
+        return;
+      }
+      if (action) pendingNavRef.current = { action };
+      if (saveInFlightRef.current) return;
+
+      saveInFlightRef.current = true;
+      setRecordingStatus('saving');
+      AccessibilityInfo.announceForAccessibility('Saving recording.');
+      const result = await stopAndPersistRecording({
+        recorder,
+        startedAt,
+        armed: recordingArmedRef.current,
+        persist: saveRecordingMutation.run,
+      });
+      saveInFlightRef.current = false;
+
+      if (!result.ok) {
+        lastRecordingSaveInputRef.current = result.retryInput ?? null;
+        setRecordingStatus('save-error');
+        AccessibilityInfo.announceForAccessibility(
+          'Recording could not be saved. Retry or discard the recording.',
+        );
+        return;
+      }
+
+      lastRecordingSaveInputRef.current = null;
+      setRecordingStatus('saved');
+      AccessibilityInfo.announceForAccessibility('Recording saved.');
+    },
+    [recorder, saveRecordingMutation.run],
+  );
+
+  const retryRecordingSave = useCallback(async () => {
+    if (saveInFlightRef.current) return;
+    const retryInput = lastRecordingSaveInputRef.current;
+    if (!retryInput) {
+      await saveCurrentRecording();
+      return;
+    }
+
+    saveInFlightRef.current = true;
+    setRecordingStatus('saving');
+    AccessibilityInfo.announceForAccessibility('Saving recording.');
+    const result = await persistRecordingInput(
+      retryInput,
+      saveRecordingMutation.run,
+    );
+    saveInFlightRef.current = false;
+
+    if (!result.ok) {
+      lastRecordingSaveInputRef.current = result.retryInput ?? retryInput;
+      setRecordingStatus('save-error');
+      AccessibilityInfo.announceForAccessibility(
+        'Recording could not be saved. Retry or discard the recording.',
+      );
+      return;
+    }
+
+    lastRecordingSaveInputRef.current = null;
+    setRecordingStatus('saved');
+    AccessibilityInfo.announceForAccessibility('Recording saved.');
+  }, [saveCurrentRecording, saveRecordingMutation.run]);
+
+  const discardCurrentRecording = useCallback(() => {
+    saveRecordingMutation.reset();
+    lastRecordingSaveInputRef.current = null;
+    recordingStartedAtRef.current = null;
+    recordingArmedRef.current = null;
+    setRecordingStatus('discarded');
+  }, [saveRecordingMutation.reset]);
+
+  useEffect(() => {
+    if (recordingStatus !== 'saved' && recordingStatus !== 'discarded') return;
+    const pending = pendingNavRef.current;
+    if (!pending) return;
+    pendingNavRef.current = null;
+    navigation.dispatch(pending.action);
+  }, [navigation, recordingStatus]);
 
   // Stop the recorder and persist the captured audio when the user
   // dismisses the modal.
@@ -366,7 +438,7 @@ export default function PulledOver() {
   // before JS can intercept; addListener + preventDefault gets a
   // "screen was removed natively but didn't get removed from JS state"
   // warning. usePreventRemove is the supported pattern for this case.
-  usePreventRemove(hasActiveRecording, ({ data }) => {
+  usePreventRemove(hasProtectedAudio, ({ data }) => {
     Alert.alert(
       'Recording in progress',
       'Your recording will be saved. Leave this screen?',
@@ -375,61 +447,7 @@ export default function PulledOver() {
         {
           text: 'Save & leave',
           onPress: () => {
-            (async () => {
-              if (recorder.isRecording) {
-                try {
-                  await recorder.stop();
-                } catch (stopErr) {
-                  console.warn('[pulled-over] recorder.stop() failed', stopErr);
-                }
-              }
-              const sourceUri = recorder.uri;
-              if (!sourceUri) {
-                console.warn('[pulled-over] no recorder uri; skipping save');
-                setHasActiveRecording(false);
-                navigation.dispatch(data.action);
-                return;
-              }
-              const startedAt = recordingStartedAtRef.current ?? Date.now();
-              const durationMs = Date.now() - startedAt;
-              if (durationMs < 2000) {
-                console.log('[pulled-over] recording <2s; skipping save', { durationMs });
-                setHasActiveRecording(false);
-                navigation.dispatch(data.action);
-                return;
-              }
-              // Deferred navigation: on success we fire the back-nav
-              // the user requested; on failure we STAY on this screen
-              // so the RecordingSaveErrorBanner can offer Retry. The
-              // input + nav action are stashed in refs so the banner's
-              // Retry handler can replay them after the JSX re-renders
-              // around the mutation.error state.
-              const input = {
-                sourceUri,
-                durationMs,
-                armed: recordingArmedRef.current,
-                createdAt: startedAt,
-              };
-              lastRecordingSaveInputRef.current = input;
-              pendingNavRef.current = { action: data.action };
-
-              const result = await saveRecordingMutation.run(input);
-              // Note: do NOT flip hasActiveRecording yet — keep the
-              // usePreventRemove guard armed if the save failed, so the
-              // user has to explicitly confirm via the banner's Discard
-              // (or retry until success) instead of silently backing
-              // out and losing the recording.
-              if (result.ok) {
-                console.log('[pulled-over] saved recording', result.data.id);
-                setHasActiveRecording(false);
-                navigation.dispatch(data.action);
-              }
-              // On failure: stay on screen with active-recording guard
-              // armed — banner renders from
-              // saveRecordingMutation.error !== null. hasActiveRecording
-              // flips false only via the banner's onRetry success path
-              // or its onDismiss (explicit Discard).
-            })();
+            void saveCurrentRecording(data.action);
           },
         },
       ],
@@ -446,7 +464,7 @@ export default function PulledOver() {
   // the buffer stalls. durationMillis ticks up every WAVEFORM_POLL_MS
   // while recording, so it's the reliable cadence signal.
   useEffect(() => {
-    if (phase !== 'guidance') return;
+    if (phase !== 'guidance' || recordingStatus !== 'recording') return;
     // P6: short-circuit the metering buffer updates when reduce-motion
     // is enabled — the Waveform component renders all bars at floor
     // regardless of history when reduceMotion is true, so skipping the
@@ -466,7 +484,13 @@ export default function PulledOver() {
       next.push(sample);
       return next;
     });
-  }, [phase, recorderState.durationMillis, recorderState.metering, reduceMotion]);
+  }, [
+    phase,
+    recorderState.durationMillis,
+    recorderState.metering,
+    recordingStatus,
+    reduceMotion,
+  ]);
 
   // Stop any in-progress speech when leaving guidance phase, since the
   // Read-aloud button only exists there. Without this the speech would
@@ -510,33 +534,13 @@ export default function PulledOver() {
     if (reviewIndex > 0) setReviewIndex(reviewIndex - 1);
   }
 
-  const handleStopRecording = useCallback(async () => {
-    try {
-      if (recorder.isRecording) {
-        await recorder.stop();
-      }
-      setRecordingStopped(true);
-      setHasActiveRecording(false);
-    } catch (err) {
-      console.warn('[pulled-over] manual stop failed', err);
-      setRecordingStopped(true);
-      setHasActiveRecording(false);
-    }
-  }, [recorder]);
+  const handleStopRecording = useCallback(() => {
+    void saveCurrentRecording();
+  }, [saveCurrentRecording]);
 
   function handleClose() {
     router.back();
   }
-
-  // Task 6 will replace these legacy booleans with the recording-session
-  // state machine. Until then, translate the existing screen state into the
-  // shared vocabulary at the component boundary so GuidanceView no longer
-  // needs to interpret recording lifecycle booleans itself.
-  const recordingStatus: RecordingStatus = !micGranted
-    ? 'unavailable'
-    : recordingStopped
-      ? 'saved'
-      : 'recording';
 
   return (
     <View style={styles.root}>
@@ -545,7 +549,7 @@ export default function PulledOver() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.dragWrapper}>
           <DragHandle />
-          {hasActiveRecording && (
+          {hasProtectedAudio && (
             <View style={styles.lockBadge} accessibilityLabel="Sheet locked while recording">
               <Lock size={14} color={colors.labelTertiary} weight="bold" />
             </View>
@@ -559,25 +563,13 @@ export default function PulledOver() {
           with-confirm. See RecordingSaveErrorBanner for the P-C
           pattern rationale (Phase 1's tail).
         */}
-        {saveRecordingMutation.error !== null && (
+        {recordingStatus === 'save-error' && (
           <RecordingSaveErrorBanner
-            pending={saveRecordingMutation.status === 'pending'}
-            onRetry={async () => {
-              const lastInput = lastRecordingSaveInputRef.current;
-              if (!lastInput) return;
-              const result = await saveRecordingMutation.run(lastInput);
-              if (result.ok && pendingNavRef.current) {
-                setHasActiveRecording(false);
-                navigation.dispatch(pendingNavRef.current.action);
-              }
+            pending={false}
+            onRetry={() => {
+              void retryRecordingSave();
             }}
-            onDismiss={() => {
-              saveRecordingMutation.reset();
-              setHasActiveRecording(false);
-              if (pendingNavRef.current) {
-                navigation.dispatch(pendingNavRef.current.action);
-              }
-            }}
+            onDismiss={discardCurrentRecording}
           />
         )}
 
@@ -590,9 +582,10 @@ export default function PulledOver() {
           live timer sits above the phase content for the rest of the
           flow. Hidden on guidance because the full widget is there.
         */}
-        {(phase === 'contact' || phase === 'review') && (
-          <RecordingChip elapsed={elapsed} />
-        )}
+        {recordingStatus === 'recording' &&
+          (phase === 'contact' || phase === 'review') && (
+            <RecordingChip elapsed={elapsed} />
+          )}
 
         <View style={styles.phaseContainer}>
           {phase === 'armed' && <ArmedView onAnswer={handleAnswer} />}

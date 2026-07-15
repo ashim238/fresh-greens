@@ -48,7 +48,7 @@ export function RecordingSaveErrorBanner({
       <View style={styles.iconWrap}>
         <Warning size={20} color={colors.white} weight="fill" />
       </View>
-      <Text style={styles.message} numberOfLines={2}>
+      <Text style={styles.message}>
         {getErrorMessage('recordings', 'transient').title}
       </Text>
       <Pressable
