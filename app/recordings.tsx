@@ -170,22 +170,18 @@ export default function Recordings() {
         }
         setPlayingId(null);
       }
-      // Iterate the local snapshot — capture before the first run() in case
-      // state.recordings is replaced by an in-flight optimistic.
-      const ids = state.ready && state.ok ? state.recordings.map((r) => r.id) : [];
-      const results = await Promise.all(ids.map((id) => state.remove.run(id)));
-      const anyFailed = results.some((r) => !r.ok);
-      setConfirm(null);
+      const result = await state.clearAll.run(undefined);
       setIsDeletingAll(false);
-      if (anyFailed) {
-        const firstFailed = results.find(
-          (r): r is { ok: false; error: Error } => !r.ok,
+      if (!result.ok) {
+        const { title, body } = getErrorMessage(
+          'recordings',
+          'transient',
+          result.error,
         );
-        const firstErr = firstFailed?.error;
-        const { title, body } = getErrorMessage('recordings', 'transient', firstErr);
         Alert.alert(title, body);
         return;
       }
+      setConfirm(null);
       setJustDeletedAll(true);
       return;
     }
