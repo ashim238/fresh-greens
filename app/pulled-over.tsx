@@ -50,6 +50,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
 import { MetaSeparator } from '../components/MetaSeparator';
+import { PulledOverRecordingCard } from '../components/PulledOverRecordingCard';
 import { RecordingSaveErrorBanner } from '../components/RecordingSaveErrorBanner';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
@@ -65,6 +66,7 @@ import {
 } from '../lib/api/gun-laws';
 import { maskPolicyNumber } from '../lib/api/insurance';
 import { getErrorMessage } from '../lib/error-message';
+import type { RecordingStatus } from '../lib/recording-session';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -168,23 +170,7 @@ const NO_CONTACT_NAME = 'Add a contact';
 
 const WAVEFORM_BAR_COUNT = 48;
 const WAVEFORM_POLL_MS = 80;
-const WAVEFORM_MIN_HEIGHT = 4;
-const WAVEFORM_MAX_HEIGHT = 64;
 const METERING_FLOOR_DB = -60;
-const METERING_CEILING_DB = -10;
-
-/** Convert one dB sample to a bar height in pt. Clamped to [min, max]. */
-function dbToBarHeight(db: number): number {
-  // Map [floor, ceiling] dB → [0, 1] then to [min, max] pt.
-  const normalized = Math.max(
-    0,
-    Math.min(
-      1,
-      (db - METERING_FLOOR_DB) / (METERING_CEILING_DB - METERING_FLOOR_DB),
-    ),
-  );
-  return WAVEFORM_MIN_HEIGHT + normalized * (WAVEFORM_MAX_HEIGHT - WAVEFORM_MIN_HEIGHT);
-}
 
 // --- Main component ------------------------------------------------------
 
@@ -542,6 +528,16 @@ export default function PulledOver() {
     router.back();
   }
 
+  // Task 6 will replace these legacy booleans with the recording-session
+  // state machine. Until then, translate the existing screen state into the
+  // shared vocabulary at the component boundary so GuidanceView no longer
+  // needs to interpret recording lifecycle booleans itself.
+  const recordingStatus: RecordingStatus = !micGranted
+    ? 'unavailable'
+    : recordingStopped
+      ? 'saved'
+      : 'recording';
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
@@ -611,8 +607,7 @@ export default function PulledOver() {
               elapsed={elapsed}
               meteringHistory={meteringHistory}
               reduceMotion={reduceMotion}
-              micGranted={micGranted}
-              recordingStopped={recordingStopped}
+              recordingStatus={recordingStatus}
               onContinue={handleContinueToContact}
               onStopRecording={handleStopRecording}
             />
@@ -736,44 +731,6 @@ function TransitionView({ onSkip }: { onSkip: () => void }) {
 
 // --- Phase: Guidance -----------------------------------------------------
 
-/**
- * Live mic-driven waveform. Renders WAVEFORM_BAR_COUNT vertical bars,
- * each height computed from a dB sample in the metering history (oldest
- * on the left, newest on the right). When the recorder isn't active or
- * the platform doesn't expose metering, the buffer stays at the floor
- * value and the waveform reads as a flat baseline — graceful fallback
- * rather than a broken visual.
- */
-function Waveform({
-  history,
-  reduceMotion,
-}: {
-  history: number[];
-  reduceMotion: boolean;
-}) {
-  // P6: when reduce-motion is on, render every bar at the floor height
-  // (flat baseline) instead of the live dB values. usePulseOpacity
-  // already gates correctly elsewhere; this brings the only un-gated
-  // animation in the app into the same pattern. Per DESIGN.md Reduce-Motion-Honest Rule.
-  return (
-    <View style={guidanceStyles.waveformRow}>
-      {history.map((db, i) => (
-        <View
-          key={i}
-          style={[
-            guidanceStyles.waveformBar,
-            {
-              height: reduceMotion
-                ? WAVEFORM_MIN_HEIGHT
-                : dbToBarHeight(db),
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
 function GuidanceBullet({ children }: { children: ReactNode }) {
   // Stress-readable + Dynamic-Type-aware. Guidance bullets are the
   // longest reads in the app, happening during the most stressful
@@ -798,8 +755,7 @@ function GuidanceView({
   elapsed,
   meteringHistory,
   reduceMotion,
-  micGranted,
-  recordingStopped,
+  recordingStatus,
   onContinue,
   onStopRecording,
 }: {
@@ -809,26 +765,11 @@ function GuidanceView({
   elapsed: number;
   meteringHistory: number[];
   reduceMotion: boolean;
-  micGranted: boolean;
-  recordingStopped: boolean;
+  recordingStatus: RecordingStatus;
   onContinue: () => void;
   onStopRecording: () => void;
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
-
-  // D7: "Recording started" → "Recording…" label transition.
-  // Shows "Recording started" for 1.5s on mount, then settles to
-  // "Recording…". Gated on reduce motion (shows "Recording…" immediately).
-  const [recordingLabelStarted, setRecordingLabelStarted] = useState(
-    !reduceMotion && !recordingStopped && micGranted,
-  );
-  useEffect(() => {
-    if (reduceMotion || recordingStopped || !micGranted) return;
-    // D7: light haptic on recording widget mount
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const timer = setTimeout(() => setRecordingLabelStarted(false), 1500);
-    return () => clearTimeout(timer);
-  }, [reduceMotion, recordingStopped, micGranted]);
 
   // useMemo: bullet list shouldn't be rebuilt every render — the
   // showFirearmGuidance + disclosureDuty values are stable for the
@@ -874,10 +815,6 @@ function GuidanceView({
       Speech.stop();
     };
   }, []);
-
-  const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
-  const seconds = (elapsed % 60).toString().padStart(2, '0');
-  const timeString = `00:${minutes}:${seconds}`;
 
   return (
     <View style={guidanceStyles.page}>
@@ -928,57 +865,13 @@ function GuidanceView({
         </Text>
       </Pressable>
 
-      {/*
-        Recording widget — Figma node 825:4298. Background F2F2F7,
-        radius 20, padding 16, gap 8, items-center. Shows different states:
-        - Recording active (micGranted && !recordingStopped): live waveform
-          with timer and stop button
-        - Mic unavailable (!micGranted): "Microphone unavailable" message
-        - Recording stopped (recordingStopped && micGranted): "Recording saved"
-          confirmation
-      */}
-      {!micGranted ? (
-        <View style={guidanceStyles.recordingWidget}>
-          <Text style={guidanceStyles.recordingLabel}>Guidance active</Text>
-          <Text style={guidanceStyles.micUnavailableText}>
-            Microphone unavailable — your guidance continues below
-          </Text>
-        </View>
-      ) : recordingStopped ? (
-        <View style={guidanceStyles.recordingWidget}>
-          <Text style={guidanceStyles.recordingLabel}>Recording saved</Text>
-          <Text style={guidanceStyles.micUnavailableText}>
-            Saved to your phone — guidance continues below
-          </Text>
-        </View>
-      ) : (
-        <View style={guidanceStyles.recordingWidget}>
-          <View style={guidanceStyles.recordingTextBlock}>
-            <Text style={guidanceStyles.recordingLabel}>
-              {recordingLabelStarted ? 'Recording started' : 'Recording…'}
-            </Text>
-            <Text style={guidanceStyles.recordingTimer}>{timeString}</Text>
-          </View>
-
-          <Waveform history={meteringHistory} reduceMotion={reduceMotion} />
-
-          <Pressable
-            onPress={onStopRecording}
-            accessibilityRole="button"
-            accessibilityLabel="Stop recording"
-            style={({ pressed }) => [
-              guidanceStyles.stopRecordingBtn,
-              pressed && pressedDim,
-            ]}
-          >
-            <Text style={guidanceStyles.stopRecordingText}>Stop recording</Text>
-          </Pressable>
-
-          <Text style={guidanceStyles.recordingFootnote}>
-            Saved to your phone — only you can access it
-          </Text>
-        </View>
-      )}
+      <PulledOverRecordingCard
+        status={recordingStatus}
+        elapsed={elapsed}
+        meteringHistory={meteringHistory}
+        reduceMotion={reduceMotion}
+        onStopRecording={onStopRecording}
+      />
       </ScrollView>
 
       <Pressable
@@ -1945,53 +1838,6 @@ const guidanceStyles = StyleSheet.create({
   scrollContent: {
     gap: spacing.lg,
   },
-  recordingWidget: {
-    backgroundColor: colors.surfaceTinted,
-    borderRadius: radii.xl,
-    padding: spacing.md,
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  recordingTextBlock: {
-    gap: spacing.xs,
-    alignItems: 'center',
-  },
-  recordingLabel: {
-    // P4: dynamicType so the widget scales with user font preference
-    // (this is the recording focal point — must scale with content).
-    ...dynamicType(typography.bodyRegular),
-    color: colors.black,
-  },
-  recordingTimer: {
-    // P4: promoted from subheadlineRegular (15pt) to bodyRegular (17pt)
-    // so the live counter is at least as prominent as the label above
-    // it — was inverted (timer 1pt SMALLER than its label). The timer
-    // is what users actually watch; hierarchy now puts the data on the
-    // same visual tier as its label. Plus dynamicType per the same
-    // reasoning as recordingLabel.
-    ...dynamicType(typography.bodyRegular),
-    color: colors.labelTertiary,
-    fontVariant: ['tabular-nums'],
-  },
-  waveformRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    height: WAVEFORM_MAX_HEIGHT + 8,
-    paddingVertical: spacing.xs,
-    width: '100%',
-  },
-  waveformBar: {
-    width: 3,
-    borderRadius: radii.xs,
-    backgroundColor: colors.severityCritical,
-  },
-  recordingFootnote: {
-    ...dynamicType(typography.caption1Regular),
-    color: colors.labelTertiary,
-    textAlign: 'center',
-  },
   // Wiltedgreen-outline pill (mirrors Contact's Text button) — quieter
   // than freshgreen-fill, conserving the freshgreen for genuine primary
   // actions like Call. The "we're recording during a stop" register
@@ -2010,26 +1856,6 @@ const guidanceStyles = StyleSheet.create({
   continueText: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.wiltedgreen,
-  },
-  micUnavailableText: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  stopRecordingBtn: {
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.labelTertiary,
-  },
-  stopRecordingText: {
-    ...dynamicType(typography.footnoteEmphasized),
-    color: colors.labelSecondary,
   },
   stateAttribution: {
     ...dynamicType(typography.caption1Regular),
