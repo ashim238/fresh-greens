@@ -2,6 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "types": ["jest"],
     "paths": {
       // Redirect TypeScript to phosphor's precompiled .d.ts files
       // when we import from `phosphor-react-native/src/icons/*`.
