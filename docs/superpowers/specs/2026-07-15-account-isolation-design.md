@@ -163,6 +163,7 @@ The implementation must define this list once in a data-layer module. UI code ca
 | `navigation.activeRoute` | `lib/api/route-cache.ts:43, 46-51, 129-134` | Destination and route geometry | Remove the key and surface errors | Missing |
 | `navigation.corridor` | `lib/api/zone-cache.ts:17, 19-24, 78-83` | Destination, route ID, and corridor | Remove the key and surface errors | Missing |
 | `navigation.tiles` | `lib/api/zone-tile-cache.ts:17-24, 82-97` | Grid keys for recently browsed or traveled areas | Add an idempotent clear and remove the key | Missing |
+| `navigation.resilience` | Route-resilience storage defined by the route-trust specification | Selected route, instructions, validated evidence, weak-signal areas, and estimated-progress metadata | Delete the app-owned resilience directory and metadata key idempotently | Planned dependency |
 | `auth.supabase` | `lib/supabase-auth.ts:6-15, 25-39, 110-118` | Access token, refresh token, cloud user ID, module cache | Call Supabase logout with the current bearer token, require an accepted response, then clear protected credential storage and module memory | Missing |
 
 The order has three dependency stages:
