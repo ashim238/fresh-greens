@@ -18,6 +18,7 @@ In plain language, this work closes two trust gaps. The app must tell people whe
 - Replace direct client writes with server-owned report commands.
 - Repair grants, row-level security, moderator authorization, views, triggers, and retention jobs.
 - Validate report shape, category, location, timestamps, identity, and moderation fields on the server.
+- Store reported horizontal location accuracy and manual pin confirmation so route scoring can apply the versioned influence policy.
 - Add a durable outbox and deletion tombstones.
 - Harden the Google Places proxy against location leakage, unbounded use, invalid input, and hanging upstream requests.
 - Define visible pending, uploaded, rejected, offline, deleting, and failed states.
@@ -86,6 +87,8 @@ type SubmitReportCommand = {
   categoryId: ReportCategoryId;
   latitude: number;
   longitude: number;
+  horizontalAccuracyMeters?: number;
+  locationConfirmed: boolean;
   detail?: string;
   subTag?: string;
   placeName?: string;
@@ -96,9 +99,9 @@ type SubmitReportCommand = {
 
 The server generates the row ID and timestamp, derives `auth.uid()`, captures network signals, validates category-specific fields, strips unexpected properties, and derives trust and verification fields. It accepts a bounded idempotency key so retries return the same logical result.
 
-Coordinates must be finite and within latitude and longitude bounds. Text fields receive length, character, and nullability limits. Category and sub-tag combinations come from a server allow-list. The server never accepts moderation state or verification status from the client.
+Coordinates must be finite and within latitude and longitude bounds. `horizontalAccuracyMeters` must be finite and non-negative when present. The server stores the submitted measurement without improving its accuracy tier. `locationConfirmed` records that the person reviewed or moved the pin. Neither field proves that an untrusted client is honest, so abuse controls never rely on them. Text fields receive length, character, and nullability limits. Category and sub-tag combinations come from a server allow-list. The server never accepts moderation state or verification status from the client.
 
-Public coordinates are rounded to four decimal places before they enter the public read model. If exact coordinates are retained for a documented moderation need, they stay in the protected base table and follow the published retention policy.
+Public coordinates are rounded to four decimal places before they enter the public read model. The public DTO exposes only the server-derived accuracy band required by `adaptive-corridor-v1`, not the raw device measurement. If exact coordinates or raw accuracy are retained for a documented moderation need, they stay in the protected base table and follow the published retention policy.
 
 ### One cloud identity boundary
 
@@ -160,6 +163,7 @@ The revised disclosure must name:
 - Vercel as the proxy host and Google Places as the nearby-business provider.
 - Mapbox and OSRM as routing and search providers.
 - The exact categories sent to each service, including precise coordinates where required.
+- That report submission may store the location accuracy reported by the device and whether the person confirmed the pin.
 - Stored report content, approximate retention, device and network abuse signals, and public visibility.
 - What stays local, including recordings and trusted-contact data in the current version.
 - How deletion, sign-out, permission withdrawal, and public-report removal differ.
@@ -266,6 +270,7 @@ Rollback may disable new writes and keep validated reads. It must not restore un
 - Role checks do not recurse.
 - Client IDs, timestamps, auth IDs, verification flags, moderation fields, and unexpected properties are ignored or rejected.
 - Invalid coordinates, categories, sub-tags, lengths, and timestamps fail with typed outcomes.
+- Negative, non-finite, and malformed accuracy values fail. The server never promotes a submitted measurement into a better public accuracy band.
 - Duplicate idempotency keys return one logical report.
 - Submitter delete and moderator remove or restore succeed without a conflicting generic trigger.
 - Audit action and state transition commit or roll back together.
@@ -300,6 +305,7 @@ Rollback may disable new writes and keep validated reads. It must not restore un
 - Community commands use the Supabase identity established from the verified Apple sign-in, not an unrelated anonymous session.
 - Exact coordinates are never placed in proxy URLs or cacheable responses.
 - Direct clients cannot set server identity, time, trust, verification, IP, or moderation fields.
+- Route consumers receive only the server-derived report accuracy band and confirmation state required by the versioned scoring policy.
 - Table and function grants match the documented role matrix.
 - Moderator access cannot leak sensitive base-table columns.
 - Every privileged function has a fixed search path, internal authorization, and narrow execution grants.

@@ -106,7 +106,7 @@ Every await boundary checks `isCurrent`. Abortable network calls also receive an
 
 ### Stable route identity
 
-Fuel-stop state receives a route key derived from the route ID when available. A deterministic geometry signature is the fallback. The hook depends on the key, `active`, fuel type, and the captured open-time location.
+Fuel-stop state consumes the versioned `routeKey` defined by the route-trust specification. During migration only, a deterministic geometry signature may stand in when the provider has not produced a `routeKey`. Provider array position, route-coordinate count, and destination alone are never identity. The hook depends on `routeKey`, `active`, fuel type, and the captured open-time location.
 
 ### One foreground location owner
 
@@ -218,7 +218,7 @@ Opening a draft does not prove the user sent it. Copy must say “Message draft 
 ### Unit and hook tests
 
 - Generation invalidation after every await and clear action.
-- Geometry-key changes when route coordinates change with the same length.
+- Route-key changes when geometry changes with the same coordinate count, and remains stable when provider alternatives reorder without geometry changes.
 - Fuel fetch starts only when `active` becomes true.
 - A watcher that resolves after cancellation removes itself immediately.
 - Provider reference counting starts and stops the native watcher once.
@@ -246,7 +246,7 @@ Opening a draft does not prove the user sent it. Copy must say “Message draft 
 ## Implementation order
 
 1. Add request-generation utilities and repair Search.
-2. Add stable route keys and lazy fuel fetching.
+2. After the route-trust key helpers land, consume `routeKey` in fuel-stop state and add lazy fetching.
 3. Centralize foreground location ownership.
 4. Lift share-session state and make notification outcomes transactional.
 5. Repair Roadside navigation and the VoiceOver switch.
@@ -259,7 +259,7 @@ The first two changes are independent of sharing and startup. The location and s
 ## Acceptance criteria
 
 - Cleared or superseded searches never repopulate visible results.
-- Fuel stops always correspond to the selected route and are fetched only when needed.
+- Fuel stops always correspond to the selected versioned `routeKey` and are fetched only when needed.
 - Home and En Route share one high-accuracy foreground watcher.
 - Async watcher creation cannot leak after unmount.
 - Parent and sheet render the same live-safety session state.
