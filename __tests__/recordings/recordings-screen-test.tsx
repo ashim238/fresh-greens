@@ -115,11 +115,11 @@ function mutation<I, T>(
   };
 }
 
-function readyState(): RecordingsState {
+function readyState(currentRecordings: Recording[] = recordings): RecordingsState {
   return {
     ready: true,
     ok: true,
-    recordings,
+    recordings: currentRecordings,
     add: mutation(mockAddRun, mockAddReset),
     remove: mutation(mockRemoveRun, mockRemoveReset),
     clearAll: mutation(mockClearAllRun, mockClearAllReset),
@@ -155,7 +155,7 @@ describe('Recordings screen delete all', () => {
   test('cleans up playback and keeps confirmation visible while one atomic clear is pending', async () => {
     const pendingClear = deferred<MutationResult<void>>();
     mockClearAllRun.mockReturnValue(pendingClear.promise);
-    await render(<Recordings />);
+    const { rerender } = await render(<Recordings />);
 
     await fireEvent.press(
       screen.getAllByRole('button', { name: /^Play / })[0],
@@ -191,10 +191,18 @@ describe('Recordings screen delete all', () => {
       pendingClear.resolve({ ok: true, data: undefined });
       await confirmPress;
     });
+    mockUseRecordings.mockReturnValue(readyState([]));
+    await rerender(<Recordings />);
     await waitFor(() => {
       expect(
         screen.queryByRole('button', { name: deleteAllLabel }),
       ).toBeNull();
+      expect(screen.getByText('All deleted.')).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Your recordings have been removed. New captures from your safety flow will appear here.',
+        ),
+      ).toBeTruthy();
     });
   });
 
