@@ -1,7 +1,7 @@
 # Recording Reliability Audit
 
 **Date:** 2026-07-15
-**Scope:** `/pulled-over` recording lifecycle, local recording persistence, and the `/recordings` Delete All recovery path. This is a source-and-test audit at commit `5501d7f`; it is not an app-wide audit.
+**Scope:** `/pulled-over` recording lifecycle, local recording persistence, and the `/recordings` Delete All recovery path. This is a source-and-test audit of current production through `b6749f4`; it is not an app-wide audit.
 
 ## Automated evidence
 
@@ -9,27 +9,27 @@ All prescribed commands were run fresh from the repository root.
 
 | Command | Result | Current output |
 |---|---|---|
-| `npm run test:recordings` | Pass, exit 0 | 8/8 suites and 36/36 tests passed; 0 snapshots |
+| `npm run test:recordings` | Pass, exit 0 | 9/9 suites and 40/40 tests passed; 0 snapshots |
 | `npm run typecheck` | Pass, exit 0 | `tsc -p tsconfig.app.json --noEmit` completed with no diagnostics |
 | `npm ls --depth=0` | Pass, exit 0 | Complete top-level tree; no missing, invalid, or extraneous dependency errors |
 | `git diff --check` | Pass, exit 0 | No output |
 
-The focused tests cover truthful permission/start states, startup cancellation, one-stop persistence, deferred dismissal, retained retry input, confirmed discard, short recordings, adapter retry cleanup, the static card states, full-snapshot Delete All rollback, and the user-visible cleared state. They do not substitute for native audio, accessibility, layout, or relaunch checks.
+The focused tests cover truthful permission/start states, startup cancellation, one-stop persistence, deferred dismissal, retained retry input, confirmed discard, short recordings, adapter retry cleanup, the static card states, full-snapshot Delete All rollback, the user-visible cleared state, and the real Delete All adapter's metadata-first commit boundary and cleanup-failure behavior. They do not substitute for native audio, accessibility, layout, or relaunch checks.
 
-### Native audit score
+### Provisional native audit score
 
-This score is scoped to the recording reliability surface and is based on source plus automated tests. Device-only uncertainty is reflected in the findings.
+This evidence-bounded score is scoped to the recording reliability surface and is based on source plus automated tests. Every dimension is capped at 3/4 until native behavior is observed; the score is provisional rather than a rendered-runtime verdict.
 
 | Dimension | Score | Evidence-based finding |
 |---|---:|---|
 | Accessibility | 3/4 | Explicit labels, state announcements, scalable copy, 44 pt source tokens, and Reduce Motion branches are present; VoiceOver cadence, AX5 layout, and rendered target sizes remain unverified on iPhone. |
-| Performance | 4/4 | Recording work is asynchronous, the timer updates once per second, waveform history is bounded, duplicate saves are guarded, and metering rerenders stop under Reduce Motion. No runtime profiling was performed. |
-| Appearance & Theming | 4/4 | Recording UI uses project typography, spacing, radii, interaction, and semantic severity tokens; the persistent save-error treatment uses the reserved failure color for meaning. |
-| Platform Conformance | 4/4 | Safe-area layout, native alerts, native-stack `usePreventRemove`, platform audio APIs, explicit 44 pt targets, and standard modal dismissal semantics read as native iOS patterns in source. |
+| Performance | 3/4 | Recording work is asynchronous, the timer updates once per second, waveform history is bounded, and duplicate saves are guarded. Reduce Motion stops metering-history state updates, but recorder-state polling and its renders continue; no runtime profiling was performed. |
+| Appearance & Theming | 3/4 | Recording UI consistently uses project typography, spacing, radii, interaction, and semantic severity tokens; rendered contrast, appearance, and large-text composition remain native verification gaps. |
+| Platform Conformance | 3/4 | Safe-area layout, native alerts, native-stack `usePreventRemove`, platform audio APIs, explicit 44 pt source targets, and standard modal dismissal semantics support an iOS-native implementation in source; runtime gesture and control behavior is pending. |
 | Adaptivity | 3/4 | Scrollable guidance, unclamped banner copy, and scaled line heights reduce clipping risk; AX5, landscape, and varying iPhone sizes have not been observed on a native runtime. |
-| **Total** | **18/20** | **Excellent, with native verification still required** |
+| **Total** | **15/20** | **Good, provisional pending native verification** |
 
-Platform conformance verdict: **Pass from source review.** The feature uses native recording, alert, sheet-navigation, safe-area, and accessibility primitives rather than web-shaped controls. This verdict does not claim that the rendered app passed the pending device checks.
+Platform conformance verdict: **Source conformance supported; runtime conformance verdict pending.** The feature uses native recording, alert, sheet-navigation, safe-area, and accessibility primitives rather than web-shaped controls, but none of those behaviors were exercised in a launched app during this audit.
 
 ## User-state review
 
@@ -50,7 +50,7 @@ Additional reliability evidence:
 - Short recordings are preserved because duration is calculated with a zero floor and no minimum-duration rejection (`lib/recording-session.ts:50-86`); the focused test uses a 1.5-second recording.
 - A persistence failure retains the exact retry input and does not stop the recorder a second time (`lib/recording-session.ts:36-47`; retry flow tests).
 - Metadata is the add-recording commit boundary. If metadata persistence fails, the retryable source remains and the unindexed destination is removed; temp-source cleanup after commit cannot turn success into a reported failure (`lib/api/recordings.ts:89-135`).
-- Delete All uses one bulk mutation and restores the complete in-memory snapshot on adapter failure (`hooks/useRecordings.ts:124-143`; screen and hook tests). On success, metadata is removed from persistent storage (`lib/api/recordings.ts:159-170`), but empty-after-relaunch still requires a device check.
+- Delete All uses one bulk mutation and restores the complete in-memory snapshot on adapter failure (`hooks/useRecordings.ts:124-143`; screen and hook tests). The repaired adapter treats metadata removal as the commit boundary: rejection deletes zero files, so rollback restores valid playable rows; after metadata commits, file cleanup is best-effort and cannot rewrite or resurrect metadata (`lib/api/recordings.ts:159-176`). Four real adapter-clear tests verify failure-before-cleanup, committed metadata despite one cleanup failure, metadata-before-file ordering, and idempotent empty-state clearing (`__tests__/recordings/recordings-adapter-clear-test.ts:93-154`). Empty-after-relaunch still requires a device check.
 
 ## Accessibility review
 
@@ -60,7 +60,7 @@ Additional reliability evidence:
 - The save-error banner is assertive and exposes labeled Retry and destructive-dismiss controls. Both controls use the shared 44×44 pt target token and become disabled during retry (`components/RecordingSaveErrorBanner.tsx:47-80`; `theme/interaction.ts:70-75`).
 - Stop has a 44 pt minimum height and a text label, not an icon-only affordance (`components/PulledOverRecordingCard.tsx:139-149,205-218`). Discard is presented by a native destructive alert after explicit confirmation.
 - Recording state copy, timer, footnote, and error-banner copy use `dynamicType()`, which scales both glyph size and line height. The error copy has no `numberOfLines` clamp, and the focused test asserts that absence (`components/PulledOverRecordingCard.tsx:170-218`; `components/RecordingSaveErrorBanner.tsx:100-115`; `theme/dynamic-type.ts:32-38`).
-- Reduce Motion stops metering-history updates, flattens waveform bars without hiding the timer or state copy, and skips the recording-start haptic/temporary label change (`app/pulled-over.tsx:561-588`; `components/PulledOverRecordingCard.tsx:63-110,124-153`).
+- Reduce Motion stops metering-history state updates, flattens rendered waveform bars without hiding the timer or state copy, and skips the recording-start haptic/temporary label change (`app/pulled-over.tsx:561-588`; `components/PulledOverRecordingCard.tsx:63-110,124-153`). `useAudioRecorderState` polling and the renders it drives continue; this audit made no runtime performance claim.
 
 ### Accessibility risks
 
@@ -69,26 +69,27 @@ Additional reliability evidence:
 
 ## Device verification
 
-`xcrun simctl list devices booted` was run outside the filesystem sandbox. It returned the installed `iOS 26.3` runtime header and no booted devices. No physical iPhone was available through this environment. The app was not built, dependencies were not installed, and no simulator or external state was changed.
+`xcrun simctl list devices booted` was run outside the filesystem sandbox. It returned the installed `iOS 26.3` runtime header and no booted devices. No physical iPhone was available through this environment. No app build, simulator install, CocoaPods/native dependency installation, or launch was performed.
 
 | Native check | Status | Source/test coverage and remaining gap |
 |---|---|---|
 | VoiceOver announces each meaningful state once | **device verification pending** | Explicit calls and call-count tests cover selected paths; actual focus, live-region, and speech cadence require VoiceOver. |
 | AX5 Dynamic Type keeps card and banner copy visible | **device verification pending** | Copy uses scaled font plus line height, the screen scrolls, and banner text is unclamped; only rendered AX5 layout can prove visibility and non-overlap. |
-| Reduce Motion removes waveform animation without hiding information | **device verification pending** | Source flattens bars and stops metering rerenders while retaining timer/copy; runtime preference propagation and rendering were not observed. |
+| Reduce Motion removes waveform animation without hiding information | **device verification pending** | Source flattens bars and stops metering-history state updates while retaining timer/copy; recorder-state polling and its renders continue, and runtime preference propagation/rendering were not observed. |
 | Stop, Retry, and Discard remain at least 44×44 pt | **device verification pending** | Stop has `minHeight: 44`, Retry/dismiss use `tapTarget44`, and Discard uses a native alert; rendered point sizes were not measured. |
 | Permission denial leaves the modal dismissible with no false timer | **device verification pending** | Automated tests prove `unavailable`, no protected state, and no timer chip; the real permission sheet and swipe dismissal were not exercised. |
 | Manual Stop and swipe dismissal each create one playable recording | **device verification pending** | Tests prove one stop/persist and deferred navigation, but mocked files cannot establish native codec output or playback. |
 | Forced save failure stays until Retry or confirmed Discard | **device verification pending** | The failure/retry/discard state machine is covered with mocked persistence; a real native filesystem/storage failure was not forced. |
-| Delete All remains empty after relaunch | **device verification pending** | The bulk mutation, success state, and failure rollback are automated; no native cold relaunch verified persistent emptiness. |
+| Delete All remains empty after relaunch | **device verification pending** | The bulk mutation, success state, rollback, and real metadata-first adapter boundary are automated; no native cold relaunch verified persistent emptiness. |
 
 ## Remaining risks
 
-No confirmed P0 or P1 production defect was found in this scoped source-and-test audit.
+No confirmed P0 or P1 production defect remains in this scoped source-and-test audit after the approved Delete All adapter fix. Native verification remains a release gate and evidence gap.
 
 - **[P1 release-evidence] Native end-to-end verification is outstanding.** Playability, swipe-save behavior, VoiceOver cadence, AX5 layout, Reduce Motion, and relaunch persistence are the highest-priority release checks because mocks cannot prove native audio and OS behavior.
 - **[P2 accessibility] A duplicate-announcement risk remains unmeasured.** Explicit saving/failure announcements coexist with live-region content on some phases. This is not a confirmed defect; verify it with VoiceOver before altering the announcement strategy.
-- **[P2 environment/dependency] Known npm audit and transitive-package warnings remain.** The original test-harness install recorded 22 audit findings (1 low, 18 moderate, 2 high, 1 critical) and deprecated transitive packages. This audit's required `npm ls --depth=0` passed, which verifies dependency resolution but not vulnerability status. No fresh `npm audit` or dependency remediation was part of this task, so these findings are recorded as an environment/dependency risk, not as fixed.
+- **[P3 maintenance] Best-effort Delete All cleanup can leave an orphan audio file.** Once metadata removal commits, a file-delete failure is intentionally ignored so metadata stays truthfully empty. The orphan is no longer user-addressable and can consume local storage until a future reconciliation/cleanup pass; it does not restore a recording row or make Delete All report failure.
+- **[Unscored dependency release-evidence gap] Historical npm audit counts are untriaged and may be stale.** The original test-harness install reported aggregate findings and deprecated transitive packages, but this audit did not run a fresh audit that identifies affected packages, dev-versus-runtime exposure, reachability, or user impact. No P0-P3 severity is assigned until that evidence exists. The required `npm ls --depth=0` result establishes tree resolution only; it does not establish vulnerability status.
 
 ### Positive findings
 
@@ -97,6 +98,7 @@ No confirmed P0 or P1 production defect was found in this scoped source-and-test
 - Manual Stop and dismissal share one persistence coordinator, which removes divergent save behavior and preserves short recordings.
 - Retry reuses retained input without a second stop, and adapter cleanup keeps the original source available when metadata persistence fails.
 - Error recovery is visible and actionable: save failure remains pinned until successful Retry or confirmed Discard.
+- Delete All now commits metadata removal before cleanup; rejection preserves every file for valid rollback, while later cleanup failures cannot resurrect metadata or turn committed success into a false failure.
 - The feature follows the project's native/token vocabulary, including native alerts, safe areas, semantic colors, scalable type, and painted 44 pt targets.
 
 ### Prioritized next actions
@@ -104,5 +106,5 @@ No confirmed P0 or P1 production defect was found in this scoped source-and-test
 1. **[P1] `/impeccable harden`:** Run all eight pending checks on an already-booted iPhone simulator and at least one physical iPhone, capturing OS/device, result, and any native logs.
 2. **[P2] `/impeccable adapt`:** Exercise AX5 on the smallest supported iPhone width and landscape; verify every card/banner line and all Stop, Retry, and Discard targets remain visible and measurable.
 3. **[P2] `/impeccable harden`:** With VoiceOver enabled, trace started → saving → save-error → retry → saved and confirm each meaningful state is spoken once. Consolidate explicit/live-region announcements only if duplication is reproduced.
-4. **[P2 dependency]:** Triage the known audit findings in a separate dependency-hardening workstream, preserving Expo/React/renderer compatibility and verifying the full transitive peer tree.
+4. **[Unscored dependency evidence]:** Run a fresh dependency audit in a separate hardening workstream, then classify each affected package by dev/runtime exposure, reachability, and impact before assigning severity or selecting upgrades.
 5. **[P3] `/impeccable polish`:** Re-run this scoped audit after native verification and any resulting fixes.
