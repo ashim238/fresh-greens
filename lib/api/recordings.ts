@@ -61,19 +61,19 @@ function getRecordingsDirectory(): Directory {
 
 // --- Public surface ------------------------------------------------------
 
-/** Reads all stored recordings, newest first. */
-export async function getRecordings(): Promise<Recording[]> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Recording[];
-    if (!Array.isArray(parsed)) return [];
-    // Sort newest first — matches typical "library" UX expectation.
-    return parsed.sort((a, b) => b.createdAt - a.createdAt);
-  } catch (err) {
-    console.warn('getRecordings failed', err);
-    return [];
+async function readRecordingsStrict(): Promise<Recording[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  if (!raw) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error('Stored recordings metadata is not an array');
   }
+  return (parsed as Recording[]).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** Reads all stored recordings, newest first, propagating storage corruption. */
+export async function getRecordings(): Promise<Recording[]> {
+  return readRecordingsStrict();
 }
 
 /**
@@ -109,7 +109,7 @@ export async function addRecording(input: AddRecordingInput): Promise<Recording>
   };
 
   try {
-    const existing = await getRecordings();
+    const existing = await readRecordingsStrict();
     await AsyncStorage.setItem(
       STORAGE_KEY,
       JSON.stringify([recording, ...existing]),
@@ -141,7 +141,7 @@ export async function addRecording(input: AddRecordingInput): Promise<Recording>
  * remove the metadata so the user doesn't see a "ghost" entry.
  */
 export async function removeRecording(id: string): Promise<void> {
-  const all = await getRecordings();
+  const all = await readRecordingsStrict();
   const target = all.find((r) => r.id === id);
   if (!target) return;
 
@@ -158,7 +158,7 @@ export async function removeRecording(id: string): Promise<void> {
 
 /** Removes all stored recordings (sign-out cleanup, factory reset). */
 export async function clearAllRecordings(): Promise<void> {
-  const all = await getRecordings();
+  const all = await readRecordingsStrict();
   // Metadata is the commit boundary. If this fails, preserve every audio
   // file so the hook's optimistic rollback restores usable rows.
   await AsyncStorage.removeItem(STORAGE_KEY);

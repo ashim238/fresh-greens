@@ -76,6 +76,13 @@ const input: AddRecordingInput = {
   armed: 'no',
   createdAt: 1_000,
 };
+const existingRecording = {
+  id: 'existing-recording',
+  uri: 'file:///documents/recordings/existing.m4a',
+  durationMs: 8_000,
+  armed: null,
+  createdAt: 500,
+};
 
 describe('recordings adapter retry boundary', () => {
   beforeEach(() => {
@@ -134,4 +141,48 @@ describe('recordings adapter retry boundary', () => {
       deleteCount: 1,
     });
   });
+
+  test.each([
+    {
+      name: 'AsyncStorage read rejection',
+      failFirstRead: () => {
+        mockGetItem.mockRejectedValueOnce(new Error('metadata read failed'));
+      },
+    },
+    {
+      name: 'malformed metadata JSON',
+      failFirstRead: () => {
+        mockGetItem.mockResolvedValueOnce('{not-valid-json');
+      },
+    },
+  ])(
+    '$name preserves source and existing entries for a same-input retry',
+    async ({ failFirstRead }) => {
+      failFirstRead();
+      mockGetItem.mockResolvedValueOnce(JSON.stringify([existingRecording]));
+      mockSetItem.mockResolvedValue(undefined);
+
+      await expect(addRecording(input)).rejects.toBeInstanceOf(Error);
+
+      const failedDestination = mockDestinationUris[0];
+      expect(mockSetItem).not.toHaveBeenCalled();
+      expect(mockFiles.get(sourceUri)).toMatchObject({
+        exists: true,
+        deleteCount: 0,
+      });
+      expect(mockFiles.get(failedDestination)).toMatchObject({
+        exists: false,
+        deleteCount: 1,
+      });
+
+      const recording = await addRecording(input);
+      const stored = JSON.parse(mockSetItem.mock.calls[0][1]);
+
+      expect(stored).toEqual([recording, existingRecording]);
+      expect(mockFiles.get(sourceUri)).toMatchObject({
+        exists: false,
+        deleteCount: 1,
+      });
+    },
+  );
 });

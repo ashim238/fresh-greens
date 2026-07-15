@@ -164,9 +164,14 @@ function latestAlertButtonLabels() {
   return latestAlertButtons().map((button) => button.text);
 }
 
-async function pressLatestAlertButton(label: string) {
+function latestAlertButton(label: string) {
   const button = latestAlertButtons().find((candidate) => candidate.text === label);
   expect(button).toBeDefined();
+  return button!;
+}
+
+async function pressLatestAlertButton(label: string) {
+  const button = latestAlertButton(label);
   await act(async () => {
     button?.onPress?.();
     await Promise.resolve();
@@ -465,6 +470,130 @@ describe('PulledOver recording flow', () => {
     expect(dispatchProtection).toEqual([false]);
   });
 
+  test('a stale Leave after saving callback never restarts a completed save', async () => {
+    const pendingPersist = deferred<Recording>();
+    mockAddRecording.mockReturnValueOnce(pendingPersist.promise);
+    const action = { type: 'GO_BACK' } as NavigationAction;
+    await render(<PulledOver />);
+    await enterGuidanceWithRecording();
+
+    await act(async () => {
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Stop recording' }),
+      );
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Saving recording')).toBeTruthy();
+    });
+    await requestDismissal(action);
+    const staleLeave = latestAlertButton('Leave after saving').onPress;
+
+    await act(async () => {
+      pendingPersist.resolve(recordingFor(mockAddRecording.mock.calls[0][0]));
+      await pendingPersist.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Recording saved')).toBeTruthy();
+      expect(mockPreventRemoveEnabled).toBe(false);
+    });
+
+    await act(async () => {
+      staleLeave?.();
+      staleLeave?.();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockRecorderStop).toHaveBeenCalledTimes(1);
+    expect(mockAddRecording).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Recording saved')).toBeTruthy();
+    expect(screen.queryByText('Recording needs attention')).toBeNull();
+    expect(mockNavigationDispatch).toHaveBeenCalledTimes(1);
+    expect(mockNavigationDispatch).toHaveBeenCalledWith(action);
+  });
+
+  test('the latest saving Stay cancels an older queued leave intent', async () => {
+    const pendingPersist = deferred<Recording>();
+    mockAddRecording.mockReturnValueOnce(pendingPersist.promise);
+    const actionA = {
+      type: 'NAVIGATE',
+      payload: { name: 'queued-destination' },
+    } as unknown as NavigationAction;
+    const actionB = {
+      type: 'NAVIGATE',
+      payload: { name: 'cancelled-dismissal' },
+    } as unknown as NavigationAction;
+    await render(<PulledOver />);
+    await enterGuidanceWithRecording();
+
+    await act(async () => {
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Stop recording' }),
+      );
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Saving recording')).toBeTruthy();
+    });
+
+    await requestDismissal(actionA);
+    await pressLatestAlertButton('Leave after saving');
+    await requestDismissal(actionB);
+    await pressLatestAlertButton('Stay');
+
+    await act(async () => {
+      pendingPersist.resolve(recordingFor(mockAddRecording.mock.calls[0][0]));
+      await pendingPersist.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Recording saved')).toBeTruthy();
+    });
+    expect(mockNavigationDispatch).not.toHaveBeenCalled();
+  });
+
+  test('an older Stay callback cannot clear a newer saving leave intent', async () => {
+    const pendingPersist = deferred<Recording>();
+    mockAddRecording.mockReturnValueOnce(pendingPersist.promise);
+    const actionA = {
+      type: 'NAVIGATE',
+      payload: { name: 'older-dismissal' },
+    } as unknown as NavigationAction;
+    const actionB = {
+      type: 'NAVIGATE',
+      payload: { name: 'newer-destination' },
+    } as unknown as NavigationAction;
+    await render(<PulledOver />);
+    await enterGuidanceWithRecording();
+
+    await act(async () => {
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Stop recording' }),
+      );
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Saving recording')).toBeTruthy();
+    });
+
+    await requestDismissal(actionA);
+    const olderStay = latestAlertButton('Stay').onPress;
+    await requestDismissal(actionB);
+    await pressLatestAlertButton('Leave after saving');
+    await act(async () => {
+      olderStay?.();
+    });
+
+    await act(async () => {
+      pendingPersist.resolve(recordingFor(mockAddRecording.mock.calls[0][0]));
+      await pendingPersist.promise;
+    });
+    await waitFor(() => {
+      expect(mockNavigationDispatch).toHaveBeenCalledTimes(1);
+    });
+    expect(mockNavigationDispatch).toHaveBeenCalledWith(actionB);
+  });
+
   test('recording dismissal requires confirmation before discarding and leaving', async () => {
     const action = { type: 'GO_BACK' } as NavigationAction;
     await render(<PulledOver />);
@@ -522,6 +651,42 @@ describe('PulledOver recording flow', () => {
       'Discard & leave',
       'Retry & leave',
     ]);
+  });
+
+  test('save-error Stay cancels queued leave before a banner Retry succeeds', async () => {
+    mockAddRecording
+      .mockRejectedValueOnce(new Error('recording storage unavailable'))
+      .mockImplementationOnce(async (retryInput) => recordingFor(retryInput));
+    const queuedAction = {
+      type: 'NAVIGATE',
+      payload: { name: 'queued-after-retry' },
+    } as unknown as NavigationAction;
+    const cancelledAction = {
+      type: 'GO_BACK',
+    } as NavigationAction;
+    await render(<PulledOver />);
+    await enterGuidanceWithRecording();
+
+    await requestDismissal(queuedAction);
+    await pressLatestAlertButton('Save & leave');
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Retry saving recording' }),
+      ).toBeTruthy();
+    });
+
+    await requestDismissal(cancelledAction);
+    await pressLatestAlertButton('Stay');
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Retry saving recording' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Recording saved')).toBeTruthy();
+    });
+    expect(mockRecorderStop).toHaveBeenCalledTimes(1);
+    expect(mockAddRecording).toHaveBeenCalledTimes(2);
+    expect(mockNavigationDispatch).not.toHaveBeenCalled();
   });
 
   test('Retry reuses retained input without stopping again and resumes pending navigation', async () => {

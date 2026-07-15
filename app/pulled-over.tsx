@@ -200,7 +200,13 @@ export default function PulledOver() {
   const reduceMotion = useReduceMotion();
   const [recordingStatus, setRecordingStatus] =
     useState<RecordingStatus>('idle');
+  const recordingStatusRef = useRef<RecordingStatus>('idle');
+  const updateRecordingStatus = useCallback((next: RecordingStatus) => {
+    recordingStatusRef.current = next;
+    setRecordingStatus(next);
+  }, []);
   const [isRetryingSave, setIsRetryingSave] = useState(false);
+  const [pendingNavVersion, setPendingNavVersion] = useState(0);
   const hasProtectedAudio =
     recordingStatus === 'recording' ||
     recordingStatus === 'saving' ||
@@ -217,7 +223,14 @@ export default function PulledOver() {
   // error/reset) — aliasing preserves all the banner's existing reads.
   const saveRecordingMutation = add;
   const lastRecordingSaveInputRef = useRef<AddRecordingInput | null>(null);
-  const pendingNavRef = useRef<{ action: NavigationAction } | null>(null);
+  const pendingNavRef = useRef<{
+    action: NavigationAction;
+    ownerGeneration: number;
+  } | null>(null);
+  const navigationIntentGenerationRef = useRef(0);
+  const activeNavigationIntentGenerationRef = useRef(0);
+  const consumedNavigationIntentGenerationRef = useRef(0);
+  const recordingOperationGenerationRef = useRef(0);
   const saveInFlightRef = useRef(false);
   // State-aware firearm guidance — variant resolved from the device's
   // current state via reverse-geocoding. Defaults to 'duty-to-inform'
@@ -311,14 +324,14 @@ export default function PulledOver() {
     let cancelled = false;
     hasStartedRecordingRef.current = true;
     if (cancelled) return;
-    setRecordingStatus('requesting-permission');
+    updateRecordingStatus('requesting-permission');
     (async () => {
       try {
         const permission = await requestRecordingPermissionsAsync();
         if (cancelled) return;
         if (!permission.granted) {
           if (cancelled) return;
-          setRecordingStatus('unavailable');
+          updateRecordingStatus('unavailable');
           if (cancelled) return;
           console.warn('Microphone permission not granted; waveform disabled');
           return;
@@ -335,7 +348,7 @@ export default function PulledOver() {
         recordingArmedRef.current = armed;
         recordingStartedAtRef.current = Date.now();
         if (cancelled) return;
-        setRecordingStatus('recording');
+        updateRecordingStatus('recording');
         if (cancelled) return;
         AccessibilityInfo.announceForAccessibility('Recording started.');
       } catch (err) {
@@ -343,7 +356,7 @@ export default function PulledOver() {
         // Group B: surface to the user. They think recording is happening; if
         // it isn't, they need to know NOW. Recordings + permanent maps to
         // "Couldn't start recording / Try a different microphone or restart."
-        setRecordingStatus('unavailable');
+        updateRecordingStatus('unavailable');
         if (cancelled) return;
         const { title, body } = getErrorMessage('recordings', 'permanent', err);
         if (cancelled) return;
@@ -357,18 +370,48 @@ export default function PulledOver() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldStartRecording]);
 
-  const saveCurrentRecording = useCallback(
-    async (action?: NavigationAction) => {
-      const startedAt = recordingStartedAtRef.current;
-      if (startedAt == null) {
-        setRecordingStatus('save-error');
+  const queueNavigationIntent = useCallback(
+    (action: NavigationAction, ownerGeneration: number) => {
+      if (
+        activeNavigationIntentGenerationRef.current !== ownerGeneration ||
+        consumedNavigationIntentGenerationRef.current === ownerGeneration
+      ) {
         return;
       }
-      if (action) pendingNavRef.current = { action };
+      pendingNavRef.current = { action, ownerGeneration };
+      setPendingNavVersion((version) => version + 1);
+    },
+    [],
+  );
+
+  const cancelNavigationIntent = useCallback((ownerGeneration: number) => {
+    if (activeNavigationIntentGenerationRef.current !== ownerGeneration) return;
+    pendingNavRef.current = null;
+    setPendingNavVersion((version) => version + 1);
+  }, []);
+
+  const saveCurrentRecording = useCallback(
+    async (action?: NavigationAction, ownerGeneration?: number) => {
+      if (action && ownerGeneration != null) {
+        queueNavigationIntent(action, ownerGeneration);
+      }
+      if (
+        recordingStatusRef.current === 'saved' ||
+        recordingStatusRef.current === 'discarded'
+      ) {
+        return;
+      }
+      const startedAt = recordingStartedAtRef.current;
+      if (startedAt == null) {
+        updateRecordingStatus('save-error');
+        return;
+      }
       if (saveInFlightRef.current) return;
 
+      const operationGeneration =
+        ++recordingOperationGenerationRef.current;
       saveInFlightRef.current = true;
-      setRecordingStatus('saving');
+      updateRecordingStatus('saving');
       AccessibilityInfo.announceForAccessibility('Saving recording.');
       const result = await stopAndPersistRecording({
         recorder,
@@ -376,11 +419,12 @@ export default function PulledOver() {
         armed: recordingArmedRef.current,
         persist: saveRecordingMutation.run,
       });
+      if (recordingOperationGenerationRef.current !== operationGeneration) return;
       saveInFlightRef.current = false;
 
       if (!result.ok) {
         lastRecordingSaveInputRef.current = result.retryInput ?? null;
-        setRecordingStatus('save-error');
+        updateRecordingStatus('save-error');
         AccessibilityInfo.announceForAccessibility(
           'Recording could not be saved. Retry or discard the recording.',
         );
@@ -388,37 +432,49 @@ export default function PulledOver() {
       }
 
       lastRecordingSaveInputRef.current = null;
-      setRecordingStatus('saved');
+      updateRecordingStatus('saved');
       AccessibilityInfo.announceForAccessibility('Recording saved.');
     },
-    [recorder, saveRecordingMutation.run],
+    [
+      queueNavigationIntent,
+      recorder,
+      saveRecordingMutation.run,
+      updateRecordingStatus,
+    ],
   );
 
-  const retryRecordingSave = useCallback(async (action?: NavigationAction) => {
-    if (action) pendingNavRef.current = { action };
+  const retryRecordingSave = useCallback(async (
+    action?: NavigationAction,
+    ownerGeneration?: number,
+  ) => {
+    if (action && ownerGeneration != null) {
+      queueNavigationIntent(action, ownerGeneration);
+    }
     if (saveInFlightRef.current) return;
     const retryInput = lastRecordingSaveInputRef.current;
     if (!retryInput) {
       setIsRetryingSave(true);
-      await saveCurrentRecording(action);
+      await saveCurrentRecording(action, ownerGeneration);
       setIsRetryingSave(false);
       return;
     }
 
+    const operationGeneration = ++recordingOperationGenerationRef.current;
     saveInFlightRef.current = true;
     setIsRetryingSave(true);
-    setRecordingStatus('saving');
+    updateRecordingStatus('saving');
     AccessibilityInfo.announceForAccessibility('Saving recording.');
     const result = await persistRecordingInput(
       retryInput,
       saveRecordingMutation.run,
     );
+    if (recordingOperationGenerationRef.current !== operationGeneration) return;
     saveInFlightRef.current = false;
     setIsRetryingSave(false);
 
     if (!result.ok) {
       lastRecordingSaveInputRef.current = result.retryInput ?? retryInput;
-      setRecordingStatus('save-error');
+      updateRecordingStatus('save-error');
       AccessibilityInfo.announceForAccessibility(
         'Recording could not be saved. Retry or discard the recording.',
       );
@@ -426,12 +482,23 @@ export default function PulledOver() {
     }
 
     lastRecordingSaveInputRef.current = null;
-    setRecordingStatus('saved');
+    updateRecordingStatus('saved');
     AccessibilityInfo.announceForAccessibility('Recording saved.');
-  }, [saveCurrentRecording, saveRecordingMutation.run]);
+  }, [
+    queueNavigationIntent,
+    saveCurrentRecording,
+    saveRecordingMutation.run,
+    updateRecordingStatus,
+  ]);
 
-  const discardCurrentRecording = useCallback(async (action?: NavigationAction) => {
-    if (action) pendingNavRef.current = { action };
+  const discardCurrentRecording = useCallback(async (
+    action?: NavigationAction,
+    ownerGeneration?: number,
+  ) => {
+    if (action && ownerGeneration != null) {
+      queueNavigationIntent(action, ownerGeneration);
+    }
+    recordingOperationGenerationRef.current += 1;
     if (recorder.isRecording) {
       try {
         await recorder.stop();
@@ -441,20 +508,34 @@ export default function PulledOver() {
       }
     }
     saveRecordingMutation.reset();
+    saveInFlightRef.current = false;
     setIsRetryingSave(false);
     lastRecordingSaveInputRef.current = null;
     recordingStartedAtRef.current = null;
     recordingArmedRef.current = null;
-    setRecordingStatus('discarded');
-  }, [recorder, saveRecordingMutation.reset]);
+    updateRecordingStatus('discarded');
+  }, [
+    queueNavigationIntent,
+    recorder,
+    saveRecordingMutation.reset,
+    updateRecordingStatus,
+  ]);
 
   useEffect(() => {
     if (recordingStatus !== 'saved' && recordingStatus !== 'discarded') return;
     const pending = pendingNavRef.current;
     if (!pending) return;
+    if (
+      pending.ownerGeneration !==
+        activeNavigationIntentGenerationRef.current ||
+      consumedNavigationIntentGenerationRef.current === pending.ownerGeneration
+    ) {
+      return;
+    }
     pendingNavRef.current = null;
+    consumedNavigationIntentGenerationRef.current = pending.ownerGeneration;
     navigation.dispatch(pending.action);
-  }, [navigation, recordingStatus]);
+  }, [navigation, pendingNavVersion, recordingStatus]);
 
   // Stop the recorder and persist the captured audio when the user
   // dismisses the modal.
@@ -473,17 +554,24 @@ export default function PulledOver() {
   // "screen was removed natively but didn't get removed from JS state"
   // warning. usePreventRemove is the supported pattern for this case.
   usePreventRemove(hasProtectedAudio, ({ data }) => {
+    const ownerGeneration = ++navigationIntentGenerationRef.current;
+    activeNavigationIntentGenerationRef.current = ownerGeneration;
+    const operationGeneration = recordingOperationGenerationRef.current;
     const confirmDiscardAndLeave = (keepLabel: string) => {
       Alert.alert(
         'Discard this recording?',
         'This permanently discards the recording. Leave this screen?',
         [
-          { text: keepLabel, style: 'cancel' },
+          {
+            text: keepLabel,
+            style: 'cancel',
+            onPress: () => cancelNavigationIntent(ownerGeneration),
+          },
           {
             text: 'Discard & leave',
             style: 'destructive',
             onPress: () => {
-              void discardCurrentRecording(data.action);
+              void discardCurrentRecording(data.action, ownerGeneration);
             },
           },
         ],
@@ -495,11 +583,23 @@ export default function PulledOver() {
         'Saving recording',
         'Saving is underway. You can stay here or leave automatically after it finishes.',
         [
-          { text: 'Stay', style: 'cancel' },
+          {
+            text: 'Stay',
+            style: 'cancel',
+            onPress: () => cancelNavigationIntent(ownerGeneration),
+          },
           {
             text: 'Leave after saving',
             onPress: () => {
-              void saveCurrentRecording(data.action);
+              const status = recordingStatusRef.current;
+              const isTerminal = status === 'saved' || status === 'discarded';
+              if (
+                !isTerminal &&
+                recordingOperationGenerationRef.current !== operationGeneration
+              ) {
+                return;
+              }
+              queueNavigationIntent(data.action, ownerGeneration);
             },
           },
         ],
@@ -512,7 +612,11 @@ export default function PulledOver() {
         'Recording not saved',
         'Retry saving before leaving, or discard the recording permanently.',
         [
-          { text: 'Stay', style: 'cancel' },
+          {
+            text: 'Stay',
+            style: 'cancel',
+            onPress: () => cancelNavigationIntent(ownerGeneration),
+          },
           {
             text: 'Discard & leave',
             style: 'destructive',
@@ -521,7 +625,7 @@ export default function PulledOver() {
           {
             text: 'Retry & leave',
             onPress: () => {
-              void retryRecordingSave(data.action);
+              void retryRecordingSave(data.action, ownerGeneration);
             },
           },
         ],
@@ -533,7 +637,11 @@ export default function PulledOver() {
       'Recording in progress',
       'Save the recording before leaving, or discard it permanently.',
       [
-        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Stay',
+          style: 'cancel',
+          onPress: () => cancelNavigationIntent(ownerGeneration),
+        },
         {
           text: 'Discard & leave',
           style: 'destructive',
@@ -542,7 +650,7 @@ export default function PulledOver() {
         {
           text: 'Save & leave',
           onPress: () => {
-            void saveCurrentRecording(data.action);
+            void saveCurrentRecording(data.action, ownerGeneration);
           },
         },
       ],
