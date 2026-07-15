@@ -33,6 +33,7 @@ export function RecordingSaveErrorBanner({
   pending: boolean;
 }) {
   function handleDismissTap() {
+    if (pending) return;
     Alert.alert(
       'Discard this recording?',
       'This will permanently discard the audio you just captured.',
@@ -66,9 +67,14 @@ export function RecordingSaveErrorBanner({
       </Pressable>
       <Pressable
         onPress={handleDismissTap}
+        disabled={pending}
         accessibilityRole="button"
         accessibilityLabel="Dismiss banner — discard recording"
-        style={({ pressed }) => [tapTarget44, styles.dismissBtn, pressed && pressedDim]}
+        style={({ pressed }) => [
+          tapTarget44,
+          styles.dismissBtn,
+          pressed && !pending && pressedDim,
+        ]}
       >
         <X size={20} color={colors.white} weight="regular" />
       </Pressable>

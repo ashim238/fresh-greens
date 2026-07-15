@@ -160,6 +160,10 @@ function latestAlertButtons(): ReadonlyArray<{
   }>;
 }
 
+function latestAlertButtonLabels() {
+  return latestAlertButtons().map((button) => button.text);
+}
+
 async function pressLatestAlertButton(label: string) {
   const button = latestAlertButtons().find((candidate) => candidate.text === label);
   expect(button).toBeDefined();
@@ -200,11 +204,6 @@ async function requestDismissal(action: NavigationAction) {
   await act(() => {
     mockPreventRemoveCallback?.({ data: { action } });
   });
-  expect(Alert.alert).toHaveBeenCalledWith(
-    'Recording in progress',
-    'Your recording will be saved. Leave this screen?',
-    expect.any(Array),
-  );
 }
 
 describe('PulledOver recording flow', () => {
@@ -247,6 +246,64 @@ describe('PulledOver recording flow', () => {
   afterEach(async () => {
     await cleanup();
     jest.restoreAllMocks();
+  });
+
+  test('TransitionView stays truthful while permission is pending and announces one real start', async () => {
+    const pendingPermission = deferred<{ granted: boolean }>();
+    mockRequestRecordingPermissions.mockReturnValueOnce(
+      pendingPermission.promise,
+    );
+    const view = await render(<PulledOver />);
+
+    await chooseUnarmedAnswer();
+    expect(screen.getByText('Preparing your recording')).toBeTruthy();
+    expect(screen.queryByText('Recording started')).toBeNull();
+    expect(recordingAnnouncementCount('Recording started.')).toBe(0);
+
+    await act(async () => {
+      pendingPermission.resolve({ granted: true });
+      await pendingPermission.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Recording started')).toBeTruthy();
+    });
+    expect(recordingAnnouncementCount('Recording started.')).toBe(1);
+
+    await view.rerender(<PulledOver />);
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Continue to guidance' }),
+    );
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Continue to trusted contact' }),
+    );
+    expect(recordingAnnouncementCount('Recording started.')).toBe(1);
+  });
+
+  test('unmount while permission is pending cancels all recorder startup side effects', async () => {
+    const pendingPermission = deferred<{ granted: boolean }>();
+    mockRequestRecordingPermissions.mockReturnValueOnce(
+      pendingPermission.promise,
+    );
+    const view = await render(<PulledOver />);
+
+    await chooseUnarmedAnswer();
+    expect(screen.getByText('Preparing your recording')).toBeTruthy();
+    await view.unmount();
+
+    await act(async () => {
+      pendingPermission.resolve({ granted: true });
+      await pendingPermission.promise;
+      await Promise.resolve();
+    });
+
+    expect(mockSetAudioMode).not.toHaveBeenCalled();
+    expect(mockRecorderPrepare).not.toHaveBeenCalled();
+    expect(mockRecorderRecord).not.toHaveBeenCalled();
+    expect(recordingAnnouncementCount('Recording started.')).toBe(0);
+    expect(console.warn).not.toHaveBeenCalledWith(
+      'Microphone permission not granted; waveform disabled',
+    );
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   test('manual Stop stays in saving until persistence resolves and stops once', async () => {
@@ -313,6 +370,16 @@ describe('PulledOver recording flow', () => {
     mockNow = 4_000;
 
     await requestDismissal(action);
+    expect(Alert.alert).toHaveBeenLastCalledWith(
+      'Recording in progress',
+      'Save the recording before leaving, or discard it permanently.',
+      expect.any(Array),
+    );
+    expect(latestAlertButtonLabels()).toEqual([
+      'Stay',
+      'Discard & leave',
+      'Save & leave',
+    ]);
     await pressLatestAlertButton('Save & leave');
     expect(mockRecorderStop).toHaveBeenCalledTimes(1);
 
@@ -334,6 +401,96 @@ describe('PulledOver recording flow', () => {
     ]);
   });
 
+  test('saving dismissal keeps visible feedback and dispatches only the latest requested action', async () => {
+    const pendingPersist = deferred<Recording>();
+    mockAddRecording.mockReturnValueOnce(pendingPersist.promise);
+    const actionA = {
+      type: 'NAVIGATE',
+      payload: { name: 'first-destination' },
+    } as unknown as NavigationAction;
+    const actionB = {
+      type: 'NAVIGATE',
+      payload: { name: 'replacement-destination' },
+    } as unknown as NavigationAction;
+    const dispatchProtection: boolean[] = [];
+    mockNavigationDispatch.mockImplementation(() => {
+      dispatchProtection.push(mockPreventRemoveEnabled);
+    });
+    await render(<PulledOver />);
+    await enterGuidanceWithRecording();
+
+    await act(async () => {
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Stop recording' }),
+      );
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Saving recording')).toBeTruthy();
+    });
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Continue to trusted contact' }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("You're not alone.")).toBeTruthy();
+      expect(screen.getByText('Saving recording')).toBeTruthy();
+    });
+    expect(
+      screen.queryByLabelText(/Recording, \d+ minutes \d+ seconds elapsed/),
+    ).toBeNull();
+
+    await requestDismissal(actionA);
+    expect(Alert.alert).toHaveBeenLastCalledWith(
+      'Saving recording',
+      'Saving is underway. You can stay here or leave automatically after it finishes.',
+      expect.any(Array),
+    );
+    expect(latestAlertButtonLabels()).toEqual(['Stay', 'Leave after saving']);
+    await pressLatestAlertButton('Leave after saving');
+
+    await requestDismissal(actionB);
+    await pressLatestAlertButton('Leave after saving');
+    expect(mockNavigationDispatch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      pendingPersist.resolve(recordingFor(mockAddRecording.mock.calls[0][0]));
+      await pendingPersist.promise;
+    });
+
+    await waitFor(() => {
+      expect(mockNavigationDispatch).toHaveBeenCalledTimes(1);
+    });
+    expect(mockNavigationDispatch).toHaveBeenCalledWith(actionB);
+    expect(dispatchProtection).toEqual([false]);
+  });
+
+  test('recording dismissal requires confirmation before discarding and leaving', async () => {
+    const action = { type: 'GO_BACK' } as NavigationAction;
+    await render(<PulledOver />);
+    await enterGuidanceWithRecording();
+
+    await requestDismissal(action);
+    await pressLatestAlertButton('Discard & leave');
+    expect(Alert.alert).toHaveBeenLastCalledWith(
+      'Discard this recording?',
+      'This permanently discards the recording. Leave this screen?',
+      expect.any(Array),
+    );
+    expect(latestAlertButtonLabels()).toEqual([
+      'Keep recording',
+      'Discard & leave',
+    ]);
+    await pressLatestAlertButton('Discard & leave');
+
+    await waitFor(() => {
+      expect(mockNavigationDispatch).toHaveBeenCalledWith(action);
+    });
+    expect(mockRecorderStop).toHaveBeenCalledTimes(1);
+    expect(mockAddRecording).not.toHaveBeenCalled();
+    expect(mockPreventRemoveEnabled).toBe(false);
+  });
+
   test('persistence failure shows save-error, retains retry input, and holds navigation', async () => {
     const persistError = new Error('recording storage unavailable');
     mockAddRecording.mockRejectedValueOnce(persistError);
@@ -353,6 +510,18 @@ describe('PulledOver recording flow', () => {
     expect(mockPreventRemoveEnabled).toBe(true);
     expect(mockRecorderStop).toHaveBeenCalledTimes(1);
     expect(mockAddRecording).toHaveBeenCalledTimes(1);
+
+    await requestDismissal(action);
+    expect(Alert.alert).toHaveBeenLastCalledWith(
+      'Recording not saved',
+      'Retry saving before leaving, or discard the recording permanently.',
+      expect.any(Array),
+    );
+    expect(latestAlertButtonLabels()).toEqual([
+      'Stay',
+      'Discard & leave',
+      'Retry & leave',
+    ]);
   });
 
   test('Retry reuses retained input without stopping again and resumes pending navigation', async () => {
@@ -380,12 +549,32 @@ describe('PulledOver recording flow', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Saving recording')).toBeTruthy();
+      expect(screen.getByText('Retrying…')).toBeTruthy();
     });
+    expect(
+      screen.getByRole('button', { name: 'Retrying' }).props.accessibilityState
+        ?.disabled,
+    ).toBe(true);
+    expect(
+      screen.getByRole('button', {
+        name: 'Dismiss banner — discard recording',
+      }).props.accessibilityState?.disabled,
+    ).toBe(true);
     expect(mockRecorderStop).toHaveBeenCalledTimes(1);
     expect(mockAddRecording).toHaveBeenCalledTimes(2);
     expect(mockAddRecording.mock.calls[1][0]).toEqual(firstInput);
     expect(mockNavigationDispatch).not.toHaveBeenCalled();
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Continue to trusted contact' }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("You're not alone.")).toBeTruthy();
+      expect(screen.getByText('Retrying…')).toBeTruthy();
+    });
+    expect(
+      screen.queryByLabelText(/Recording, \d+ minutes \d+ seconds elapsed/),
+    ).toBeNull();
 
     await act(async () => {
       retryPersist.resolve(recordingFor(firstInput));
@@ -466,6 +655,12 @@ describe('PulledOver recording flow', () => {
       await render(<PulledOver />);
 
       await chooseUnarmedAnswer();
+      await waitFor(() => {
+        expect(screen.getByText('Microphone unavailable')).toBeTruthy();
+      });
+      expect(screen.getByText('Guidance is still ready')).toBeTruthy();
+      expect(screen.queryByText('Recording started')).toBeNull();
+      expect(recordingAnnouncementCount('Recording started.')).toBe(0);
       await fireEvent.press(
         screen.getByRole('button', { name: 'Continue to guidance' }),
       );

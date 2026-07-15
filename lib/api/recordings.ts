@@ -100,14 +100,6 @@ export async function addRecording(input: AddRecordingInput): Promise<Recording>
   const destFile = new File(recordingsDir, `${id}.m4a`);
   sourceFile.copy(destFile);
 
-  // Best-effort cleanup of the source — ignore failures (the file
-  // is in cache and will be reaped eventually if it's not gone now).
-  try {
-    sourceFile.delete();
-  } catch {
-    /* noop */
-  }
-
   const recording: Recording = {
     id,
     uri: destFile.uri,
@@ -116,11 +108,30 @@ export async function addRecording(input: AddRecordingInput): Promise<Recording>
     armed: input.armed,
   };
 
-  const existing = await getRecordings();
-  await AsyncStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify([recording, ...existing]),
-  );
+  try {
+    const existing = await getRecordings();
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([recording, ...existing]),
+    );
+  } catch (error) {
+    // Metadata is the commit boundary. Preserve the retryable source and
+    // best-effort remove the unindexed destination if the commit fails.
+    try {
+      destFile.delete();
+    } catch {
+      /* noop */
+    }
+    throw error;
+  }
+
+  // Metadata now points at the persistent destination. Temp-source cleanup
+  // is post-commit and must not turn a successful save into a reported error.
+  try {
+    sourceFile.delete();
+  } catch {
+    /* noop */
+  }
   return recording;
 }
 

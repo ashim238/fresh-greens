@@ -200,6 +200,7 @@ export default function PulledOver() {
   const reduceMotion = useReduceMotion();
   const [recordingStatus, setRecordingStatus] =
     useState<RecordingStatus>('idle');
+  const [isRetryingSave, setIsRetryingSave] = useState(false);
   const hasProtectedAudio =
     recordingStatus === 'recording' ||
     recordingStatus === 'saving' ||
@@ -253,6 +254,7 @@ export default function PulledOver() {
   // bucket as 'yes' so the guidance assumes a firearm may be present.
   const showFirearmGuidance =
     armed === 'yes' || armed === 'preferred-not-to-answer';
+  const shouldStartRecording = phase !== 'armed';
 
   // Recording timer follows the truthful recorder state. Permission denial,
   // startup failure, saving, and saved states never keep a false timer alive.
@@ -304,15 +306,20 @@ export default function PulledOver() {
   // permission is denied or recording errors, the rest of the flow
   // works fine; the waveform just stays at its baseline.
   useEffect(() => {
-    if (phase === 'armed') return;
+    if (!shouldStartRecording) return;
     if (hasStartedRecordingRef.current) return;
+    let cancelled = false;
     hasStartedRecordingRef.current = true;
+    if (cancelled) return;
     setRecordingStatus('requesting-permission');
     (async () => {
       try {
         const permission = await requestRecordingPermissionsAsync();
+        if (cancelled) return;
         if (!permission.granted) {
+          if (cancelled) return;
           setRecordingStatus('unavailable');
+          if (cancelled) return;
           console.warn('Microphone permission not granted; waveform disabled');
           return;
         }
@@ -320,23 +327,35 @@ export default function PulledOver() {
           allowsRecording: true,
           playsInSilentMode: true,
         });
+        if (cancelled) return;
         await recorder.prepareToRecordAsync();
+        if (cancelled) return;
         recorder.record();
+        if (cancelled) return;
         recordingArmedRef.current = armed;
         recordingStartedAtRef.current = Date.now();
+        if (cancelled) return;
         setRecordingStatus('recording');
+        if (cancelled) return;
+        AccessibilityInfo.announceForAccessibility('Recording started.');
       } catch (err) {
+        if (cancelled) return;
         // Group B: surface to the user. They think recording is happening; if
         // it isn't, they need to know NOW. Recordings + permanent maps to
         // "Couldn't start recording / Try a different microphone or restart."
         setRecordingStatus('unavailable');
+        if (cancelled) return;
         const { title, body } = getErrorMessage('recordings', 'permanent', err);
+        if (cancelled) return;
         Alert.alert(title, body);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
     // recorder identity is stable from the hook; intentionally not in deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [shouldStartRecording]);
 
   const saveCurrentRecording = useCallback(
     async (action?: NavigationAction) => {
@@ -375,15 +394,19 @@ export default function PulledOver() {
     [recorder, saveRecordingMutation.run],
   );
 
-  const retryRecordingSave = useCallback(async () => {
+  const retryRecordingSave = useCallback(async (action?: NavigationAction) => {
+    if (action) pendingNavRef.current = { action };
     if (saveInFlightRef.current) return;
     const retryInput = lastRecordingSaveInputRef.current;
     if (!retryInput) {
-      await saveCurrentRecording();
+      setIsRetryingSave(true);
+      await saveCurrentRecording(action);
+      setIsRetryingSave(false);
       return;
     }
 
     saveInFlightRef.current = true;
+    setIsRetryingSave(true);
     setRecordingStatus('saving');
     AccessibilityInfo.announceForAccessibility('Saving recording.');
     const result = await persistRecordingInput(
@@ -391,6 +414,7 @@ export default function PulledOver() {
       saveRecordingMutation.run,
     );
     saveInFlightRef.current = false;
+    setIsRetryingSave(false);
 
     if (!result.ok) {
       lastRecordingSaveInputRef.current = result.retryInput ?? retryInput;
@@ -406,13 +430,23 @@ export default function PulledOver() {
     AccessibilityInfo.announceForAccessibility('Recording saved.');
   }, [saveCurrentRecording, saveRecordingMutation.run]);
 
-  const discardCurrentRecording = useCallback(() => {
+  const discardCurrentRecording = useCallback(async (action?: NavigationAction) => {
+    if (action) pendingNavRef.current = { action };
+    if (recorder.isRecording) {
+      try {
+        await recorder.stop();
+      } catch {
+        // The user explicitly chose permanent discard. Continue disarming the
+        // screen even if the native recorder is already unavailable.
+      }
+    }
     saveRecordingMutation.reset();
+    setIsRetryingSave(false);
     lastRecordingSaveInputRef.current = null;
     recordingStartedAtRef.current = null;
     recordingArmedRef.current = null;
     setRecordingStatus('discarded');
-  }, [saveRecordingMutation.reset]);
+  }, [recorder, saveRecordingMutation.reset]);
 
   useEffect(() => {
     if (recordingStatus !== 'saved' && recordingStatus !== 'discarded') return;
@@ -439,11 +473,72 @@ export default function PulledOver() {
   // "screen was removed natively but didn't get removed from JS state"
   // warning. usePreventRemove is the supported pattern for this case.
   usePreventRemove(hasProtectedAudio, ({ data }) => {
+    const confirmDiscardAndLeave = (keepLabel: string) => {
+      Alert.alert(
+        'Discard this recording?',
+        'This permanently discards the recording. Leave this screen?',
+        [
+          { text: keepLabel, style: 'cancel' },
+          {
+            text: 'Discard & leave',
+            style: 'destructive',
+            onPress: () => {
+              void discardCurrentRecording(data.action);
+            },
+          },
+        ],
+      );
+    };
+
+    if (recordingStatus === 'saving') {
+      Alert.alert(
+        'Saving recording',
+        'Saving is underway. You can stay here or leave automatically after it finishes.',
+        [
+          { text: 'Stay', style: 'cancel' },
+          {
+            text: 'Leave after saving',
+            onPress: () => {
+              void saveCurrentRecording(data.action);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    if (recordingStatus === 'save-error') {
+      Alert.alert(
+        'Recording not saved',
+        'Retry saving before leaving, or discard the recording permanently.',
+        [
+          { text: 'Stay', style: 'cancel' },
+          {
+            text: 'Discard & leave',
+            style: 'destructive',
+            onPress: () => confirmDiscardAndLeave('Keep trying'),
+          },
+          {
+            text: 'Retry & leave',
+            onPress: () => {
+              void retryRecordingSave(data.action);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     Alert.alert(
       'Recording in progress',
-      'Your recording will be saved. Leave this screen?',
+      'Save the recording before leaving, or discard it permanently.',
       [
         { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Discard & leave',
+          style: 'destructive',
+          onPress: () => confirmDiscardAndLeave('Keep recording'),
+        },
         {
           text: 'Save & leave',
           onPress: () => {
@@ -563,15 +658,26 @@ export default function PulledOver() {
           with-confirm. See RecordingSaveErrorBanner for the P-C
           pattern rationale (Phase 1's tail).
         */}
-        {recordingStatus === 'save-error' && (
+        {(recordingStatus === 'save-error' || isRetryingSave) && (
           <RecordingSaveErrorBanner
-            pending={false}
+            pending={isRetryingSave}
             onRetry={() => {
               void retryRecordingSave();
             }}
-            onDismiss={discardCurrentRecording}
+            onDismiss={() => {
+              void discardCurrentRecording();
+            }}
           />
         )}
+
+        {recordingStatus === 'saving' &&
+          !isRetryingSave &&
+          (phase === 'contact' || phase === 'review') && (
+            <View style={styles.savingStatus} accessibilityLiveRegion="polite">
+              <Text style={styles.savingStatusTitle}>Saving recording</Text>
+              <Text style={styles.savingStatusDetail}>Keep this screen open</Text>
+            </View>
+          )}
 
         {/*
           Persistent recording chip — only on phases where the recording
@@ -590,7 +696,10 @@ export default function PulledOver() {
         <View style={styles.phaseContainer}>
           {phase === 'armed' && <ArmedView onAnswer={handleAnswer} />}
           {phase === 'transition' && (
-            <TransitionView onSkip={() => setPhase('guidance')} />
+            <TransitionView
+              recordingStatus={recordingStatus}
+              onSkip={() => setPhase('guidance')}
+            />
           )}
           {phase === 'guidance' && (
             <GuidanceView
@@ -689,7 +798,27 @@ function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
 
 // --- Phase: Transition ---------------------------------------------------
 
-function TransitionView({ onSkip }: { onSkip: () => void }) {
+function TransitionView({
+  recordingStatus,
+  onSkip,
+}: {
+  recordingStatus: RecordingStatus;
+  onSkip: () => void;
+}) {
+  const [recordingTitle, recordingDetail] =
+    recordingStatus === 'recording'
+      ? ['Recording started', 'For your safety.']
+      : recordingStatus === 'unavailable'
+        ? ['Microphone unavailable', 'Guidance is still ready']
+        : recordingStatus === 'saving'
+          ? ['Saving your recording', 'Keep this screen open.']
+          : recordingStatus === 'saved'
+            ? ['Recording saved', 'Guidance is still ready']
+            : recordingStatus === 'save-error'
+              ? ['Recording needs attention', 'Retry or discard before leaving.']
+              : recordingStatus === 'discarded'
+                ? ['Recording discarded', 'Guidance is still ready']
+                : ['Preparing your recording', 'For your safety.'];
   // User-controlled advance (WCAG 2.2.1): the screen waits
   // indefinitely for the user to tap Continue. Pace control during
   // stress is one of the strongest predictors of self-regulation per
@@ -702,9 +831,10 @@ function TransitionView({ onSkip }: { onSkip: () => void }) {
         <Text style={transitionStyles.title}>
           We'll walk you{'\n'}through what to do.
         </Text>
-        <Text style={transitionStyles.subtitle}>
-          We've started recording{'\n'} for your safety.
-        </Text>
+        <View>
+          <Text style={transitionStyles.subtitle}>{recordingTitle}</Text>
+          <Text style={transitionStyles.subtitle}>{recordingDetail}</Text>
+        </View>
       </View>
 
       <Pressable
@@ -1605,6 +1735,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.lg,
     top: spacing.md,
+  },
+  savingStatus: {
+    backgroundColor: colors.surfaceTinted,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  savingStatusTitle: {
+    ...dynamicType(typography.bodyRegular),
+    color: colors.black,
+  },
+  savingStatusDetail: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelTertiary,
   },
   phaseContainer: {
     flex: 1,
