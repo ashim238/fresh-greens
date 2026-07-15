@@ -159,6 +159,12 @@ export async function removeRecording(id: string): Promise<void> {
 /** Removes all stored recordings (sign-out cleanup, factory reset). */
 export async function clearAllRecordings(): Promise<void> {
   const all = await getRecordings();
+  // Metadata is the commit boundary. If this fails, preserve every audio
+  // file so the hook's optimistic rollback restores usable rows.
+  await AsyncStorage.removeItem(STORAGE_KEY);
+
+  // Metadata is committed. File cleanup is best-effort and must not turn a
+  // successful Delete All into a reported failure or resurrect metadata.
   for (const r of all) {
     try {
       const file = new File(r.uri);
@@ -167,5 +173,4 @@ export async function clearAllRecordings(): Promise<void> {
       /* noop */
     }
   }
-  await AsyncStorage.removeItem(STORAGE_KEY);
 }
