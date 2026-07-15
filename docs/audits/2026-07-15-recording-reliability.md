@@ -1,7 +1,7 @@
 # Recording Reliability Audit
 
 **Date:** 2026-07-15
-**Scope:** `/pulled-over` recording lifecycle, local recording persistence, and the `/recordings` Delete All recovery path. This is a source-and-test audit of current production through `b6749f4`; it is not an app-wide audit.
+**Scope:** `/pulled-over` recording lifecycle, local recording persistence, and the `/recordings` Delete All recovery path. This is a source-and-test audit of current production through `99f57e0`; it is not an app-wide audit.
 
 ## Automated evidence
 
@@ -9,12 +9,12 @@ All prescribed commands were run fresh from the repository root.
 
 | Command | Result | Current output |
 |---|---|---|
-| `npm run test:recordings` | Pass, exit 0 | 9/9 suites and 40/40 tests passed; 0 snapshots |
+| `npm run test:recordings` | Pass, exit 0 | 9/9 suites and 46/46 tests passed; 0 snapshots |
 | `npm run typecheck` | Pass, exit 0 | `tsc -p tsconfig.app.json --noEmit` completed with no diagnostics |
 | `npm ls --depth=0` | Pass, exit 0 | Complete top-level tree; no missing, invalid, or extraneous dependency errors |
 | `git diff --check` | Pass, exit 0 | No output |
 
-The focused tests cover truthful permission/start states, startup cancellation, one-stop persistence, deferred dismissal, retained retry input, confirmed discard, short recordings, adapter retry cleanup, the static card states, full-snapshot Delete All rollback, the user-visible cleared state, and the real Delete All adapter's metadata-first commit boundary and cleanup-failure behavior. They do not substitute for native audio, accessibility, layout, or relaunch checks.
+The focused tests cover truthful permission/start states, startup cancellation, one-stop persistence, deferred dismissal, retained retry input, confirmed discard, short recordings, adapter retry cleanup, the static card states, full-snapshot Delete All rollback, the user-visible cleared state, the real Delete All adapter's metadata-first commit boundary, stale native-alert/action ownership, and strict metadata read/parse retry behavior. They do not substitute for native audio, accessibility, layout, or relaunch checks.
 
 ### Provisional native audit score
 
@@ -37,30 +37,31 @@ The required state map is present in the final code. “Actions disabled” belo
 
 | State | User-visible state map | Evidence | Audit result |
 |---|---|---|---|
-| `idle` / `requesting-permission` | **Preparing recording** → no Stop → dismissal allowed | The card maps both states to the same truthful copy and omits Stop (`components/PulledOverRecordingCard.tsx:18-37,114-122`). Protection excludes these states (`app/pulled-over.tsx:204-207`). | Supported by source and card/flow tests. |
-| `recording` | **Recording started** → Stop available → dismissal saves first | The timer starts only in `recording`; successful native start triggers the state and announcement (`app/pulled-over.tsx:259-273,317-340`). Stop is shown only here (`components/PulledOverRecordingCard.tsx:124-153`). Dismissal is blocked behind Save & leave or confirmed discard (`app/pulled-over.tsx:475-550`). | Supported by source and flow tests; playable native output pending. |
-| `saving` | **Saving recording** → recording actions disabled → dismissal waits | Save sets `saving` before awaiting stop/persist and announces it (`app/pulled-over.tsx:360-393`). The card omits Stop, retry controls are disabled while retrying, and deferred navigation dispatches only after `saved` (`components/PulledOverRecordingCard.tsx:114-122`; `components/RecordingSaveErrorBanner.tsx:35-80`; `app/pulled-over.tsx:451-457,493-507`). | Supported by source and pending-promise flow tests. |
-| `saved` | **Recording saved** → no recovery action → dismissal allowed | Success clears retry input, commits `saved`, announces once through the explicit API path, removes navigation protection, and renders saved-on-phone copy (`app/pulled-over.tsx:390-392,451-457`; `components/PulledOverRecordingCard.tsx:27-28`). | Supported by source and flow tests; native playback pending. |
-| `unavailable` | **Microphone unavailable** → guidance continues → dismissal allowed | Permission denial/start failure sets `unavailable`; the timer never starts and the card says guidance continues (`app/pulled-over.tsx:259-273,317-350`; `components/PulledOverRecordingCard.tsx:29-32`). This state is not protected from dismissal. | Supported by source and two automated unavailable cases; device permission behavior pending. |
-| `save-error` | **Recording needs attention** → Retry or Discard → dismissal blocked | Failed persistence retains retry input, announces failure, pins the assertive banner, and keeps `usePreventRemove` active until Retry succeeds or Discard is confirmed (`app/pulled-over.tsx:381-386,397-449,475-528,661-670`). | Supported by source and failure/retry/discard tests; forced native storage failure pending. |
-| `discarded` | recording card hidden → dismissal allowed | Confirmed discard stops if necessary, clears save state, sets `discarded`, removes the card, and releases pending navigation (`app/pulled-over.tsx:433-457`; `components/PulledOverRecordingCard.tsx:112`). | Supported by source and card/flow tests. |
+| `idle` / `requesting-permission` | **Preparing recording** → no Stop → dismissal allowed | The card maps both states to the same truthful copy and omits Stop (`components/PulledOverRecordingCard.tsx:18-37,114-122`). Protection excludes these states (`app/pulled-over.tsx:210-213`). | Supported by source and card/flow tests. |
+| `recording` | **Recording started** → Stop available → dismissal saves first | The timer starts only in `recording`; successful native start triggers the state and announcement (`app/pulled-over.tsx:272-286,321-353`). Stop is shown only here (`components/PulledOverRecordingCard.tsx:124-153`). Dismissal is blocked behind Save & leave or confirmed discard (`app/pulled-over.tsx:556-658`). | Supported by source and flow tests; playable native output pending. |
+| `saving` | **Saving recording** → recording actions disabled → dismissal waits | Save sets `saving` before awaiting stop/persist and announces it (`app/pulled-over.tsx:393-444`). The card omits Stop, retry controls are disabled while retrying, and navigation dispatches only from a current, unconsumed owner after `saved`; Stay cancels its current intent (`components/PulledOverRecordingCard.tsx:114-122`; `components/RecordingSaveErrorBanner.tsx:35-80`; `app/pulled-over.tsx:524-538,556-607`). | Supported by source and pending/stale-action flow tests. |
+| `saved` | **Recording saved** → no recovery action → dismissal allowed | Success clears retry input, commits `saved`, announces once through the explicit API path, and removes navigation protection; terminal-state and operation-generation guards prevent stale Leave callbacks or async completions from restarting/overwriting the save (`app/pulled-over.tsx:393-444,524-538`). | Supported by source and flow tests; native playback pending. |
+| `unavailable` | **Microphone unavailable** → guidance continues → dismissal allowed | Permission denial/start failure sets `unavailable`; the timer never starts and the card says guidance continues (`app/pulled-over.tsx:272-286,321-363`; `components/PulledOverRecordingCard.tsx:29-32`). This state is not protected from dismissal. | Supported by source and two automated unavailable cases; device permission behavior pending. |
+| `save-error` | **Recording needs attention** → Retry or Discard → dismissal blocked | Failed persistence retains retry input, announces failure, pins the assertive banner, and keeps `usePreventRemove` active until Retry succeeds or Discard is confirmed. A current Stay cancels queued leave intent before a later banner Retry succeeds (`app/pulled-over.tsx:425-486,610-633,769-778`). | Supported by source and failure/retry/discard/stale-action tests; forced native storage failure pending. |
+| `discarded` | recording card hidden → dismissal allowed | Confirmed discard invalidates older recording operations, stops if necessary, clears save state, sets `discarded`, removes the card, and releases only the currently owned pending navigation (`app/pulled-over.tsx:494-538`; `components/PulledOverRecordingCard.tsx:112`). | Supported by source and card/flow tests. |
 
 Additional reliability evidence:
 
 - Short recordings are preserved because duration is calculated with a zero floor and no minimum-duration rejection (`lib/recording-session.ts:50-86`); the focused test uses a 1.5-second recording.
 - A persistence failure retains the exact retry input and does not stop the recorder a second time (`lib/recording-session.ts:36-47`; retry flow tests).
-- Metadata is the add-recording commit boundary. If metadata persistence fails, the retryable source remains and the unindexed destination is removed; temp-source cleanup after commit cannot turn success into a reported failure (`lib/api/recordings.ts:89-135`).
+- Metadata is the add-recording commit boundary. Storage read rejection, malformed JSON, non-array metadata, or metadata write failure now propagates rather than being converted into a false empty store. Before the commit, the retryable source remains and the unindexed destination is removed; a same-input retry rereads current metadata and preserves existing entries. Temp-source cleanup after commit cannot turn success into a reported failure (`lib/api/recordings.ts:64-76,89-135`; `__tests__/recordings/recordings-adapter-retry-test.ts:145-187`).
 - Delete All uses one bulk mutation and restores the complete in-memory snapshot on adapter failure (`hooks/useRecordings.ts:124-143`; screen and hook tests). The repaired adapter treats metadata removal as the commit boundary: rejection deletes zero files, so rollback restores valid playable rows; after metadata commits, file cleanup is best-effort and cannot rewrite or resurrect metadata (`lib/api/recordings.ts:159-176`). Four real adapter-clear tests verify failure-before-cleanup, committed metadata despite one cleanup failure, metadata-before-file ordering, and idempotent empty-state clearing (`__tests__/recordings/recordings-adapter-clear-test.ts:93-154`). Empty-after-relaunch still requires a device check.
+- Native-alert callbacks and deferred navigation actions carry owner generations. The latest alert owns cancellation/leave intent, older Stay callbacks cannot erase newer intent, stale Leave callbacks cannot restart a terminal save, each intent dispatches at most once, and discard invalidates stale recording completions (`app/pulled-over.tsx:203-233,373-538,556-658`; `__tests__/recordings/pulled-over-recording-flow-test.tsx:473-595,656-689`).
 
 ## Accessibility review
 
 ### Source and automated evidence
 
-- Meaningful lifecycle transitions call `AccessibilityInfo.announceForAccessibility` for started, saving, save failure, and saved states (`app/pulled-over.tsx:338-340,370-392,408-430`). The integration tests verify the explicit start announcement occurs once and saving/saved calls are not repeated during the tested paths.
+- Meaningful lifecycle transitions call `AccessibilityInfo.announceForAccessibility` for started, saving, save failure, and saved states (`app/pulled-over.tsx:351-353,414-436,465-486`). The integration tests verify the explicit start announcement occurs once and saving/saved calls are not repeated during the tested paths.
 - The save-error banner is assertive and exposes labeled Retry and destructive-dismiss controls. Both controls use the shared 44×44 pt target token and become disabled during retry (`components/RecordingSaveErrorBanner.tsx:47-80`; `theme/interaction.ts:70-75`).
 - Stop has a 44 pt minimum height and a text label, not an icon-only affordance (`components/PulledOverRecordingCard.tsx:139-149,205-218`). Discard is presented by a native destructive alert after explicit confirmation.
 - Recording state copy, timer, footnote, and error-banner copy use `dynamicType()`, which scales both glyph size and line height. The error copy has no `numberOfLines` clamp, and the focused test asserts that absence (`components/PulledOverRecordingCard.tsx:170-218`; `components/RecordingSaveErrorBanner.tsx:100-115`; `theme/dynamic-type.ts:32-38`).
-- Reduce Motion stops metering-history state updates, flattens rendered waveform bars without hiding the timer or state copy, and skips the recording-start haptic/temporary label change (`app/pulled-over.tsx:561-588`; `components/PulledOverRecordingCard.tsx:63-110,124-153`). `useAudioRecorderState` polling and the renders it drives continue; this audit made no runtime performance claim.
+- Reduce Motion stops metering-history state updates, flattens rendered waveform bars without hiding the timer or state copy, and skips the recording-start haptic/temporary label change (`app/pulled-over.tsx:669-696`; `components/PulledOverRecordingCard.tsx:63-110,124-153`). `useAudioRecorderState` polling and the renders it drives continue; this audit made no runtime performance claim.
 
 ### Accessibility risks
 
@@ -79,7 +80,7 @@ Additional reliability evidence:
 | Stop, Retry, and Discard remain at least 44×44 pt | **device verification pending** | Stop has `minHeight: 44`, Retry/dismiss use `tapTarget44`, and Discard uses a native alert; rendered point sizes were not measured. |
 | Permission denial leaves the modal dismissible with no false timer | **device verification pending** | Automated tests prove `unavailable`, no protected state, and no timer chip; the real permission sheet and swipe dismissal were not exercised. |
 | Manual Stop and swipe dismissal each create one playable recording | **device verification pending** | Tests prove one stop/persist and deferred navigation, but mocked files cannot establish native codec output or playback. |
-| Forced save failure stays until Retry or confirmed Discard | **device verification pending** | The failure/retry/discard state machine is covered with mocked persistence; a real native filesystem/storage failure was not forced. |
+| Forced save failure stays until Retry or confirmed Discard | **device verification pending** | The failure/retry/discard state machine, strict metadata read/parse failure, same-input retry, and stale-action ownership are automated; a real native filesystem/storage failure was not forced. |
 | Delete All remains empty after relaunch | **device verification pending** | The bulk mutation, success state, rollback, and real metadata-first adapter boundary are automated; no native cold relaunch verified persistent emptiness. |
 
 ## Remaining risks
@@ -97,6 +98,8 @@ No confirmed P0 or P1 production defect remains in this scoped source-and-test a
 - Navigation protection follows audio ownership: it activates only for recording, saving, or save-error and releases only after saved or discarded commits.
 - Manual Stop and dismissal share one persistence coordinator, which removes divergent save behavior and preserves short recordings.
 - Retry reuses retained input without a second stop, and adapter cleanup keeps the original source available when metadata persistence fails.
+- Strict metadata reads prevent corruption or storage rejection from being misread as an empty library; retry preserves existing entries and the original source.
+- Generation-owned alert actions prevent stale Stay/Leave callbacks and stale async completions from overriding the user's latest decision or restarting a terminal save.
 - Error recovery is visible and actionable: save failure remains pinned until successful Retry or confirmed Discard.
 - Delete All now commits metadata removal before cleanup; rejection preserves every file for valid rollback, while later cleanup failures cannot resurrect metadata or turn committed success into a false failure.
 - The feature follows the project's native/token vocabulary, including native alerts, safe areas, semantic colors, scalable type, and painted 44 pt targets.
