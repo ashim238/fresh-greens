@@ -1,6 +1,6 @@
 # Native Hardening Design
 
-**Status:** Proposed for implementation sequencing
+**Status:** Partially implemented; startup fallback and platform declarations complete
 
 ## Goal
 
@@ -15,6 +15,19 @@ The remaining native findings span three independent areas. They should share on
 3. Startup, accessibility, permissions, and device support.
 
 Each area can be tested and reviewed without waiting for the others. None should be bundled into one large production change.
+
+## Implementation progress
+
+| Lane | Status | Evidence |
+|---|---|---|
+| Font-loading failure fallback | Complete | `useAppFonts` now returns a settled error state, root startup continues with system fonts after font failure, and `__tests__/account-isolation/app-fonts.test.ts` covers the fallback contract. |
+| Platform declarations | Complete | Android no longer requests `WRITE_CONTACTS`, iOS tablet support is disabled until there is a validation plan, and `__tests__/native-hardening/app-config.test.ts` locks both declarations. |
+| Search request freshness | Complete | Search now uses a request-generation guard across query edits, clears, tool changes, location changes, search results, and fuel-price enrichment. `__tests__/native-hardening/request-generation.test.ts` covers the generation contract. |
+| Route fuel-stop identity and lazy fetch | Complete | Fuel-stop requests now key off the active route ID, fall back to a deterministic geometry signature instead of coordinate count, and fetch only when the fuel sheet is open. `__tests__/native-hardening/route-fuel-stops.test.ts` covers same-length route divergence. |
+| Roadside approved exits and VoiceOver switch | Complete | Status-step CTAs now receive a one-time approved navigation pass while gestures remain blocked, and the trusted-contact sharing toggle is labeled on the native `Switch`. `__tests__/native-hardening/roadside-source.test.ts` locks both source contracts. |
+| Sharing truth and ghost-session cleanup | Complete | Share sessions now persist only after the Messages draft opens, failed draft opens roll back instead of leaving ghost active sessions, Roadside only marks sharing on after draft open, and Roadside copy says `Message draft includes`. `__tests__/native-hardening/share-session-source.test.ts` locks the truth contract. |
+| Live-safety single owner | Complete | `useLiveSafetyController` now owns share-session and trusted-contact hydration once per screen, En Route uses that same controller for layout reserve, and `LiveSafetySheet` renders from controller props. `__tests__/native-hardening/live-safety-owner-source.test.ts` locks the ownership boundary. |
+| Shared foreground location owner | Pending | Needs a separate ownership plan because it changes watcher lifetime and battery behavior. |
 
 ## Scope
 

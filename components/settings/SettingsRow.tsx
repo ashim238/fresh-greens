@@ -66,14 +66,27 @@ export function SettingsRow({
   accessibilityHint?: string;
 }) {
   if (destructive) {
+    const isDisabled = disabled || busy;
     return (
       <Pressable
         onPress={onPress}
+        disabled={isDisabled}
         accessibilityRole="button"
         accessibilityLabel={label}
-        style={({ pressed }) => [styles.row, pressed && pressedDim]}
+        accessibilityState={{ disabled: isDisabled, busy: !!busy }}
+        style={({ pressed }) => [
+          styles.row,
+          isDisabled && styles.rowDisabled,
+          pressed && !isDisabled && pressedDim,
+        ]}
       >
-        <Text style={[styles.label, styles.destructiveLabel]}>{label}</Text>
+        <Text
+          style={[styles.label, styles.destructiveLabel]}
+          numberOfLines={2}
+          maxFontSizeMultiplier={2}
+        >
+          {label}
+        </Text>
       </Pressable>
     );
   }
@@ -88,15 +101,27 @@ export function SettingsRow({
 
   const labelBlock = subtitle ? (
     <View style={styles.copyColumn}>
-      <Text style={styles.labelWithSubtitle} numberOfLines={1}>
+      <Text
+        style={styles.labelWithSubtitle}
+        numberOfLines={2}
+        maxFontSizeMultiplier={2}
+      >
         {label}
       </Text>
-      <Text style={styles.subtitle} numberOfLines={2}>
+      <Text
+        style={styles.subtitle}
+        numberOfLines={3}
+        maxFontSizeMultiplier={2}
+      >
         {subtitle}
       </Text>
     </View>
   ) : (
-    <Text style={styles.label} numberOfLines={1}>
+    <Text
+      style={styles.label}
+      numberOfLines={2}
+      maxFontSizeMultiplier={2}
+    >
       {label}
     </Text>
   );
@@ -106,7 +131,11 @@ export function SettingsRow({
       {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
       {labelBlock}
       {value ? (
-        <Text style={styles.value} numberOfLines={1}>
+        <Text
+          style={styles.value}
+          numberOfLines={2}
+          maxFontSizeMultiplier={2}
+        >
           {value}
         </Text>
       ) : null}
@@ -185,16 +214,16 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   label: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 2),
     color: colors.black,
     flex: 1,
   },
   labelWithSubtitle: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 2),
     color: colors.black,
   },
   subtitle: {
-    ...dynamicType(typography.footnoteRegular),
+    ...dynamicType(typography.footnoteRegular, 2),
     color: colors.labelSecondary,
   },
   rowDisabled: {
@@ -204,15 +233,16 @@ const styles = StyleSheet.create({
   // contact or 911") must truncate rather than squeeze the flex:1
   // label into a wrap. textAlign right keeps it iOS-value-aligned.
   value: {
-    ...dynamicType(typography.bodyRegular),
+    ...dynamicType(typography.bodyRegular, 2),
     color: colors.labelSecondary,
     flexShrink: 1,
     textAlign: 'right',
   },
   destructiveLabel: {
-    ...dynamicType(typography.bodyRegular),
-    // reserved-color sanctioned (.cursorrules #11): iOS-universal destructive red
-    color: colors.red,
+    ...dynamicType(typography.bodyRegular, 2),
+    // Readable destructive copy on a light card; bright system red remains
+    // reserved for icons and alert signals rather than body-sized labels.
+    color: colors.severityCritical,
     textAlign: 'center',
     flex: 1,
   },

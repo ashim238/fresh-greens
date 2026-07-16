@@ -47,6 +47,7 @@ import {
 } from '../lib/api/fuel-prices';
 import { searchPlaces, type Place } from '../lib/api/places';
 import { type RegularDestination } from '../lib/api/regular-destinations';
+import { createRequestGeneration } from '../lib/request-generation';
 import {
   findSavedPlaceNear,
   SAVED_PLACE_MATCH_DELTA_DEG,
@@ -325,12 +326,10 @@ export default function Search() {
   // phase, so the "Selected" highlight never lingers over unrelated
   // results.
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
-  // Tracks the most-recently-issued autocomplete query so stale
-  // responses from earlier keystrokes can be discarded when they
-  // resolve out of order. Apple Maps does the same — without this,
-  // typing "Mc" then "Mcd" can result in "Mc"'s slower response
-  // overwriting "Mcd"'s faster one.
-  const lastQueryRef = useRef<string>('');
+  // Tracks the active search request generation so stale responses
+  // from earlier keystrokes, clears, tool changes, or enrichment calls
+  // cannot repaint the screen after the user has moved on.
+  const searchGenerationRef = useRef(createRequestGeneration());
 
   // Acquire user location once on mount. Permission was granted during
   // onboarding (/permissions); a failure here is non-fatal — the search
@@ -370,6 +369,10 @@ export default function Search() {
 
   const searchBarState = phase === 'landing' ? 'on-tap' : 'typing';
 
+  useEffect(() => {
+    searchGenerationRef.current.invalidate();
+  }, [query, selectedToolId, userLocation]);
+
   // Debounced autocomplete: fire a search 300ms after the user stops
   // typing. Backend is Mapbox (10 req/sec free-tier envelope), so
   // 300ms reactivity is well within budget — no 429 storm risk like
@@ -407,17 +410,20 @@ export default function Search() {
       setResults([]);
     }
 
-    lastQueryRef.current = trimmed;
+    const generation = searchGenerationRef.current.begin();
+    const toolId = selectedToolId;
 
     try {
       const raw = await searchPlaces(trimmed, userLocation);
-      // Stale-response guard — drop if the user has typed past this query.
-      if (lastQueryRef.current !== trimmed) return;
+      // Stale-response guard — drop if the user has typed, cleared,
+      // changed quick tools, or received a newer search generation.
+      if (!searchGenerationRef.current.isCurrent(generation)) return;
 
       const places =
-        selectedToolId === 'gas'
+        toolId === 'gas'
           ? await enrichPlacesWithFuelPrices(raw)
           : raw;
+      if (!searchGenerationRef.current.isCurrent(generation)) return;
 
       if (!places.length) {
         if (isExplicit) {
@@ -446,14 +452,14 @@ export default function Search() {
         longitude: places[0].longitude,
       })
         .then((rev) => {
-          if (lastQueryRef.current !== trimmed) return;
+          if (!searchGenerationRef.current.isCurrent(generation)) return;
           const city = rev[0]?.city ?? rev[0]?.subregion;
           if (city) setResultsCity(city);
         })
         .catch(() => {});
       setPhase('results');
     } catch (err) {
-      if (lastQueryRef.current !== trimmed) return;
+      if (!searchGenerationRef.current.isCurrent(generation)) return;
       console.warn('[search] places search failed:', err);
       if (isExplicit) {
         setPhase('error');

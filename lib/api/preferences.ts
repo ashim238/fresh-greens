@@ -15,6 +15,10 @@
 // needed at the call site.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  AccountOperationClosedError,
+  accountOperationGate,
+} from '../account-session/operation-gate';
 import type { ZoneCategory } from './zones';
 
 const STORAGE_KEY = 'fresh-greens.preferences.v1';
@@ -64,13 +68,23 @@ export async function getStoredPreferences(): Promise<Preferences> {
 export async function setStoredPreferences(
   preferences: Preferences,
 ): Promise<Preferences> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  try {
+    await accountOperationGate.runCurrent(async () => {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    });
+  } catch (error) {
+    if (!(error instanceof AccountOperationClosedError)) throw error;
+  }
   return preferences;
 }
 
 /** Removes stored preferences (sign-out cleanup, factory reset). */
 export async function clearStoredPreferences(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeStoredPreferencesForAccount(): Promise<void> {
+  await clearStoredPreferences();
 }
 
 /**

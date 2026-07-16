@@ -13,6 +13,12 @@
 // reminders-design.md.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  AccountOperationClosedError,
+  accountOperationGate,
+} from '../account-session/operation-gate';
+
+import { purgePersonalNotificationsForAccount } from '../notifications';
 
 const STORAGE_KEY = 'fresh-greens.fuel.v1';
 
@@ -100,12 +106,33 @@ export async function getStoredFuelProfile(): Promise<FuelProfile> {
 export async function setStoredFuelProfile(
   profile: FuelProfile,
 ): Promise<FuelProfile> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  try {
+    await accountOperationGate.runCurrent(async () => {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    });
+  } catch (error) {
+    if (!(error instanceof AccountOperationClosedError)) throw error;
+  }
   return profile;
 }
 
 /** Removes the stored profile (sign-out cleanup, factory reset). */
 export async function clearStoredFuelProfile(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * Account-isolation purge path. Cancel the scheduled notification first
+ * while the stored profile still has the notification id available.
+ */
+export async function purgeStoredFuelProfileForAccount(): Promise<void> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const profile = raw
+    ? ({ ...DEFAULT_FUEL_PROFILE, ...JSON.parse(raw) } as FuelProfile)
+    : null;
+
+  await purgePersonalNotificationsForAccount(profile?.notificationId);
+
   await AsyncStorage.removeItem(STORAGE_KEY);
 }
 

@@ -47,8 +47,8 @@
 //     construction/incident feed.
 //
 // Multi-source coverage mitigates sparsity: even areas without rich
-// lighting tags usually have landuse data. When ALL sources fail or
-// return nothing, falls back to mock zones around the user's center.
+// lighting tags usually have landuse data. When ALL sources fail,
+// falls back to mock zones around the user's center.
 //
 // Long trips use several `around:1500m` queries sampled along the route
 // corridor instead of one huge bbox (Overpass caps elements and times out).
@@ -68,6 +68,7 @@ import {
   buildOverpassQueryBbox,
   parseOverpassElements,
 } from './sources/osm-overpass';
+import type { Route } from './routes';
 
 // Public Overpass mirrors, tried in order on every call. All three
 // speak the same query API. `overpass-api.de` (Heidelberg / Geofabrik)
@@ -281,6 +282,54 @@ export async function getZonesForTrip(
   return executeCorridorTrip(path, { ...options, mode: 'preview' });
 }
 
+function mergeZonesById(into: Map<string, Zone>, zones: Zone[]): void {
+  for (const zone of zones) {
+    into.set(zone.id, zone);
+  }
+}
+
+/**
+ * Collect shared corridor evidence across every candidate route.
+ *
+ * This is the fairness boundary for the current screens: OSM/DOT evidence
+ * gets collected for all alternatives before scoring, while route-owned
+ * Mapbox incidents stay on the Route object and are merged per candidate in
+ * lib/scoring.ts.
+ */
+export async function getZonesForRouteAlternatives(
+  origin: Coordinate,
+  destination: Coordinate,
+  routes: Route[],
+  options?: import('../corridor/types').GetZonesForTripOptions,
+): Promise<Zone[]> {
+  const candidates = routes.filter((route) => route.coordinates.length >= 2);
+  if (candidates.length === 0) {
+    return getZonesForTrip(origin, destination, undefined, options);
+  }
+
+  const merged = new Map<string, Zone>();
+
+  for (let i = 0; i < candidates.length; i++) {
+    const route = candidates[i];
+    const zones = await getZonesForTrip(origin, destination, route.coordinates, {
+      ...options,
+      onPartial: options?.onPartial
+        ? (partialZones, meta) => {
+            const partial = new Map(merged);
+            mergeZonesById(partial, partialZones);
+            options.onPartial?.([...partial.values()], {
+              ...meta,
+              done: meta.done && i === candidates.length - 1,
+            });
+          }
+        : undefined,
+    });
+    mergeZonesById(merged, zones);
+  }
+
+  return [...merged.values()];
+}
+
 export async function fetchCorridorSample(
   request: SampleRequest,
 ): Promise<Zone[]> {
@@ -403,9 +452,10 @@ async function fetchZonesWithFailover(
 }
 
 /**
- * Single-endpoint fetch + parse. Throws on abort, non-OK HTTP, empty
- * elements, or parse failure — the caller catches and decides whether
- * to retry another endpoint or fall back to mock data.
+ * Single-endpoint fetch + parse. Throws on abort, non-OK HTTP, or parse
+ * failure — the caller catches and decides whether to retry another
+ * endpoint or fall back to mock data. A successful empty response is
+ * valid checked-empty evidence.
  */
 async function fetchOverpassZones(
   endpoint: string,
@@ -429,17 +479,7 @@ async function fetchOverpassZones(
     }
 
     const data: OverpassResponse = await response.json();
-    if (!data.elements?.length) {
-      throw new Error('Overpass returned no elements');
-    }
-
-    const zones = parseOverpassElements(data.elements);
-
-    if (!zones.length) {
-      throw new Error('No usable values in Overpass response');
-    }
-
-    return zones;
+    return parseOverpassElements(data.elements ?? []);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -500,9 +540,9 @@ type OverpassResponse = {
 
 /**
  * Hardcoded zones around the center point. Only used when Overpass is
- * unreachable or returns no usable data. Includes one example per
- * category so SHOW_ZONES=true still demonstrates the data layer
- * meaningfully even without network.
+ * unreachable or malformed. Includes one example per category so
+ * SHOW_ZONES=true still demonstrates the data layer meaningfully even
+ * without network.
  */
 export async function getZonesForRegionMock(center: Coordinate): Promise<Zone[]> {
   await delay(100);

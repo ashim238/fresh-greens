@@ -4,8 +4,10 @@ import {
   useState,
   type Dispatch,
   type SetStateAction,
+  useRef,
 } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { useSessionGeneration } from '../lib/account-session/session-context';
 
 /**
  * Discriminated-result async-read primitive — sibling to useHydratedState
@@ -44,17 +46,28 @@ export function useHydratedResource<T>(
   options?: { mountOnly?: boolean },
 ): HydratedResource<T> & { setData: Dispatch<SetStateAction<T>> } {
   const mountOnly = options?.mountOnly ?? false;
+  const generation = useSessionGeneration();
+  const generationRef = useRef(generation);
+  generationRef.current = generation;
   const [data, setData] = useState<T | undefined>(undefined);
   const [error, setError] = useState<Error | null>(null);
   const [ready, setReady] = useState(false);
   const [ok, setOk] = useState(true); // meaningful only when ready === true
 
+  useEffect(() => {
+    setData(undefined);
+    setError(null);
+    setOk(true);
+    setReady(false);
+  }, [generation]);
+
   const runRead = useCallback(() => {
     let cancelled = false;
+    const readGeneration = generation;
     void (async () => {
       try {
         const result = await read();
-        if (cancelled) return;
+        if (cancelled || generationRef.current !== readGeneration) return;
         // setData + setOk + setReady are batched into one render (React
         // 18+ automatic batching inside async callbacks), so a consumer
         // never observes ready:true with data still undefined.
@@ -63,7 +76,7 @@ export function useHydratedResource<T>(
         setOk(true);
         setReady(true);
       } catch (raw) {
-        if (cancelled) return;
+        if (cancelled || generationRef.current !== readGeneration) return;
         const err =
           raw instanceof Error ? raw : new Error(String(raw));
         setError(err);
@@ -74,7 +87,7 @@ export function useHydratedResource<T>(
     return () => {
       cancelled = true;
     };
-  }, [read]);
+  }, [generation, read]);
 
   // Both effects always called (rules-of-hooks); the unused one no-ops
   // via early return inside its body.

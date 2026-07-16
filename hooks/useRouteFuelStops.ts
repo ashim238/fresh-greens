@@ -29,6 +29,28 @@ const FUEL_ROUTE_SAMPLE_SPACING_M = 25_000; // ~15 mi
 const MAX_FUEL_ROUTE_SAMPLES = 5;
 const FUEL_SAMPLE_DEDUPE_M = 500;
 
+function roundedCoordKey(coord: LatLng): string {
+  return `${coord.latitude.toFixed(5)},${coord.longitude.toFixed(5)}`;
+}
+
+export function routeFuelStopsIdentity(
+  routeKey: string | null | undefined,
+  routeCoords: LatLng[],
+): string {
+  if (routeKey) return routeKey;
+  if (routeCoords.length === 0) return 'empty-route';
+  const midpoint = routeCoords[Math.floor(routeCoords.length / 2)];
+  const first = routeCoords[0];
+  const last = routeCoords[routeCoords.length - 1];
+  return [
+    'geometry',
+    routeCoords.length,
+    roundedCoordKey(first),
+    roundedCoordKey(midpoint),
+    roundedCoordKey(last),
+  ].join(':');
+}
+
 /** Mapbox category query per fuel type — electric searches charging,
     everything else searches gas. */
 function fuelQuery(fuelType: FuelType): string {
@@ -88,11 +110,13 @@ export type RouteFuelStopsState = {
  */
 export function useRouteFuelStops(params: {
   active: boolean;
+  routeKey?: string | null;
   routeCoords: LatLng[];
   fuelType: FuelType;
   userLocation: { latitude: number; longitude: number } | null;
 }): RouteFuelStopsState {
-  const { active, routeCoords, fuelType, userLocation } = params;
+  const { active, routeKey, routeCoords, fuelType, userLocation } = params;
+  const fuelStopsRouteIdentity = routeFuelStopsIdentity(routeKey, routeCoords);
   const [state, setState] = useState<RouteFuelStopsState>({
     stops: [],
     loading: false,
@@ -138,11 +162,11 @@ export function useRouteFuelStops(params: {
       cancelled = true;
     };
     // userLocation intentionally NOT a dep — read via userLocationRef so the
-    // open sheet doesn't refetch on every GPS tick. Keyed on routeCoords
-    // length (new array each render); active flips on each open for a fresh
-    // fetch.
+    // open sheet doesn't refetch on every GPS tick. Keyed on route identity
+    // instead of coordinate count so two different routes with the same
+    // number of points do not reuse stale fuel stops.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, fuelType, routeCoords.length]);
+  }, [active, fuelType, fuelStopsRouteIdentity]);
 
   return state;
 }

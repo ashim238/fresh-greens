@@ -18,6 +18,7 @@
 // data shifts and a string-only retry could land somewhere else.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.recent-searches.v1';
 
@@ -69,13 +70,15 @@ export async function addRecentSearch(
 ): Promise<RecentSearch> {
   const record: RecentSearch = { ...input, savedAt: Date.now() };
   try {
-    const existing = await getRecentSearches();
+    await accountOperationGate.runCurrent(async () => {
+      const existing = await getRecentSearches();
     // Drop any prior entry with the same id (dedup); prepend the new
     // record; slice to the cap. The result is always newest-first
     // because we just prepended a Date.now().
     const next = [record, ...existing.filter((r) => r.id !== record.id)]
       .slice(0, MAX_RECENTS);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    });
   } catch (err) {
     console.warn('addRecentSearch failed', err);
   }
@@ -85,9 +88,11 @@ export async function addRecentSearch(
 /** Removes a single recent by id. */
 export async function removeRecentSearch(id: string): Promise<void> {
   try {
-    const existing = await getRecentSearches();
-    const next = existing.filter((r) => r.id !== id);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    await accountOperationGate.runCurrent(async () => {
+      const existing = await getRecentSearches();
+      const next = existing.filter((r) => r.id !== id);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    });
   } catch (err) {
     console.warn('removeRecentSearch failed', err);
   }
@@ -100,4 +105,13 @@ export async function clearRecentSearches(): Promise<void> {
   } catch (err) {
     console.warn('clearRecentSearches failed', err);
   }
+}
+
+/**
+ * Account-isolation purge path. Unlike the user-facing clear helper,
+ * this must surface storage failures so the purge coordinator can
+ * quarantine the session and retry safely.
+ */
+export async function purgeRecentSearchesForAccount(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
 }

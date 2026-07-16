@@ -2,25 +2,27 @@ import { PixelRatio } from 'react-native';
 import type { TextStyle } from 'react-native';
 
 /**
- * Opt-in Dynamic Type scaling for a typography token. Scales both
- * `fontSize` and `lineHeight` by the iOS Settings → Display & Text
- * Size → Larger Text multiplier (read via `PixelRatio.getFontScale()`).
+ * Opt-in Dynamic Type support for a typography token. React Native scales
+ * `fontSize` automatically, so this helper scales only an explicit
+ * `lineHeight` by the iOS Settings → Display & Text Size → Larger Text
+ * multiplier (read via `PixelRatio.getFontScale()`).
  *
  * Why this and not `allowFontScaling={true}` alone: React Native's
  * Text component scales the rendered glyphs when `allowFontScaling`
  * is on (the default), but it does NOT scale a `lineHeight` you've
  * explicitly set in the style. Our typography tokens spread
  * `lineHeight` into every styled Text, so without this helper the
- * font grows but the line box stays fixed — and lines overlap at
- * larger Dynamic Type sizes.
+ * font grows but the line box stays fixed — and lines overlap at larger
+ * Dynamic Type sizes. Scaling `fontSize` here as well would apply the system
+ * multiplier twice.
  *
- * Apply to long-read copy where Dynamic Type matters most: multi-
- * line paragraphs, bullets, narrative explanations. Skip on headers
- * and short labels — those are constrained by layout, and scaling
- * them risks pushing fixed-position UI off-screen on Pro Max devices
- * with maximum Dynamic Type. Per Apple HIG: "Make sure all text
- * scales appropriately when accessibility text sizes are used,
- * unless the text is part of a logo or has a fixed aspect ratio."
+ * Apply wherever a typography token supplies an explicit lineHeight.
+ * Long-read copy normally uses the full system scale. Short interface
+ * headings and fixed navigation chrome may pass `maximumScale` so the
+ * layout remains operable at AX5 while the text still grows. Fixed-
+ * proportion visual labels can instead opt out of font scaling at the
+ * Text site when their full meaning is exposed through accessibility
+ * semantics.
  *
  * Per WCAG 1.4.4 Resize Text (Level AA, required for compliance).
  *
@@ -29,11 +31,13 @@ import type { TextStyle } from 'react-native';
  * change the next time React schedules a render (e.g., when the
  * user re-focuses the app after toggling iOS Settings).
  */
-export function dynamicType<T extends TextStyle>(token: T): T {
-  const scale = PixelRatio.getFontScale();
+export function dynamicType<T extends TextStyle>(token: T, maximumScale?: number): T {
+  const systemScale = PixelRatio.getFontScale();
+  const scale = maximumScale == null
+    ? systemScale
+    : Math.min(systemScale, maximumScale);
   return {
     ...token,
-    fontSize: token.fontSize ? token.fontSize * scale : token.fontSize,
     lineHeight: token.lineHeight ? token.lineHeight * scale : token.lineHeight,
   };
 }

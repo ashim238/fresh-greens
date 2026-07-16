@@ -13,6 +13,7 @@
 // See docs/archive/superpowers/specs/2026-05-31-roadside-assistance-design.md.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.roadside.v1';
 
@@ -50,11 +51,17 @@ export async function getStoredRoadsideProfile(): Promise<RoadsideProfile | null
 export async function setStoredRoadsideProfile(
   profile: RoadsideProfile,
 ): Promise<RoadsideProfile> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  await accountOperationGate.runCurrent(async () => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  });
   return profile;
 }
 
 /** Removes the stored profile (sign-out cleanup, factory reset). */
 export async function clearStoredRoadsideProfile(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeStoredRoadsideProfileForAccount(): Promise<void> {
+  await clearStoredRoadsideProfile();
 }

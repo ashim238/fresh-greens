@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -32,7 +31,7 @@ import { typography } from '../theme/typography';
 type Props = {
   locationCoords: { latitude: number; longitude: number } | null;
   onBack: () => void;
-  /** Fires after `tel:` opens — parent advances to status with business name. */
+  /** Fires after `tel:` opens; this confirms only the Phone handoff. */
   onTowCalled: (businessName: string) => void;
 };
 
@@ -123,9 +122,6 @@ export function RoadsideTowPick({ locationCoords, onBack, onTowCalled }: Props) 
       Alert.alert('Cannot place call', 'This device cannot make phone calls.');
       return;
     }
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-      () => {},
-    );
     await Linking.openURL(tel);
     onTowCalled(place.name);
   }
@@ -315,7 +311,7 @@ const styles = StyleSheet.create({
   },
   callBtnLabel: {
     ...dynamicType(typography.bodyEmphasized),
-    color: colors.white,
+    color: colors.black,
   },
   callBtnLabelMuted: {
     color: colors.labelTertiary,

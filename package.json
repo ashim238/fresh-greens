@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --runInBand",
+    "test:account-isolation": "jest --runInBand __tests__/account-isolation",
     "test:recordings": "jest --runInBand __tests__/recordings",
     "test:watch": "jest --watch",
     "typecheck": "tsc -p tsconfig.app.json --noEmit"
@@ -60,6 +61,7 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "testRegex": "(/__tests__/.*(?:-|\\.)(?:test|spec))\\.[jt]sx?$",
     "moduleNameMapper": {
       "^phosphor-react-native/src/icons/(.*)$": "<rootDir>/node_modules/phosphor-react-native/lib/commonjs/icons/$1"
     },

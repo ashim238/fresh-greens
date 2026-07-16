@@ -13,6 +13,7 @@
 // eventually personalize around.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.regular-destinations.v1';
 
@@ -79,6 +80,7 @@ export async function addRegularDestination(input: {
   latitude: number;
   longitude: number;
 }): Promise<RegularDestination> {
+  return accountOperationGate.runCurrent(async () => {
   const all = await getRegularDestinations();
   const existing = all.find(
     (r) =>
@@ -99,6 +101,7 @@ export async function addRegularDestination(input: {
   };
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...all, record]));
   return record;
+  });
 }
 
 /**
@@ -110,6 +113,7 @@ export async function removeRegularDestination(
   latitude: number,
   longitude: number,
 ): Promise<RegularDestination[]> {
+  return accountOperationGate.runCurrent(async () => {
   const all = await getRegularDestinations();
   const kept = all.filter(
     (r) =>
@@ -120,9 +124,14 @@ export async function removeRegularDestination(
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(kept));
   }
   return kept;
+  });
 }
 
 /** Sign-out / factory-reset cleanup. */
 export async function clearRegularDestinations(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeRegularDestinationsForAccount(): Promise<void> {
+  await clearRegularDestinations();
 }

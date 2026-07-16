@@ -20,6 +20,7 @@
 // straight off the stored value.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const STORAGE_KEY = 'fresh-greens.user.v1';
 
@@ -45,19 +46,55 @@ export type User = {
   signedInAt: number;
 };
 
+export type StoredUserRead =
+  | { kind: 'missing' }
+  | { kind: 'found'; user: User };
+
+export type UserProfilePatch = Partial<
+  Pick<User, 'displayName' | 'avatarUri'>
+>;
+
+export class StoredUserCorruptError extends Error {
+  constructor() {
+    super('Stored account identity is invalid');
+    this.name = 'StoredUserCorruptError';
+  }
+}
+
+function isUser(value: unknown): value is User {
+  if (!value || typeof value !== 'object') return false;
+  const user = value as Record<string, unknown>;
+  return (
+    typeof user.id === 'string' &&
+    user.id.trim().length > 0 &&
+    (user.provider === 'apple' ||
+      user.provider === 'google' ||
+      user.provider === 'email') &&
+    (typeof user.displayName === 'string' || user.displayName === null) &&
+    (typeof user.email === 'string' || user.email === null) &&
+    typeof user.initials === 'string' &&
+    typeof user.signedInAt === 'number'
+  );
+}
+
 // --- Public surface ------------------------------------------------------
 
 /** Reads the stored user, or null if no one is signed in. */
 export async function getStoredUser(): Promise<User | null> {
+  const read = await readStoredUserStrict();
+  return read.kind === 'found' ? read.user : null;
+}
+
+export async function readStoredUserStrict(): Promise<StoredUserRead> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  if (!raw) return { kind: 'missing' };
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as User;
-    if (!parsed.id) return null; // shape sanity-check
-    return parsed;
-  } catch (err) {
-    console.warn('getStoredUser failed', err);
-    return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isUser(parsed)) throw new StoredUserCorruptError();
+    return { kind: 'found', user: parsed };
+  } catch (error) {
+    if (error instanceof StoredUserCorruptError) throw error;
+    throw new StoredUserCorruptError();
   }
 }
 
@@ -67,9 +104,24 @@ export async function setStoredUser(user: User): Promise<User> {
   return user;
 }
 
+export async function persistSignedInUser(user: User): Promise<User> {
+  return setStoredUser(user);
+}
+
 /** Removes the stored user (sign-out). */
 export async function clearStoredUser(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeStoredUserForAccount(): Promise<void> {
+  await clearStoredUser();
+}
+
+/** Removes app-owned profile avatar files, including orphaned prior versions. */
+export async function purgeAvatarFilesForAccount(): Promise<void> {
+  await FileSystem.deleteAsync(`${FileSystem.documentDirectory}avatars/`, {
+    idempotent: true,
+  });
 }
 
 /**
@@ -84,8 +136,9 @@ export async function upsertUser(
     Partial<Pick<User, 'displayName' | 'email'>>,
 ): Promise<User> {
   const existing = await getStoredUser();
-  const displayName = partial.displayName ?? existing?.displayName ?? null;
-  const email = partial.email ?? existing?.email ?? null;
+  const sameAccount = existing?.id === partial.id;
+  const displayName = partial.displayName ?? (sameAccount ? existing?.displayName : null) ?? null;
+  const email = partial.email ?? (sameAccount ? existing?.email : null) ?? null;
   const merged: User = {
     id: partial.id,
     provider: partial.provider,
@@ -94,7 +147,7 @@ export async function upsertUser(
     initials: deriveInitials(displayName, email),
     // Keep a user-set avatar across re-auth — the same newest-wins-but-
     // don't-clobber logic as displayName/email.
-    avatarUri: existing?.avatarUri ?? null,
+    avatarUri: sameAccount ? existing?.avatarUri ?? null : null,
     signedInAt: Date.now(),
   };
   return setStoredUser(merged);
@@ -114,6 +167,17 @@ export async function updateUserProfile(patch: {
 }): Promise<User | null> {
   const existing = await getStoredUser();
   if (!existing) return null;
+  return updateStoredUserProfile(existing.id, patch);
+}
+
+export async function updateStoredUserProfile(
+  userId: string,
+  patch: UserProfilePatch,
+): Promise<User> {
+  const existing = await getStoredUser();
+  if (!existing || existing.id !== userId) {
+    throw new Error('Cannot update profile for a different signed-in user');
+  }
   const displayName =
     patch.displayName !== undefined
       ? patch.displayName?.trim() || null

@@ -7,6 +7,7 @@
 // screen-local.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { runBestEffortAccountOperation } from '../account-session/operation-gate';
 
 import {
   ZONE_CACHE_KEY_INCLUDES_ROUTE_ID,
@@ -36,7 +37,7 @@ export async function saveCorridorZones(
   destination: Coordinate,
   meta: { pathMeters: number; routeId?: string },
 ): Promise<void> {
-  try {
+  await runBestEffortAccountOperation(async () => {
     const payload: CachedCorridorZones = {
       zones,
       destination,
@@ -45,9 +46,7 @@ export async function saveCorridorZones(
       cachedAt: Date.now(),
     };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch (err) {
-    console.warn('[zone-cache] save failed:', err);
-  }
+  }, (error) => console.warn('[zone-cache] save failed:', error));
 }
 
 export async function loadCorridorZones(
@@ -81,4 +80,12 @@ export async function clearCorridorZones(): Promise<void> {
   } catch (err) {
     console.warn('[zone-cache] clear failed:', err);
   }
+}
+
+/**
+ * Account-isolation purge path. The coordinator needs a hard failure
+ * signal if corridor evidence remains on disk.
+ */
+export async function purgeCorridorZonesForAccount(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
 }

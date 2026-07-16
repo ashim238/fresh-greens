@@ -15,8 +15,8 @@ import { typography } from '../theme/typography';
  *
  * Variant matrix (10 total per Figma):
  *
- *   Type=Primary   × Fill=Fill         freshgreen bg, white text, M3/Elevation/1
- *                  × Fill=Outline      freshgreen border, freshgreen text
+ *   Type=Primary   × Fill=Fill         freshgreen bg, black text, M3/Elevation/1
+ *                  × Fill=Outline      wiltedgreen border + text
  *                  × Fill=Transparent  no bg/border, freshgreen text — for use on dark surfaces
  *   Type=Secondary × Fill=Fill         wiltedgreen bg, white text, M3/Elevation/1
  *                  × Fill=Outline      wiltedgreen border, wiltedgreen text
@@ -112,10 +112,12 @@ export function Button({
   // never on white. On a white page the text would be invisible;
   // that constraint is documented but not type-enforced.
   const textColor =
-    fill === 'fill' || fill === 'transparent'
+    fill === 'transparent'
       ? colors.white
-      : type === 'primary'
-        ? colors.freshgreen
+      : fill === 'fill'
+        ? type === 'primary'
+          ? colors.black
+          : colors.white
         : colors.wiltedgreen;
 
   return (
@@ -148,7 +150,7 @@ export function Button({
               // that affordance themselves, so they stay un-underlined.
               fill === 'transparent' && styles.labelUnderlined,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {text}
           </Text>
@@ -160,12 +162,13 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 44,
+    minHeight: 44,
     borderRadius: radii.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 8,
     gap: 8,
   },
   iconWrap: {
@@ -183,6 +186,8 @@ const styles = StyleSheet.create({
     // 44pt (HIG floor); Apple's compact-button pattern is 44 × 17pt
     // so this is on-precedent.
     ...dynamicType(typography.bodyEmphasized),
+    flexShrink: 1,
+    textAlign: 'center',
   },
   labelUnderlined: {
     textDecorationLine: 'underline',
@@ -213,7 +218,7 @@ const styles = StyleSheet.create({
   },
   primaryOutline: {
     borderWidth: 1,
-    borderColor: colors.freshgreen,
+    borderColor: colors.wiltedgreen,
   },
   secondaryOutline: {
     borderWidth: 1,

@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -13,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LogoApple from '../assets/illustrations/logo-apple.svg';
-import { useUser } from '../hooks/useUser';
+import { useSession } from '../lib/account-session/session-provider';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -48,7 +49,7 @@ import { typography } from '../theme/typography';
  */
 export default function Login() {
   const router = useRouter();
-  const { signInWithApple, signInAsDevUser } = useUser();
+  const { signInWithApple, signInAsDevUser } = useSession();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,11 +112,21 @@ export default function Login() {
         accessibilityLabel="Three cartoon cars driving across the horizon with smoke trail"
       />
 
-      <SafeAreaView style={styles.content}>
-        <View style={styles.contentInner}>
-          <Text style={styles.title}>Welcome back</Text>
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.contentInner}>
+            <Text
+              style={styles.title}
+              accessibilityRole="header"
+              maxFontSizeMultiplier={2}
+            >
+              Welcome back
+            </Text>
 
-          <View style={styles.actions}>
+            <View style={styles.actions}>
             <Pressable
               style={({ pressed }) => [
                 styles.outlinedButton,
@@ -129,7 +140,7 @@ export default function Login() {
               accessibilityState={{ busy: signingIn, disabled: signingIn }}
             >
               {signingIn ? (
-                <ActivityIndicator color={colors.white} />
+                <ActivityIndicator color={colors.black} />
               ) : (
                 <>
                   <LogoApple width={20} height={20} />
@@ -138,7 +149,16 @@ export default function Login() {
               )}
             </Pressable>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            {error && (
+              <View
+                style={styles.errorSurface}
+                accessible
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -170,8 +190,9 @@ export default function Login() {
                 <Text style={styles.devBypassText}>Continue as dev user (simulator)</Text>
               </Pressable>
             )}
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -198,9 +219,13 @@ const styles = StyleSheet.create({
     height: 110,
     transform: [{ translateX: 110 }],
   },
-  content: {
+  safe: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -210,7 +235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.largeTitleEmphasized, 2),
     color: colors.white,
     textAlign: 'center',
   },
@@ -220,7 +245,9 @@ const styles = StyleSheet.create({
   },
   outlinedButton: {
     alignSelf: 'stretch',
-    height: 48,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
@@ -236,14 +263,22 @@ const styles = StyleSheet.create({
   },
   outlinedButtonText: {
     ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.white,
+    color: colors.black,
+    flexShrink: 1,
+    textAlign: 'center',
+  },
+  errorSurface: {
+    alignSelf: 'stretch',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.borderWarm,
+    backgroundColor: colors.surfaceCard,
   },
   errorText: {
     ...dynamicType(typography.footnoteRegular),
-    // Stays red (NOT severityCritical) — this sits on the dark
-    // wiltedgreen/burntgreen auth ground, where the brighter red has
-    // more contrast than #C62828. See .cursorrules #8 (dark-surface case).
-    color: colors.red,
+    color: colors.severityCritical,
     textAlign: 'center',
   },
   divider: {

@@ -90,7 +90,8 @@ const styles = StyleSheet.create({
   },
   placementConfirm: {
     flex: 1,
-    height: 44,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     alignItems: 'center',
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
   },
   placementConfirmText: {
     ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.white,
+    color: colors.black,
   } as const,
   placementCancel: {
     width: 48,

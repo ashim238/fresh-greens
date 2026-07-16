@@ -62,9 +62,9 @@ Hazard avoidance has a ceiling: even the highest-scoring route passes through ri
 
 ### Scoring (`lib/scoring.ts`)
 - Pure functions — no async, no I/O, deterministic.
-- `scoreRoute(route, zones, departureTime?)` — for each waypoint, dispatches per zone geometry: in-polygon for areas, near-polyline for streets (20m threshold), point-to-point for points (~30m threshold). Sums weighted scores per `SCORE_WEIGHTS`: `safe: +2, caution: -1, avoid: -5`.
+- `scoreRoute(route, zones, departureTime)` — for each waypoint, dispatches per zone geometry: in-polygon for areas, near-polyline for streets (20m threshold), point-to-point for points (~30m threshold). Sums weighted scores per `SCORE_WEIGHTS`: `safe: +2, caution: -1, avoid: -5`.
 - **Per-category modulation:** wildlife zones at dawn/dusk (±30 min from sunrise/sunset, computed by SunCalc against the zone's coordinates and the trip's `departureTime`) have their score multiplied by 2. Time-of-day belongs in scoring (which has trip context), not in the zones adapter (which describes what's there).
-- `pickWinner(routes, zones, departureTime?)` — scores all candidates, sorts descending, marks the winner `recommended` and the rest `alternate`. Returns `RankedRoute[]`.
+- `pickWinner(routes, zones, departureTime)` — scores all candidates, sorts descending, marks the winner `recommended` and the rest `alternate`. Mapbox incidents are route-owned evidence and are merged per candidate, not into the shared zone array. Returns `RankedRoute[]`.
 
 ### Daylight gradient (`lib/daylight.ts`)
 - Pure function, uses SunCalc to compute real minutes-to-sunset per route segment based on departure time + lat/lng + travel time.

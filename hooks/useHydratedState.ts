@@ -4,8 +4,10 @@ import {
   useState,
   type Dispatch,
   type SetStateAction,
+  useRef,
 } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { useSessionGeneration } from '../lib/account-session/session-context';
 
 /**
  * Discriminated-union loading primitive — the blessed way to read an
@@ -38,17 +40,26 @@ export function useHydratedState<T>(
   options?: { mountOnly?: boolean },
 ): Hydrated<T> & { setData: Dispatch<SetStateAction<T>> } {
   const mountOnly = options?.mountOnly ?? false;
+  const generation = useSessionGeneration();
+  const generationRef = useRef(generation);
+  generationRef.current = generation;
   const [data, setData] = useState<T | undefined>(undefined);
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setData(undefined);
+    setReady(false);
+  }, [generation]);
 
   // Shared read body. `ready` latches false→true once and never returns
   // to false on refocus — re-reading must update `data` silently without
   // re-showing the loading branch (which would re-flash the UI).
   const runRead = useCallback(() => {
     let cancelled = false;
+    const readGeneration = generation;
     void (async () => {
       const result = await read();
-      if (!cancelled) {
+      if (!cancelled && generationRef.current === readGeneration) {
         // setData + setReady are batched into one render (React 18+
         // automatic batching inside async callbacks), so a consumer never
         // observes ready:true with data still undefined — which is what
@@ -60,7 +71,7 @@ export function useHydratedState<T>(
     return () => {
       cancelled = true;
     };
-  }, [read]);
+  }, [generation, read]);
 
   // Both hooks are always called (rules-of-hooks); the unused one no-ops
   // via an early return inside its body, not around the call.

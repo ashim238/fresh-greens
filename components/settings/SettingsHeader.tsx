@@ -49,6 +49,7 @@ export function SettingsHeader({
             style={styles.largeTitle}
             accessibilityRole="header"
             numberOfLines={1}
+            maxFontSizeMultiplier={1.5}
           >
             {title}
           </Text>
@@ -80,7 +81,12 @@ export function SettingsHeader({
         <View style={tapTarget44} />
       )}
 
-      <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
+      <Text
+        style={styles.title}
+        accessibilityRole="header"
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.5}
+      >
         {title}
       </Text>
 
@@ -105,7 +111,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 1.5),
     color: colors.black,
     textAlign: 'center',
     flex: 1,
@@ -135,7 +141,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   largeTitle: {
-    ...dynamicType(typography.title1Emphasized),
+    ...dynamicType(typography.title1Emphasized, 1.5),
     color: colors.black,
     flexShrink: 1,
   },

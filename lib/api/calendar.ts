@@ -10,6 +10,7 @@
 // Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 import * as Calendar from 'expo-calendar';
 
 const STORAGE_KEY = 'fresh-greens.calendar.v1';
@@ -52,13 +53,19 @@ export async function setCalendarConnected(
   connected: boolean,
 ): Promise<CalendarConnection> {
   const next: CalendarConnection = { connected };
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  await accountOperationGate.runCurrent(async () => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  });
   return next;
 }
 
 /** Sign-out hygiene — drop the connection flag. */
 export async function clearCalendarConnection(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeCalendarConnectionForAccount(): Promise<void> {
+  await clearCalendarConnection();
 }
 
 // --- Event reading (read-only) -------------------------------------------

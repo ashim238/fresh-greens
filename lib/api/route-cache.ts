@@ -36,6 +36,7 @@
 // stale" copy and is prompted to re-fetch when signal returns.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { runBestEffortAccountOperation } from '../account-session/operation-gate';
 
 import type { Coordinate } from './zones';
 import type { Route } from './routes';
@@ -77,16 +78,14 @@ export async function saveActiveRoute(
   routes: Route[],
   destination: Coordinate,
 ): Promise<void> {
-  try {
+  await runBestEffortAccountOperation(async () => {
     const payload: CachedActiveRoute = {
       routes,
       destination,
       cachedAt: Date.now(),
     };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch (err) {
-    console.warn('[route-cache] save failed:', err);
-  }
+  }, (error) => console.warn('[route-cache] save failed:', error));
 }
 
 /**
@@ -132,4 +131,12 @@ export async function clearActiveRoute(): Promise<void> {
   } catch (err) {
     console.warn('[route-cache] clear failed:', err);
   }
+}
+
+/**
+ * Account-isolation purge path. Throwing here lets the session purge
+ * coordinator report a location-bearing cache that still remains.
+ */
+export async function purgeActiveRouteForAccount(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
 }

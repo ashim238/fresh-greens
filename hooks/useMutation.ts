@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  AccountOperationClosedError,
+  accountOperationGate,
+  assertAccountOperationOpen,
+} from '../lib/account-session/operation-gate';
+import { useSessionGeneration } from '../lib/account-session/session-context';
 
 /**
  * Discriminated-result async-write primitive — the blessed way to
@@ -46,6 +52,9 @@ export function useMutation<I, T>(
     onOptimistic?: (input: I) => (() => void) | void;
   },
 ): Mutation<I, T> {
+  const generation = useSessionGeneration();
+  const generationRef = useRef(generation);
+  generationRef.current = generation;
   const [status, setStatus] = useState<MutationStatus>('idle');
   const [error, setError] = useState<Error | null>(null);
 
@@ -65,11 +74,18 @@ export function useMutation<I, T>(
     };
   }, []);
 
+  useEffect(() => {
+    versionRef.current += 1;
+    setStatus('idle');
+    setError(null);
+  }, [generation]);
+
   const onOptimistic = options?.onOptimistic;
 
   const run = useCallback(
     async (input: I): Promise<MutationResult<T>> => {
       const myVersion = ++versionRef.current;
+      const myGeneration = generation;
       let rollback: (() => void) | void = undefined;
       if (mountedRef.current) {
         setStatus('pending');
@@ -78,7 +94,20 @@ export function useMutation<I, T>(
       }
 
       try {
-        const data = await persist(input);
+        const data = await accountOperationGate.runCurrent(async (signal) => {
+          const persisted = await persist(input);
+          assertAccountOperationOpen(signal);
+          return persisted;
+        });
+
+        if (generationRef.current !== myGeneration) {
+          return {
+            ok: false,
+            error: new AccountOperationClosedError(
+              'Account changed before the operation completed',
+            ),
+          };
+        }
 
         // Cancelled by a newer run() — discard the result silently.
         // The newer call's optimistic is the current UI truth.
@@ -91,6 +120,14 @@ export function useMutation<I, T>(
         }
         return { ok: true, data };
       } catch (raw) {
+        if (generationRef.current !== myGeneration) {
+          return {
+            ok: false,
+            error: new AccountOperationClosedError(
+              'Account changed before the operation completed',
+            ),
+          };
+        }
         // Cancelled — newer call's optimistic is the truth; don't
         // rollback this one (would clobber it).
         if (versionRef.current !== myVersion) {
@@ -110,7 +147,7 @@ export function useMutation<I, T>(
         return { ok: false, error: err };
       }
     },
-    [persist, onOptimistic],
+    [generation, persist, onOptimistic],
   );
 
   const reset = useCallback(() => {
