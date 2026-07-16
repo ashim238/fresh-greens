@@ -46,6 +46,13 @@ export type Recording = {
   armed: ArmedAnswer | null;
 };
 
+export type AddRecordingInput = {
+  sourceUri: string;
+  durationMs: number;
+  armed: ArmedAnswer | null;
+  createdAt?: number;
+};
+
 // Lazy getter — `Paths.document` reads native state, so we resolve
 // it on first use rather than at module load.
 function getRecordingsDirectory(): Directory {
@@ -54,19 +61,19 @@ function getRecordingsDirectory(): Directory {
 
 // --- Public surface ------------------------------------------------------
 
-/** Reads all stored recordings, newest first. */
-export async function getRecordings(): Promise<Recording[]> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Recording[];
-    if (!Array.isArray(parsed)) return [];
-    // Sort newest first — matches typical "library" UX expectation.
-    return parsed.sort((a, b) => b.createdAt - a.createdAt);
-  } catch (err) {
-    console.warn('getRecordings failed', err);
-    return [];
+async function readRecordingsStrict(): Promise<Recording[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  if (!raw) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error('Stored recordings metadata is not an array');
   }
+  return (parsed as Recording[]).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** Reads all stored recordings, newest first, propagating storage corruption. */
+export async function getRecordings(): Promise<Recording[]> {
+  return readRecordingsStrict();
 }
 
 /**
@@ -79,12 +86,7 @@ export async function getRecordings(): Promise<Recording[]> {
  * caller should handle (typically: warn and skip metadata save so
  * we don't leave dangling pointers).
  */
-export async function addRecording(input: {
-  sourceUri: string;
-  durationMs: number;
-  armed: ArmedAnswer | null;
-  createdAt?: number;
-}): Promise<Recording> {
+export async function addRecording(input: AddRecordingInput): Promise<Recording> {
   const id = `rec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = input.createdAt ?? Date.now();
 
@@ -98,14 +100,6 @@ export async function addRecording(input: {
   const destFile = new File(recordingsDir, `${id}.m4a`);
   sourceFile.copy(destFile);
 
-  // Best-effort cleanup of the source — ignore failures (the file
-  // is in cache and will be reaped eventually if it's not gone now).
-  try {
-    sourceFile.delete();
-  } catch {
-    /* noop */
-  }
-
   const recording: Recording = {
     id,
     uri: destFile.uri,
@@ -114,11 +108,30 @@ export async function addRecording(input: {
     armed: input.armed,
   };
 
-  const existing = await getRecordings();
-  await AsyncStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify([recording, ...existing]),
-  );
+  try {
+    const existing = await readRecordingsStrict();
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([recording, ...existing]),
+    );
+  } catch (error) {
+    // Metadata is the commit boundary. Preserve the retryable source and
+    // best-effort remove the unindexed destination if the commit fails.
+    try {
+      destFile.delete();
+    } catch {
+      /* noop */
+    }
+    throw error;
+  }
+
+  // Metadata now points at the persistent destination. Temp-source cleanup
+  // is post-commit and must not turn a successful save into a reported error.
+  try {
+    sourceFile.delete();
+  } catch {
+    /* noop */
+  }
   return recording;
 }
 
@@ -128,7 +141,7 @@ export async function addRecording(input: {
  * remove the metadata so the user doesn't see a "ghost" entry.
  */
 export async function removeRecording(id: string): Promise<void> {
-  const all = await getRecordings();
+  const all = await readRecordingsStrict();
   const target = all.find((r) => r.id === id);
   if (!target) return;
 
@@ -145,7 +158,13 @@ export async function removeRecording(id: string): Promise<void> {
 
 /** Removes all stored recordings (sign-out cleanup, factory reset). */
 export async function clearAllRecordings(): Promise<void> {
-  const all = await getRecordings();
+  const all = await readRecordingsStrict();
+  // Metadata is the commit boundary. If this fails, preserve every audio
+  // file so the hook's optimistic rollback restores usable rows.
+  await AsyncStorage.removeItem(STORAGE_KEY);
+
+  // Metadata is committed. File cleanup is best-effort and must not turn a
+  // successful Delete All into a reported failure or resurrect metadata.
   for (const r of all) {
     try {
       const file = new File(r.uri);
@@ -154,5 +173,4 @@ export async function clearAllRecordings(): Promise<void> {
       /* noop */
     }
   }
-  await AsyncStorage.removeItem(STORAGE_KEY);
 }

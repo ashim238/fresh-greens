@@ -50,6 +50,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import TrooperHatBadge from '../assets/illustrations/trooper-hat-badge.svg';
 import { DragHandle } from '../components/DragHandle';
 import { MetaSeparator } from '../components/MetaSeparator';
+import { PulledOverRecordingCard } from '../components/PulledOverRecordingCard';
 import { RecordingSaveErrorBanner } from '../components/RecordingSaveErrorBanner';
 import { TrustedContactStatus } from '../components/TrustedContactStatus';
 import { useDisclosureDuty } from '../hooks/useDisclosureDuty';
@@ -63,8 +64,14 @@ import {
   type DisclosureDuty,
   type SayBullet,
 } from '../lib/api/gun-laws';
+import type { AddRecordingInput } from '../lib/api/recordings';
 import { maskPolicyNumber } from '../lib/api/insurance';
 import { getErrorMessage } from '../lib/error-message';
+import {
+  persistRecordingInput,
+  stopAndPersistRecording,
+  type RecordingStatus,
+} from '../lib/recording-session';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -99,18 +106,15 @@ import { typography } from '../theme/typography';
  *                 Have → Say → Know), chevron navigation
  *
  * Recording lifecycle: starts on the user's first armed answer (i.e.
- * leaving the 'armed' phase) and runs until the modal dismisses. No
- * stop button — ambient protection isn't something the user manages
- * mid-encounter. The recording widget is *displayed* only on the
- * guidance phase, but the recorder keeps running and the elapsed
- * counter keeps ticking through the rest of the flow.
+ * leaving the 'armed' phase) and runs until the user stops it or the
+ * modal dismisses. The recording widget is *displayed* only on the
+ * guidance phase, while a truthful chip follows active recording into
+ * the contact and review phases.
  *
- * If the user denies the microphone permission (or recording fails),
- * the visual still works — the waveform falls back to a flat baseline
- * and the timer keeps ticking via setInterval. The "Saved to your
- * account" footnote in the widget is the contextual answer to "where
- * does this recording go," kept inside the widget so it doesn't crowd
- * the global TrustedContactStatus footer at the modal bottom.
+ * If the user denies microphone permission (or startup fails), guidance
+ * remains available without showing a recording timer or protected-state
+ * affordance. Save success is shown only after the local persistence
+ * mutation resolves.
  *
  * Route: /pulled-over
  * Entry: tap "I was pulled over" on /safety
@@ -168,23 +172,7 @@ const NO_CONTACT_NAME = 'Add a contact';
 
 const WAVEFORM_BAR_COUNT = 48;
 const WAVEFORM_POLL_MS = 80;
-const WAVEFORM_MIN_HEIGHT = 4;
-const WAVEFORM_MAX_HEIGHT = 64;
 const METERING_FLOOR_DB = -60;
-const METERING_CEILING_DB = -10;
-
-/** Convert one dB sample to a bar height in pt. Clamped to [min, max]. */
-function dbToBarHeight(db: number): number {
-  // Map [floor, ceiling] dB → [0, 1] then to [min, max] pt.
-  const normalized = Math.max(
-    0,
-    Math.min(
-      1,
-      (db - METERING_FLOOR_DB) / (METERING_CEILING_DB - METERING_FLOOR_DB),
-    ),
-  );
-  return WAVEFORM_MIN_HEIGHT + normalized * (WAVEFORM_MAX_HEIGHT - WAVEFORM_MIN_HEIGHT);
-}
 
 // --- Main component ------------------------------------------------------
 
@@ -210,12 +198,19 @@ export default function PulledOver() {
   // animation in the app NOT gated; now respects the system preference.
   // Per DESIGN.md Reduce-Motion-Honest Rule.
   const reduceMotion = useReduceMotion();
-  // Mic permission state — optimistic default (true) since we don't know
-  // the status until after requesting. Set to false if permission denied.
-  const [micGranted, setMicGranted] = useState(true);
-  // Track whether the user manually stopped recording (separate from
-  // auto-stop on modal dismiss). Controls the "Recording saved" state.
-  const [recordingStopped, setRecordingStopped] = useState(false);
+  const [recordingStatus, setRecordingStatus] =
+    useState<RecordingStatus>('idle');
+  const recordingStatusRef = useRef<RecordingStatus>('idle');
+  const updateRecordingStatus = useCallback((next: RecordingStatus) => {
+    recordingStatusRef.current = next;
+    setRecordingStatus(next);
+  }, []);
+  const [isRetryingSave, setIsRetryingSave] = useState(false);
+  const [pendingNavVersion, setPendingNavVersion] = useState(0);
+  const hasProtectedAudio =
+    recordingStatus === 'recording' ||
+    recordingStatus === 'saving' ||
+    recordingStatus === 'save-error';
 
   const { add } = useRecordings();
   // Mutation wrapper for the recording-save persist — see
@@ -227,13 +222,16 @@ export default function PulledOver() {
   // `add` from useRecordings is already a Mutation object (run/status/
   // error/reset) — aliasing preserves all the banner's existing reads.
   const saveRecordingMutation = add;
-  const lastRecordingSaveInputRef = useRef<{
-    sourceUri: string;
-    durationMs: number;
-    armed: ArmedAnswer | null;
-    createdAt: number;
+  const lastRecordingSaveInputRef = useRef<AddRecordingInput | null>(null);
+  const pendingNavRef = useRef<{
+    action: NavigationAction;
+    ownerGeneration: number;
   } | null>(null);
-  const pendingNavRef = useRef<{ action: NavigationAction } | null>(null);
+  const navigationIntentGenerationRef = useRef(0);
+  const activeNavigationIntentGenerationRef = useRef(0);
+  const consumedNavigationIntentGenerationRef = useRef(0);
+  const recordingOperationGenerationRef = useRef(0);
+  const saveInFlightRef = useRef(false);
   // State-aware firearm guidance — variant resolved from the device's
   // current state via reverse-geocoding. Defaults to 'duty-to-inform'
   // while loading or on any failure path; see `useDisclosureDuty`
@@ -248,16 +246,9 @@ export default function PulledOver() {
   // it and try to start an already-recording recorder — which throws on
   // iOS. This ref is the "started exactly once" latch.
   const hasStartedRecordingRef = useRef(false);
-  // Mirror of hasStartedRecordingRef as state, so usePreventRemove
-  // (which only re-evaluates on render) sees the change. The ref is
-  // still the source of truth for the recording lifecycle effect; this
-  // state exists purely to drive the dismissal-prevention hook.
-  const [hasActiveRecording, setHasActiveRecording] = useState(false);
-  // Refs that capture the metadata snapshot at recording start, so the
-  // unmount cleanup can persist a Recording with the right armed
-  // context + timestamp even after `armed` state is gone. Refs (not
-  // state) because cleanup effects only run once at unmount and don't
-  // rebind to state values that have changed since the last commit.
+  // Refs capture the metadata snapshot at recording start so the shared
+  // save coordinator can persist the right armed context + timestamp
+  // even after `armed` state is gone.
   const recordingArmedRef = useRef<ArmedAnswer | null>(null);
   const recordingStartedAtRef = useRef<number | null>(null);
 
@@ -276,13 +267,12 @@ export default function PulledOver() {
   // bucket as 'yes' so the guidance assumes a firearm may be present.
   const showFirearmGuidance =
     armed === 'yes' || armed === 'preferred-not-to-answer';
+  const shouldStartRecording = phase !== 'armed';
 
-  // Recording timer — runs from the first armed answer until the modal
-  // dismisses. Independent of the audio recorder so the timer keeps
-  // ticking even if mic permission was denied (the visual experience
-  // still reads as "we're protecting you" via the elapsed counter).
+  // Recording timer follows the truthful recorder state. Permission denial,
+  // startup failure, saving, and saved states never keep a false timer alive.
   useEffect(() => {
-    if (phase === 'armed') return;
+    if (recordingStatus !== 'recording') return;
     if (timerRef.current) return;
     timerRef.current = setInterval(() => {
       setElapsed((prev) => prev + 1);
@@ -293,7 +283,7 @@ export default function PulledOver() {
         timerRef.current = null;
       }
     };
-  }, [phase]);
+  }, [recordingStatus]);
 
   // Transition → guidance is now user-initiated (explicit Continue
   // button) per WCAG 2.2.1 Timing Adjustable. The prior 3-second
@@ -329,20 +319,20 @@ export default function PulledOver() {
   // permission is denied or recording errors, the rest of the flow
   // works fine; the waveform just stays at its baseline.
   useEffect(() => {
-    if (phase === 'armed') return;
+    if (!shouldStartRecording) return;
     if (hasStartedRecordingRef.current) return;
+    let cancelled = false;
     hasStartedRecordingRef.current = true;
-    setHasActiveRecording(true);
-    // Snapshot metadata for the eventual Recording entry. Captured
-    // here (not in cleanup) because by the time cleanup runs, the
-    // `armed` state has already been cleared from the React tree.
-    recordingArmedRef.current = armed;
-    recordingStartedAtRef.current = Date.now();
+    if (cancelled) return;
+    updateRecordingStatus('requesting-permission');
     (async () => {
       try {
-        const status = await requestRecordingPermissionsAsync();
-        if (!status.granted) {
-          setMicGranted(false);
+        const permission = await requestRecordingPermissionsAsync();
+        if (cancelled) return;
+        if (!permission.granted) {
+          if (cancelled) return;
+          updateRecordingStatus('unavailable');
+          if (cancelled) return;
           console.warn('Microphone permission not granted; waveform disabled');
           return;
         }
@@ -350,19 +340,202 @@ export default function PulledOver() {
           allowsRecording: true,
           playsInSilentMode: true,
         });
+        if (cancelled) return;
         await recorder.prepareToRecordAsync();
+        if (cancelled) return;
         recorder.record();
+        if (cancelled) return;
+        recordingArmedRef.current = armed;
+        recordingStartedAtRef.current = Date.now();
+        if (cancelled) return;
+        updateRecordingStatus('recording');
+        if (cancelled) return;
+        AccessibilityInfo.announceForAccessibility('Recording started.');
       } catch (err) {
+        if (cancelled) return;
         // Group B: surface to the user. They think recording is happening; if
         // it isn't, they need to know NOW. Recordings + permanent maps to
         // "Couldn't start recording / Try a different microphone or restart."
+        updateRecordingStatus('unavailable');
+        if (cancelled) return;
         const { title, body } = getErrorMessage('recordings', 'permanent', err);
+        if (cancelled) return;
         Alert.alert(title, body);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
     // recorder identity is stable from the hook; intentionally not in deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [shouldStartRecording]);
+
+  const queueNavigationIntent = useCallback(
+    (action: NavigationAction, ownerGeneration: number) => {
+      if (
+        activeNavigationIntentGenerationRef.current !== ownerGeneration ||
+        consumedNavigationIntentGenerationRef.current === ownerGeneration
+      ) {
+        return;
+      }
+      pendingNavRef.current = { action, ownerGeneration };
+      setPendingNavVersion((version) => version + 1);
+    },
+    [],
+  );
+
+  const cancelNavigationIntent = useCallback((ownerGeneration: number) => {
+    if (activeNavigationIntentGenerationRef.current !== ownerGeneration) return;
+    pendingNavRef.current = null;
+    setPendingNavVersion((version) => version + 1);
+  }, []);
+
+  const saveCurrentRecording = useCallback(
+    async (action?: NavigationAction, ownerGeneration?: number) => {
+      if (action && ownerGeneration != null) {
+        queueNavigationIntent(action, ownerGeneration);
+      }
+      if (
+        recordingStatusRef.current === 'saved' ||
+        recordingStatusRef.current === 'discarded'
+      ) {
+        return;
+      }
+      const startedAt = recordingStartedAtRef.current;
+      if (startedAt == null) {
+        updateRecordingStatus('save-error');
+        return;
+      }
+      if (saveInFlightRef.current) return;
+
+      const operationGeneration =
+        ++recordingOperationGenerationRef.current;
+      saveInFlightRef.current = true;
+      updateRecordingStatus('saving');
+      AccessibilityInfo.announceForAccessibility('Saving recording.');
+      const result = await stopAndPersistRecording({
+        recorder,
+        startedAt,
+        armed: recordingArmedRef.current,
+        persist: saveRecordingMutation.run,
+      });
+      if (recordingOperationGenerationRef.current !== operationGeneration) return;
+      saveInFlightRef.current = false;
+
+      if (!result.ok) {
+        lastRecordingSaveInputRef.current = result.retryInput ?? null;
+        updateRecordingStatus('save-error');
+        AccessibilityInfo.announceForAccessibility(
+          'Recording could not be saved. Retry or discard the recording.',
+        );
+        return;
+      }
+
+      lastRecordingSaveInputRef.current = null;
+      updateRecordingStatus('saved');
+      AccessibilityInfo.announceForAccessibility('Recording saved.');
+    },
+    [
+      queueNavigationIntent,
+      recorder,
+      saveRecordingMutation.run,
+      updateRecordingStatus,
+    ],
+  );
+
+  const retryRecordingSave = useCallback(async (
+    action?: NavigationAction,
+    ownerGeneration?: number,
+  ) => {
+    if (action && ownerGeneration != null) {
+      queueNavigationIntent(action, ownerGeneration);
+    }
+    if (saveInFlightRef.current) return;
+    const retryInput = lastRecordingSaveInputRef.current;
+    if (!retryInput) {
+      setIsRetryingSave(true);
+      await saveCurrentRecording(action, ownerGeneration);
+      setIsRetryingSave(false);
+      return;
+    }
+
+    const operationGeneration = ++recordingOperationGenerationRef.current;
+    saveInFlightRef.current = true;
+    setIsRetryingSave(true);
+    updateRecordingStatus('saving');
+    AccessibilityInfo.announceForAccessibility('Saving recording.');
+    const result = await persistRecordingInput(
+      retryInput,
+      saveRecordingMutation.run,
+    );
+    if (recordingOperationGenerationRef.current !== operationGeneration) return;
+    saveInFlightRef.current = false;
+    setIsRetryingSave(false);
+
+    if (!result.ok) {
+      lastRecordingSaveInputRef.current = result.retryInput ?? retryInput;
+      updateRecordingStatus('save-error');
+      AccessibilityInfo.announceForAccessibility(
+        'Recording could not be saved. Retry or discard the recording.',
+      );
+      return;
+    }
+
+    lastRecordingSaveInputRef.current = null;
+    updateRecordingStatus('saved');
+    AccessibilityInfo.announceForAccessibility('Recording saved.');
+  }, [
+    queueNavigationIntent,
+    saveCurrentRecording,
+    saveRecordingMutation.run,
+    updateRecordingStatus,
+  ]);
+
+  const discardCurrentRecording = useCallback(async (
+    action?: NavigationAction,
+    ownerGeneration?: number,
+  ) => {
+    if (action && ownerGeneration != null) {
+      queueNavigationIntent(action, ownerGeneration);
+    }
+    recordingOperationGenerationRef.current += 1;
+    if (recorder.isRecording) {
+      try {
+        await recorder.stop();
+      } catch {
+        // The user explicitly chose permanent discard. Continue disarming the
+        // screen even if the native recorder is already unavailable.
+      }
+    }
+    saveRecordingMutation.reset();
+    saveInFlightRef.current = false;
+    setIsRetryingSave(false);
+    lastRecordingSaveInputRef.current = null;
+    recordingStartedAtRef.current = null;
+    recordingArmedRef.current = null;
+    updateRecordingStatus('discarded');
+  }, [
+    queueNavigationIntent,
+    recorder,
+    saveRecordingMutation.reset,
+    updateRecordingStatus,
+  ]);
+
+  useEffect(() => {
+    if (recordingStatus !== 'saved' && recordingStatus !== 'discarded') return;
+    const pending = pendingNavRef.current;
+    if (!pending) return;
+    if (
+      pending.ownerGeneration !==
+        activeNavigationIntentGenerationRef.current ||
+      consumedNavigationIntentGenerationRef.current === pending.ownerGeneration
+    ) {
+      return;
+    }
+    pendingNavRef.current = null;
+    consumedNavigationIntentGenerationRef.current = pending.ownerGeneration;
+    navigation.dispatch(pending.action);
+  }, [navigation, pendingNavVersion, recordingStatus]);
 
   // Stop the recorder and persist the captured audio when the user
   // dismisses the modal.
@@ -380,70 +553,104 @@ export default function PulledOver() {
   // before JS can intercept; addListener + preventDefault gets a
   // "screen was removed natively but didn't get removed from JS state"
   // warning. usePreventRemove is the supported pattern for this case.
-  usePreventRemove(hasActiveRecording, ({ data }) => {
+  usePreventRemove(hasProtectedAudio, ({ data }) => {
+    const ownerGeneration = ++navigationIntentGenerationRef.current;
+    activeNavigationIntentGenerationRef.current = ownerGeneration;
+    const operationGeneration = recordingOperationGenerationRef.current;
+    const confirmDiscardAndLeave = (keepLabel: string) => {
+      Alert.alert(
+        'Discard this recording?',
+        'This permanently discards the recording. Leave this screen?',
+        [
+          {
+            text: keepLabel,
+            style: 'cancel',
+            onPress: () => cancelNavigationIntent(ownerGeneration),
+          },
+          {
+            text: 'Discard & leave',
+            style: 'destructive',
+            onPress: () => {
+              void discardCurrentRecording(data.action, ownerGeneration);
+            },
+          },
+        ],
+      );
+    };
+
+    if (recordingStatus === 'saving') {
+      Alert.alert(
+        'Saving recording',
+        'Saving is underway. You can stay here or leave automatically after it finishes.',
+        [
+          {
+            text: 'Stay',
+            style: 'cancel',
+            onPress: () => cancelNavigationIntent(ownerGeneration),
+          },
+          {
+            text: 'Leave after saving',
+            onPress: () => {
+              const status = recordingStatusRef.current;
+              const isTerminal = status === 'saved' || status === 'discarded';
+              if (
+                !isTerminal &&
+                recordingOperationGenerationRef.current !== operationGeneration
+              ) {
+                return;
+              }
+              queueNavigationIntent(data.action, ownerGeneration);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    if (recordingStatus === 'save-error') {
+      Alert.alert(
+        'Recording not saved',
+        'Retry saving before leaving, or discard the recording permanently.',
+        [
+          {
+            text: 'Stay',
+            style: 'cancel',
+            onPress: () => cancelNavigationIntent(ownerGeneration),
+          },
+          {
+            text: 'Discard & leave',
+            style: 'destructive',
+            onPress: () => confirmDiscardAndLeave('Keep trying'),
+          },
+          {
+            text: 'Retry & leave',
+            onPress: () => {
+              void retryRecordingSave(data.action, ownerGeneration);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     Alert.alert(
       'Recording in progress',
-      'Your recording will be saved. Leave this screen?',
+      'Save the recording before leaving, or discard it permanently.',
       [
-        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Stay',
+          style: 'cancel',
+          onPress: () => cancelNavigationIntent(ownerGeneration),
+        },
+        {
+          text: 'Discard & leave',
+          style: 'destructive',
+          onPress: () => confirmDiscardAndLeave('Keep recording'),
+        },
         {
           text: 'Save & leave',
           onPress: () => {
-            (async () => {
-              if (recorder.isRecording) {
-                try {
-                  await recorder.stop();
-                } catch (stopErr) {
-                  console.warn('[pulled-over] recorder.stop() failed', stopErr);
-                }
-              }
-              const sourceUri = recorder.uri;
-              if (!sourceUri) {
-                console.warn('[pulled-over] no recorder uri; skipping save');
-                setHasActiveRecording(false);
-                navigation.dispatch(data.action);
-                return;
-              }
-              const startedAt = recordingStartedAtRef.current ?? Date.now();
-              const durationMs = Date.now() - startedAt;
-              if (durationMs < 2000) {
-                console.log('[pulled-over] recording <2s; skipping save', { durationMs });
-                setHasActiveRecording(false);
-                navigation.dispatch(data.action);
-                return;
-              }
-              // Deferred navigation: on success we fire the back-nav
-              // the user requested; on failure we STAY on this screen
-              // so the RecordingSaveErrorBanner can offer Retry. The
-              // input + nav action are stashed in refs so the banner's
-              // Retry handler can replay them after the JSX re-renders
-              // around the mutation.error state.
-              const input = {
-                sourceUri,
-                durationMs,
-                armed: recordingArmedRef.current,
-                createdAt: startedAt,
-              };
-              lastRecordingSaveInputRef.current = input;
-              pendingNavRef.current = { action: data.action };
-
-              const result = await saveRecordingMutation.run(input);
-              // Note: do NOT flip hasActiveRecording yet — keep the
-              // usePreventRemove guard armed if the save failed, so the
-              // user has to explicitly confirm via the banner's Discard
-              // (or retry until success) instead of silently backing
-              // out and losing the recording.
-              if (result.ok) {
-                console.log('[pulled-over] saved recording', result.data.id);
-                setHasActiveRecording(false);
-                navigation.dispatch(data.action);
-              }
-              // On failure: stay on screen with active-recording guard
-              // armed — banner renders from
-              // saveRecordingMutation.error !== null. hasActiveRecording
-              // flips false only via the banner's onRetry success path
-              // or its onDismiss (explicit Discard).
-            })();
+            void saveCurrentRecording(data.action, ownerGeneration);
           },
         },
       ],
@@ -460,7 +667,7 @@ export default function PulledOver() {
   // the buffer stalls. durationMillis ticks up every WAVEFORM_POLL_MS
   // while recording, so it's the reliable cadence signal.
   useEffect(() => {
-    if (phase !== 'guidance') return;
+    if (phase !== 'guidance' || recordingStatus !== 'recording') return;
     // P6: short-circuit the metering buffer updates when reduce-motion
     // is enabled — the Waveform component renders all bars at floor
     // regardless of history when reduceMotion is true, so skipping the
@@ -480,7 +687,13 @@ export default function PulledOver() {
       next.push(sample);
       return next;
     });
-  }, [phase, recorderState.durationMillis, recorderState.metering, reduceMotion]);
+  }, [
+    phase,
+    recorderState.durationMillis,
+    recorderState.metering,
+    recordingStatus,
+    reduceMotion,
+  ]);
 
   // Stop any in-progress speech when leaving guidance phase, since the
   // Read-aloud button only exists there. Without this the speech would
@@ -524,19 +737,9 @@ export default function PulledOver() {
     if (reviewIndex > 0) setReviewIndex(reviewIndex - 1);
   }
 
-  const handleStopRecording = useCallback(async () => {
-    try {
-      if (recorder.isRecording) {
-        await recorder.stop();
-      }
-      setRecordingStopped(true);
-      setHasActiveRecording(false);
-    } catch (err) {
-      console.warn('[pulled-over] manual stop failed', err);
-      setRecordingStopped(true);
-      setHasActiveRecording(false);
-    }
-  }, [recorder]);
+  const handleStopRecording = useCallback(() => {
+    void saveCurrentRecording();
+  }, [saveCurrentRecording]);
 
   function handleClose() {
     router.back();
@@ -549,7 +752,7 @@ export default function PulledOver() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.dragWrapper}>
           <DragHandle />
-          {hasActiveRecording && (
+          {hasProtectedAudio && (
             <View style={styles.lockBadge} accessibilityLabel="Sheet locked while recording">
               <Lock size={14} color={colors.labelTertiary} weight="bold" />
             </View>
@@ -563,27 +766,26 @@ export default function PulledOver() {
           with-confirm. See RecordingSaveErrorBanner for the P-C
           pattern rationale (Phase 1's tail).
         */}
-        {saveRecordingMutation.error !== null && (
+        {(recordingStatus === 'save-error' || isRetryingSave) && (
           <RecordingSaveErrorBanner
-            pending={saveRecordingMutation.status === 'pending'}
-            onRetry={async () => {
-              const lastInput = lastRecordingSaveInputRef.current;
-              if (!lastInput) return;
-              const result = await saveRecordingMutation.run(lastInput);
-              if (result.ok && pendingNavRef.current) {
-                setHasActiveRecording(false);
-                navigation.dispatch(pendingNavRef.current.action);
-              }
+            pending={isRetryingSave}
+            onRetry={() => {
+              void retryRecordingSave();
             }}
             onDismiss={() => {
-              saveRecordingMutation.reset();
-              setHasActiveRecording(false);
-              if (pendingNavRef.current) {
-                navigation.dispatch(pendingNavRef.current.action);
-              }
+              void discardCurrentRecording();
             }}
           />
         )}
+
+        {recordingStatus === 'saving' &&
+          !isRetryingSave &&
+          (phase === 'contact' || phase === 'review') && (
+            <View style={styles.savingStatus} accessibilityLiveRegion="polite">
+              <Text style={styles.savingStatusTitle}>Saving recording</Text>
+              <Text style={styles.savingStatusDetail}>Keep this screen open</Text>
+            </View>
+          )}
 
         {/*
           Persistent recording chip — only on phases where the recording
@@ -594,14 +796,18 @@ export default function PulledOver() {
           live timer sits above the phase content for the rest of the
           flow. Hidden on guidance because the full widget is there.
         */}
-        {(phase === 'contact' || phase === 'review') && (
-          <RecordingChip elapsed={elapsed} />
-        )}
+        {recordingStatus === 'recording' &&
+          (phase === 'contact' || phase === 'review') && (
+            <RecordingChip elapsed={elapsed} />
+          )}
 
         <View style={styles.phaseContainer}>
           {phase === 'armed' && <ArmedView onAnswer={handleAnswer} />}
           {phase === 'transition' && (
-            <TransitionView onSkip={() => setPhase('guidance')} />
+            <TransitionView
+              recordingStatus={recordingStatus}
+              onSkip={() => setPhase('guidance')}
+            />
           )}
           {phase === 'guidance' && (
             <GuidanceView
@@ -611,8 +817,7 @@ export default function PulledOver() {
               elapsed={elapsed}
               meteringHistory={meteringHistory}
               reduceMotion={reduceMotion}
-              micGranted={micGranted}
-              recordingStopped={recordingStopped}
+              recordingStatus={recordingStatus}
               onContinue={handleContinueToContact}
               onStopRecording={handleStopRecording}
             />
@@ -701,7 +906,27 @@ function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
 
 // --- Phase: Transition ---------------------------------------------------
 
-function TransitionView({ onSkip }: { onSkip: () => void }) {
+function TransitionView({
+  recordingStatus,
+  onSkip,
+}: {
+  recordingStatus: RecordingStatus;
+  onSkip: () => void;
+}) {
+  const [recordingTitle, recordingDetail] =
+    recordingStatus === 'recording'
+      ? ['Recording started', 'For your safety.']
+      : recordingStatus === 'unavailable'
+        ? ['Microphone unavailable', 'Guidance is still ready']
+        : recordingStatus === 'saving'
+          ? ['Saving your recording', 'Keep this screen open.']
+          : recordingStatus === 'saved'
+            ? ['Recording saved', 'Guidance is still ready']
+            : recordingStatus === 'save-error'
+              ? ['Recording needs attention', 'Retry or discard before leaving.']
+              : recordingStatus === 'discarded'
+                ? ['Recording discarded', 'Guidance is still ready']
+                : ['Preparing your recording', 'For your safety.'];
   // User-controlled advance (WCAG 2.2.1): the screen waits
   // indefinitely for the user to tap Continue. Pace control during
   // stress is one of the strongest predictors of self-regulation per
@@ -714,9 +939,10 @@ function TransitionView({ onSkip }: { onSkip: () => void }) {
         <Text style={transitionStyles.title}>
           We'll walk you{'\n'}through what to do.
         </Text>
-        <Text style={transitionStyles.subtitle}>
-          We've started recording{'\n'} for your safety.
-        </Text>
+        <View>
+          <Text style={transitionStyles.subtitle}>{recordingTitle}</Text>
+          <Text style={transitionStyles.subtitle}>{recordingDetail}</Text>
+        </View>
       </View>
 
       <Pressable
@@ -735,44 +961,6 @@ function TransitionView({ onSkip }: { onSkip: () => void }) {
 }
 
 // --- Phase: Guidance -----------------------------------------------------
-
-/**
- * Live mic-driven waveform. Renders WAVEFORM_BAR_COUNT vertical bars,
- * each height computed from a dB sample in the metering history (oldest
- * on the left, newest on the right). When the recorder isn't active or
- * the platform doesn't expose metering, the buffer stays at the floor
- * value and the waveform reads as a flat baseline — graceful fallback
- * rather than a broken visual.
- */
-function Waveform({
-  history,
-  reduceMotion,
-}: {
-  history: number[];
-  reduceMotion: boolean;
-}) {
-  // P6: when reduce-motion is on, render every bar at the floor height
-  // (flat baseline) instead of the live dB values. usePulseOpacity
-  // already gates correctly elsewhere; this brings the only un-gated
-  // animation in the app into the same pattern. Per DESIGN.md Reduce-Motion-Honest Rule.
-  return (
-    <View style={guidanceStyles.waveformRow}>
-      {history.map((db, i) => (
-        <View
-          key={i}
-          style={[
-            guidanceStyles.waveformBar,
-            {
-              height: reduceMotion
-                ? WAVEFORM_MIN_HEIGHT
-                : dbToBarHeight(db),
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
 
 function GuidanceBullet({ children }: { children: ReactNode }) {
   // Stress-readable + Dynamic-Type-aware. Guidance bullets are the
@@ -798,8 +986,7 @@ function GuidanceView({
   elapsed,
   meteringHistory,
   reduceMotion,
-  micGranted,
-  recordingStopped,
+  recordingStatus,
   onContinue,
   onStopRecording,
 }: {
@@ -809,26 +996,11 @@ function GuidanceView({
   elapsed: number;
   meteringHistory: number[];
   reduceMotion: boolean;
-  micGranted: boolean;
-  recordingStopped: boolean;
+  recordingStatus: RecordingStatus;
   onContinue: () => void;
   onStopRecording: () => void;
 }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
-
-  // D7: "Recording started" → "Recording…" label transition.
-  // Shows "Recording started" for 1.5s on mount, then settles to
-  // "Recording…". Gated on reduce motion (shows "Recording…" immediately).
-  const [recordingLabelStarted, setRecordingLabelStarted] = useState(
-    !reduceMotion && !recordingStopped && micGranted,
-  );
-  useEffect(() => {
-    if (reduceMotion || recordingStopped || !micGranted) return;
-    // D7: light haptic on recording widget mount
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const timer = setTimeout(() => setRecordingLabelStarted(false), 1500);
-    return () => clearTimeout(timer);
-  }, [reduceMotion, recordingStopped, micGranted]);
 
   // useMemo: bullet list shouldn't be rebuilt every render — the
   // showFirearmGuidance + disclosureDuty values are stable for the
@@ -874,10 +1046,6 @@ function GuidanceView({
       Speech.stop();
     };
   }, []);
-
-  const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
-  const seconds = (elapsed % 60).toString().padStart(2, '0');
-  const timeString = `00:${minutes}:${seconds}`;
 
   return (
     <View style={guidanceStyles.page}>
@@ -928,57 +1096,13 @@ function GuidanceView({
         </Text>
       </Pressable>
 
-      {/*
-        Recording widget — Figma node 825:4298. Background F2F2F7,
-        radius 20, padding 16, gap 8, items-center. Shows different states:
-        - Recording active (micGranted && !recordingStopped): live waveform
-          with timer and stop button
-        - Mic unavailable (!micGranted): "Microphone unavailable" message
-        - Recording stopped (recordingStopped && micGranted): "Recording saved"
-          confirmation
-      */}
-      {!micGranted ? (
-        <View style={guidanceStyles.recordingWidget}>
-          <Text style={guidanceStyles.recordingLabel}>Guidance active</Text>
-          <Text style={guidanceStyles.micUnavailableText}>
-            Microphone unavailable — your guidance continues below
-          </Text>
-        </View>
-      ) : recordingStopped ? (
-        <View style={guidanceStyles.recordingWidget}>
-          <Text style={guidanceStyles.recordingLabel}>Recording saved</Text>
-          <Text style={guidanceStyles.micUnavailableText}>
-            Saved to your phone — guidance continues below
-          </Text>
-        </View>
-      ) : (
-        <View style={guidanceStyles.recordingWidget}>
-          <View style={guidanceStyles.recordingTextBlock}>
-            <Text style={guidanceStyles.recordingLabel}>
-              {recordingLabelStarted ? 'Recording started' : 'Recording…'}
-            </Text>
-            <Text style={guidanceStyles.recordingTimer}>{timeString}</Text>
-          </View>
-
-          <Waveform history={meteringHistory} reduceMotion={reduceMotion} />
-
-          <Pressable
-            onPress={onStopRecording}
-            accessibilityRole="button"
-            accessibilityLabel="Stop recording"
-            style={({ pressed }) => [
-              guidanceStyles.stopRecordingBtn,
-              pressed && pressedDim,
-            ]}
-          >
-            <Text style={guidanceStyles.stopRecordingText}>Stop recording</Text>
-          </Pressable>
-
-          <Text style={guidanceStyles.recordingFootnote}>
-            Saved to your phone — only you can access it
-          </Text>
-        </View>
-      )}
+      <PulledOverRecordingCard
+        status={recordingStatus}
+        elapsed={elapsed}
+        meteringHistory={meteringHistory}
+        reduceMotion={reduceMotion}
+        onStopRecording={onStopRecording}
+      />
       </ScrollView>
 
       <Pressable
@@ -1720,6 +1844,22 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     top: spacing.md,
   },
+  savingStatus: {
+    backgroundColor: colors.surfaceTinted,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  savingStatusTitle: {
+    ...dynamicType(typography.bodyRegular),
+    color: colors.black,
+  },
+  savingStatusDetail: {
+    ...dynamicType(typography.footnoteRegular),
+    color: colors.labelTertiary,
+  },
   phaseContainer: {
     flex: 1,
     paddingTop: spacing.lg,
@@ -1945,53 +2085,6 @@ const guidanceStyles = StyleSheet.create({
   scrollContent: {
     gap: spacing.lg,
   },
-  recordingWidget: {
-    backgroundColor: colors.surfaceTinted,
-    borderRadius: radii.xl,
-    padding: spacing.md,
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  recordingTextBlock: {
-    gap: spacing.xs,
-    alignItems: 'center',
-  },
-  recordingLabel: {
-    // P4: dynamicType so the widget scales with user font preference
-    // (this is the recording focal point — must scale with content).
-    ...dynamicType(typography.bodyRegular),
-    color: colors.black,
-  },
-  recordingTimer: {
-    // P4: promoted from subheadlineRegular (15pt) to bodyRegular (17pt)
-    // so the live counter is at least as prominent as the label above
-    // it — was inverted (timer 1pt SMALLER than its label). The timer
-    // is what users actually watch; hierarchy now puts the data on the
-    // same visual tier as its label. Plus dynamicType per the same
-    // reasoning as recordingLabel.
-    ...dynamicType(typography.bodyRegular),
-    color: colors.labelTertiary,
-    fontVariant: ['tabular-nums'],
-  },
-  waveformRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    height: WAVEFORM_MAX_HEIGHT + 8,
-    paddingVertical: spacing.xs,
-    width: '100%',
-  },
-  waveformBar: {
-    width: 3,
-    borderRadius: radii.xs,
-    backgroundColor: colors.severityCritical,
-  },
-  recordingFootnote: {
-    ...dynamicType(typography.caption1Regular),
-    color: colors.labelTertiary,
-    textAlign: 'center',
-  },
   // Wiltedgreen-outline pill (mirrors Contact's Text button) — quieter
   // than freshgreen-fill, conserving the freshgreen for genuine primary
   // actions like Call. The "we're recording during a stop" register
@@ -2010,26 +2103,6 @@ const guidanceStyles = StyleSheet.create({
   continueText: {
     ...dynamicType(typography.subheadlineEmphasized),
     color: colors.wiltedgreen,
-  },
-  micUnavailableText: {
-    ...dynamicType(typography.footnoteRegular),
-    color: colors.labelTertiary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  stopRecordingBtn: {
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.labelTertiary,
-  },
-  stopRecordingText: {
-    ...dynamicType(typography.footnoteEmphasized),
-    color: colors.labelSecondary,
   },
   stateAttribution: {
     ...dynamicType(typography.caption1Regular),
