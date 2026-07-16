@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -10,13 +10,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePreventRemove } from '@react-navigation/native';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 
 import { CarBattery } from 'phosphor-react-native/src/icons/CarBattery';
 import { GasPump } from 'phosphor-react-native/src/icons/GasPump';
@@ -34,7 +33,6 @@ import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
 import { DragHandle } from '../components/DragHandle';
 import { MetaSeparator } from '../components/MetaSeparator';
-import { NotifyingPulse } from '../components/NotifyingPulse';
 import { RoadsideTowPick } from '../components/RoadsideTowPick';
 import { useRoadsideProfile } from '../hooks/useRoadsideProfile';
 import { useTrustedContact } from '../hooks/useTrustedContact';
@@ -81,6 +79,7 @@ const PROBLEMS: ProblemMeta[] = [
  */
 export default function Roadside() {
   const router = useRouter();
+  const navigation = useNavigation();
   const [step, setStep] = useState<Step>('problem');
   const [problem, setProblem] = useState<ProblemType | null>(null);
   const [locationLabel, setLocationLabel] = useState<string | null>(null); // null = "Locating…"
@@ -93,20 +92,16 @@ export default function Roadside() {
   const [shareToggledAtIso, setShareToggledAtIso] = useState<string | null>(null);
   const [actionSource, setActionSource] = useState<ActionSource>(null);
   const [contactedTowName, setContactedTowName] = useState<string | null>(null);
+  const approvedExitRef = useRef(false);
 
-  usePreventRemove(step === 'status', () => {
-    // Block the dismissal — the user must use an explicit CTA on Step 3.
-    // No-op callback; presence of the hook + true flag is what blocks.
-  });
-
-  // Fire a success haptic once when entering Step 3.
-  useEffect(() => {
-    if (step === 'status') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-        () => {},
-      );
+  usePreventRemove(step === 'status', ({ data }) => {
+    if (approvedExitRef.current) {
+      approvedExitRef.current = false;
+      navigation.dispatch(data.action);
     }
-  }, [step]);
+    // Otherwise block the dismissal — the user must use an explicit CTA
+    // on Step 3. No-op is intentional for unapproved gestures.
+  });
 
   // Reverse-geocode the user's current location for the chip + Step 2 headline.
   // Permission denial and geocode errors fall back explicitly; a GPS fix that
@@ -191,6 +186,11 @@ export default function Roadside() {
     setStep('status');
   }
 
+  function runApprovedExit(action: () => void) {
+    approvedExitRef.current = true;
+    action();
+  }
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
@@ -215,21 +215,25 @@ export default function Roadside() {
             onCallPlaced={handleMembershipCallPlaced}
             onOpenTowPick={handleOpenTowPick}
             onShareToggle={(next) => {
-              setShareOn(next);
-              if (next) {
-                setShareToggledAtIso(new Date().toISOString());
-                const problemLabel =
-                  PROBLEMS.find((p) => p.id === problem)?.label ?? 'Need help';
-                void (async () => {
-                  const contact = await getTrustedContact();
-                  await notifyTrustedContact(contact, {
-                    flow: 'roadside',
-                    reason: problemLabel,
-                    locationLabel: locationLabel ?? 'Your location',
-                    coordinates: locationCoords ?? undefined,
-                  });
-                })();
+              if (!next) {
+                setShareOn(false);
+                setShareToggledAtIso(null);
+                return;
               }
+              const problemLabel =
+                PROBLEMS.find((p) => p.id === problem)?.label ?? 'Need help';
+              void (async () => {
+                const contact = await getTrustedContact();
+                const result = await notifyTrustedContact(contact, {
+                  flow: 'roadside',
+                  reason: problemLabel,
+                  locationLabel: locationLabel ?? 'Your location',
+                  coordinates: locationCoords ?? undefined,
+                });
+                if (!result.opened) return;
+                setShareOn(true);
+                setShareToggledAtIso(result.openedAtIso);
+              })();
             }}
             onFiguredOut={() => {
               Alert.alert(
@@ -264,8 +268,10 @@ export default function Roadside() {
             shareToggledAtIso={shareToggledAtIso}
             actionSource={actionSource}
             contactedTowName={contactedTowName}
-            onBackOnRoad={() => router.back()}
-            onSwitchToPulledOver={() => router.replace('/pulled-over')}
+            onBackOnRoad={() => runApprovedExit(() => router.back())}
+            onSwitchToPulledOver={() =>
+              runApprovedExit(() => router.replace('/pulled-over'))
+            }
             onBackToActions={handleBackToActions}
           />
         )}
@@ -302,8 +308,14 @@ function ProblemPicker({
           has no back affordance — keeps the title's y-position stable
           across step 1 → step 2 transitions. */}
       <View style={styles.backChevronPlaceholder} />
-      <Text style={styles.subtitle}>Let&apos;s get you the help you need.</Text>
-      <Text style={styles.question} accessibilityRole="header">
+      <Text style={styles.subtitle} maxFontSizeMultiplier={2}>
+        Let&apos;s get you the help you need.
+      </Text>
+      <Text
+        style={styles.question}
+        accessibilityRole="header"
+        maxFontSizeMultiplier={2}
+      >
         What&apos;s going on?
       </Text>
 
@@ -320,7 +332,9 @@ function ProblemPicker({
             <View style={styles.iconTile}>
               <p.Icon size={24} color={colors.freshgreen} weight="regular" />
             </View>
-            <Text style={styles.rowLabel}>{p.label}</Text>
+            <Text style={styles.rowLabel} maxFontSizeMultiplier={2}>
+              {p.label}
+            </Text>
             <CaretRight size={20} color={colors.labelTertiary} weight="bold" />
           </Pressable>
         ))}
@@ -421,8 +435,14 @@ function ActionMenu({
     >
       <BackButton onPress={onBack} style={styles.backChevron} />
 
-      <Text style={styles.subtitle}>Got it.</Text>
-      <Text style={styles.title} accessibilityRole="header">
+      <Text style={styles.subtitle} maxFontSizeMultiplier={2}>
+        Got it.
+      </Text>
+      <Text
+        style={styles.title}
+        accessibilityRole="header"
+        maxFontSizeMultiplier={2}
+      >
         {headline}
       </Text>
 
@@ -441,7 +461,7 @@ function ActionMenu({
           <View style={styles.iconTile}>
             <Phone size={24} color={colors.freshgreen} weight="regular" />
           </View>
-          <Text style={styles.rowLabel}>
+          <Text style={styles.rowLabel} maxFontSizeMultiplier={2}>
             {roadsideProfile
               ? `Call ${roadsideProfile.serviceName}`
               : 'Set up your roadside service'}
@@ -460,31 +480,39 @@ function ActionMenu({
           <View style={styles.iconTile}>
             <MapPin size={24} color={colors.freshgreen} weight="regular" />
           </View>
-          <Text style={styles.rowLabel}>Find a tow truck nearby</Text>
+          <Text style={styles.rowLabel} maxFontSizeMultiplier={2}>
+            Find a tow truck nearby
+          </Text>
           <CaretRight size={20} color={colors.labelTertiary} weight="bold" />
         </Pressable>
 
-        {/* Share-location row */}
+        {/* Messages handoff row */}
         {contact ? (
-          <View
-            style={styles.row}
-            accessible
-            accessibilityRole="switch"
-            accessibilityState={{ checked: shareOn }}
-            accessibilityLabel={`Share location with ${contact.name}`}
+          <Pressable
+            onPress={() => handleShareToggle(true)}
+            style={({ pressed }) => [styles.row, pressed && pressedDim]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              shareOn
+                ? `Message draft opened for ${contact.name}. Tap Send in Messages. Open message draft again`
+                : `Open message draft for ${contact.name}`
+            }
+            accessibilityHint="Opens Messages with your roadside details. You must tap Send in Messages."
           >
             <View style={styles.iconTile}>
               <ShareNetwork size={24} color={colors.freshgreen} weight="regular" />
             </View>
-            <Text style={styles.rowLabel}>Share location w/ {contact.name}</Text>
-            <Switch
-              value={shareOn}
-              onValueChange={handleShareToggle}
-              trackColor={{ false: colors.borderWarm, true: colors.freshgreen }}
-              thumbColor={colors.white}
-              ios_backgroundColor={colors.borderWarm}
-            />
-          </View>
+            <Text
+              style={styles.rowLabel}
+              maxFontSizeMultiplier={2}
+              accessibilityLiveRegion={shareOn ? 'polite' : 'none'}
+            >
+              {shareOn
+                ? 'Message draft opened — tap Send in Messages'
+                : `Open message draft for ${contact.name}`}
+            </Text>
+            <CaretRight size={20} color={colors.labelTertiary} weight="bold" />
+          </Pressable>
         ) : (
           <Pressable
             onPress={handleShareSetup}
@@ -495,7 +523,9 @@ function ActionMenu({
             <View style={styles.iconTile}>
               <ShareNetwork size={24} color={colors.freshgreen} weight="regular" />
             </View>
-            <Text style={styles.rowLabel}>Set a trusted contact</Text>
+            <Text style={styles.rowLabel} maxFontSizeMultiplier={2}>
+              Set a trusted contact
+            </Text>
             <CaretRight size={20} color={colors.labelTertiary} weight="bold" />
           </Pressable>
         )}
@@ -539,12 +569,13 @@ function LiveStatus({
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
 
-  const headline =
+  const providerName =
     actionSource === 'tow'
-      ? 'Stay where you are. Help is on the way.'
-      : roadsideProfile
-        ? `${roadsideProfile.serviceName} should be on the way.`
-        : 'Help is on the way. Stay where you are.';
+      ? contactedTowName
+      : roadsideProfile?.serviceName ?? null;
+  const headline = providerName
+    ? `Confirm help directly with ${providerName}.`
+    : 'Confirm help directly with the provider.';
 
   const problemLabel = problem
     ? PROBLEMS.find((p) => p.id === problem)?.label ?? 'Need help'
@@ -573,13 +604,22 @@ function LiveStatus({
           <X size={24} color={colors.labelSecondary} weight="regular" />
         </Pressable>
       </View>
-      <Text style={[styles.subtitle, { marginTop: spacing.sm }]}>Hang tight.</Text>
-      <Text style={styles.title} accessibilityRole="header">
+      <Text
+        style={[styles.subtitle, { marginTop: spacing.sm }]}
+        maxFontSizeMultiplier={2}
+      >
+        Call opened.
+      </Text>
+      <Text
+        style={styles.title}
+        accessibilityRole="header"
+        maxFontSizeMultiplier={2}
+      >
         {headline}
       </Text>
 
       <View style={styles.sharedCard}>
-        <Text style={styles.sharedCardTitle}>What they know</Text>
+        <Text style={styles.sharedCardTitle}>Details to confirm</Text>
         <View style={styles.sharedRow}>
           <Text style={styles.sharedRowLabel}>Problem</Text>
           <Text style={styles.sharedRowValue}>{problemLabel}</Text>
@@ -590,13 +630,13 @@ function LiveStatus({
         </View>
         {contactedTowName && (
           <View style={styles.sharedRow}>
-            <Text style={styles.sharedRowLabel}>Contacted</Text>
+            <Text style={styles.sharedRowLabel}>Provider</Text>
             <Text style={styles.sharedRowValue}>{contactedTowName}</Text>
           </View>
         )}
         {shareOn && contact && contactNotifiedTime && (
           <View style={styles.sharedRow}>
-            <Text style={styles.sharedRowLabel}>Contact</Text>
+            <Text style={styles.sharedRowLabel}>Draft opened</Text>
             <View style={styles.sharedRowValue}>
               <Text style={styles.sharedRowValueText}>{contact.name}</Text>
               <MetaSeparator style={styles.sharedRowMetaSeparator} />
@@ -616,7 +656,9 @@ function LiveStatus({
         <View style={styles.iconTile}>
           <Siren size={24} color={colors.navy} weight="regular" />
         </View>
-        <Text style={styles.rowLabel}>Switch to Pulled-over mode</Text>
+        <Text style={styles.rowLabel} maxFontSizeMultiplier={2}>
+          Switch to Pulled-over mode
+        </Text>
         <CaretRight size={20} color={colors.labelTertiary} weight="bold" />
       </Pressable>
 
@@ -628,8 +670,6 @@ function LiveStatus({
           onPress={onBackOnRoad}
           style={styles.primaryCtaStretch}
         />
-
-        {shareOn && contact && <NotifyingPulse contactName={contact.name} />}
       </View>
     </ScrollView>
   );
@@ -803,7 +843,7 @@ const styles = StyleSheet.create({
   // system.md §1.4 — relaxed is for stress-state long-reads, not
   // single-line headers).
   subtitle: {
-    ...dynamicType(typography.title3Regular),
+    ...dynamicType(typography.title3Regular, 2),
     color: colors.labelTertiary,
     marginTop: spacing.sm,
   },
@@ -813,7 +853,7 @@ const styles = StyleSheet.create({
   // DM Serif is reserved for the reassurance payoff on Steps 2–3 (the
   // `title` style), not for asking the user something.
   question: {
-    ...dynamicType(typography.title1Regular),
+    ...dynamicType(typography.title1Regular, 2),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
@@ -822,7 +862,7 @@ const styles = StyleSheet.create({
   // status line) — the roadside thank-you beat, one of the six DM Serif
   // moments (see .impeccable/design.json).
   title: {
-    ...dynamicType(typography.brandDisplay),
+    ...dynamicType(typography.brandDisplay, 2),
     color: colors.black,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
@@ -860,7 +900,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowLabel: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 2),
     color: colors.black,
     flex: 1,
   },
@@ -940,7 +980,7 @@ const styles = StyleSheet.create({
   },
   modalCtaLabel: {
     ...dynamicType(typography.bodyEmphasized),
-    color: colors.white,
+    color: colors.black,
   },
   modalCancelBtn: {
     minHeight: 44,

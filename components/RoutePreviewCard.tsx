@@ -12,11 +12,13 @@
  */
 import { useRouter } from 'expo-router';
 import * as haptics from '../lib/haptics';
-import { type ReactNode, useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Easing,
+  PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -45,6 +47,7 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useRegularDestinations } from '../hooks/useRegularDestinations';
 
 import { isRegularLocation } from '../lib/api/regular-destinations';
+import { prepareRouteResilienceBundle } from '../lib/api/route-resilience';
 import { primaryRoadName, type Route, type RouteSource } from '../lib/api/routes';
 import type { Zone } from '../lib/api/zones';
 import {
@@ -136,8 +139,13 @@ export function RoutePreviewCard({
   fuelType,
 }: RoutePreviewCardProps) {
   const router = useRouter();
+  const fontScale = PixelRatio.getFontScale();
   const reduceMotion = useReduceMotion();
   const { regulars, markRegular, unmarkRegular } = useRegularDestinations();
+  const [navigationPrepStatus, setNavigationPrepStatus] = useState<'idle' | 'preparing'>(
+    'idle',
+  );
+  const isPreparingNavigation = navigationPrepStatus === 'preparing';
 
   // ---- Route cycling -------------------------------------------------------
 
@@ -362,12 +370,65 @@ export function RoutePreviewCard({
 
   const trustedNoun = fuelType === 'electric' ? 'charger' : 'station';
 
+  async function handleStartNavigation() {
+    if (isPreparingNavigation) return;
+    haptics.tap();
+    setNavigationPrepStatus('preparing');
+    let routePrepStatus: 'ready' | 'degraded' = selectedRoute ? 'ready' : 'degraded';
+
+    if (selectedRoute) {
+      const validatedEvidence = enabledZones.filter((zone) =>
+        routePassesZone(selectedRoute.coordinates, zone),
+      );
+      try {
+        await prepareRouteResilienceBundle({
+          route: selectedRoute,
+          routes,
+          validatedEvidence,
+          departureTimeMs: Date.now(),
+        });
+      } catch (error) {
+        routePrepStatus = 'degraded';
+        console.warn('[route-resilience] bundle save failed:', error);
+      }
+    }
+
+    setNavigationPrepStatus('idle');
+    router.push({
+      pathname: '/en-route',
+      params: {
+        ...(params.destLat ? { destLat: params.destLat } : {}),
+        ...(params.destLng ? { destLng: params.destLng } : {}),
+        ...(params.destName ? { destName: params.destName } : {}),
+        // Prime /en-route with selected route data so ETA renders
+        // immediately on mount instead of waiting for its own fetch.
+        // destRouteRank = which route the user chose (0 = recommended).
+        ...(selectedRoute
+          ? {
+              destEstMinutes: String(selectedRoute.estimatedMinutes),
+              destDistanceMeters: String(selectedRoute.distanceMeters),
+              destRouteRank: String(Math.max(0, selectedIndex)),
+              routePrepStatus,
+            }
+          : {}),
+      },
+    });
+  }
+
   // ---- Render ---------------------------------------------------------------
 
   return (
-    <>
+    <View
+      style={[
+        styles.routePreviewLayout,
+        fontScale > 1.4 && styles.routePreviewLargeText,
+      ]}
+    >
       <ScrollView
-        style={styles.bottomSheetScroll}
+        style={[
+          styles.bottomSheetScroll,
+          fontScale > 1.4 && styles.bottomSheetScrollLargeText,
+        ]}
         contentContainerStyle={styles.bottomSheetContent}
         showsVerticalScrollIndicator={false}
       >
@@ -483,7 +544,11 @@ export function RoutePreviewCard({
                 style={({ pressed }) => [styles.routeDestTitleHit, pressed && pressedDim]}
               >
                 <View style={styles.routeDestTitleRow}>
-                  <Text style={styles.routeDestTitle} numberOfLines={1}>
+                  <Text
+                    style={styles.routeDestTitle}
+                    numberOfLines={2}
+                    maxFontSizeMultiplier={2}
+                  >
                     {params.destName ?? 'your destination'}
                   </Text>
                   <SavedPlaceBookmark
@@ -508,8 +573,7 @@ export function RoutePreviewCard({
                     selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : 'No route'
                   }${routes.length > 1 ? `, route ${selectedIndex + 1} of ${routes.length}` : ''}`}
                   numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
+                  maxFontSizeMultiplier={2}
                 >
                   {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
                 </Animated.Text>
@@ -525,13 +589,17 @@ export function RoutePreviewCard({
                       .join(', ')}
                   >
                     {arrivalTime && (
-                      <Text style={styles.routeArrival}>arrive {arrivalTime}</Text>
+                      <Text style={styles.routeArrival} maxFontSizeMultiplier={2}>
+                        {`arrive\u00a0${arrivalTime}`}
+                      </Text>
                     )}
                     {arrivalTime && distanceLabel && (
                       <MetaSeparator style={styles.routeMetaSeparator} />
                     )}
                     {distanceLabel && (
-                      <Text style={styles.routeDistance}>{distanceLabel}</Text>
+                      <Text style={styles.routeDistance} maxFontSizeMultiplier={2}>
+                        {distanceLabel}
+                      </Text>
                     )}
                   </View>
                 )}
@@ -614,7 +682,11 @@ export function RoutePreviewCard({
               fixed 96pt width.
             */}
             <View style={styles.routeViaRow}>
-              <Text style={styles.routeViaLabel} numberOfLines={1}>
+              <Text
+                style={styles.routeViaLabel}
+                numberOfLines={2}
+                maxFontSizeMultiplier={2}
+              >
                 Via {viaRoad ?? params.destName ?? 'your destination'}
               </Text>
               <DaylightRouteLegend
@@ -690,13 +762,12 @@ export function RoutePreviewCard({
               accessibilityRole="button"
               accessibilityLabel={`Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
             >
-              {/* H17: numberOfLines + adjustsFontSizeToFit so "Schedule for 7:30 AM"
-                  doesn't overflow on iPhone SE at narrow per-button width. */}
+              {/* Two lines keep "Schedule for 7:30 AM" readable on narrow
+                  buttons without shrinking text below the user's setting. */}
               <Text
                 style={styles.scheduleText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
+                numberOfLines={2}
+                maxFontSizeMultiplier={2}
               >
                 Schedule for {formatTimeOfDay(suggestedDeparture)}
               </Text>
@@ -704,36 +775,38 @@ export function RoutePreviewCard({
           )}
 
           <Pressable
-            style={({ pressed }) => [styles.goBtn, pressed && pressedFeedback]}
-            onPress={() =>
-              router.push({
-                pathname: '/en-route',
-                params: {
-                  ...(params.destLat ? { destLat: params.destLat } : {}),
-                  ...(params.destLng ? { destLng: params.destLng } : {}),
-                  ...(params.destName ? { destName: params.destName } : {}),
-                  // Prime /en-route with selected route data so ETA renders
-                  // immediately on mount instead of waiting for its own fetch.
-                  // destRouteRank = which route the user chose (0 = recommended).
-                  ...(selectedRoute
-                    ? {
-                        destEstMinutes: String(selectedRoute.estimatedMinutes),
-                        destDistanceMeters: String(selectedRoute.distanceMeters),
-                        destRouteRank: String(Math.max(0, selectedIndex)),
-                      }
-                    : {}),
-                },
-              })
-            }
+            style={({ pressed }) => [
+              styles.goBtn,
+              isPreparingNavigation && styles.goBtnPreparing,
+              pressed && !isPreparingNavigation && pressedFeedback,
+            ]}
+            onPress={handleStartNavigation}
+            disabled={isPreparingNavigation}
             accessibilityRole="button"
-            accessibilityLabel="Start navigation"
+            accessibilityLabel={
+              isPreparingNavigation ? 'Preparing route for weak signal' : 'Start navigation'
+            }
+            accessibilityState={{
+              busy: isPreparingNavigation,
+              disabled: isPreparingNavigation,
+            }}
           >
-            <ArrowRight size={24} color={colors.white} weight="bold" />
-            <Text style={styles.goText}>Go</Text>
+            {isPreparingNavigation ? (
+              <ActivityIndicator size="small" color={colors.black} />
+            ) : (
+              <ArrowRight size={24} color={colors.black} weight="bold" />
+            )}
+            <Text
+              style={styles.goText}
+              numberOfLines={2}
+              maxFontSizeMultiplier={2}
+            >
+              {isPreparingNavigation ? 'Preparing…' : 'Go'}
+            </Text>
           </Pressable>
         </View>
       )}
-    </>
+    </View>
   );
 }
 
@@ -855,8 +928,17 @@ function RouteSafeChip({
 // Styles
 
 const styles = StyleSheet.create({
+  routePreviewLayout: {
+    flexShrink: 1,
+  },
+  routePreviewLargeText: {
+    flex: 1,
+  },
   bottomSheetScroll: {
     flexShrink: 1,
+  },
+  bottomSheetScrollLargeText: {
+    flex: 1,
   },
   bottomSheetContent: {
     gap: spacing.md,
@@ -896,22 +978,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   routeDestTitle: {
-    ...dynamicType(typography.title3Emphasized),
+    ...dynamicType(typography.title3Emphasized, 2),
     color: colors.black,
     flex: 1,
   },
   routeHeroRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
   routeMetaCluster: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
+    gap: spacing.xs,
   },
   routeArrival: {
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.subheadlineRegular, 2),
     color: colors.labelSecondary,
   },
   routeMetaSeparator: {
@@ -919,13 +1004,13 @@ const styles = StyleSheet.create({
     color: colors.labelTertiary,
   },
   routeDistance: {
-    ...dynamicType(typography.footnoteRegular),
+    ...dynamicType(typography.footnoteRegular, 2),
     color: colors.labelTertiary,
   },
   routeMinutes: {
     // H12: title2Emphasized (22pt) → largeTitleEmphasized (34pt). The "12 min"
     // is the anchor number — Waze and Apple Maps put ETA in the 34-36pt range.
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.largeTitleEmphasized, 2),
     color: colors.wiltedgreen,
   },
   routeChipsBlock: {
@@ -1022,6 +1107,7 @@ const styles = StyleSheet.create({
   },
   routeViaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -1031,7 +1117,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   routeViaLabel: {
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.subheadlineRegular, 2),
     color: colors.labelSecondary,
     flex: 1,
   },
@@ -1076,7 +1162,9 @@ const styles = StyleSheet.create({
   },
   scheduleBtn: {
     flex: 1,
-    height: 44,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
@@ -1084,12 +1172,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scheduleText: {
-    ...dynamicType(typography.footnoteEmphasized),
+    ...dynamicType(typography.footnoteEmphasized, 2),
     color: colors.wiltedgreen,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   goBtn: {
     flex: 1,
-    height: 44,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     backgroundColor: colors.freshgreen,
     flexDirection: 'row',
@@ -1098,8 +1190,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     ...shadows.e1,
   },
+  goBtnPreparing: {
+    opacity: 0.85,
+  },
   goText: {
-    ...dynamicType(typography.bodyEmphasized),
-    color: colors.white,
+    ...dynamicType(typography.bodyEmphasized, 2),
+    color: colors.black,
+    flexShrink: 1,
+    textAlign: 'center',
   },
 });

@@ -12,10 +12,11 @@ import {
   Alert,
   Animated,
   AppState,
-  Dimensions,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
@@ -69,6 +70,7 @@ import { FloatingActionButton } from '../components/FloatingActionButton';
 import { Hazard } from '../components/Hazard';
 import { LandmarkMarker } from '../components/LandmarkMarker';
 import { LaneStrip } from '../components/LaneStrip';
+import { useLiveSafetyController } from '../components/LiveSafetyController';
 import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { EnRouteCarMarker } from '../components/EnRouteCarMarker';
 import { ReportDetailCard } from '../components/ReportDetailCard';
@@ -81,8 +83,6 @@ import {
   isZoneCategoryEnabled,
   DEFAULT_PREFERENCES,
 } from '../lib/api/preferences';
-import { useShareSession } from '../hooks/useShareSession';
-import { useTrustedContact } from '../hooks/useTrustedContact';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useFuelProfile } from '../hooks/useFuelProfile';
 import { useRecentSearches } from '../hooks/useRecentSearches';
@@ -111,6 +111,7 @@ import {
 } from '../lib/api/zone-cache';
 import { type Place } from '../lib/api/places';
 import {
+  getZonesForRouteAlternatives,
   getZonesForTrip,
   type Coordinate,
   type Zone,
@@ -368,6 +369,7 @@ const sideFabRowStyles = StyleSheet.create({
 
 export default function EnRoute() {
   const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
   const mapRef = useRef<MapView>(null);
   const params = useLocalSearchParams<{
     destLat?: string;
@@ -390,7 +392,16 @@ export default function EnRoute() {
      * can still switch routes here afterward.
      */
     destRouteRank?: string;
+    /**
+     * Handoff from /home's Go button after it prepares the minimal
+     * route-resilience bundle for weak-signal areas.
+     */
+    routePrepStatus?: string;
   }>();
+  const routePrepStatus =
+    params.routePrepStatus === 'ready' || params.routePrepStatus === 'degraded'
+      ? params.routePrepStatus
+      : null;
   // Zone overlay rendering follows /home — driven by the user's
   // preference, which lives in AsyncStorage and is toggled from
   // /menu's Zone Settings accordion. Default off until they flip it,
@@ -529,6 +540,9 @@ export default function EnRoute() {
 
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  const [routeScoringDepartureMs, setRouteScoringDepartureMs] = useState(() =>
+    Date.now(),
+  );
   // Provenance of the rendered routes — drives the "Offline route" /
   // "Demo route" pill on the turn card. 'mapbox' = live primary;
   // 'osrm' = live fallback (network up, but Mapbox tier failed);
@@ -618,15 +632,11 @@ export default function EnRoute() {
   // End-trip button in the sheet AND the bottoms of both columns.
   // Mirrors the same session && contact gate LiveSafetySheet uses to
   // decide whether the pill renders at all. User-flagged 2026-06-01.
-  const shareState = useShareSession();
-  const shareSession = shareState.ready ? shareState.session : null;
-  const trustedContactState = useTrustedContact();
-  const trustedContact = trustedContactState.ready ? trustedContactState.contact : null;
-  const safetyPillShowing = !!shareSession && !!trustedContact;
+  const liveSafety = useLiveSafetyController();
   // Reserved vertical space for the pill: 16pt inset + 64pt minHeight +
   // 12pt gap above. Columns sit at this offset when the pill shows,
   // else the default 24pt above the sheet.
-  const columnBottomOffset = safetyPillShowing ? 92 : 24;
+  const columnBottomOffset = liveSafety.pillVisible ? 92 : 24;
   // The column is four 56pt safety controls (SOS / Shield / Report /
   // Recenter), which fit the clear region between banner and sheet on
   // every supported viewport — the #2 clear-region fit check retired
@@ -634,13 +644,10 @@ export default function EnRoute() {
   // via sideFabCoach) replaced the coach-mark re-trigger button.
 
   const prefs = preferences ?? DEFAULT_PREFERENCES;
-  const corridorZones = useMemo(() => {
-    const incidents =
-      routeSource === 'mapbox'
-        ? rawRoutes.flatMap((r) => r.mapboxIncidentZones ?? [])
-        : [];
-    return collapseHazardZones([...osmZones, ...incidents]);
-  }, [osmZones, rawRoutes, routeSource]);
+  // Corridor OSM/511 zones are shared route context. Mapbox Directions
+  // incidents stay attached to their owning route and are merged inside
+  // lib/scoring.ts per candidate, so they cannot leak across alternatives.
+  const corridorZones = useMemo(() => collapseHazardZones(osmZones), [osmZones]);
   const enabledOsmZones = useMemo(
     () => corridorZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
     [corridorZones, prefs],
@@ -663,9 +670,13 @@ export default function EnRoute() {
     return clusterPointZones(enabledReportZones, mapRegion, mapSize.width, mapSize.height);
   }, [enabledReportZones, mapRegion, mapSize]);
 
+  const routeScoringDepartureTime = useMemo(
+    () => new Date(routeScoringDepartureMs),
+    [routeScoringDepartureMs],
+  );
   const routes = useMemo(
-    () => pickWinner(rawRoutes, enabledZones),
-    [rawRoutes, enabledZones],
+    () => pickWinner(rawRoutes, enabledZones, routeScoringDepartureTime),
+    [rawRoutes, enabledZones, routeScoringDepartureTime],
   );
 
   const recommended = routes.find((route) => route.type === 'recommended');
@@ -743,7 +754,8 @@ export default function EnRoute() {
   const refuelDue =
     !!fuelProfile?.remindersEnabled && fuelProfile.refuelNotifiedAt != null;
   const fuelStops = useRouteFuelStops({
-    active: showFuelStops || (activeRoute?.coordinates.length ?? 0) > 0,
+    active: showFuelStops,
+    routeKey: activeRoute?.id,
     routeCoords: activeRoute?.coordinates ?? [],
     fuelType: fuelProfile?.fuelType ?? 'gas',
     userLocation,
@@ -1317,6 +1329,7 @@ export default function EnRoute() {
 
   useEffect(() => {
     let cancelled = false;
+    setRouteScoringDepartureMs(Date.now());
 
     async function fetchAndCenterOnUser() {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -1373,6 +1386,7 @@ export default function EnRoute() {
       getRoutesBetween(center, destination)
         .then(async ({ routes, source, cacheAgeMs: ageMs }) => {
           if (cancelled) return;
+          setRouteScoringDepartureMs(Date.now());
           setRawRoutes(routes);
           setRouteSource(source);
           setCacheAgeMs(ageMs ?? null);
@@ -1386,10 +1400,10 @@ export default function EnRoute() {
             return;
           }
           try {
-            const zones = await getZonesForTrip(
+            const zones = await getZonesForRouteAlternatives(
               center,
               destination,
-              coords,
+              routes,
               { mode: 'preview', routeSource: source },
             );
             if (cancelled) return;
@@ -1559,6 +1573,7 @@ export default function EnRoute() {
               minStepIndexRef.current = closestIdx;
             }
           }
+          setRouteScoringDepartureMs(Date.now());
           setRawRoutes(result.routes);
           setRouteSource('mapbox');
           setCacheAgeMs(null);
@@ -2180,9 +2195,13 @@ export default function EnRoute() {
 
           <View style={styles.turnText}>
             {nextStepInfo?.status === 'arrived' ? (
-              <Text style={styles.turnInstruction}>You&apos;ve arrived</Text>
+              <Text style={styles.turnInstruction} maxFontSizeMultiplier={1.5}>
+                You&apos;ve arrived
+              </Text>
             ) : nextStepInfo?.status === 'off-route' ? (
-              <Text style={styles.turnInstruction}>Recalculating…</Text>
+              <Text style={styles.turnInstruction} maxFontSizeMultiplier={1.5}>
+                Recalculating…
+              </Text>
             ) : nextStepInfo?.step ? (
               // Turn banner is bounded (Apple/Google convention): the
               // maneuver instruction is capped to ONE line with tail
@@ -2195,10 +2214,11 @@ export default function EnRoute() {
                   style={styles.turnInstruction}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  maxFontSizeMultiplier={1.5}
                 >
                   {nextStepInfo.step.instruction}
                 </Text>
-                <Text style={styles.turnStreet}>
+                <Text style={styles.turnStreet} maxFontSizeMultiplier={1.5}>
                   {/* Special-case "now" so the visible UI doesn't
                       read "in now" — the formatStepDistance helper
                       returns "now" inside the <30m bucket; drop the
@@ -2214,10 +2234,13 @@ export default function EnRoute() {
                   style={styles.turnInstruction}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  maxFontSizeMultiplier={1.5}
                 >
                   No route available
                 </Text>
-                <Text style={styles.turnStreet}>Try a different destination</Text>
+                <Text style={styles.turnStreet} maxFontSizeMultiplier={1.5}>
+                  Try a different destination
+                </Text>
               </>
             ) : routeSource === 'mock' || routeSource === 'cache' ? (
               <>
@@ -2225,6 +2248,7 @@ export default function EnRoute() {
                   style={styles.turnInstruction}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  maxFontSizeMultiplier={1.5}
                 >
                   Following route to
                 </Text>
@@ -2232,6 +2256,7 @@ export default function EnRoute() {
                   style={styles.turnStreet}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  maxFontSizeMultiplier={1.5}
                 >
                   {params.destName ?? 'your destination'}
                 </Text>
@@ -2242,6 +2267,7 @@ export default function EnRoute() {
                   style={styles.turnInstruction}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  maxFontSizeMultiplier={1.5}
                 >
                   Heading toward
                 </Text>
@@ -2249,6 +2275,7 @@ export default function EnRoute() {
                   style={styles.turnStreet}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  maxFontSizeMultiplier={1.5}
                 >
                   {params.destName ?? 'your destination'}
                 </Text>
@@ -2281,20 +2308,39 @@ export default function EnRoute() {
                 <View style={styles.offlinePillTextRow}>
                   {routeSource === 'cache' ? (
                     <>
-                      <Text style={styles.offlinePillText}>Offline route</Text>
+                      <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
+                        Offline route
+                      </Text>
                       {cacheAgeMs != null ? (
                         <>
                           <MetaSeparator style={styles.offlinePillSeparator} />
-                          <Text style={styles.offlinePillText}>
+                          <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
                             {formatCacheAge(cacheAgeMs)} old
                           </Text>
                         </>
                       ) : null}
                     </>
                   ) : (
-                    <Text style={styles.offlinePillText}>Demo route</Text>
+                    <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
+                      Demo route
+                    </Text>
                   )}
                 </View>
+              </View>
+            )}
+            {routePrepStatus && routeSource !== 'cache' && routeSource !== 'mock' && (
+              <View
+                style={styles.offlinePill}
+                accessibilityRole="text"
+                accessibilityLabel={
+                  routePrepStatus === 'ready'
+                    ? 'Route saved for weak signal. Navigation details are available if connection drops.'
+                    : 'Route backup limited. Navigation continues, but saved offline details may be incomplete.'
+                }
+              >
+                <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
+                  {routePrepStatus === 'ready' ? 'Route saved' : 'Backup limited'}
+                </Text>
               </View>
             )}
           </View>
@@ -2302,7 +2348,7 @@ export default function EnRoute() {
         </View>
 
         <View style={styles.thenFooter}>
-          <Text style={styles.thenText}>Then</Text>
+          <Text style={styles.thenText} maxFontSizeMultiplier={1.5}>Then</Text>
           {maneuverIcon(
             activeRoute?.steps?.[
               (nextStepInfo?.index ?? -1) + 1
@@ -2371,7 +2417,11 @@ export default function EnRoute() {
                 : 'Speed limit unknown'
             }
           >
-            <Text style={styles.speedLimitSignNumber} numberOfLines={1}>
+            <Text
+              style={styles.speedLimitSignNumber}
+              numberOfLines={1}
+              allowFontScaling={false}
+            >
               {postedLimitMph ?? '—'}
             </Text>
           </View>
@@ -2384,10 +2434,16 @@ export default function EnRoute() {
                 : 'Current speed unavailable'
             }
           >
-            <Text style={styles.speedLimitCurrentNumber} numberOfLines={1}>
+            <Text
+              style={styles.speedLimitCurrentNumber}
+              numberOfLines={1}
+              allowFontScaling={false}
+            >
               {speedMph ?? '—'}
             </Text>
-            <Text style={styles.speedLimitCurrentUnit}>mph</Text>
+            <Text style={styles.speedLimitCurrentUnit} allowFontScaling={false}>
+              mph
+            </Text>
           </View>
         </View>
       )}
@@ -2520,7 +2576,7 @@ export default function EnRoute() {
         card after a few seconds instead.
       */}
       {!selectedReport && <SafeAreaView
-        style={styles.bottomSheet}
+        style={[styles.bottomSheet, { maxHeight: windowHeight * 0.65 }]}
         edges={['bottom']}
         onLayout={(e) => setBottomSheetHeight(e.nativeEvent.layout.height)}
       >
@@ -2543,7 +2599,11 @@ export default function EnRoute() {
           <DragHandle />
         </Pressable>
 
-        <View style={styles.sheetContent}>
+        <ScrollView
+          style={styles.sheetScroll}
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/*
             v2 layout per Figma `1133:13328` (BottomSheet/En-route/
             Collapsed). Two 48pt FABs flank a 34pt Large Title/Emphasized
@@ -2582,6 +2642,7 @@ export default function EnRoute() {
               <Animated.Text
                 style={[styles.eta, { opacity: etaPulseAnim }]}
                 numberOfLines={1}
+                maxFontSizeMultiplier={1.5}
                 // accessibilityLiveRegion="polite" lets TalkBack
                 // re-announce the ETA when it updates after rerouting
                 // — Apple Maps speaks every route recalc; this is the
@@ -2640,11 +2701,11 @@ export default function EnRoute() {
             }, ${durationMinutes != null ? formatDuration(durationMinutes) : '—'}`}
           >
             <View style={styles.secondaryRowMeta}>
-              <Text style={styles.secondaryDistance}>
+              <Text style={styles.secondaryDistance} maxFontSizeMultiplier={1.5}>
                 {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
               </Text>
               <MetaSeparator style={styles.secondarySeparator} />
-              <Text style={styles.secondaryDuration}>
+              <Text style={styles.secondaryDuration} maxFontSizeMultiplier={1.5}>
                 {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
               </Text>
             </View>
@@ -2738,6 +2799,7 @@ export default function EnRoute() {
               </View>
             </View>
           )}
+        </ScrollView>
 
           {/*
             End trip — always visible on both Collapsed and Full,
@@ -2754,9 +2816,10 @@ export default function EnRoute() {
             accessibilityRole="button"
             accessibilityLabel="End trip"
           >
-            <Text style={styles.endTripText}>End trip</Text>
+            <Text style={styles.endTripText} maxFontSizeMultiplier={1.5}>
+              End trip
+            </Text>
           </Pressable>
-        </View>
       </SafeAreaView>}
 
       {/*
@@ -2815,6 +2878,7 @@ export default function EnRoute() {
         back to the component default before the sheet is measured.
       */}
       <LiveSafetySheet
+        controller={liveSafety}
         bottomInset={bottomSheetHeight > 0 ? bottomSheetHeight + 16 : undefined}
       />
     </View>
@@ -2936,7 +3000,7 @@ const styles = StyleSheet.create({
     // safety-critical text on the screen and frequently wrap to a 2nd
     // line for the street + distance. AX5 readability matters more
     // here than anywhere else in the app.
-    ...dynamicType(relaxedLineHeight(typography.title2Emphasized)),
+    ...dynamicType(relaxedLineHeight(typography.title2Emphasized), 1.5),
     color: colors.white,
   },
   turnStreet: {
@@ -2948,7 +3012,7 @@ const styles = StyleSheet.create({
     // way two stacked title2-emphasized lines did. The composition
     // now reads as "instruction THEN timing" instead of two
     // equal-weight lines stacked.
-    ...dynamicType(typography.title3Regular),
+    ...dynamicType(typography.title3Regular, 1.5),
     color: colors.fadedgreen,
     // F7: tabular-nums prevents glyph-width jitter as the "in 120 m"
     // distance counts down each second. SF Pro on iOS uses proportional
@@ -2988,7 +3052,7 @@ const styles = StyleSheet.create({
     // F5: bumped caption1Emphasized (12pt) → footnoteEmphasized (13pt)
     // to match the 14pt WifiSlash icon's cap-height. Earlier 12pt sat
     // visually low against the icon inside the compact pill.
-    ...dynamicType(typography.footnoteEmphasized),
+    ...dynamicType(typography.footnoteEmphasized, 1.5),
     color: colors.white,
   },
   offlinePillSeparator: {
@@ -3011,7 +3075,7 @@ const styles = StyleSheet.create({
     // "Then" is a low-priority preview that should recede vs the 22pt
     // emphasized primary instruction. At 20pt it nearly matched the
     // instruction's weight and broke the hierarchy.
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.subheadlineRegular, 1.5),
     color: colors.fadedgreen,
   },
 
@@ -3124,11 +3188,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    // Cap at 65% of screen height so the expanded Full state (hazard
-    // panel + ETA + end trip) can't grow up over the turn card. The
-    // turn card needs the top ~30–35% of the screen at minimum for
-    // its maneuver arrow + street name + "Then ↶" hint to read.
-    maxHeight: Dimensions.get('window').height * 0.65,
+    // Runtime maxHeight is applied from useWindowDimensions so rotation
+    // and viewport changes cannot leave the sheet with a stale cap.
     backgroundColor: colors.surfaceElevated,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
@@ -3147,6 +3208,9 @@ const styles = StyleSheet.create({
     // 8pt rhythm on sheet expansion.
     gap: spacing.md,
     paddingBottom: spacing.sm,
+  },
+  sheetScroll: {
+    flexShrink: 1,
   },
   // Drag-handle tap target — full sheet-width × 44pt painted (the HIG
   // floor met on the visual itself, not via hitSlop). The 32×4 handle
@@ -3262,7 +3326,7 @@ const styles = StyleSheet.create({
     height: 16,
   },
   eta: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.largeTitleEmphasized, 1.5),
     color: colors.black,
     // F7: tabular-nums on the ETA so the arrival time doesn't reflow
     // each minute as the digits change (e.g. "8:30" → "8:29" shifting
@@ -3293,15 +3357,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryDistance: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 1.5),
     color: colors.black,
   },
   secondarySeparator: {
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.subheadlineRegular, 1.5),
     color: colors.labelTertiary,
   },
   secondaryDuration: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 1.5),
     color: colors.black,
   },
 
@@ -3339,7 +3403,7 @@ const styles = StyleSheet.create({
     // navigation isn't being undone, just stopped).
   },
   endTripText: {
-    ...dynamicType(relaxedLineHeight(typography.subheadlineEmphasized)),
+    ...dynamicType(relaxedLineHeight(typography.subheadlineEmphasized), 1.5),
     color: colors.wiltedgreen,
   },
 });

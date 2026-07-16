@@ -4,6 +4,7 @@
 // read before Overpass in fetchCorridorSample. LRU + 24h TTL.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { runBestEffortAccountOperation } from '../account-session/operation-gate';
 
 import {
   ZONE_TILE_LAT_DEG,
@@ -14,11 +15,13 @@ import {
 } from '../corridor/constants';
 import type { Coordinate, Zone, ZoneBounds } from './zones';
 
-const STORAGE_KEY = '@fresh-greens/zone-tiles-v1';
+const LEGACY_STORAGE_KEY = '@fresh-greens/zone-tiles-v1';
+const STORAGE_KEY = '@fresh-greens/zone-tiles-v2';
 
 type TileEntry = {
+  status: 'complete';
   zones: Zone[];
-  cachedAt: number;
+  fetchedAt: number;
 };
 
 type TileStore = Record<string, TileEntry>;
@@ -59,6 +62,26 @@ function boundsOverlap(a: ZoneBounds, b: ZoneBounds): boolean {
   );
 }
 
+function boundsForZone(zone: Zone): ZoneBounds | null {
+  if (zone.coordinates.length === 0) return null;
+  let south = Infinity;
+  let north = -Infinity;
+  let west = Infinity;
+  let east = -Infinity;
+  for (const point of zone.coordinates) {
+    south = Math.min(south, point.latitude);
+    north = Math.max(north, point.latitude);
+    west = Math.min(west, point.longitude);
+    east = Math.max(east, point.longitude);
+  }
+  return { south, north, west, east };
+}
+
+function zoneOverlapsBounds(zone: Zone, bounds: ZoneBounds): boolean {
+  const zoneBounds = boundsForZone(zone);
+  return zoneBounds ? boundsOverlap(zoneBounds, bounds) : false;
+}
+
 /** Tile keys whose cells intersect `bounds`. */
 export function tileKeysCoveringBounds(bounds: ZoneBounds): string[] {
   const keys = new Set<string>();
@@ -90,24 +113,22 @@ async function readStore(): Promise<TileStore> {
 }
 
 async function writeStore(store: TileStore): Promise<void> {
-  try {
+  await runBestEffortAccountOperation(async () => {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  } catch (err) {
-    console.warn('[zone-tile-cache] write failed:', err);
-  }
+  }, (error) => console.warn('[zone-tile-cache] write failed:', error));
 }
 
 function pruneStore(store: TileStore): TileStore {
   const now = Date.now();
   const fresh: TileStore = {};
   for (const [key, entry] of Object.entries(store)) {
-    if (now - entry.cachedAt <= ZONE_TILE_TTL_MS) {
+    if (now - entry.fetchedAt <= ZONE_TILE_TTL_MS) {
       fresh[key] = entry;
     }
   }
   const keys = Object.keys(fresh);
   if (keys.length <= ZONE_TILE_MAX_ENTRIES) return fresh;
-  keys.sort((a, b) => fresh[a].cachedAt - fresh[b].cachedAt);
+  keys.sort((a, b) => fresh[a].fetchedAt - fresh[b].fetchedAt);
   const drop = keys.length - ZONE_TILE_MAX_ENTRIES;
   for (let i = 0; i < drop; i++) {
     delete fresh[keys[i]];
@@ -119,13 +140,14 @@ export async function loadZoneTile(key: string): Promise<Zone[] | null> {
   const store = await readStore();
   const entry = store[key];
   if (!entry) return null;
-  if (Date.now() - entry.cachedAt > ZONE_TILE_TTL_MS) return null;
+  if (entry.status !== 'complete') return null;
+  if (Date.now() - entry.fetchedAt > ZONE_TILE_TTL_MS) return null;
   return entry.zones;
 }
 
 export async function saveZoneTile(key: string, zones: Zone[]): Promise<void> {
   let store = pruneStore(await readStore());
-  store[key] = { zones, cachedAt: Date.now() };
+  store[key] = { status: 'complete', zones, fetchedAt: Date.now() };
   store = pruneStore(store);
   await writeStore(store);
 }
@@ -150,7 +172,7 @@ export async function getZonesForAroundFromTiles(
   if (radiusMeters > ZONE_TILE_RADIUS_M) return null;
   const key = tileKeyForCoordinate(center);
   const zones = await loadZoneTile(key);
-  return zones && zones.length > 0 ? zones : null;
+  return zones;
 }
 
 /**
@@ -163,14 +185,12 @@ export async function getZonesForBboxFromTiles(
   const batches: Zone[][] = [];
   for (const key of keys) {
     const zones = await loadZoneTile(key);
-    if (zones && zones.length > 0) {
-      const tileBounds = tileBoundsForKey(key);
-      if (boundsOverlap(bounds, tileBounds)) {
-        batches.push(zones);
-      }
+    if (zones === null) return null;
+    const tileBounds = tileBoundsForKey(key);
+    if (boundsOverlap(bounds, tileBounds)) {
+      batches.push(zones);
     }
   }
-  if (batches.length === 0) return null;
   return mergeZonesById(batches);
 }
 
@@ -178,18 +198,29 @@ export async function storeZonesForAroundTile(
   center: Coordinate,
   zones: Zone[],
 ): Promise<void> {
-  if (zones.length === 0) return;
   const key = tileKeyForCoordinate(center);
   await saveZoneTile(key, zones);
 }
 
-/** After a bbox fetch, fan the result into every overlapping tile slot. */
+/** After a bbox fetch, store exact per-tile results including valid empties. */
 export async function storeZonesForBboxTiles(
   bounds: ZoneBounds,
   zones: Zone[],
 ): Promise<void> {
-  if (zones.length === 0) return;
   for (const key of tileKeysCoveringBounds(bounds)) {
-    await saveZoneTile(key, zones);
+    const tileBounds = tileBoundsForKey(key);
+    await saveZoneTile(
+      key,
+      zones.filter((zone) => zoneOverlapsBounds(zone, tileBounds)),
+    );
   }
+}
+
+/**
+ * Account-isolation purge path. Tile caches encode where the user has
+ * recently browsed or traveled, so purge must surface storage failure.
+ */
+export async function purgeZoneTilesForAccount(): Promise<void> {
+  await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+  await AsyncStorage.removeItem(STORAGE_KEY);
 }

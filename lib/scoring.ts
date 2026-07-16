@@ -113,14 +113,14 @@ export type RankedRoute = Route & {
  *     sparsity isn't the acute problem it is for points.
  *
  * `departureTime` enables per-category time-of-day modulation (e.g.,
- * wildlife dawn/dusk amplification). Defaults to now — most trips are
- * "leave now" — but a scheduled departure passes a future time so the
- * preview reflects the trip the user will actually take.
+ * wildlife dawn/dusk amplification). Callers pass it explicitly so every
+ * score can be traced to the trip context it represents: leave-now preview,
+ * scheduled departure, or en-route refresh.
  */
 export function scoreRoute(
   route: Route,
   zones: Zone[],
-  departureTime: Date = new Date(),
+  departureTime: Date,
 ): number {
   let total = 0;
 
@@ -232,6 +232,34 @@ export function routePassesZone(
   return samples.some((point) => isPointInZone(point, zone));
 }
 
+function zoneEvidenceKey(zone: Zone): string {
+  return zone.canonicalHazardKey ?? `${zone.source ?? 'zone'}:${zone.id}`;
+}
+
+/**
+ * Build the evidence set for one candidate route.
+ *
+ * Shared zones are app/community/OSM/DOT facts that can fairly score every
+ * route. Mapbox incident zones are different: they arrive attached to a
+ * specific Directions alternative, so they must stay with that route only.
+ * If a caller accidentally passes route-owned incidents in `sharedZones`,
+ * filter them out first, then append only the current route's incidents.
+ */
+function routeEvidenceZones(route: Route, sharedZones: Zone[]): Zone[] {
+  const byKey = new Map<string, Zone>();
+
+  for (const zone of sharedZones) {
+    if (zone.source === 'mapbox-incidents') continue;
+    byKey.set(zoneEvidenceKey(zone), zone);
+  }
+
+  for (const zone of route.mapboxIncidentZones ?? []) {
+    byKey.set(zoneEvidenceKey(zone), zone);
+  }
+
+  return [...byKey.values()];
+}
+
 /** Safety-condition categories surfaced as chips in the route comparison. */
 export type RouteCondition =
   | 'community'
@@ -276,7 +304,7 @@ function conditionForCategory(
  */
 export function routeConditions(route: Route, zones: Zone[]): RouteCondition[] {
   const present = new Set<RouteCondition>();
-  for (const zone of zones) {
+  for (const zone of routeEvidenceZones(route, zones)) {
     if (zone.type === 'safe') continue;
     const condition = conditionForCategory(zone.category);
     if (!condition || present.has(condition)) continue;
@@ -416,20 +444,17 @@ export function zoneAnchor(zone: Zone): Coordinate | null {
  * RankedRoute[] sorted highest-score-first.
  *
  * `departureTime` flows through to `scoreRoute` for time-of-day
- * modulation. Defaults to now.
+ * modulation. Callers pass it explicitly so scoring does not silently drift
+ * across renders.
  */
 export function pickWinner(
   routes: Route[],
   zones: Zone[],
-  departureTime: Date = new Date(),
+  departureTime: Date,
 ): RankedRoute[] {
   const scored = routes.map((route) => ({
     ...route,
-    score: scoreRoute(
-      route,
-      [...zones, ...(route.mapboxIncidentZones ?? [])],
-      departureTime,
-    ),
+    score: scoreRoute(route, routeEvidenceZones(route, zones), departureTime),
   }));
 
   scored.sort((a, b) => b.score - a.score);

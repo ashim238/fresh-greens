@@ -10,6 +10,7 @@
 // indicators when they're outside the current viewport.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.saved-places.v1';
 
@@ -81,6 +82,7 @@ export async function addSavedPlace(input: {
   latitude: number;
   longitude: number;
 }): Promise<SavedPlace> {
+  return accountOperationGate.runCurrent(async () => {
   const place: SavedPlace = {
     id: `place-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     setAt: Date.now(),
@@ -95,16 +97,23 @@ export async function addSavedPlace(input: {
 
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return place;
+  });
 }
 
 /** Removes a saved place by id. */
 export async function removeSavedPlace(id: string): Promise<void> {
-  const all = await getSavedPlaces();
-  const remaining = all.filter((p) => p.id !== id);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+  await accountOperationGate.runCurrent(async () => {
+    const all = await getSavedPlaces();
+    const remaining = all.filter((p) => p.id !== id);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+  });
 }
 
 /** Sign-out / factory-reset cleanup. */
 export async function clearSavedPlaces(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeSavedPlacesForAccount(): Promise<void> {
+  await clearSavedPlaces();
 }

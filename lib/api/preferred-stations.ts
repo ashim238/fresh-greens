@@ -13,6 +13,7 @@
 // Spec: docs/archive/superpowers/specs/2026-06-02-preferred-stations-design.md
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.preferred-stations.v1';
 
@@ -82,6 +83,7 @@ export async function addPreferredStation(input: {
   latitude: number;
   longitude: number;
 }): Promise<PreferredStation> {
+  return accountOperationGate.runCurrent(async () => {
   const existing = await getPreferredStations();
   const dup = existing.find((s) => stationsMatch(s, input));
   if (dup) return dup;
@@ -93,15 +95,18 @@ export async function addPreferredStation(input: {
   };
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, station]));
   return station;
+  });
 }
 
 /** Removes a preferred station by id. */
 export async function removePreferredStation(id: string): Promise<void> {
-  const all = await getPreferredStations();
-  await AsyncStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(all.filter((s) => s.id !== id)),
-  );
+  await accountOperationGate.runCurrent(async () => {
+    const all = await getPreferredStations();
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(all.filter((s) => s.id !== id)),
+    );
+  });
 }
 
 /** True if `place` (by name + proximity) is a preferred station. */
@@ -117,4 +122,8 @@ export async function isPreferredStation(place: {
 /** Sign-out / factory-reset cleanup. */
 export async function clearPreferredStations(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgePreferredStationsForAccount(): Promise<void> {
+  await clearPreferredStations();
 }

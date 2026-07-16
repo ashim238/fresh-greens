@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 
-**Status:** Ready for implementation planning
+**Status:** Implemented with source conformance and iOS simulator account-boundary verification; broader manual native audit remains
 
 ## Goal
 

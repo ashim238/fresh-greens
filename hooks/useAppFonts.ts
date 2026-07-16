@@ -9,15 +9,15 @@ import { useFonts } from 'expo-font';
 
 /**
  * Loads Libre Franklin + DM Serif Display once at app root.
- * Gate navigation on the returned boolean (see app/_layout.tsx).
+ * Startup may continue on error with system fonts.
  */
-export function useAppFonts(): boolean {
-  const [loaded] = useFonts({
+export function useAppFonts(): { loaded: boolean; error: Error | null } {
+  const [loaded, error] = useFonts({
     LibreFranklin_400Regular,
     LibreFranklin_500Medium,
     LibreFranklin_600SemiBold,
     LibreFranklin_700Bold,
     DMSerifDisplay_400Regular,
   });
-  return loaded;
+  return { loaded, error: error ?? null };
 }

@@ -7,6 +7,8 @@
 // server-side error-code mapping (P0001–P0004).
 
 import type { CommunityReport, ReportCategoryId } from '../community-reports';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { runBestEffortAccountOperation } from '../../account-session/operation-gate';
 import { getDeviceUUID } from '../../device-uuid';
 import { getAuthHeaders, getAuthUserId } from '../../supabase-auth';
 
@@ -162,9 +164,6 @@ export async function deleteCommunityReportFromCloud(id: string): Promise<void> 
 }
 
 export async function readSyncQueue(): Promise<CommunityReport[]> {
-  const { default: AsyncStorage } = await import(
-    '@react-native-async-storage/async-storage'
-  );
   try {
     const raw = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
     if (!raw) return [];
@@ -176,14 +175,13 @@ export async function readSyncQueue(): Promise<CommunityReport[]> {
 }
 
 export async function writeSyncQueue(reports: CommunityReport[]): Promise<void> {
-  const { default: AsyncStorage } = await import(
-    '@react-native-async-storage/async-storage'
-  );
-  if (reports.length === 0) {
-    await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
-    return;
-  }
-  await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(reports));
+  await runBestEffortAccountOperation(async () => {
+    if (reports.length === 0) {
+      await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(reports));
+  }, (error) => console.warn('[community-cloud] sync queue write failed:', error));
 }
 
 export async function enqueueCommunityReportSync(
@@ -205,4 +203,12 @@ export async function flushCommunityReportSyncQueue(): Promise<void> {
     if (!result.ok) remaining.push(report);
   }
   await writeSyncQueue(remaining);
+}
+
+/**
+ * Account-isolation purge path. Pending uploads remain private local
+ * workspace data until a later authenticated session explicitly resubmits.
+ */
+export async function purgeCommunityReportSyncQueueForAccount(): Promise<void> {
+  await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
 }

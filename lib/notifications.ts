@@ -19,6 +19,23 @@
 
 import * as Notifications from 'expo-notifications';
 import type { FuelProfile } from './api/fuel';
+import {
+  AccountOperationClosedError,
+  accountOperationGate,
+  assertAccountOperationOpen,
+} from './account-session/operation-gate';
+
+async function runPersonalNotificationOperation<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  closedResult: T,
+): Promise<T> {
+  try {
+    return await accountOperationGate.runCurrent(operation);
+  } catch (error) {
+    if (error instanceof AccountOperationClosedError) return closedResult;
+    throw error;
+  }
+}
 
 /**
  * Foreground presentation handler — controls what happens when the
@@ -61,6 +78,7 @@ export async function scheduleDepartureNotification(
   when: Date,
   destName?: string,
 ): Promise<ScheduleResult> {
+  return runPersonalNotificationOperation(async (signal) => {
   // Defensive: notification scheduling silently no-ops past times,
   // which would leave the user thinking "scheduled" without anything
   // actually firing. Catch + report explicitly. 1000ms buffer covers
@@ -71,6 +89,7 @@ export async function scheduleDepartureNotification(
   }
 
   const existing = await Notifications.getPermissionsAsync();
+  assertAccountOperationOpen(signal);
   let granted = existing.granted;
   if (!granted && existing.canAskAgain) {
     const req = await Notifications.requestPermissionsAsync({
@@ -80,6 +99,7 @@ export async function scheduleDepartureNotification(
         allowBadge: false,
       },
     });
+    assertAccountOperationOpen(signal);
     granted = req.granted;
   }
   if (!granted) {
@@ -94,6 +114,7 @@ export async function scheduleDepartureNotification(
         title: 'Time to head out',
         body: `Leaving now gives you more daylight ${dest}.`,
         sound: 'default',
+        data: { freshGreensOwner: 'personal', kind: 'departure' },
       },
       // DATE trigger: fires once at the exact moment, no repeat.
       trigger: {
@@ -101,14 +122,22 @@ export async function scheduleDepartureNotification(
         date: when,
       },
     });
+    if (signal.aborted) {
+      await Notifications.cancelScheduledNotificationAsync(identifier);
+      throw new AccountOperationClosedError();
+    }
     console.info(
       `[notifications] scheduled departure reminder ${identifier} for ${when.toISOString()}`,
     );
     return { ok: true, identifier };
   } catch (err) {
+    if (err instanceof AccountOperationClosedError) {
+      return { ok: false, reason: 'failed' };
+    }
     console.warn('[notifications] schedule failed:', err);
     return { ok: false, reason: 'failed' };
   }
+  }, { ok: false, reason: 'failed' });
 }
 
 export type RefuelScheduleResult =
@@ -176,17 +205,21 @@ function refuelCopy(
 export async function scheduleRefuelReminder(
   profile: FuelProfile,
 ): Promise<RefuelScheduleResult> {
+  return runPersonalNotificationOperation(async (signal) => {
   // Cancel any prior reminder so we never stack duplicates.
   if (profile.notificationId) {
     await cancelRefuelReminder(profile.notificationId);
+    assertAccountOperationOpen(signal);
   }
 
   const existing = await Notifications.getPermissionsAsync();
+  assertAccountOperationOpen(signal);
   let granted = existing.granted;
   if (!granted && existing.canAskAgain) {
     const req = await Notifications.requestPermissionsAsync({
       ios: { allowAlert: true, allowSound: true, allowBadge: false },
     });
+    assertAccountOperationOpen(signal);
     granted = req.granted;
   }
   if (!granted) {
@@ -206,6 +239,7 @@ export async function scheduleRefuelReminder(
         title: copy.title,
         body: copy.body,
         sound: 'default',
+        data: { freshGreensOwner: 'personal', kind: 'refuel' },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -213,14 +247,22 @@ export async function scheduleRefuelReminder(
         repeats: true,
       },
     });
+    if (signal.aborted) {
+      await Notifications.cancelScheduledNotificationAsync(identifier);
+      throw new AccountOperationClosedError();
+    }
     console.info(
       `[notifications] scheduled refuel reminder ${identifier} every ${days}d`,
     );
     return { ok: true, identifier, nextReminderAt };
   } catch (err) {
+    if (err instanceof AccountOperationClosedError) {
+      return { ok: false, reason: 'failed' };
+    }
     console.warn('[notifications] refuel schedule failed:', err);
     return { ok: false, reason: 'failed' };
   }
+  }, { ok: false, reason: 'failed' });
 }
 
 /**
@@ -244,12 +286,15 @@ export async function fireRefuelReminderNow(
   profile: FuelProfile,
   stopName?: string,
 ): Promise<ScheduleResult> {
+  return runPersonalNotificationOperation(async (signal) => {
   const existing = await Notifications.getPermissionsAsync();
+  assertAccountOperationOpen(signal);
   let granted = existing.granted;
   if (!granted && existing.canAskAgain) {
     const req = await Notifications.requestPermissionsAsync({
       ios: { allowAlert: true, allowSound: true, allowBadge: false },
     });
+    assertAccountOperationOpen(signal);
     granted = req.granted;
   }
   if (!granted) {
@@ -259,16 +304,29 @@ export async function fireRefuelReminderNow(
   const copy = refuelCopy(profile, stopName ? { stopName } : {});
   try {
     const identifier = await Notifications.scheduleNotificationAsync({
-      content: { title: copy.title, body: copy.body, sound: 'default' },
+      content: {
+        title: copy.title,
+        body: copy.body,
+        sound: 'default',
+        data: { freshGreensOwner: 'personal', kind: 'refuel' },
+      },
       // null trigger = deliver immediately.
       trigger: null,
     });
+    if (signal.aborted) {
+      await Notifications.cancelScheduledNotificationAsync(identifier);
+      throw new AccountOperationClosedError();
+    }
     console.info(`[notifications] fired immediate refuel reminder ${identifier}`);
     return { ok: true, identifier };
   } catch (err) {
+    if (err instanceof AccountOperationClosedError) {
+      return { ok: false, reason: 'failed' };
+    }
     console.warn('[notifications] immediate refuel fire failed:', err);
     return { ok: false, reason: 'failed' };
   }
+  }, { ok: false, reason: 'failed' });
 }
 
 /** Cancels a scheduled refuel reminder. Safe to call with a stale id. */
@@ -278,4 +336,46 @@ export async function cancelRefuelReminder(identifier: string): Promise<void> {
   } catch (err) {
     console.warn('[notifications] refuel cancel failed:', err);
   }
+}
+
+/**
+ * Account-isolation purge path. Unlike the normal UX helper, this must
+ * surface failures so sign-out can retry while the notification id is retained.
+ */
+export async function cancelRefuelReminderForAccount(
+  identifier: string,
+): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(identifier);
+}
+
+function isPersonalNotification(
+  request: Notifications.NotificationRequest,
+): boolean {
+  const data = request.content.data;
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    data.freshGreensOwner === 'personal'
+  );
+}
+
+/** Cancels every app-owned personal notification, including orphaned IDs. */
+export async function purgePersonalNotificationsForAccount(
+  storedIdentifier?: string | null,
+): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const identifiers = new Set(
+    scheduled.filter(isPersonalNotification).map(({ identifier }) => identifier),
+  );
+  if (storedIdentifier) identifiers.add(storedIdentifier);
+
+  const results = await Promise.allSettled(
+    [...identifiers].map((identifier) =>
+      Notifications.cancelScheduledNotificationAsync(identifier),
+    ),
+  );
+  const failure = results.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  );
+  if (failure) throw failure.reason;
 }

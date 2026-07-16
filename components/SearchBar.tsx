@@ -70,7 +70,11 @@ export function SearchBar({
         accessibilityLabel={placeholder}
       >
         <MagnifyingGlass size={24} color={colors.labelSecondary} weight="regular" />
-        <Text style={styles.placeholder} numberOfLines={1}>
+        <Text
+          style={styles.placeholder}
+          numberOfLines={1}
+          maxFontSizeMultiplier={2}
+        >
           {placeholder}
         </Text>
         {onMicPress ? (
@@ -113,6 +117,7 @@ export function SearchBar({
         autoCorrect={false}
         spellCheck={false}
         accessibilityLabel={placeholder}
+        maxFontSizeMultiplier={2}
       />
       {state === 'typing' ? (
         <PressableIcon
@@ -214,12 +219,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsTertiary,
   },
   placeholder: {
-    ...dynamicType(typography.bodyRegular),
+    ...dynamicType(typography.bodyRegular, 2),
     flex: 1,
     color: colors.mutedSecondary,
   },
   input: {
-    ...dynamicType(typography.bodyRegular),
+    ...dynamicType(typography.bodyRegular, 2),
     flex: 1,
     color: colors.black,
     paddingVertical: 0,

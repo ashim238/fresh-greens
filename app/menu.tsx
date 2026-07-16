@@ -33,22 +33,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AvatarPng from '../assets/illustrations/avatar.png';
 import FuelIcon from '../assets/illustrations/fuel.svg';
 
-import { clearCalendarConnection } from '../lib/api/calendar';
-import { clearResolutions } from '../lib/api/calendar-resolutions';
-import { clearPreferredStations } from '../lib/api/preferred-stations';
 import { RowGroup } from '../components/settings/RowGroup';
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { SettingsRow } from '../components/settings/SettingsRow';
 import { useCalendarConnection } from '../hooks/useCalendarConnection';
 import { useFuelProfile } from '../hooks/useFuelProfile';
-import { useInsuranceProfile } from '../hooks/useInsuranceProfile';
-import { usePreferences } from '../hooks/usePreferences';
-import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
-import { useTrustedContact } from '../hooks/useTrustedContact';
 import { resetCoachMarks } from '../hooks/useCoachMark';
 import { useModeratorRole } from '../hooks/useModeratorRole';
 import { useUser } from '../hooks/useUser';
+import { useSession } from '../lib/account-session/session-provider';
+import {
+  accountOperationGate,
+  assertAccountOperationOpen,
+} from '../lib/account-session/operation-gate';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
@@ -119,23 +117,18 @@ const HIDE_MODERATION_ROW = process.env.EXPO_PUBLIC_HIDE_MODERATION_ROW === 'tru
 
 export default function Menu() {
   const router = useRouter();
-  const { user, signOut, updateProfile } = useUser();
-  const { clearContact } = useTrustedContact();
+  const { user, updateProfile } = useUser();
+  const { beginSignOut } = useSession();
   const savedPlacesState = useSavedPlaces();
-  const { clear: clearSavedPlacesMutation } = savedPlacesState;
   const savedPlacesCount = savedPlacesState.ready
     ? savedPlacesState.savedPlaces.length
     : 0;
   const savedPlacesValue =
     savedPlacesCount === 0 ? undefined : `${savedPlacesCount} saved`;
-  const { clearAll: clearRegularDestinations } = useRegularDestinations();
-  const { clearAll: clearPreferences } = usePreferences();
   const {
     profile: fuelProfile,
     loading: fuelLoading,
-    clearAll: clearFuelProfile,
   } = useFuelProfile();
-  const { clearAll: clearInsuranceProfile } = useInsuranceProfile();
   const { isModerator } = useModeratorRole();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -221,10 +214,12 @@ export default function Menu() {
    * Alert; cancel → no-op.
    */
   async function pickAvatar(source: 'library' | 'camera') {
+    await accountOperationGate.runCurrent(async (signal) => {
     const perm =
       source === 'camera'
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    assertAccountOperationOpen(signal);
     if (!perm.granted) {
       Alert.alert(
         source === 'camera' ? 'Camera access needed' : 'Photo access needed',
@@ -242,6 +237,7 @@ export default function Menu() {
       source === 'camera'
         ? await ImagePicker.launchCameraAsync(opts)
         : await ImagePicker.launchImageLibraryAsync(opts);
+    assertAccountOperationOpen(signal);
     if (result.canceled) return;
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
@@ -253,13 +249,17 @@ export default function Menu() {
       const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
       const durableUri = `${dir}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       await FileSystem.copyAsync({ from: asset.uri, to: durableUri });
+      assertAccountOperationOpen(signal);
       await updateProfile({ avatarUri: durableUri });
-    } catch {
+    } catch (error) {
+      assertAccountOperationOpen(signal);
       await updateProfile({ avatarUri: asset.uri });
     }
+    assertAccountOperationOpen(signal);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => {},
     );
+    });
   }
 
   function handleBack() {
@@ -297,12 +297,6 @@ export default function Menu() {
 
   function confirmSignOut() {
     if (signingOut) return;
-    // Destructive confirm — handleSignOut cascades 8 clearAll* calls
-    // across 7+ stores plus the auth signOut. A single mis-tap on the
-    // /menu row would wipe saved places, regulars, preferences, fuel
-    // profile, calendar connection, resolutions, preferred stations.
-    // Alert.alert with destructive style matches the iOS convention
-    // and gives the user one undo opportunity before the cascade fires.
     Alert.alert(
       'Sign out?',
       "You'll need to sign back in to use Fresh Greens again.",
@@ -323,29 +317,20 @@ export default function Menu() {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      // Clear identity-attached state before the sign-out confirmation
-      // screen takes over — same hygiene as v1.
-      // clearSavedPlacesMutation.run() resolves to MutationResult instead of
-      // throwing — a clear failure does NOT block sign-out. Cleanup failures
-      // here are transient AsyncStorage hiccups; making the user re-tap
-      // sign-out because of one is worse UX than proceeding with a stale
-      // saved-places list. Other clearAll-style methods in this Promise.all
-      // still throw; this is the only mutation-style one.
-      await Promise.all([
-        signOut(),
-        clearContact(),
-        clearSavedPlacesMutation.run(),
-        clearRegularDestinations(),
-        clearPreferences(),
-        clearFuelProfile(),
-        clearInsuranceProfile(),
-        clearCalendarConnection(),
-        clearResolutions(),
-        clearPreferredStations(),
-      ]);
-      router.replace('/sign-out');
-    } finally {
+      await beginSignOut();
+    } catch {
       setSigningOut(false);
+      Alert.alert(
+        "Couldn't start sign out",
+        'Your account is still open on this device. Try again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Try again',
+            onPress: () => void handleSignOut(),
+          },
+        ],
+      );
     }
   }
 
@@ -447,11 +432,17 @@ export default function Menu() {
                 pressed && pressedDim,
               ]}
             >
-              <Text style={styles.profileGreeting}>Hey there,</Text>
+              <Text
+                style={styles.profileGreeting}
+                maxFontSizeMultiplier={1.5}
+              >
+                Hey there,
+              </Text>
               <Text
                 style={styles.profileName}
                 numberOfLines={1}
                 ellipsizeMode="tail"
+                maxFontSizeMultiplier={1.5}
               >
                 {displayName}
               </Text>
@@ -519,8 +510,12 @@ export default function Menu() {
                   accessibilityLabel={`${tile.label}. ${tile.subtitle}`}
                 >
                   <View style={styles.tileIcon}>{tile.icon}</View>
-                  <Text style={styles.tileTitle}>{tile.label}</Text>
-                  <Text style={styles.tileSubtitle}>{tile.subtitle}</Text>
+                  <Text style={styles.tileTitle} maxFontSizeMultiplier={2}>
+                    {tile.label}
+                  </Text>
+                  <Text style={styles.tileSubtitle} maxFontSizeMultiplier={2}>
+                    {tile.subtitle}
+                  </Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -542,6 +537,7 @@ export default function Menu() {
             <SettingsRow
               label="Sign out"
               destructive
+              busy={signingOut}
               onPress={confirmSignOut}
             />
           </RowGroup>
@@ -611,11 +607,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   profileGreeting: {
-    ...dynamicType(typography.title2Emphasized),
+    ...dynamicType(typography.title2Emphasized, 1.5),
     color: colors.wiltedgreen,
   },
   profileName: {
-    ...dynamicType(typography.title1Emphasized),
+    ...dynamicType(typography.title1Emphasized, 1.5),
     color: colors.black,
   },
   carouselContent: {
@@ -652,7 +648,7 @@ const styles = StyleSheet.create({
     // featured-tile titles deserve the primary-content register; v1's
     // subheadlineEmphasized (15pt) dropped a tier below the row labels
     // below them in the visual hierarchy.
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 2),
     color: colors.black,
   },
   tileSubtitle: {
@@ -668,7 +664,7 @@ const styles = StyleSheet.create({
     // rebalance against the tileTitle's 15pt → 17pt bump above —
     // keeping the supporting copy one tier below the title preserves
     // the within-card hierarchy.
-    ...dynamicType(relaxedLineHeight(typography.subheadlineRegular)),
+    ...dynamicType(relaxedLineHeight(typography.subheadlineRegular), 2),
     color: colors.accent,
   },
 });

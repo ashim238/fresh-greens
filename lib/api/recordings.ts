@@ -23,6 +23,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as LegacyFileSystem from 'expo-file-system/legacy';
 
 const STORAGE_KEY = 'fresh-greens.recordings.v1';
 
@@ -173,4 +174,16 @@ export async function clearAllRecordings(): Promise<void> {
       /* noop */
     }
   }
+}
+
+/**
+ * Account-isolation purge path. Deletes the metadata key first, then the
+ * whole app-owned recordings directory so orphaned audio files are removed too.
+ */
+export async function purgeRecordingsForAccount(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+  await LegacyFileSystem.deleteAsync(
+    `${LegacyFileSystem.documentDirectory}recordings/`,
+    { idempotent: true },
+  );
 }

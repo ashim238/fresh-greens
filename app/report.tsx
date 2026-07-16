@@ -49,6 +49,10 @@ import {
   removeCommunityReport,
 } from '../lib/api/community-reports';
 import { getReportSubmitErrorCopy } from '../lib/report-submit-errors';
+import {
+  accountOperationGate,
+  assertAccountOperationOpen,
+} from '../lib/account-session/operation-gate';
 import type { Coordinate } from '../lib/api/zones';
 import { fetchNearestPlace } from '../lib/proxy';
 import { colors } from '../theme/colors';
@@ -232,8 +236,10 @@ export default function Report() {
    * Cancel → no-op.
    */
   async function handlePickPhoto() {
+    await accountOperationGate.runCurrent(async (signal) => {
     Haptics.selectionAsync().catch(() => {});
     const perm = await ImagePicker.requestCameraPermissionsAsync();
+    assertAccountOperationOpen(signal);
     if (!perm.granted) {
       Alert.alert(
         'Camera access needed',
@@ -251,6 +257,7 @@ export default function Report() {
       // a crop/rotate step has outsized cost on completion rates.
       allowsEditing: false,
     });
+    assertAccountOperationOpen(signal);
     if (result.canceled) return;
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
@@ -268,11 +275,14 @@ export default function Report() {
       const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const durableUri = `${dir}${filename}`;
       await FileSystem.copyAsync({ from: asset.uri, to: durableUri });
+      assertAccountOperationOpen(signal);
       setPhotoUri(durableUri);
     } catch (err) {
+      assertAccountOperationOpen(signal);
       console.warn('[report] photo durable-copy failed, using cache URI:', err);
       setPhotoUri(asset.uri);
     }
+    });
   }
 
   function handleClearPhoto() {
@@ -869,7 +879,7 @@ function DetailView({
 
       {/*
         Submit CTA — v2 `Button` primary/fill matches the previous
-        bespoke styles exactly (44pt pill, freshgreen, white text, M3
+        bespoke geometry (44pt pill, Fresh Green fill, M3
         Elevation/1). `loading` swaps the label for an ActivityIndicator
         while the submission is in flight; `disabled` covers the
         no-location case.

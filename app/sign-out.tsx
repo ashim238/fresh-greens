@@ -1,70 +1,109 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PermissionsCar from '../assets/illustrations/permissions-car.svg';
 import PermissionsLocation from '../assets/illustrations/permissions-location.svg';
-
 import { Button } from '../components/Button';
-import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useSession } from '../lib/account-session/session-provider';
 import { colors } from '../theme/colors';
 import { dynamicType } from '../theme/dynamic-type';
-import { motion } from '../theme/motion';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
-/**
- * Sign Out confirmation screen — replaces the inline immediate-sign-out
- * pattern from v1. Reached via /menu's Sign out trigger after identity
- * state (user, trusted contact, saved places) has been cleared.
- *
- * Figma `1133:12894`. Wiltedgreen bg, location-pin + car illustrations
- * (re-uses permissions-location.svg + permissions-car.svg), Title1
- * goodbye + footnote thanks, Primary Button to route back to /login.
- *
- * Uses `router.replace('/login')` so the back gesture from /login
- * doesn't return here — leaving via "Log back in" should feel like a
- * fresh entry, not a stack pop.
- */
 export default function SignOut() {
   const router = useRouter();
-  const reduceMotion = useReduceMotion();
+  const {
+    phase,
+    failure,
+    signOutCompletion,
+    retryCleanup,
+    finishOnDevice,
+  } = useSession();
+  const [actionPending, setActionPending] = useState(false);
 
-  // D6: delayed subtitle entrance — "Drive safe." waits 600ms before
-  // fading in over 220ms. The pause creates an emotional beat after
-  // the title. Gated on reduce motion (both shown immediately).
-  const [subtitleVisible, setSubtitleVisible] = useState(reduceMotion);
-  const subtitleOpacity = useRef(
-    new Animated.Value(reduceMotion ? 1 : 0),
-  ).current;
-
-  useEffect(() => {
-    if (reduceMotion) {
-      subtitleOpacity.setValue(1);
-      setSubtitleVisible(true);
-      return;
+  async function handleRetry() {
+    if (actionPending) return;
+    setActionPending(true);
+    try {
+      await retryCleanup();
+    } catch {
+      // The provider restores cleanupFailed. The same calm recovery copy
+      // remains visible without exposing storage or credential details.
+    } finally {
+      setActionPending(false);
     }
-    const delay = setTimeout(() => {
-      setSubtitleVisible(true);
-      Animated.timing(subtitleOpacity, {
-        toValue: 1,
-        duration: motion.duration.quick,
-        easing: motion.easing.out,
-        useNativeDriver: true,
-      }).start();
-    }, 600);
-    return () => clearTimeout(delay);
-  }, [reduceMotion, subtitleOpacity]);
+  }
+
+  async function handleFinishOnDevice() {
+    if (actionPending) return;
+    setActionPending(true);
+    try {
+      await finishOnDevice();
+    } catch {
+      // The provider restores cleanupFailed for another explicit retry.
+    } finally {
+      setActionPending(false);
+    }
+  }
+
+  function confirmFinishOnDevice() {
+    Alert.alert(
+      'Finish on this device?',
+      'The online session could not be confirmed as closed. It will expire, and this device will forget it now.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Finish',
+          style: 'destructive',
+          onPress: () => void handleFinishOnDevice(),
+        },
+      ],
+    );
+  }
+
+  const signingOut = phase === 'signingOut';
+  const cleanupFailed = phase === 'cleanupFailed';
+  const localOnly =
+    phase === 'signedOut' && signOutCompletion === 'local-only';
+
+  const title = signingOut
+    ? 'Signing you out'
+    : cleanupFailed
+      ? "We couldn't finish signing out"
+      : localOnly
+        ? 'Signed out on this device.'
+        : "You've been logged out.";
+  const body = signingOut
+    ? 'Removing your information from this device.'
+    : cleanupFailed
+      ? 'Some information is still on this device. Try the cleanup again before you log in.'
+      : localOnly
+        ? 'The online session could not be confirmed as closed.'
+        : 'Drive safe.';
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.content}>
-          <View style={styles.illustration}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          accessible={signingOut}
+          accessibilityLabel={
+            signingOut
+              ? 'Signing you out. Removing your information from this device. In progress.'
+              : undefined
+          }
+          accessibilityState={signingOut ? { busy: true } : undefined}
+        >
+          <View
+            style={styles.illustration}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             <View style={styles.locationWrap}>
               <PermissionsLocation width={67} height={84} />
             </View>
@@ -73,53 +112,61 @@ export default function SignOut() {
             </View>
           </View>
 
-          <View style={styles.copy}>
+          <View
+            style={styles.copy}
+            accessibilityLiveRegion={cleanupFailed ? 'assertive' : 'none'}
+          >
             <Text style={styles.title} accessibilityRole="header">
-              You&apos;ve been logged out.
+              {title}
             </Text>
-            {subtitleVisible && (
-              <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
-                Drive safe.
-              </Animated.Text>
-            )}
+            <Text style={styles.subtitle}>{body}</Text>
           </View>
 
-          <Button
-            type="primary"
-            fill="fill"
-            text="Log back in"
-            onPress={() => router.replace('/login')}
-            style={styles.button}
-          />
-        </View>
+          {cleanupFailed ? (
+            <View style={styles.actions}>
+              <Button
+                text="Try again"
+                onPress={() => void handleRetry()}
+                loading={actionPending}
+                accessibilityHint="Tries the account cleanup again"
+                style={styles.button}
+              />
+              {failure?.canFinishOnDevice ? (
+                <Button
+                  text="Finish on this device"
+                  fill="transparent"
+                  onPress={confirmFinishOnDevice}
+                  disabled={actionPending}
+                  accessibilityHint="Finishes local sign out without confirming the online session"
+                  style={styles.button}
+                />
+              ) : null}
+            </View>
+          ) : phase === 'signedOut' ? (
+            <Button
+              text="Log back in"
+              onPress={() => router.replace('/login')}
+              accessibilityHint="Opens the login screen"
+              style={styles.button}
+            />
+          ) : null}
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.wiltedgreen,
-  },
-  safe: {
-    flex: 1,
-  },
-  // Centered vertically in the safe area, 32pt horizontal padding
-  // matches the static-content modal-padding rule from .cursorrules.
+  root: { flex: 1, backgroundColor: colors.wiltedgreen },
+  safe: { flex: 1 },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xxl,
     gap: spacing.xxl,
   },
-  // Illustration cluster — location pin sits up-and-right, car sits
-  // below-and-left, mirroring Figma 1133:12898 layout.
-  illustration: {
-    width: 143,
-    height: 222,
-  },
+  illustration: { width: 143, height: 222 },
   locationWrap: {
     position: 'absolute',
     top: 0,
@@ -137,10 +184,7 @@ const styles = StyleSheet.create({
     width: 143,
     height: 100,
   },
-  copy: {
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
+  copy: { gap: spacing.md, marginTop: spacing.lg },
   title: {
     ...dynamicType(typography.brandDisplayLarge),
     color: colors.white,
@@ -149,10 +193,6 @@ const styles = StyleSheet.create({
     ...dynamicType(typography.subheadlineRegular),
     color: colors.signOutSubtitle,
   },
-  button: {
-    alignSelf: 'flex-start',
-    // minWidth (not fixed width) per Figma 163pt container, but lets the
-    // button grow to fit its label under Dynamic Type instead of clipping.
-    minWidth: 163,
-  },
+  actions: { gap: spacing.sm, alignItems: 'flex-start' },
+  button: { minWidth: 190 },
 });

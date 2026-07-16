@@ -14,13 +14,14 @@ import {
   Dimensions,
   Linking,
   PanResponder,
+  PixelRatio,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PlacementPin from '../assets/illustrations/drag-and-drop.svg';
 import MenuGlyph from '../assets/illustrations/menu-glyph.svg';
@@ -38,6 +39,7 @@ import { HomeBrowseSheet } from '../components/HomeBrowseSheet';
 import { HomeEdgeIndicatorLayer } from '../components/HomeEdgeIndicatorLayer';
 import { HomePlacementOverlay } from '../components/HomePlacementOverlay';
 import { LandmarkMarker, variantForCategoryId } from '../components/LandmarkMarker';
+import { useLiveSafetyController } from '../components/LiveSafetyController';
 import { LiveSafetySheet } from '../components/LiveSafetySheet';
 import { ReportDetailCard } from '../components/ReportDetailCard';
 import { RouteHazardDetailCard } from '../components/RouteHazardDetailCard';
@@ -73,8 +75,8 @@ import {
 } from '../lib/api/routes';
 import { loadCorridorZones, saveCorridorZones } from '../lib/api/zone-cache';
 import {
+  getZonesForRouteAlternatives,
   getZonesForRegion,
-  getZonesForTrip,
   type Coordinate,
   type Zone,
   zoneColors,
@@ -183,8 +185,17 @@ function reportRouteContextLine(
  */
 export default function Home() {
   const router = useRouter();
+  const fontScale = PixelRatio.getFontScale();
+  const safeAreaInsets = useSafeAreaInsets();
+  const largeTextRouteBodyHeight =
+    Dimensions.get('window').height * 0.85 -
+    12 - // bottomSheet paddingTop
+    4 - // DragHandle height in route mode
+    spacing.md - // bottomSheet gap
+    safeAreaInsets.bottom;
   const prefsState = usePreferences();
   const preferences = prefsState.ready ? prefsState.preferences : null;
+  const liveSafety = useLiveSafetyController();
   const savedPlacesState = useSavedPlaces();
   const { add } = savedPlacesState;
   const home = savedPlacesState.ready ? savedPlacesState.home : null;
@@ -329,6 +340,9 @@ export default function Home() {
   // so it recomputes automatically when zones change without needing
   // another effect.
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  const [routeScoringDepartureMs, setRouteScoringDepartureMs] = useState(() =>
+    Date.now(),
+  );
   // Route fetch state for the bottom-sheet preview. `isCalculatingRoute`
   // is true between fetch-start and fetch-resolve so the preview can
   // render a "Calculating route…" indicator instead of looking broken
@@ -413,14 +427,10 @@ export default function Home() {
   // Zones gated by the user's flag toggles (filtered per-source so the
   // overlay, scoring, counts, and report markers all respect the flags).
   const prefs = preferences ?? DEFAULT_PREFERENCES;
-  // Corridor OSM/511 + Mapbox Directions incidents (same token as routing).
-  const corridorZones = useMemo(() => {
-    const incidents =
-      routeFetchSource === 'mapbox'
-        ? rawRoutes.flatMap((r) => r.mapboxIncidentZones ?? [])
-        : [];
-    return collapseHazardZones([...osmZones, ...incidents]);
-  }, [osmZones, rawRoutes, routeFetchSource]);
+  // Corridor OSM/511 zones are shared route context. Mapbox Directions
+  // incidents stay attached to their owning route and are merged inside
+  // lib/scoring.ts per candidate, so they cannot leak across alternatives.
+  const corridorZones = useMemo(() => collapseHazardZones(osmZones), [osmZones]);
   const enabledOsmZones = useMemo(
     () => corridorZones.filter((z) => isZoneCategoryEnabled(z.category, prefs)),
     [corridorZones, prefs],
@@ -438,9 +448,13 @@ export default function Home() {
   // whenever any source changes — including when reportZones updates
   // after a new community report lands. Replaces the previous
   // setRoutes(pickWinner(...)) call sites.
+  const routeScoringDepartureTime = useMemo(
+    () => new Date(routeScoringDepartureMs),
+    [routeScoringDepartureMs],
+  );
   const routes = useMemo(
-    () => pickWinner(rawRoutes, enabledZones),
-    [rawRoutes, enabledZones],
+    () => pickWinner(rawRoutes, enabledZones, routeScoringDepartureTime),
+    [rawRoutes, enabledZones, routeScoringDepartureTime],
   );
 
   // Recommended route is the safest one (pickWinner's index 0). May be
@@ -729,7 +743,8 @@ export default function Home() {
   } = usePreferredStations();
 
   const fuelStopsOnRoute = useRouteFuelStops({
-    active: !!selectedRoute,
+    active: showFuelStops,
+    routeKey: selectedRoute?.id,
     routeCoords: selectedRoute?.coordinates ?? [],
     fuelType: fuelProfile?.fuelType ?? 'gas',
     userLocation,
@@ -1018,6 +1033,7 @@ export default function Home() {
       // destination change (rather than displaying stale "—" headline
       // for the ~1s permission + GPS resolution window). Cleared in
       // the fetch resolve below.
+      setRouteScoringDepartureMs(Date.now());
       setIsCalculatingRoute(true);
       // Drop stale OSM from the prior trip so chips don't read "All
       // clear" against old geometry while the new corridor loads.
@@ -1163,10 +1179,10 @@ export default function Home() {
             setTripZonesStatus('loading');
           }
 
-          const tripZones = await getZonesForTrip(
+          const tripZones = await getZonesForRouteAlternatives(
             center,
             destination,
-            fetchedResult.routes[0]?.coordinates,
+            fetchedResult.routes,
             {
               mode: 'preview',
               routeSource: fetchedResult.source,
@@ -2023,6 +2039,10 @@ export default function Home() {
           // collapsed state stays wrap-content so the small header card
           // doesn't waste 85% of screen.
           !sheetMode && !thingsToDoCollapsed && styles.bottomSheetExpanded,
+          // At accessibility sizes the route card needs a definite frame,
+          // not only maxHeight. That gives its ScrollView real overflow to
+          // scroll and keeps the persistent actions inside the visible sheet.
+          isRouteMode && fontScale > 1.4 && styles.bottomSheetLargeText,
         ]}
         edges={['bottom']}
         onLayout={(e) => {
@@ -2055,7 +2075,15 @@ export default function Home() {
           <DragHandle />
         )}
 
-        <Animated.View style={{ opacity: sheetOpacity, flex: 1 }}>
+        <Animated.View
+          style={[
+            { opacity: sheetOpacity, flex: 1 },
+            isRouteMode && fontScale > 1.4 && {
+              flex: 0,
+              height: largeTextRouteBodyHeight,
+            },
+          ]}
+        >
           {!sheetMode ? (
             <HomeBrowseSheet
               firstName={userFirstName}
@@ -2298,7 +2326,7 @@ export default function Home() {
         onTogglePreferred={handleTogglePreferredFuelStop}
       />
 
-      <LiveSafetySheet />
+      <LiveSafetySheet controller={liveSafety} />
 
       {mapCoach.visible && (
         <Pressable
@@ -2466,6 +2494,9 @@ const styles = StyleSheet.create({
   // the maxHeight cap so the visual landing is identical to the prior
   // wrap-content behaviour when content was tall.
   bottomSheetExpanded: {
+    height: Dimensions.get('window').height * 0.85,
+  },
+  bottomSheetLargeText: {
     height: Dimensions.get('window').height * 0.85,
   },
   // ScrollView wrapper around the route-mode body content. flexShrink: 1

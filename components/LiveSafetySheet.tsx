@@ -12,9 +12,8 @@ import { CaretUp } from 'phosphor-react-native/src/icons/CaretUp';
 
 import { Button } from './Button';
 import { DragHandle } from './DragHandle';
+import type { LiveSafetyControllerState } from './LiveSafetyController';
 import { NotifyingPulse } from './NotifyingPulse';
-import { useShareSession } from '../hooks/useShareSession';
-import { useTrustedContact } from '../hooks/useTrustedContact';
 import { getErrorMessage } from '../lib/error-message';
 import { formatElapsedDuration } from '../lib/format';
 import { colors } from '../theme/colors';
@@ -49,14 +48,14 @@ import { typography } from '../theme/typography';
  */
 export function LiveSafetySheet({
   bottomInset,
+  controller,
 }: {
   bottomInset?: number;
-} = {}) {
-  const shareState = useShareSession();
+  controller: LiveSafetyControllerState;
+}) {
+  const { shareState, contact } = controller;
   const { end, resend } = shareState;
   const session = shareState.ready ? shareState.session : null;
-  const contactState = useTrustedContact();
-  const contact = contactState.ready ? contactState.contact : null;
   const [expanded, setExpanded] = useState(false);
   const [tickSeconds, setTickSeconds] = useState(0);
 

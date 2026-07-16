@@ -1,5 +1,5 @@
 import type { Coordinate, Zone, ZoneBounds, ZoneSourceId } from '../api/zones';
-import { pathLengthMeters, sampleAlongPath } from '../geo';
+import { haversineMeters, pathLengthMeters, sampleAlongPath } from '../geo';
 import { routePassesZone, routePointsForZoneTest } from '../scoring';
 import {
   BBOX_PAD_METERS,
@@ -185,6 +185,70 @@ export function corridorRadius(pathMeters: number): number {
   );
 }
 
+const LOCAL_COMPLEXITY_RADIUS_M = 5_000;
+const DENSE_LOCAL_POINT_COUNT = 6;
+const CURVE_SWING_DEG = 45;
+
+function clampCorridorRadius(radiusMeters: number): number {
+  return Math.min(
+    SEGMENT_MAX_RADIUS_M,
+    Math.max(SEGMENT_MIN_RADIUS_M, Math.floor(radiusMeters)),
+  );
+}
+
+function localPathPoints(
+  path: Coordinate[],
+  center: Coordinate,
+): Coordinate[] {
+  return path.filter(
+    (point) => haversineMeters(point, center) <= LOCAL_COMPLEXITY_RADIUS_M,
+  );
+}
+
+function localBearingSwing(points: Coordinate[]): number {
+  if (points.length < 3) return 0;
+  let swing = 0;
+  let previous = bearingDeg(points[0], points[1]);
+  for (let i = 2; i < points.length; i++) {
+    const current = bearingDeg(points[i - 1], points[i]);
+    swing += bearingDelta(previous, current);
+    previous = current;
+  }
+  return swing;
+}
+
+/**
+ * Adaptive collection radius for one route sample.
+ *
+ * The base radius still comes from total route length, so alternatives follow
+ * the same policy. Local geometry then tunes the radius: dense/curvy areas
+ * tighten to avoid collecting evidence from adjacent roads, while sparse
+ * long-route stretches can stay broader because there are fewer nearby road
+ * ambiguities and fewer samples overall.
+ */
+export function adaptiveCorridorRadius(
+  path: Coordinate[],
+  pathMeters: number,
+  center: Coordinate,
+): number {
+  const base = corridorRadius(pathMeters);
+  const local = localPathPoints(path, center);
+  const swing = localBearingSwing(local);
+  let multiplier = 1;
+
+  if (local.length >= DENSE_LOCAL_POINT_COUNT) {
+    multiplier *= 0.8;
+  }
+  if (swing >= CURVE_SWING_DEG) {
+    multiplier *= 0.75;
+  }
+  if (pathMeters > LONG_TRIP_METERS && local.length <= 3 && swing < CURVE_SWING_DEG) {
+    multiplier *= 1.15;
+  }
+
+  return clampCorridorRadius(base * multiplier);
+}
+
 function wave1AnchorCap(pathMeters: number): number {
   return pathMeters > MEGA_TRIP_PATH_METERS
     ? MEGA_TRIP_WAVE1_ANCHOR_CAP
@@ -256,13 +320,12 @@ export function planCorridor(
   }
 
   const anchors = wave1Anchors(path, pathMeters);
-  const radius = corridorRadius(pathMeters);
   for (const center of anchors) {
     if (pointCoveredByBboxLeg(center, legs)) continue;
     wave1.push({
       kind: 'around',
       center,
-      radiusMeters: radius,
+      radiusMeters: adaptiveCorridorRadius(path, pathMeters, center),
       sources: aroundSources,
     });
   }
@@ -280,7 +343,6 @@ export function planGapFills(
   pathMeters: number,
 ): SampleRequest[] {
   const out: SampleRequest[] = [];
-  const radius = corridorRadius(pathMeters);
   let arcStartM = 0;
   while (arcStartM < pathMeters && out.length < MAX_GAP_FILLS) {
     const arcEndM = Math.min(pathMeters, arcStartM + GAP_ARC_METERS);
@@ -293,7 +355,7 @@ export function planGapFills(
         out.push({
           kind: 'around',
           center: mid,
-          radiusMeters: radius,
+          radiusMeters: adaptiveCorridorRadius(path, pathMeters, mid),
           sources: ['osm-overpass'],
           legId: `gap-${out.length}`,
         });

@@ -16,6 +16,10 @@ export type NotifyTrustedContactInput = {
   coordinates?: { latitude: number; longitude: number };
 };
 
+export type NotifyTrustedContactResult =
+  | { opened: true; openedAtIso: string }
+  | { opened: false };
+
 function dialablePhone(phoneNumber: string): string {
   return phoneNumber.replace(/[^\d+]/g, '');
 }
@@ -111,7 +115,7 @@ export async function readNotifyCoordinates(): Promise<{
 export async function notifyTrustedContact(
   contact: TrustedContact | null,
   input: NotifyTrustedContactInput,
-): Promise<{ opened: boolean; notifiedAtIso?: string }> {
+): Promise<NotifyTrustedContactResult> {
   if (!contact) {
     Alert.alert(
       'Add a trusted contact',
@@ -121,6 +125,6 @@ export async function notifyTrustedContact(
   }
   const opened = await openTrustedContactSms(contact, input);
   return opened
-    ? { opened: true, notifiedAtIso: new Date().toISOString() }
+    ? { opened: true, openedAtIso: new Date().toISOString() }
     : { opened: false };
 }

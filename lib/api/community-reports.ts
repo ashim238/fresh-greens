@@ -23,6 +23,8 @@
 // can take back what they submitted.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import type { Coordinate, Zone, ZoneType } from './zones';
 
@@ -406,6 +408,17 @@ export async function clearAllCommunityReports(): Promise<void> {
 }
 
 /**
+ * Account-isolation purge path. Local report photos live in an app-owned
+ * directory, so remove the directory even when metadata no longer points at it.
+ */
+export async function purgeLocalCommunityReportsForAccount(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+  await FileSystem.deleteAsync(`${FileSystem.documentDirectory}reports/`, {
+    idempotent: true,
+  });
+}
+
+/**
  * Returns reports as Zone[] with point geometry, ready to feed the
  * scoring pipeline alongside OSM zones. Each report becomes one point
  * zone whose ZoneType is determined by its category (CATEGORIES table).
@@ -463,7 +476,9 @@ async function readLocalOnly(): Promise<CommunityReport[]> {
 }
 
 async function writeLocalOnly(reports: CommunityReport[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+  await accountOperationGate.runCurrent(async () => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+  });
 }
 
 /** Device store wins on id collision; cloud fills in other devices' reports. */

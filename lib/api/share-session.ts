@@ -12,6 +12,7 @@
 // See docs/archive/superpowers/specs/2026-05-31-unfamiliar-and-share-location-design.md.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.share-session.v1';
 
@@ -44,10 +45,16 @@ export async function getStoredShareSession(): Promise<ShareSession | null> {
 export async function setStoredShareSession(
   session: ShareSession,
 ): Promise<ShareSession> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  await accountOperationGate.runCurrent(async () => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  });
   return session;
 }
 
 export async function clearStoredShareSession(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeStoredShareSessionForAccount(): Promise<void> {
+  await clearStoredShareSession();
 }

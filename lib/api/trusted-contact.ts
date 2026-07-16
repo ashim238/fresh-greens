@@ -18,6 +18,7 @@
 //   3. Privacy. Less is more.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.trusted-contact.v1';
 
@@ -72,13 +73,19 @@ export async function getTrustedContact(): Promise<TrustedContact | null> {
 export async function setTrustedContact(
   contact: TrustedContact,
 ): Promise<TrustedContact> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(contact));
+  await accountOperationGate.runCurrent(async () => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(contact));
+  });
   return contact;
 }
 
 /** Removes the stored trusted contact. */
 export async function clearTrustedContact(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeTrustedContactForAccount(): Promise<void> {
+  await clearTrustedContact();
 }
 
 // --- Helpers -------------------------------------------------------------

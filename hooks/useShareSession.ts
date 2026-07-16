@@ -44,8 +44,9 @@ export type ShareSessionState = ShareSessionMutations &
  * start, end, and resend are Mutation objects — callers must await `.run()`
  * and narrow the discriminated MutationResult before proceeding.
  *
- * start persists the session then auto-opens Messages with a pre-filled
- * text to the trusted contact (user taps Send in Messages).
+ * start auto-opens Messages with a pre-filled text to the trusted contact
+ * (user taps Send in Messages), then persists the session only after the
+ * draft opens.
  */
 export function useShareSession(): ShareSessionState {
   const hydrated = useHydratedState<ShareSession | null>(getStoredShareSession);
@@ -75,10 +76,12 @@ export function useShareSession(): ShareSessionState {
         locationLabel,
         coordinates,
       });
-      if (!result.notifiedAtIso) return active;
+      if (!result.opened) {
+        throw new Error('Messages draft could not be opened');
+      }
       const withSms: ShareSession = {
         ...active,
-        smsOpenedAtIso: result.notifiedAtIso,
+        smsOpenedAtIso: result.openedAtIso,
       };
       hydrated.setData(withSms);
       await setStoredShareSession(withSms);
@@ -87,7 +90,9 @@ export function useShareSession(): ShareSessionState {
     [hydrated.setData],
   );
 
-  // start persist: build the session, persist it, then open SMS.
+  // start persist: build the session, open SMS, then persist only if
+  // Messages accepted the draft. Failed draft opens roll back the
+  // optimistic state and leave no ghost active session in storage.
   const startPersist = useCallback(
     async (input: StartShareSessionInput): Promise<ShareSession> => {
       // Use the id seeded by onOptimistic so the optimistic and the
@@ -101,7 +106,6 @@ export function useShareSession(): ShareSessionState {
         reason: input.reason,
         startedAtIso: new Date().toISOString(),
       };
-      await setStoredShareSession(next);
       return openSmsForSession(next, {
         locationLabel: input.locationLabel,
         coordinates: input.coordinates,

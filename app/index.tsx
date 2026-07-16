@@ -8,6 +8,7 @@ import {
   Easing,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -64,6 +65,10 @@ export default function Welcome() {
       router.replace('/home');
     }
   }, [loading, user, router]);
+
+  function openLegal() {
+    router.push('/legal');
+  }
 
   return (
     <View style={styles.root}>
@@ -180,22 +185,32 @@ export default function Welcome() {
         </View>
       </View>
 
-      <SafeAreaView style={styles.content}>
-        <View style={styles.illustrationContainer} />
+      <SafeAreaView style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.illustrationContainer} />
 
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>Fresh Greens</Text>
-          <Text style={styles.subtitle}>A path made for you, by you</Text>
-        </View>
+          <View style={styles.titleBlock}>
+            <Text
+              style={styles.title}
+              accessibilityRole="header"
+              maxFontSizeMultiplier={2}
+            >
+              Fresh Greens
+            </Text>
+            <Text style={styles.subtitle}>A path made for you, by you</Text>
+          </View>
 
-        <View style={styles.actions}>
-          <View style={styles.terms}>
+          <View style={styles.actions}>
+            <View style={styles.terms}>
             <Pressable
               style={({ pressed }) => [tapTarget44, pressed && pressedDim]}
               onPress={() => setTermsAccepted((prev) => !prev)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: termsAccepted }}
-              accessibilityLabel="I acknowledge the Privacy Policy and agree to Fresh Greens' Terms and Conditions."
+              accessibilityLabel="Accept the Privacy Policy and Terms and Conditions"
             >
               <View style={styles.checkbox}>
                 {termsAccepted && (
@@ -206,16 +221,30 @@ export default function Welcome() {
             <View style={styles.termsTextColumn}>
               <Text style={styles.termsText}>
                 I acknowledge the{' '}
-                <Text style={styles.link}>Privacy Policy</Text> and agree to
+                <Text
+                  style={styles.link}
+                  onPress={openLegal}
+                  accessibilityRole="link"
+                >
+                  Privacy Policy
+                </Text>{' '}
+                and agree to
               </Text>
               <Text style={styles.termsText}>
                 Fresh Greens'{' '}
-                <Text style={styles.link}>Terms and Conditions</Text>.
+                <Text
+                  style={styles.link}
+                  onPress={openLegal}
+                  accessibilityRole="link"
+                >
+                  Terms and Conditions
+                </Text>
+                .
               </Text>
             </View>
-          </View>
+            </View>
 
-          <Button
+            <Button
             type="primary"
             fill="fill"
             text="Get started"
@@ -232,16 +261,17 @@ export default function Welcome() {
             }
             onPress={() => router.push('/get-started')}
             style={styles.buttonStretch}
-          />
+            />
 
-          <Button
+            <Button
             type="secondary"
             fill="fill"
             text="Have an account? Log in"
             onPress={() => router.push('/login')}
             style={styles.buttonStretch}
-          />
-        </View>
+            />
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -382,8 +412,11 @@ const styles = StyleSheet.create({
   },
 
   // --- Foreground content ---
-  content: {
+  safe: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.lg,
   },
@@ -396,7 +429,7 @@ const styles = StyleSheet.create({
     marginBottom: 160,
   },
   title: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.largeTitleEmphasized, 2),
     color: colors.white,
   },
   subtitle: {

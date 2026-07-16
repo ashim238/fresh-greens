@@ -10,6 +10,7 @@
 // Spec: docs/archive/superpowers/specs/2026-06-01-settings-register-refresh-design.md
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.calendar-resolutions.v1';
 
@@ -38,13 +39,19 @@ export async function setResolution(
   locationText: string,
   place: ResolvedPlace,
 ): Promise<ResolutionMap> {
-  const current = await getResolutions();
-  const next: ResolutionMap = { ...current, [locationText]: place };
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  return next;
+  return accountOperationGate.runCurrent(async () => {
+    const current = await getResolutions();
+    const next: ResolutionMap = { ...current, [locationText]: place };
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    return next;
+  });
 }
 
 /** Sign-out hygiene — drop all corrections. */
 export async function clearResolutions(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeCalendarResolutionsForAccount(): Promise<void> {
+  await clearResolutions();
 }

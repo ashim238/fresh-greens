@@ -2,7 +2,21 @@
 
 **Date:** 2026-07-15
 
-**Status:** Approved for implementation planning
+**Status:** Current implementation slice complete — route scoring, corridor cleanup, adaptive width, essential offline bundle, and source-only native audit landed
+
+## Implementation progress
+
+- Completed route-scoring evidence isolation for the current screens.
+- `scoreRoute` and `pickWinner` now require an explicit departure time.
+- `/home` and `/en-route` no longer merge route-owned Mapbox incidents into the shared corridor zone array.
+- The scorer builds a per-route evidence set, so Mapbox incidents stay attached to their owning alternative and are not counted twice.
+- Completed current-scope corridor cleanup: checked-empty tiles are valid evidence, bbox cache reads require complete tile coverage, bbox writes no longer smear one response into every tile slot, successful empty Overpass responses no longer trigger mock fallback, and preview corridor collection covers all route alternatives instead of only the first route.
+- Completed current-scope adaptive corridor width: long sparse stretches stay wider, dense or curvy local geometry tightens per anchor, and gap-fill samples use the same adaptive policy.
+- Completed current-scope offline resilience: Go prepares an essential selected-route bundle with route geometry, route-set identity, departure time, validated on-route evidence, and the `adaptive-corridor-v1` policy before opening navigation.
+- Completed route-trust source-only native audit: Go now exposes a visible preparing state, `/en-route` surfaces `Route saved` or `Backup limited`, and the audit artifact lives at [`docs/audits/2026-07-16-route-trust-native-audit.md`](../../audits/2026-07-16-route-trust-native-audit.md).
+- Focused regression tests cover route-owned incident isolation, duplicate protection, condition-chip consistency, explicit departure-time contracts, screen source contracts, tile completeness, empty provider responses, all-alternative corridor collection, adaptive width, essential bundle creation/handoff, and route-backup visible states.
+
+Plain-language state: the app now treats route scoring like comparing separate folders. Shared evidence goes into every folder. Evidence stapled to Route A stays in Route A's folder. Corridor collection now looks across the alternatives before scoring, empty checked areas count as real “we looked there” evidence, the collection bubble adapts to local route shape, and Go packs a starter offline envelope before navigation opens. The UI now says when that envelope is being packed and whether it arrived ready or limited. The next route-trust slices still need provider deadlines, stable route identities beyond provider ids, bounded exposure scoring, richer weak-signal enrichment, and device/simulator verification.
 
 ## Goal
 

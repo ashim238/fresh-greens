@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -13,8 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LogoApple from '../assets/illustrations/logo-apple.svg';
-import { useUser } from '../hooks/useUser';
-import { getStoredUser } from '../lib/api/user';
+import { useSession } from '../lib/account-session/session-provider';
 import { getErrorMessage } from '../lib/error-message';
 import { colors } from '../theme/colors';
 import { pressedDim } from '../theme/interaction';
@@ -47,7 +47,7 @@ import { typography } from '../theme/typography';
  */
 export default function GetStarted() {
   const router = useRouter();
-  const { signInWithApple } = useUser();
+  const { signInWithApple } = useSession();
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,8 +60,7 @@ export default function GetStarted() {
       // stored before this sign-in attempt. Apple itself doesn't tell us
       // (it returns the same stable user-id whether it's the user's
       // first or fiftieth sign-in to this app), so we check storage.
-      const wasReturning = (await getStoredUser()) !== null;
-      await signInWithApple();
+      const { wasReturning } = await signInWithApple();
       // Success haptic confirms the Apple sheet completed cleanly —
       // the visual transition (sheet dismiss → router.replace) is fast
       // enough that a confirmation cue helps the user know the sign-in
@@ -108,7 +107,7 @@ export default function GetStarted() {
         accessibilityLabel="Three cartoon cars driving across the horizon with smoke trail"
       />
 
-      <SafeAreaView style={styles.content}>
+      <SafeAreaView style={styles.safe}>
         {/*
           Content wrapper stretches with parent gutter (32pt each side
           on the 390pt baseline = Figma's 326pt content strip). Vertically
@@ -116,10 +115,20 @@ export default function GetStarted() {
           title and continue group per Figma's absolutely-centered
           Content node.
         */}
-        <View style={styles.contentInner}>
-          <Text style={styles.title}>Get started</Text>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.contentInner}>
+            <Text
+              style={styles.title}
+              accessibilityRole="header"
+              maxFontSizeMultiplier={2}
+            >
+              Get started
+            </Text>
 
-          <View style={styles.actions}>
+            <View style={styles.actions}>
             <Pressable
               style={({ pressed }) => [
                 styles.outlinedButton,
@@ -133,7 +142,7 @@ export default function GetStarted() {
               accessibilityState={{ busy: signingIn, disabled: signingIn }}
             >
               {signingIn ? (
-                <ActivityIndicator color={colors.white} />
+                <ActivityIndicator color={colors.black} />
               ) : (
                 <>
                   <LogoApple width={20} height={20} />
@@ -144,7 +153,16 @@ export default function GetStarted() {
               )}
             </Pressable>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            {error && (
+              <View
+                style={styles.errorSurface}
+                accessible
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -163,8 +181,9 @@ export default function GetStarted() {
                 <Text style={styles.loginLink}>Log in</Text>
               </Text>
             </Pressable>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -198,13 +217,17 @@ const styles = StyleSheet.create({
     // the left edge while the cars sit in the right portion of the screen.
     transform: [{ translateX: 110 }],
   },
-  content: {
+  safe: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     // 32pt gutter matches Figma's 326pt content-strip on the 390pt
     // baseline. Inner content stretches to fill instead of hardcoding
     // 326, so on Pro Max the column grows with the device rather than
     // orphaning in the middle.
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -214,7 +237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.largeTitleEmphasized, 2),
     color: colors.white,
     textAlign: 'center',
   },
@@ -224,7 +247,9 @@ const styles = StyleSheet.create({
   },
   outlinedButton: {
     alignSelf: 'stretch',
-    height: 48,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
@@ -241,17 +266,25 @@ const styles = StyleSheet.create({
     // border — just lowers the foreground a touch.
     opacity: 0.7,
   },
+  errorSurface: {
+    alignSelf: 'stretch',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.borderWarm,
+    backgroundColor: colors.surfaceCard,
+  },
   errorText: {
     ...dynamicType(typography.footnoteRegular),
-    // Stays red (NOT severityCritical) — this sits on the dark
-    // wiltedgreen/burntgreen auth ground, where the brighter red has
-    // more contrast than #C62828. See .cursorrules #8 (dark-surface case).
-    color: colors.red,
+    color: colors.severityCritical,
     textAlign: 'center',
   },
   outlinedButtonText: {
     ...dynamicType(typography.subheadlineEmphasized),
-    color: colors.white,
+    color: colors.black,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   divider: {
     flexDirection: 'row',

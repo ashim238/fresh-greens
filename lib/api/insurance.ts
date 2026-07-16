@@ -8,6 +8,7 @@
 // cardPhotoUri is a local file:// URI from expo-image-picker; not uploaded.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountOperationGate } from '../account-session/operation-gate';
 
 const STORAGE_KEY = 'fresh-greens.insurance.v1';
 
@@ -36,12 +37,18 @@ export async function getStoredInsuranceProfile(): Promise<InsuranceProfile | nu
 export async function setStoredInsuranceProfile(
   profile: InsuranceProfile,
 ): Promise<InsuranceProfile> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  await accountOperationGate.runCurrent(async () => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  });
   return profile;
 }
 
 export async function clearStoredInsuranceProfile(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
+}
+
+export async function purgeStoredInsuranceProfileForAccount(): Promise<void> {
+  await clearStoredInsuranceProfile();
 }
 
 /** Last four characters for stress-state surfaces (full number in settings). */

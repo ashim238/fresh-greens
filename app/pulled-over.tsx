@@ -39,6 +39,7 @@ import {
   Animated,
   Image,
   Linking,
+  PixelRatio,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -867,10 +868,17 @@ export default function PulledOver() {
 
 function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
   return (
-    <View style={armedStyles.page}>
+    <ScrollView
+      contentContainerStyle={armedStyles.page}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={armedStyles.titleBlock}>
-        <Text style={armedStyles.eyebrow}>Ok. Got it.</Text>
-        <Text style={armedStyles.title}>Are you armed?</Text>
+        <Text style={armedStyles.eyebrow} maxFontSizeMultiplier={2}>
+          Ok. Got it.
+        </Text>
+        <Text style={armedStyles.title} maxFontSizeMultiplier={2}>
+          Are you armed?
+        </Text>
       </View>
 
       <View style={armedStyles.answersWrapper}>
@@ -890,9 +898,17 @@ function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
             }
           >
             <View style={armedStyles.answerContent}>
-              <Text style={armedStyles.answerTitle}>{answer.title}</Text>
+              <Text
+                style={armedStyles.answerTitle}
+                maxFontSizeMultiplier={2}
+              >
+                {answer.title}
+              </Text>
               {answer.subtitle && (
-                <Text style={armedStyles.answerSubtitle}>
+                <Text
+                  style={armedStyles.answerSubtitle}
+                  maxFontSizeMultiplier={2}
+                >
                   {answer.subtitle}
                 </Text>
               )}
@@ -900,7 +916,7 @@ function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
           </Pressable>
         ))}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -1211,13 +1227,17 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
   }
 
   return (
-    <View style={contactStyles.page}>
+    <ScrollView
+      contentContainerStyle={contactStyles.page}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={contactStyles.topContent}>
         <View style={contactStyles.titleBlock}>
-          <Text style={contactStyles.title}>You're not alone.</Text>
-          <Text style={contactStyles.subtitle}>
-            Your trusted contacts are alerted during emergencies and can see
-            your current location.
+          <Text style={contactStyles.title} maxFontSizeMultiplier={2}>
+            You're not alone.
+          </Text>
+          <Text style={contactStyles.subtitle} maxFontSizeMultiplier={2}>
+            Call or text your trusted contact. No message or location has been sent yet.
           </Text>
         </View>
 
@@ -1252,7 +1272,10 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
                 ]}
               >
                 {hasContact ? (
-                  <Text style={contactStyles.avatarInitials}>
+                  <Text
+                    style={contactStyles.avatarInitials}
+                    maxFontSizeMultiplier={1}
+                  >
                     {contact?.initials}
                   </Text>
                 ) : (
@@ -1279,6 +1302,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
               contactStyles.contactName,
               !hasContact && contactStyles.contactNameEmpty,
             ]}
+            maxFontSizeMultiplier={2}
           >
             {displayName}
           </Text>
@@ -1302,7 +1326,9 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
             accessibilityState={{ disabled: !canCall }}
           >
             <Phone size={24} color={colors.white} weight="fill" />
-            <Text style={contactStyles.callBtnText}>Call</Text>
+            <Text style={contactStyles.callBtnText} maxFontSizeMultiplier={2}>
+              Call
+            </Text>
           </Pressable>
 
           <Pressable
@@ -1326,7 +1352,9 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
               color={colors.wiltedgreen}
               weight="fill"
             />
-            <Text style={contactStyles.textBtnText}>Text</Text>
+            <Text style={contactStyles.textBtnText} maxFontSizeMultiplier={2}>
+              Text
+            </Text>
           </Pressable>
 
           <Pressable
@@ -1338,7 +1366,12 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
               pressed && pressedDim,
             ]}
           >
-            <Text style={contactStyles.reviewLinkText}>Review guidance</Text>
+            <Text
+              style={contactStyles.reviewLinkText}
+              maxFontSizeMultiplier={2}
+            >
+              Review guidance
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -1348,7 +1381,7 @@ function ContactView({ onReviewGuidance }: { onReviewGuidance: () => void }) {
           Swipe down on the gray slider to{'\n'}return to navigation
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -1476,15 +1509,26 @@ function ReviewView({
 }
 
 function OfficerTrooperView() {
+  const largeText = PixelRatio.getFontScale() >= 2;
+
   return (
-    <View style={officerStyles.page}>
+    <ScrollView
+      contentContainerStyle={officerStyles.page}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={officerStyles.titleBlock}>
-        <Text style={officerStyles.eyebrow}>Stay informed</Text>
-        <Text style={officerStyles.title}>Know the difference:</Text>
+        <Text style={officerStyles.eyebrow} maxFontSizeMultiplier={2}>
+          Stay informed
+        </Text>
+        <Text style={officerStyles.title} maxFontSizeMultiplier={2}>
+          Know the difference:
+        </Text>
       </View>
 
-      <View style={officerStyles.cardsRow}>
-        <View style={officerStyles.card}>
+      <View
+        style={[officerStyles.cardsRow, largeText && officerStyles.cardsColumn]}
+      >
+        <View style={[officerStyles.card, largeText && officerStyles.cardColumn]}>
           <View style={officerStyles.illustrationBox}>
             <View
               style={[officerStyles.illustrationWrap, officerStyles.alignEnd]}
@@ -1514,9 +1558,14 @@ function OfficerTrooperView() {
           </View>
         </View>
 
-        <View style={officerStyles.divider} />
+        <View
+          style={[
+            officerStyles.divider,
+            largeText && officerStyles.dividerHorizontal,
+          ]}
+        />
 
-        <View style={officerStyles.card}>
+        <View style={[officerStyles.card, largeText && officerStyles.cardColumn]}>
           <View style={officerStyles.illustrationBox}>
             <View style={officerStyles.illustrationWrap}>
               <Image
@@ -1548,7 +1597,7 @@ function OfficerTrooperView() {
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -1899,8 +1948,10 @@ const chipStyles = StyleSheet.create({
 
 const armedStyles = StyleSheet.create({
   page: {
-    flex: 1,
+    flexGrow: 1,
+    minHeight: '100%',
     gap: spacing.xl,
+    paddingBottom: spacing.md,
   },
   titleBlock: {
     gap: spacing.sm,
@@ -1911,7 +1962,7 @@ const armedStyles = StyleSheet.create({
     // alone (regular vs emphasized) didn't read as a clear hierarchy.
     // User-flagged 2026-06-01. Amends the safety-flow entry-header
     // precedent (mirrored in /roadside, /unfamiliar, /share-location).
-    ...dynamicType(typography.title3Regular),
+    ...dynamicType(typography.title3Regular, 2),
     color: colors.labelTertiary,
   },
   title: {
@@ -1920,7 +1971,7 @@ const armedStyles = StyleSheet.create({
     // holds space open instead of commanding. Size (28pt) + placement
     // carry the emphasis. Consistent with /safety, /unfamiliar,
     // /share-location.
-    ...dynamicType(typography.title1Regular),
+    ...dynamicType(typography.title1Regular, 2),
     color: colors.black,
   },
   answersWrapper: {
@@ -1930,7 +1981,7 @@ const armedStyles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   answerCard: {
-    height: safetyCardHeight,
+    minHeight: safetyCardHeight,
     padding: spacing.md,
     borderRadius: radii.md,
     backgroundColor: colors.surfaceElevated,
@@ -1960,11 +2011,11 @@ const armedStyles = StyleSheet.create({
   // for decision weight — the armed answer is the highest-stakes tap
   // in the flow and the title should read as a clear, bold choice.
   answerTitle: {
-    ...dynamicType(typography.title2Emphasized),
+    ...dynamicType(typography.title2Emphasized, 2),
     color: colors.black,
   },
   answerSubtitle: {
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.subheadlineRegular, 2),
     color: colors.labelTertiary,
   },
 });
@@ -1999,7 +2050,8 @@ const transitionStyles = StyleSheet.create({
   // block. This is the only way forward from the transition phase
   // (no auto-advance), so it gets primary-CTA treatment.
   continueBtn: {
-    height: 44,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2011,7 +2063,7 @@ const transitionStyles = StyleSheet.create({
   },
   continueBtnText: {
     ...dynamicType(typography.bodyEmphasized),
-    color: colors.white,
+    color: colors.black,
   },
 });
 
@@ -2113,8 +2165,9 @@ const guidanceStyles = StyleSheet.create({
 
 const contactStyles = StyleSheet.create({
   page: {
-    flex: 1,
+    flexGrow: 1,
     gap: spacing.xl,
+    paddingBottom: spacing.md,
   },
   topContent: {
     gap: spacing.xxl,
@@ -2123,11 +2176,11 @@ const contactStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.brandDisplay),
+    ...dynamicType(typography.brandDisplay, 2),
     color: colors.black,
   },
   subtitle: {
-    ...dynamicType(typography.bodyRegular),
+    ...dynamicType(typography.bodyRegular, 2),
     color: colors.labelSecondary,
   },
   avatarBlock: {
@@ -2173,11 +2226,11 @@ const contactStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: {
-    ...dynamicType(typography.largeTitleEmphasized),
+    ...dynamicType(typography.largeTitleEmphasized, 1),
     color: colors.white,
   },
   contactName: {
-    ...dynamicType(typography.title2Regular),
+    ...dynamicType(typography.title2Regular, 2),
     color: colors.black,
     textAlign: 'center',
   },
@@ -2192,7 +2245,7 @@ const contactStyles = StyleSheet.create({
     borderColor: colors.freshgreen,
   },
   contactNameEmpty: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...dynamicType(typography.bodyEmphasized, 2),
     color: colors.freshgreen,
     textAlign: 'center',
   },
@@ -2206,7 +2259,8 @@ const contactStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    height: 48,
+    minHeight: 48,
+    paddingVertical: spacing.sm,
     width: '100%',
     // wiltedgreen for WCAG AA contrast on the white "Call" text
     // (matches the post-#148 primary-CTA register).
@@ -2218,7 +2272,7 @@ const contactStyles = StyleSheet.create({
     ...shadows.e1,
   },
   callBtnText: {
-    ...dynamicType(typography.subheadlineEmphasized),
+    ...dynamicType(typography.subheadlineEmphasized, 2),
     color: colors.white,
   },
   textBtn: {
@@ -2226,14 +2280,15 @@ const contactStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    height: 48,
+    minHeight: 48,
+    paddingVertical: spacing.sm,
     width: '100%',
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.wiltedgreen,
   },
   textBtnText: {
-    ...dynamicType(typography.subheadlineEmphasized),
+    ...dynamicType(typography.subheadlineEmphasized, 2),
     color: colors.wiltedgreen,
   },
   btnDisabled: {
@@ -2249,7 +2304,7 @@ const contactStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   reviewLinkText: {
-    ...dynamicType(typography.subheadlineRegular),
+    ...dynamicType(typography.subheadlineRegular, 2),
     color: colors.labelTertiary,
     textDecorationLine: 'underline',
   },
@@ -2323,9 +2378,10 @@ const reviewStyles = StyleSheet.create({
 
 const officerStyles = StyleSheet.create({
   page: {
-    flex: 1,
+    flexGrow: 1,
     gap: spacing.xl,
     alignItems: 'center',
+    paddingBottom: spacing.md,
   },
   titleBlock: {
     gap: spacing.sm,
@@ -2338,11 +2394,11 @@ const officerStyles = StyleSheet.create({
     // alone (regular vs emphasized) didn't read as a clear hierarchy.
     // User-flagged 2026-06-01. Amends the safety-flow entry-header
     // precedent (mirrored in /roadside, /unfamiliar, /share-location).
-    ...dynamicType(typography.title3Regular),
+    ...dynamicType(typography.title3Regular, 2),
     color: colors.labelTertiary,
   },
   title: {
-    ...dynamicType(typography.title1Emphasized),
+    ...dynamicType(typography.title1Emphasized, 2),
     color: colors.black,
   },
   cardsRow: {
@@ -2352,10 +2408,18 @@ const officerStyles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
   },
+  cardsColumn: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   card: {
     flex: 1,
     gap: spacing.xl,
     alignItems: 'center',
+  },
+  cardColumn: {
+    flex: 0,
+    width: '100%',
   },
   illustrationBox: {
     width: 148,
@@ -2420,6 +2484,12 @@ const officerStyles = StyleSheet.create({
     width: 1,
     alignSelf: 'stretch',
     backgroundColor: colors.dividerNeutral,
+    marginVertical: spacing.md,
+  },
+  dividerHorizontal: {
+    width: '100%',
+    height: StyleSheet.hairlineWidth,
+    alignSelf: 'auto',
     marginVertical: spacing.md,
   },
 });
