@@ -171,7 +171,11 @@ function ReasonPicker({
             >
               <View style={styles.rowTitleRow}>
                 <Text style={styles.rowTitle}>{r.title}</Text>
-                {isLoading && <ActivityIndicator size="small" color={colors.freshgreen} />}
+                {isLoading && (
+                  <View style={styles.rowIndicatorSlot}>
+                    <ActivityIndicator size="small" color={colors.freshgreen} />
+                  </View>
+                )}
               </View>
               <Text style={styles.rowClarifier}>{r.clarifier}</Text>
             </Pressable>
@@ -300,42 +304,55 @@ const styles = StyleSheet.create({
   },
   // Card list mirrors /pulled-over's armed picker (and the matching
   // pass on /unfamiliar): flex 1 + justifyContent center vertically
-  // centers the cards, gap 48 between them. With 4 reasons at height
-  // 100 the stack can exceed a page-sheet's height on smaller devices;
-  // the ScrollView then scrolls and the rows fall back to top-aligned.
+  // centers the cards with the shared large stack gap. With 4 reasons at
+  // a minimum height of 100 the stack can exceed a page-sheet's height on
+  // smaller devices. The ScrollView then scrolls and the rows fall back to
+  // top-aligned.
   // User-flagged 2026-06-01: /pulled-over sets the precedent for the
   // safety-flow card treatment.
   rowList: {
     flex: 1,
     justifyContent: 'center',
-    gap: spacing.xxl,
+    gap: spacing.lg,
   },
-  // Two-line reason card — elevated white + shadows.e1, height 100,
-  // content vertically centered. Exact match to /pulled-over's
+  // Two-line reason card — elevated white + shadows.e1, minimum height 100,
+  // with vertically centered, leading-aligned content that can grow.
+  // Exact match to /pulled-over's
   // answerCard (was flat systemGroupedBackground at minHeight 76).
   twoLineRow: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
-    height: safetyCardHeight,
+    minHeight: safetyCardHeight,
     justifyContent: 'center',
+    alignItems: 'stretch',
     ...shadows.e1,
   },
   rowTitleRow: {
+    width: '100%',
+    paddingRight: spacing.lg,
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+  },
+  rowIndicatorSlot: {
+    position: 'absolute',
+    right: 0,
   },
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),
+    flex: 1,
     color: colors.black,
+    textAlign: 'left',
   },
   // Matches /pulled-over's answerSubtitle (subheadlineRegular +
   // labelTertiary) — was bodyRegular + labelSecondary.
   rowClarifier: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
+    textAlign: 'left',
   },
   endWrap: {
     marginTop: 'auto',
