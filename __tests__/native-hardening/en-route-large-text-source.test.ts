@@ -27,6 +27,12 @@ describe('en-route glanceable text contract', () => {
     expect(enRouteSource).toMatch(
       /style=\{\[styles\.eta,[\s\S]*?maxFontSizeMultiplier=\{1\.5\}/,
     );
+    expect(enRouteSource).toMatch(
+      /style=\{\[styles\.eta,[\s\S]*?adjustsFontSizeToFit[\s\S]*?minimumFontScale=\{0\.7\}/,
+    );
+    expect(enRouteSource).toMatch(
+      /eta:\s*\{[\s\S]*?flexShrink:\s*1[\s\S]*?minWidth:\s*0/,
+    );
     expect(enRouteSource).toContain(
       'dynamicType(relaxedLineHeight(typography.title2Emphasized), 1.5)',
     );
