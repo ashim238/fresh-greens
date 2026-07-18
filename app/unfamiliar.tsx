@@ -514,13 +514,13 @@ const styles = StyleSheet.create({
   },
   // Card list mirrors /pulled-over's armed picker (armedStyles
   // answersWrapper): flex 1 + justifyContent center vertically centers
-  // the cards in the space between the title and the footer, gap 48
-  // between cards. User-flagged 2026-06-01: /pulled-over sets the
+  // the cards in the space between the title and the footer, with the
+  // shared large stack gap. User-flagged 2026-06-01: /pulled-over sets the
   // precedent for the safety-flow card treatment.
   rowList: {
     flex: 1,
     justifyContent: 'center',
-    gap: spacing.xxl,
+    gap: spacing.lg,
   },
   // DestinationPicker keeps its own list — it has a bottom-pinned
   // "I'm safe now" button (safeNowWrap, marginTop: auto), so the rows
@@ -530,16 +530,17 @@ const styles = StyleSheet.create({
   destinationList: {
     gap: spacing.md,
   },
-  // Two-line problem card — elevated white + shadows.e1, height 100,
-  // content vertically centered. Exact match to /pulled-over's
+  // Two-line problem card — elevated white + shadows.e1, minimum height 100,
+  // with centered content that can grow. Exact match to /pulled-over's
   // answerCard (was flat systemGroupedBackground at minHeight 76).
   twoLineRow: {
     backgroundColor: colors.surfaceCard,
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,
-    height: safetyCardHeight,
+    minHeight: safetyCardHeight,
     justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.e1,
   },
   // Destination icon row — same elevated white register as the problem
@@ -570,12 +571,14 @@ const styles = StyleSheet.create({
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
+    textAlign: 'center',
   },
   // Matches /pulled-over's answerSubtitle (subheadlineRegular +
   // labelTertiary) — was bodyRegular + labelSecondary.
   rowClarifier: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
+    textAlign: 'center',
   },
   safeNowWrap: {
     marginTop: 'auto',

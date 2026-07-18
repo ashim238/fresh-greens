@@ -1886,6 +1886,7 @@ const styles = StyleSheet.create({
   },
   dragWrapper: {
     paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     alignItems: 'center',
   },
   lockBadge: {
@@ -1911,7 +1912,7 @@ const styles = StyleSheet.create({
   },
   phaseContainer: {
     flex: 1,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
   },
 });
 
@@ -1976,7 +1977,7 @@ const armedStyles = StyleSheet.create({
   },
   answersWrapper: {
     flex: 1,
-    gap: spacing.xxl,
+    gap: spacing.lg,
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
   },
@@ -2005,6 +2006,7 @@ const armedStyles = StyleSheet.create({
     // user-flagged 2026-06-01.
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   // Promoted from bodyEmphasized (17pt) to title2Emphasized (22pt Bold)
@@ -2013,10 +2015,12 @@ const armedStyles = StyleSheet.create({
   answerTitle: {
     ...dynamicType(typography.title2Emphasized, 2),
     color: colors.black,
+    textAlign: 'center',
   },
   answerSubtitle: {
     ...dynamicType(typography.subheadlineRegular, 2),
     color: colors.labelTertiary,
+    textAlign: 'center',
   },
 });
 
