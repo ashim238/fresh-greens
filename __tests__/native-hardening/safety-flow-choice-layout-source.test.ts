@@ -20,8 +20,12 @@ describe('safety flow choice layout contract', () => {
     expect(styleBlock(pulledOverSource, 'answersWrapper')).toContain(
       'gap: spacing.lg',
     );
+    expect(styleBlock(pulledOverSource, 'answersWrapper')).toContain(
+      "justifyContent: 'center'",
+    );
     const answerCard = styleBlock(pulledOverSource, 'answerCard');
     expect(answerCard).toContain('minHeight: safetyCardHeight');
+    expect(answerCard).toContain("justifyContent: 'center'");
     expect(answerCard).not.toMatch(/\n\s*height:\s*safetyCardHeight/);
     expect(styleBlock(pulledOverSource, 'answerContent')).toContain(
       "alignItems: 'stretch'",
@@ -35,8 +39,12 @@ describe('safety flow choice layout contract', () => {
 
     for (const source of [unfamiliarSource, shareLocationSource]) {
       expect(styleBlock(source, 'rowList')).toContain('gap: spacing.lg');
+      expect(styleBlock(source, 'rowList')).toContain(
+        "justifyContent: 'center'",
+      );
       const twoLineRow = styleBlock(source, 'twoLineRow');
       expect(twoLineRow).toContain('minHeight: safetyCardHeight');
+      expect(twoLineRow).toContain("justifyContent: 'center'");
       expect(twoLineRow).not.toMatch(/\n\s*height:\s*safetyCardHeight/);
       expect(twoLineRow).toContain("alignItems: 'stretch'");
       expect(styleBlock(source, 'rowTitle')).toContain("textAlign: 'left'");
@@ -59,6 +67,7 @@ describe('safety flow choice layout contract', () => {
     expect(styleBlock(shareLocationSource, 'rowTitleRow')).not.toContain(
       'paddingHorizontal',
     );
+    expect(styleBlock(shareLocationSource, 'rowTitle')).toContain('flex: 1');
     expect(styleBlock(shareLocationSource, 'rowIndicatorSlot')).toMatch(
       /position:\s*'absolute'[\s\S]*?right:\s*0/,
     );

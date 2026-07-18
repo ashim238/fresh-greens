@@ -343,6 +343,7 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),
+    flex: 1,
     color: colors.black,
     textAlign: 'left',
   },
