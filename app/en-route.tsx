@@ -1344,14 +1344,14 @@ export default function EnRoute() {
       };
       setUserCenter(center);
 
-      // Animate to the driving-perspective camera (pitched, slight zoom).
-      // initialCamera on MapView sets a static camera; animateCamera lets
-      // us transition smoothly from whatever the map opens with.
+      // Animate to the same flat, top-down camera used throughout active
+      // navigation. Keeping mount, follow, and Recenter on one plane avoids
+      // making the screen-aligned location puck look skewed against the map.
       setCameraHeading(0);
       mapRef.current?.animateCamera(
         {
           center,
-          pitch: 45,
+          pitch: 0,
           heading: 0,
           zoom: 17,
         },
@@ -1687,11 +1687,10 @@ export default function EnRoute() {
       if (typeof hdg === 'number' && hdg >= 0) {
         setHeading(hdg);
       }
-      // Camera follows the drive — same pitched framing as the mount
-      // animation and Recenter, centered on the snapped position and
-      // rotated to face travel direction (turn-by-turn convention). Only
-      // animates when this fix shows real movement, so a parked car
-      // doesn't fight manual pans.
+      // Camera follows the drive on the same flat plane as mount and
+      // Recenter, centered on the snapped position and rotated to face
+      // travel direction. Only animate for real movement so a parked car
+      // does not fight manual pans.
       const moving =
         derivedSpeedMs != null ||
         (typeof pos.coords.speed === 'number' && pos.coords.speed > 0);
@@ -1702,7 +1701,7 @@ export default function EnRoute() {
         mapRef.current?.animateCamera(
           {
             center: display,
-            pitch: 45,
+            pitch: 0,
             heading: nextCameraHeading,
             zoom: 17,
           },
@@ -1842,7 +1841,7 @@ export default function EnRoute() {
     mapRef.current?.animateCamera(
       {
         center: userCenter,
-        pitch: 45,
+        pitch: 0,
         heading: 0,
         zoom: 17,
       },
@@ -1904,12 +1903,10 @@ export default function EnRoute() {
         style={styles.map}
         initialCamera={{
           center: { latitude: 30.6954, longitude: -88.0399 },
-          // Pitch 45 → 30: at 45° Apple MapKit drops road labels because
-          // they'd skew unreadably across 3D buildings. 30° keeps the
-          // perspective feel while letting street names render — the
-          // navigation-product requirement that the driver can read
-          // upcoming road names without leaning forward.
-          pitch: 30,
+          // Keep the first rendered frame on the same flat plane as live
+          // follow so the route and screen-aligned location puck never
+          // briefly disagree about perspective.
+          pitch: 0,
           heading: 0,
           zoom: 17,
           altitude: 1000,
@@ -2643,6 +2640,8 @@ export default function EnRoute() {
                 style={[styles.eta, { opacity: etaPulseAnim }]}
                 numberOfLines={1}
                 maxFontSizeMultiplier={1.5}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
                 // accessibilityLiveRegion="polite" lets TalkBack
                 // re-announce the ETA when it updates after rerouting
                 // — Apple Maps speaks every route recalc; this is the
@@ -3327,6 +3326,11 @@ const styles = StyleSheet.create({
   },
   eta: {
     ...dynamicType(typography.largeTitleEmphasized, 1.5),
+    // Keep the one-line dashboard readout intact at accessibility sizes.
+    // The full, unabridged value remains available through its explicit
+    // accessibilityLabel while the visual digits fit between the two FABs.
+    flexShrink: 1,
+    minWidth: 0,
     color: colors.black,
     // F7: tabular-nums on the ETA so the arrival time doesn't reflow
     // each minute as the digits change (e.g. "8:30" → "8:29" shifting

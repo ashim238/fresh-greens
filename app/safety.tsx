@@ -172,7 +172,7 @@ export default function SafetyModal() {
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.dragHandleWrapper}>
           <DragHandle />
         </View>

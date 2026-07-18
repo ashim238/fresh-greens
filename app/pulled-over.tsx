@@ -750,7 +750,7 @@ export default function PulledOver() {
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.dragWrapper}>
           <DragHandle />
           {hasProtectedAudio && (
