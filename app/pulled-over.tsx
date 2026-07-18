@@ -2006,7 +2006,7 @@ const armedStyles = StyleSheet.create({
     // user-flagged 2026-06-01.
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: spacing.sm,
   },
   // Promoted from bodyEmphasized (17pt) to title2Emphasized (22pt Bold)
@@ -2015,12 +2015,12 @@ const armedStyles = StyleSheet.create({
   answerTitle: {
     ...dynamicType(typography.title2Emphasized, 2),
     color: colors.black,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   answerSubtitle: {
     ...dynamicType(typography.subheadlineRegular, 2),
     color: colors.labelTertiary,
-    textAlign: 'center',
+    textAlign: 'left',
   },
 });
 

@@ -16,7 +16,7 @@ function styleBlock(source: string, name: string): string {
 }
 
 describe('safety flow choice layout contract', () => {
-  test('centers text-only choices and lets their cards grow', () => {
+  test('centers choice stacks while keeping card copy leading-aligned', () => {
     expect(styleBlock(pulledOverSource, 'answersWrapper')).toContain(
       'gap: spacing.lg',
     );
@@ -24,13 +24,13 @@ describe('safety flow choice layout contract', () => {
     expect(answerCard).toContain('minHeight: safetyCardHeight');
     expect(answerCard).not.toMatch(/\n\s*height:\s*safetyCardHeight/);
     expect(styleBlock(pulledOverSource, 'answerContent')).toContain(
-      "alignItems: 'center'",
+      "alignItems: 'stretch'",
     );
     expect(styleBlock(pulledOverSource, 'answerTitle')).toContain(
-      "textAlign: 'center'",
+      "textAlign: 'left'",
     );
     expect(styleBlock(pulledOverSource, 'answerSubtitle')).toContain(
-      "textAlign: 'center'",
+      "textAlign: 'left'",
     );
 
     for (const source of [unfamiliarSource, shareLocationSource]) {
@@ -38,10 +38,10 @@ describe('safety flow choice layout contract', () => {
       const twoLineRow = styleBlock(source, 'twoLineRow');
       expect(twoLineRow).toContain('minHeight: safetyCardHeight');
       expect(twoLineRow).not.toMatch(/\n\s*height:\s*safetyCardHeight/);
-      expect(twoLineRow).toContain("alignItems: 'center'");
-      expect(styleBlock(source, 'rowTitle')).toContain("textAlign: 'center'");
+      expect(twoLineRow).toContain("alignItems: 'stretch'");
+      expect(styleBlock(source, 'rowTitle')).toContain("textAlign: 'left'");
       expect(styleBlock(source, 'rowClarifier')).toContain(
-        "textAlign: 'center'",
+        "textAlign: 'left'",
       );
     }
   });
@@ -51,10 +51,13 @@ describe('safety flow choice layout contract', () => {
       /isLoading\s*&&[\s\S]*?style=\{styles\.rowIndicatorSlot\}[\s\S]*?<ActivityIndicator/,
     );
     expect(styleBlock(shareLocationSource, 'rowTitleRow')).toContain(
-      "justifyContent: 'center'",
+      "justifyContent: 'flex-start'",
     );
     expect(styleBlock(shareLocationSource, 'rowTitleRow')).toContain(
-      'paddingHorizontal: spacing.lg',
+      'paddingRight: spacing.lg',
+    );
+    expect(styleBlock(shareLocationSource, 'rowTitleRow')).not.toContain(
+      'paddingHorizontal',
     );
     expect(styleBlock(shareLocationSource, 'rowIndicatorSlot')).toMatch(
       /position:\s*'absolute'[\s\S]*?right:\s*0/,

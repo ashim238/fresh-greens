@@ -531,7 +531,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   // Two-line problem card — elevated white + shadows.e1, minimum height 100,
-  // with centered content that can grow. Exact match to /pulled-over's
+  // with vertically centered, leading-aligned content that can grow.
+  // Exact match to /pulled-over's
   // answerCard (was flat systemGroupedBackground at minHeight 76).
   twoLineRow: {
     backgroundColor: colors.surfaceCard,
@@ -540,7 +541,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     minHeight: safetyCardHeight,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
     ...shadows.e1,
   },
   // Destination icon row — same elevated white register as the problem
@@ -571,14 +572,14 @@ const styles = StyleSheet.create({
   rowTitle: {
     ...dynamicType(typography.bodyEmphasized),
     color: colors.black,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   // Matches /pulled-over's answerSubtitle (subheadlineRegular +
   // labelTertiary) — was bodyRegular + labelSecondary.
   rowClarifier: {
     ...dynamicType(typography.subheadlineRegular),
     color: colors.labelTertiary,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   safeNowWrap: {
     marginTop: 'auto',
