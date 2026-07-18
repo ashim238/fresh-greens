@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
   },
   rowTitleRow: {
     width: '100%',
+    paddingHorizontal: spacing.lg,
     position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',

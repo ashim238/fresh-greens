@@ -53,6 +53,9 @@ describe('safety flow choice layout contract', () => {
     expect(styleBlock(shareLocationSource, 'rowTitleRow')).toContain(
       "justifyContent: 'center'",
     );
+    expect(styleBlock(shareLocationSource, 'rowTitleRow')).toContain(
+      'paddingHorizontal: spacing.lg',
+    );
     expect(styleBlock(shareLocationSource, 'rowIndicatorSlot')).toMatch(
       /position:\s*'absolute'[\s\S]*?right:\s*0/,
     );
