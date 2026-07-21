@@ -17,6 +17,8 @@ import { supabaseAuthStorage } from '../../lib/supabase/auth-storage';
 import {
   readSupabaseEnvironment,
   createConfiguredSupabaseClient,
+  validateSupabaseAccessToken,
+  type StatelessAuthClientFactory,
 } from '../../lib/supabase/client';
 import { createSupabaseTransport } from '../../lib/supabase/transport';
 
@@ -89,5 +91,61 @@ describe('Supabase client foundation', () => {
       publishableKey: 'sb_publishable_test',
     });
     expect(client.auth).toBeDefined();
+  });
+
+  test('validates an access token with a fresh non-persisting public client', async () => {
+    const response = {
+      data: { user: null },
+      error: null,
+    } as never;
+    const getUser = jest.fn(async () => response);
+    const createVerifier = jest.fn(() => ({
+      auth: { getUser },
+    })) as unknown as jest.MockedFunction<StatelessAuthClientFactory>;
+    const env = {
+      url: 'https://project.supabase.co',
+      publishableKey: 'sb_publishable_test',
+    };
+
+    await expect(validateSupabaseAccessToken(
+      'synthetic-access-token',
+      env,
+      createVerifier,
+    )).resolves.toBe(response);
+    await validateSupabaseAccessToken(
+      'second-synthetic-access-token',
+      env,
+      createVerifier,
+    );
+
+    expect(createVerifier).toHaveBeenCalledTimes(2);
+    expect(createVerifier).toHaveBeenNthCalledWith(
+      1,
+      env.url,
+      env.publishableKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        },
+      },
+    );
+    expect(createVerifier.mock.calls[0][2].auth).not.toHaveProperty('storage');
+    expect(getUser).toHaveBeenNthCalledWith(1, 'synthetic-access-token');
+    expect(getUser).toHaveBeenNthCalledWith(2, 'second-synthetic-access-token');
+  });
+
+  test('does not create a stateless verifier when Supabase is unconfigured', async () => {
+    const createVerifier = jest.fn() as unknown as jest.MockedFunction<
+      StatelessAuthClientFactory
+    >;
+
+    await expect(validateSupabaseAccessToken(
+      'synthetic-access-token',
+      null,
+      createVerifier,
+    )).resolves.toBeNull();
+    expect(createVerifier).not.toHaveBeenCalled();
   });
 });

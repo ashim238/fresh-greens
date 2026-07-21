@@ -1,6 +1,12 @@
 import 'react-native-url-polyfill/auto';
 
-import { createClient, processLock, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  createClient,
+  processLock,
+  type SupabaseClient,
+  type SupabaseClientOptions,
+  type UserResponse,
+} from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
 import { getDeviceUUID } from '../device-uuid';
@@ -12,6 +18,22 @@ export type SupabaseEnvironment = {
   url: string;
   publishableKey: string;
 };
+
+type StatelessAuthClient = {
+  auth: Pick<SupabaseClient<Database>['auth'], 'getUser'>;
+};
+
+export type StatelessAuthClientFactory = (
+  url: string,
+  publishableKey: string,
+  options: SupabaseClientOptions<'public'>,
+) => StatelessAuthClient;
+
+const createStatelessAuthClient: StatelessAuthClientFactory = (
+  url,
+  publishableKey,
+  options,
+) => createClient<Database>(url, publishableKey, options);
 
 export function readSupabaseEnvironment(
   env: Record<string, string | undefined> = process.env,
@@ -36,6 +58,23 @@ export function createConfiguredSupabaseClient(
       fetch: createSupabaseTransport(globalThis.fetch, getDeviceUUID),
     },
   });
+}
+
+export async function validateSupabaseAccessToken(
+  accessToken: string,
+  env: SupabaseEnvironment | null = readSupabaseEnvironment(),
+  createVerifier: StatelessAuthClientFactory = createStatelessAuthClient,
+): Promise<UserResponse | null> {
+  if (!env) return null;
+
+  const verifier = createVerifier(env.url, env.publishableKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+  return verifier.auth.getUser(accessToken);
 }
 
 let configuredClient: SupabaseClient<Database> | null | undefined;

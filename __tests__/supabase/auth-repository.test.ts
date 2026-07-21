@@ -29,7 +29,20 @@ type AuthMethodMocks = {
     | 'signOut']: jest.MockedFunction<AuthClient[Method]>;
 };
 
-const client: { auth: AuthMethodMocks } = {
+type AccessTokenValidationResponse =
+  | Awaited<ReturnType<AuthClient['getUser']>>
+  | null;
+type AccessTokenValidator = (
+  accessToken: string,
+) => Promise<AccessTokenValidationResponse>;
+
+const client: {
+  auth: AuthMethodMocks & {
+    admin: {
+      signOut: jest.MockedFunction<AuthClient['admin']['signOut']>;
+    };
+  };
+} = {
   auth: {
     getSession: jest.fn(),
     signInAnonymously: jest.fn(),
@@ -39,10 +52,17 @@ const client: { auth: AuthMethodMocks } = {
     getUser: jest.fn(),
     onAuthStateChange: jest.fn(),
     signOut: jest.fn(),
+    admin: {
+      signOut: jest.fn(),
+    },
   },
 };
 
 let repository: ReturnType<typeof createBackendAuthRepository>;
+const validateAccessToken = jest.fn<
+  ReturnType<AccessTokenValidator>,
+  Parameters<AccessTokenValidator>
+>();
 
 const input: AppleIdentityInput = {
   identityToken: 'synthetic-apple-id-token',
@@ -125,6 +145,10 @@ beforeEach(() => {
     data: { user: user('permanent') },
     error: null,
   });
+  validateAccessToken.mockResolvedValue({
+    data: { user: user('permanent') },
+    error: null,
+  });
   client.auth.onAuthStateChange.mockImplementation((callback) => ({
     data: {
       subscription: {
@@ -135,13 +159,21 @@ beforeEach(() => {
     },
   }));
   client.auth.signOut.mockResolvedValue({ error: null });
+  client.auth.admin.signOut.mockResolvedValue({ data: null, error: null });
 
-  repository = createBackendAuthRepository(() => asClient());
+  repository = createBackendAuthRepository(
+    () => asClient(),
+    validateAccessToken,
+  );
 });
 
 describe('backend auth repository', () => {
   test('returns safe no-service results when Supabase is unconfigured', async () => {
-    const unconfigured = createBackendAuthRepository(() => null);
+    const unavailableVerifier = jest.fn(async () => null);
+    const unconfigured = createBackendAuthRepository(
+      () => null,
+      unavailableVerifier,
+    );
     const listener = jest.fn();
     const unsubscribe = unconfigured.subscribe(listener);
 
@@ -149,7 +181,9 @@ describe('backend auth repository', () => {
     await expect(unconfigured.ensureAnonymous()).resolves.toBeNull();
     await expect(unconfigured.signInWithApple(input)).resolves.toBeNull();
     await expect(unconfigured.getUserId()).resolves.toBeNull();
-    await expect(unconfigured.validateCurrentUser()).resolves.toBe('unavailable');
+    await expect(unconfigured.validateCurrentUser(
+      'synthetic-access-token',
+    )).resolves.toBe('unavailable');
     await expect(unconfigured.signOutGlobal()).resolves.toEqual({
       kind: 'terminal',
       reason: 'no-session',
@@ -189,6 +223,17 @@ describe('backend auth repository', () => {
     await expect(repository.hydrate()).resolves.toEqual({ kind: 'signed-out' });
   });
 
+  test('redacts a rejected session lookup while hydrating', async () => {
+    client.auth.getSession.mockRejectedValue(
+      new Error('raw session payload synthetic-access-token'),
+    );
+
+    await expect(repository.hydrate()).rejects.toMatchObject({
+      name: 'BackendAuthError',
+      message: 'Unable to restore the online session',
+    });
+  });
+
   test('reuses an existing anonymous session', async () => {
     const anonymousSession = session({ is_anonymous: true });
     client.auth.getSession.mockResolvedValue({
@@ -197,6 +242,22 @@ describe('backend auth repository', () => {
     });
 
     await expect(repository.ensureAnonymous()).resolves.toBe(anonymousSession);
+    expect(client.auth.signInAnonymously).not.toHaveBeenCalled();
+  });
+
+  test('reuses an existing authenticated session', async () => {
+    const authenticatedSession = session({
+      id: 'permanent',
+      is_anonymous: false,
+    });
+    client.auth.getSession.mockResolvedValue({
+      data: { session: authenticatedSession },
+      error: null,
+    });
+
+    await expect(repository.ensureAnonymous()).resolves.toBe(
+      authenticatedSession,
+    );
     expect(client.auth.signInAnonymously).not.toHaveBeenCalled();
   });
 
@@ -377,53 +438,113 @@ describe('backend auth repository', () => {
     });
   });
 
-  test('validates a user through the Auth server', async () => {
-    client.auth.getUser.mockResolvedValue({
+  test('validates a captured access token without using persistent auth state', async () => {
+    const capturedAccessToken = session().access_token;
+    validateAccessToken.mockResolvedValue({
       data: { user: user('validated-user') },
       error: null,
     });
 
-    await expect(repository.validateCurrentUser()).resolves.toBe('valid');
-    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    await expect(repository.validateCurrentUser(
+      capturedAccessToken,
+    )).resolves.toBe('valid');
+    expect(validateAccessToken).toHaveBeenCalledWith(capturedAccessToken);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.auth.getSession).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
   test.each([401, 403])(
-    'treats a confirmed HTTP %i as an invalid session',
+    'treats a confirmed Auth API HTTP %i as an invalid session',
     async (status) => {
-      client.auth.getUser.mockResolvedValue({
+      validateAccessToken.mockResolvedValue({
         data: { user: null },
         error: new AuthApiError('invalid auth', status, 'bad_jwt'),
       });
 
-      await expect(repository.validateCurrentUser()).resolves.toBe('invalid');
+      await expect(repository.validateCurrentUser(
+        'synthetic-access-token',
+      )).resolves.toBe('invalid');
+      expect(client.auth.getUser).not.toHaveBeenCalled();
       expect(client.auth.signOut).not.toHaveBeenCalled();
     },
   );
 
   test('treats a successful response with no user as invalid', async () => {
-    client.auth.getUser.mockResolvedValue(missingUserResponse());
+    validateAccessToken.mockResolvedValue(missingUserResponse());
 
-    await expect(repository.validateCurrentUser()).resolves.toBe('invalid');
+    await expect(repository.validateCurrentUser(
+      'synthetic-access-token',
+    )).resolves.toBe('invalid');
+    expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
   test('treats a retryable fetch failure as unavailable without clearing storage', async () => {
-    client.auth.getUser.mockResolvedValue({
+    validateAccessToken.mockResolvedValue({
       data: { user: null },
       error: new AuthRetryableFetchError('offline', 0),
     });
 
-    await expect(repository.validateCurrentUser()).resolves.toBe('unavailable');
+    await expect(repository.validateCurrentUser(
+      'synthetic-access-token',
+    )).resolves.toBe('unavailable');
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('treats a retryable status-401 fetch failure as unavailable', async () => {
+    validateAccessToken.mockResolvedValue({
+      data: { user: null },
+      error: new AuthRetryableFetchError('offline', 401),
+    });
+
+    await expect(repository.validateCurrentUser(
+      'synthetic-access-token',
+    )).resolves.toBe('unavailable');
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('does not treat a non-API status-401 error as invalid', async () => {
+    validateAccessToken.mockResolvedValue({
+      data: { user: null },
+      error: new AuthError('unconfirmed auth', 401, 'unknown'),
+    });
+
+    await expect(repository.validateCurrentUser(
+      'synthetic-access-token',
+    )).resolves.toBe('unavailable');
+    expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
   test('treats an Auth server failure as unavailable without clearing storage', async () => {
-    client.auth.getUser.mockResolvedValue({
+    validateAccessToken.mockResolvedValue({
       data: { user: null },
       error: new AuthApiError('server detail', 503, 'server_error'),
     });
 
-    await expect(repository.validateCurrentUser()).resolves.toBe('unavailable');
+    await expect(repository.validateCurrentUser(
+      'synthetic-access-token',
+    )).resolves.toBe('unavailable');
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('redacts a rejected stateless validation request', async () => {
+    validateAccessToken.mockRejectedValue(
+      new AuthRetryableFetchError(
+        'raw validation payload synthetic-access-token',
+        401,
+      ),
+    );
+
+    await expect(repository.validateCurrentUser(
+      'synthetic-access-token',
+    )).resolves.toBe('unavailable');
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.auth.getSession).not.toHaveBeenCalled();
     expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
@@ -463,17 +584,41 @@ describe('backend auth repository', () => {
   });
 
   test('returns terminal success after global sign-out', async () => {
-    client.auth.signOut.mockResolvedValue({ error: null });
+    const currentSession = session({ is_anonymous: true });
+    client.auth.getSession.mockResolvedValue({
+      data: { session: currentSession },
+      error: null,
+    });
+    client.auth.admin.signOut.mockResolvedValue({ data: null, error: null });
 
     await expect(repository.signOutGlobal()).resolves.toEqual({
       kind: 'terminal',
       reason: 'signed-out',
     });
-    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: 'global' });
+    expect(client.auth.admin.signOut).toHaveBeenCalledWith(
+      currentSession.access_token,
+      'global',
+    );
+    expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
-  test('returns terminal no-session when global sign-out has no session', async () => {
-    client.auth.signOut.mockResolvedValue({
+  test('returns terminal no-session when global sign-out has no access token', async () => {
+    client.auth.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+
+    await expect(repository.signOutGlobal()).resolves.toEqual({
+      kind: 'terminal',
+      reason: 'no-session',
+    });
+    expect(client.auth.admin.signOut).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('returns terminal no-session for a missing-session lookup error', async () => {
+    client.auth.getSession.mockResolvedValue({
+      data: { session: null },
       error: new AuthSessionMissingError(),
     });
 
@@ -481,12 +626,15 @@ describe('backend auth repository', () => {
       kind: 'terminal',
       reason: 'no-session',
     });
+    expect(client.auth.admin.signOut).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
   test.each([401, 403])(
     'returns terminal auth-invalid for global sign-out HTTP %i',
     async (status) => {
-      client.auth.signOut.mockResolvedValue({
+      client.auth.admin.signOut.mockResolvedValue({
+        data: null,
         error: new AuthApiError('invalid auth', status, 'bad_jwt'),
       });
 
@@ -494,11 +642,13 @@ describe('backend auth repository', () => {
         kind: 'terminal',
         reason: 'auth-invalid',
       });
+      expect(client.auth.signOut).not.toHaveBeenCalled();
     },
   );
 
-  test('returns retryable network for a global sign-out fetch failure', async () => {
-    client.auth.signOut.mockResolvedValue({
+  test('preserves local storage after a retryable global sign-out failure', async () => {
+    client.auth.admin.signOut.mockResolvedValue({
+      data: null,
       error: new AuthRetryableFetchError('offline', 503),
     });
 
@@ -506,10 +656,12 @@ describe('backend auth repository', () => {
       kind: 'retryable',
       reason: 'network',
     });
+    expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
   test('prioritizes a retryable fetch error over its HTTP status', async () => {
-    client.auth.signOut.mockResolvedValue({
+    client.auth.admin.signOut.mockResolvedValue({
+      data: null,
       error: new AuthRetryableFetchError('offline', 401),
     });
 
@@ -520,7 +672,8 @@ describe('backend auth repository', () => {
   });
 
   test('returns retryable server for a global sign-out server failure', async () => {
-    client.auth.signOut.mockResolvedValue({
+    client.auth.admin.signOut.mockResolvedValue({
+      data: null,
       error: new AuthApiError('server detail', 503, 'server_error'),
     });
 
@@ -531,7 +684,8 @@ describe('backend auth repository', () => {
   });
 
   test('returns required failure for an unexpected global sign-out client error', async () => {
-    client.auth.signOut.mockResolvedValue({
+    client.auth.admin.signOut.mockResolvedValue({
+      data: null,
       error: new AuthApiError('client detail', 422, 'validation_failed'),
     });
 
@@ -542,7 +696,8 @@ describe('backend auth repository', () => {
   });
 
   test('does not classify a non-5xx status as a server failure', async () => {
-    client.auth.signOut.mockResolvedValue({
+    client.auth.admin.signOut.mockResolvedValue({
+      data: null,
       error: new AuthError('unexpected detail', 600, 'unexpected_status'),
     });
 
@@ -550,6 +705,62 @@ describe('backend auth repository', () => {
       kind: 'required-failure',
       reason: 'unexpected-client',
     });
+  });
+
+  test('classifies a rejected session lookup without exposing secrets', async () => {
+    client.auth.getSession.mockRejectedValue(
+      new AuthRetryableFetchError(
+        'raw session payload synthetic-access-token',
+        503,
+      ),
+    );
+
+    await expect(repository.signOutGlobal()).resolves.toEqual({
+      kind: 'retryable',
+      reason: 'network',
+    });
+    expect(client.auth.admin.signOut).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('classifies an unknown rejected session lookup as required failure', async () => {
+    client.auth.getSession.mockRejectedValue(
+      new Error('raw session payload synthetic-access-token'),
+    );
+
+    await expect(repository.signOutGlobal()).resolves.toEqual({
+      kind: 'required-failure',
+      reason: 'unexpected-client',
+    });
+    expect(client.auth.admin.signOut).not.toHaveBeenCalled();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('classifies rejected remote revocation without exposing secrets', async () => {
+    client.auth.admin.signOut.mockRejectedValue(
+      new AuthRetryableFetchError(
+        'raw revocation payload synthetic-access-token',
+        503,
+      ),
+    );
+
+    await expect(repository.signOutGlobal()).resolves.toEqual({
+      kind: 'retryable',
+      reason: 'network',
+    });
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  test('classifies unknown rejected remote revocation as required failure', async () => {
+    client.auth.admin.signOut.mockRejectedValue(
+      new Error('raw revocation payload synthetic-access-token'),
+    );
+
+    await expect(repository.signOutGlobal()).resolves.toEqual({
+      kind: 'required-failure',
+      reason: 'unexpected-client',
+    });
+    expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 
   test('signs out only the local session', async () => {
@@ -561,6 +772,17 @@ describe('backend auth repository', () => {
     client.auth.signOut.mockResolvedValue({
       error: new AuthApiError('contains a raw token', 422, 'validation_failed'),
     });
+
+    await expect(repository.signOutLocal()).rejects.toMatchObject({
+      name: 'BackendAuthError',
+      message: 'Unable to clear the local online session',
+    });
+  });
+
+  test('redacts rejected local sign-out failures', async () => {
+    client.auth.signOut.mockRejectedValue(
+      new Error('raw local payload synthetic-access-token'),
+    );
 
     await expect(repository.signOutLocal()).rejects.toMatchObject({
       name: 'BackendAuthError',

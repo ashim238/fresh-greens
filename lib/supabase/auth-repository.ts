@@ -1,11 +1,17 @@
 import {
+  isAuthApiError,
+  isAuthError,
   isAuthRetryableFetchError,
   isAuthSessionMissingError,
   type Session,
   type SupabaseClient,
+  type UserResponse,
 } from '@supabase/supabase-js';
 
-import { getSupabaseClient } from './client';
+import {
+  getSupabaseClient,
+  validateSupabaseAccessToken,
+} from './client';
 import type { Database } from './database.types';
 
 export type BackendAuthState =
@@ -41,14 +47,62 @@ function stateFromSession(session: Session | null): BackendAuthState {
     : { kind: 'authenticated', session };
 }
 
+type AccessTokenValidator = (
+  accessToken: string,
+) => Promise<UserResponse | null>;
+
+function validationFromError(error: unknown): BackendSessionValidation {
+  if (isAuthRetryableFetchError(error)) return 'unavailable';
+  if (
+    isAuthApiError(error)
+    && (error.status === 401 || error.status === 403)
+  ) {
+    return 'invalid';
+  }
+  return 'unavailable';
+}
+
+function globalSignOutResultFromError(
+  error: unknown,
+): BackendSignOutResult {
+  if (isAuthSessionMissingError(error)) {
+    return { kind: 'terminal', reason: 'no-session' };
+  }
+  if (isAuthRetryableFetchError(error)) {
+    return { kind: 'retryable', reason: 'network' };
+  }
+  if (
+    isAuthError(error)
+    && (error.status === 401 || error.status === 403)
+  ) {
+    return { kind: 'terminal', reason: 'auth-invalid' };
+  }
+  if (
+    isAuthError(error)
+    && error.status !== undefined
+    && error.status >= 500
+    && error.status <= 599
+  ) {
+    return { kind: 'retryable', reason: 'server' };
+  }
+  return { kind: 'required-failure', reason: 'unexpected-client' };
+}
+
 export function createBackendAuthRepository(
   readClient: () => SupabaseClient<Database> | null,
+  validateAccessToken: AccessTokenValidator = validateSupabaseAccessToken,
 ) {
   async function hydrate(): Promise<BackendAuthState> {
     const client = readClient();
     if (!client) return { kind: 'unconfigured' };
 
-    const { data, error } = await client.auth.getSession();
+    let response;
+    try {
+      response = await client.auth.getSession();
+    } catch {
+      throw new BackendAuthError('Unable to restore the online session');
+    }
+    const { data, error } = response;
     if (error) {
       throw new BackendAuthError('Unable to restore the online session');
     }
@@ -127,17 +181,18 @@ export function createBackendAuthRepository(
     return data.user?.id ?? null;
   }
 
-  async function validateCurrentUser(): Promise<BackendSessionValidation> {
-    const client = readClient();
-    if (!client) return 'unavailable';
-
-    const { data, error } = await client.auth.getUser();
-    if (error) {
-      return error.status === 401 || error.status === 403
-        ? 'invalid'
-        : 'unavailable';
+  async function validateCurrentUser(
+    accessToken: string,
+  ): Promise<BackendSessionValidation> {
+    let response;
+    try {
+      response = await validateAccessToken(accessToken);
+    } catch (error) {
+      return validationFromError(error);
     }
-    return data.user ? 'valid' : 'invalid';
+    if (!response) return 'unavailable';
+    if (response.error) return validationFromError(response.error);
+    return response.data.user ? 'valid' : 'invalid';
   }
 
   function subscribe(listener: (state: BackendAuthState) => void): () => void {
@@ -154,32 +209,41 @@ export function createBackendAuthRepository(
     const client = readClient();
     if (!client) return { kind: 'terminal', reason: 'no-session' };
 
-    const { error } = await client.auth.signOut({ scope: 'global' });
-    if (!error) return { kind: 'terminal', reason: 'signed-out' };
-    if (isAuthSessionMissingError(error)) {
+    let sessionResponse;
+    try {
+      sessionResponse = await client.auth.getSession();
+    } catch (error) {
+      return globalSignOutResultFromError(error);
+    }
+    if (sessionResponse.error) {
+      return globalSignOutResultFromError(sessionResponse.error);
+    }
+    const accessToken = sessionResponse.data.session?.access_token;
+    if (!accessToken) {
       return { kind: 'terminal', reason: 'no-session' };
     }
-    if (isAuthRetryableFetchError(error)) {
-      return { kind: 'retryable', reason: 'network' };
+
+    try {
+      const { error } = await client.auth.admin.signOut(accessToken, 'global');
+      return error
+        ? globalSignOutResultFromError(error)
+        : { kind: 'terminal', reason: 'signed-out' };
+    } catch (error) {
+      return globalSignOutResultFromError(error);
     }
-    if (error.status === 401 || error.status === 403) {
-      return { kind: 'terminal', reason: 'auth-invalid' };
-    }
-    if (
-      error.status !== undefined
-      && error.status >= 500
-      && error.status <= 599
-    ) {
-      return { kind: 'retryable', reason: 'server' };
-    }
-    return { kind: 'required-failure', reason: 'unexpected-client' };
   }
 
   async function signOutLocal(): Promise<void> {
     const client = readClient();
     if (!client) return;
 
-    const { error } = await client.auth.signOut({ scope: 'local' });
+    let response;
+    try {
+      response = await client.auth.signOut({ scope: 'local' });
+    } catch {
+      throw new BackendAuthError('Unable to clear the local online session');
+    }
+    const { error } = response;
     if (error) {
       throw new BackendAuthError('Unable to clear the local online session');
     }
