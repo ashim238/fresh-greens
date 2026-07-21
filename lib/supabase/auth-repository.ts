@@ -68,6 +68,9 @@ function globalSignOutResultFromError(
   if (isAuthSessionMissingError(error)) {
     return { kind: 'terminal', reason: 'no-session' };
   }
+  if (isAuthApiError(error) && error.status === 404) {
+    return { kind: 'terminal', reason: 'no-session' };
+  }
   if (isAuthRetryableFetchError(error)) {
     return { kind: 'retryable', reason: 'network' };
   }
@@ -118,7 +121,13 @@ export function createBackendAuthRepository(
       return state.session;
     }
 
-    const { data, error } = await client.auth.signInAnonymously();
+    let response;
+    try {
+      response = await client.auth.signInAnonymously();
+    } catch {
+      throw new BackendAuthError('Unable to start an online session');
+    }
+    const { data, error } = response;
     if (error || !data.session) {
       throw new BackendAuthError('Unable to start an online session');
     }
@@ -134,20 +143,29 @@ export function createBackendAuthRepository(
       throw new BackendAuthError('Online authentication is unavailable');
     }
 
-    let response = await client.auth.linkIdentity({
-      provider: 'apple',
-      token: input.identityToken,
-      nonce: input.nonce,
-    });
-    let linked = true;
-
-    if (response.error?.code === 'identity_already_exists') {
-      linked = false;
-      response = await client.auth.signInWithIdToken({
+    let response;
+    try {
+      response = await client.auth.linkIdentity({
         provider: 'apple',
         token: input.identityToken,
         nonce: input.nonce,
       });
+    } catch {
+      throw new BackendAuthError('Apple sign-in could not be completed');
+    }
+    let linked = true;
+
+    if (response.error?.code === 'identity_already_exists') {
+      linked = false;
+      try {
+        response = await client.auth.signInWithIdToken({
+          provider: 'apple',
+          token: input.identityToken,
+          nonce: input.nonce,
+        });
+      } catch {
+        throw new BackendAuthError('Apple sign-in could not be completed');
+      }
     }
 
     if (response.error || !response.data.session || !response.data.user) {
@@ -155,10 +173,15 @@ export function createBackendAuthRepository(
     }
 
     if (input.displayName) {
-      const { error } = await client.auth.updateUser({
-        data: { full_name: input.displayName },
-      });
-      if (error) {
+      let updateResponse;
+      try {
+        updateResponse = await client.auth.updateUser({
+          data: { full_name: input.displayName },
+        });
+      } catch {
+        throw new BackendAuthError('Apple profile could not be saved');
+      }
+      if (updateResponse.error) {
         throw new BackendAuthError('Apple profile could not be saved');
       }
     }
@@ -174,7 +197,13 @@ export function createBackendAuthRepository(
     const client = readClient();
     if (!client) return null;
 
-    const { data, error } = await client.auth.getUser();
+    let response;
+    try {
+      response = await client.auth.getUser();
+    } catch {
+      throw new BackendAuthError('Unable to verify the online user');
+    }
+    const { data, error } = response;
     if (error) {
       throw new BackendAuthError('Unable to verify the online user');
     }

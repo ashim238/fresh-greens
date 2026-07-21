@@ -307,6 +307,23 @@ describe('backend auth repository', () => {
     });
   });
 
+  test('redacts a rejected anonymous sign-in request', async () => {
+    client.auth.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    client.auth.signInAnonymously.mockRejectedValue(
+      new Error('raw anonymous payload synthetic-access-token'),
+    );
+
+    const error = await repository.ensureAnonymous().catch((cause) => cause);
+
+    expect(error).toBeInstanceOf(BackendAuthError);
+    expect(error.message).toBe('Unable to start an online session');
+    expect(error.message).not.toContain('synthetic-access-token');
+    expect(error.message).not.toContain('raw anonymous payload');
+  });
+
   test('links Apple to the current anonymous user', async () => {
     client.auth.getSession.mockResolvedValue({
       data: { session: session({ is_anonymous: true }) },
@@ -371,6 +388,46 @@ describe('backend auth repository', () => {
     expect(client.auth.signInWithIdToken).not.toHaveBeenCalled();
   });
 
+  test('redacts a rejected Apple identity link request', async () => {
+    client.auth.linkIdentity.mockRejectedValue(
+      new Error(
+        `raw link payload ${input.identityToken} nonce ${input.nonce}`,
+      ),
+    );
+
+    const error = await repository.signInWithApple(input).catch(
+      (cause) => cause,
+    );
+
+    expect(error).toBeInstanceOf(BackendAuthError);
+    expect(error.message).toBe('Apple sign-in could not be completed');
+    expect(error.message).not.toContain(input.identityToken);
+    expect(error.message).not.toContain(input.nonce);
+    expect(error.message).not.toContain('raw link payload');
+  });
+
+  test('redacts a rejected Apple conflict fallback request', async () => {
+    client.auth.linkIdentity.mockResolvedValue({
+      data: { session: null, user: null },
+      error: new AuthApiError('identity conflict', 422, 'identity_already_exists'),
+    });
+    client.auth.signInWithIdToken.mockRejectedValue(
+      new Error(
+        `raw fallback payload ${input.identityToken} nonce ${input.nonce}`,
+      ),
+    );
+
+    const error = await repository.signInWithApple(input).catch(
+      (cause) => cause,
+    );
+
+    expect(error).toBeInstanceOf(BackendAuthError);
+    expect(error.message).toBe('Apple sign-in could not be completed');
+    expect(error.message).not.toContain(input.identityToken);
+    expect(error.message).not.toContain(input.nonce);
+    expect(error.message).not.toContain('raw fallback payload');
+  });
+
   test('does not update metadata when Apple provides no display name', async () => {
     await expect(repository.signInWithApple({
       ...input,
@@ -378,6 +435,21 @@ describe('backend auth repository', () => {
     })).resolves.toMatchObject({ userId: 'permanent' });
 
     expect(client.auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  test('redacts a rejected Apple profile update request', async () => {
+    client.auth.updateUser.mockRejectedValue(
+      new Error(`raw profile payload ${input.identityToken}`),
+    );
+
+    const error = await repository.signInWithApple(input).catch(
+      (cause) => cause,
+    );
+
+    expect(error).toBeInstanceOf(BackendAuthError);
+    expect(error.message).toBe('Apple profile could not be saved');
+    expect(error.message).not.toContain(input.identityToken);
+    expect(error.message).not.toContain('raw profile payload');
   });
 
   test('rejects a successful Apple response that has no session', async () => {
@@ -438,6 +510,19 @@ describe('backend auth repository', () => {
     });
   });
 
+  test('redacts a rejected user ID lookup', async () => {
+    client.auth.getUser.mockRejectedValue(
+      new Error('raw user payload synthetic-access-token'),
+    );
+
+    const error = await repository.getUserId().catch((cause) => cause);
+
+    expect(error).toBeInstanceOf(BackendAuthError);
+    expect(error.message).toBe('Unable to verify the online user');
+    expect(error.message).not.toContain('synthetic-access-token');
+    expect(error.message).not.toContain('raw user payload');
+  });
+
   test('validates a captured access token without using persistent auth state', async () => {
     const capturedAccessToken = session().access_token;
     validateAccessToken.mockResolvedValue({
@@ -469,6 +554,19 @@ describe('backend auth repository', () => {
       expect(client.auth.signOut).not.toHaveBeenCalled();
     },
   );
+
+  test('returns terminal no-session for global sign-out HTTP 404', async () => {
+    client.auth.admin.signOut.mockResolvedValue({
+      data: null,
+      error: new AuthApiError('already absent', 404, 'not_found'),
+    });
+
+    await expect(repository.signOutGlobal()).resolves.toEqual({
+      kind: 'terminal',
+      reason: 'no-session',
+    });
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
 
   test('treats a successful response with no user as invalid', async () => {
     validateAccessToken.mockResolvedValue(missingUserResponse());
