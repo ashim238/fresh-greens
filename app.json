@@ -75,6 +75,7 @@
         }
       ],
       "expo-font",
+      "expo-apple-authentication",
       "expo-secure-store"
     ]
   }
