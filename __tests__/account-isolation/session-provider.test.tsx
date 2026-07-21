@@ -74,6 +74,10 @@ jest.mock('../../lib/supabase/client', () => ({
   startSupabaseAutoRefresh: jest.fn(),
 }));
 
+jest.mock('../../lib/supabase/legacy-session', () => ({
+  retireLegacySupabaseSession: jest.fn(),
+}));
+
 jest.mock('../../lib/api/user', () => ({
   getStoredUser: jest.fn(),
   upsertUser: jest.fn(),
@@ -99,6 +103,9 @@ const { backendAuthRepository } = jest.mocked(
 );
 const { startSupabaseAutoRefresh } = jest.mocked(
   require('../../lib/supabase/client'),
+);
+const { retireLegacySupabaseSession } = jest.mocked(
+  require('../../lib/supabase/legacy-session'),
 );
 const userApi = jest.mocked(require('../../lib/api/user'));
 
@@ -275,6 +282,7 @@ describe('SessionProvider', () => {
       return authUnsubscribe;
     });
     startSupabaseAutoRefresh.mockReturnValue(autoRefreshCleanup);
+    retireLegacySupabaseSession.mockResolvedValue(undefined);
 
     Crypto.randomUUID.mockReturnValue('synthetic-raw-nonce');
     Crypto.digestStringAsync.mockResolvedValue('synthetic-hashed-nonce');
@@ -308,6 +316,9 @@ describe('SessionProvider', () => {
       order.push('backend');
       return { kind: 'unconfigured' };
     });
+    retireLegacySupabaseSession.mockImplementation(async () => {
+      order.push('legacy');
+    });
 
     const { result } = await renderHook(() => useSession(), { wrapper });
 
@@ -318,8 +329,23 @@ describe('SessionProvider', () => {
     });
     await waitFor(() => expect(result.current.phase).toBe('authenticated'));
 
-    expect(order).toEqual(['marker', 'user', 'backend']);
+    expect(order).toEqual(['marker', 'legacy', 'user', 'backend']);
+    expect(retireLegacySupabaseSession).toHaveBeenCalledTimes(1);
     expect(result.current.user).toEqual(USER);
+  });
+
+  test('fails closed before SDK hydration when legacy retirement fails', async () => {
+    retireLegacySupabaseSession.mockRejectedValue(
+      new Error('legacy deletion failed'),
+    );
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('sessionError'));
+    expect(result.current.user).toBeNull();
+    expect(result.current.sessionError).toBeInstanceOf(Error);
+    expect(userApi.getStoredUser).not.toHaveBeenCalled();
+    expect(backendAuthRepository.hydrate).not.toHaveBeenCalled();
   });
 
   test('quarantines and recovers an interrupted purge before reading a user', async () => {

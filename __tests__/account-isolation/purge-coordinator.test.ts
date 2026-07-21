@@ -3,6 +3,13 @@ import {
   resetTestHarness,
 } from './test-harness';
 
+jest.mock('../../lib/supabase/auth-repository', () => ({
+  backendAuthRepository: {
+    signOutGlobal: jest.fn(),
+    signOutLocal: jest.fn(),
+  },
+}));
+
 import {
   ACCOUNT_PURGE_MANIFEST,
   type AccountPurgeEntry,
@@ -15,9 +22,14 @@ import {
 } from '../../lib/account-session/purge-marker';
 import {
   AccountPurgeRemoteError,
+  accountPurgeCoordinator,
   createAccountPurgeCoordinator,
   type AccountPurgeCoordinatorDependencies,
 } from '../../lib/account-session/purge-coordinator';
+
+const { backendAuthRepository } = jest.mocked(
+  require('../../lib/supabase/auth-repository'),
+);
 
 const EXPECTED_IDS = [
   'identity.user',
@@ -374,6 +386,24 @@ describe('account purge coordinator', () => {
     expect(identityPurge).toHaveBeenCalledTimes(1);
     expect(clearLocalCloudSession).toHaveBeenCalledTimes(1);
     expect(asyncStorageState.values.has(PENDING_ACCOUNT_PURGE_KEY)).toBe(false);
+  });
+
+  test('keeps finish-on-device available after a retryable SDK failure', async () => {
+    backendAuthRepository.signOutGlobal.mockResolvedValue({
+      kind: 'retryable',
+      reason: 'network',
+    });
+    backendAuthRepository.signOutLocal.mockResolvedValue(undefined);
+
+    await expect(accountPurgeCoordinator.begin()).resolves.toMatchObject({
+      status: 'failed',
+    });
+    await expect(accountPurgeCoordinator.finishOnDevice()).resolves.toMatchObject({
+      status: 'completed-locally',
+    });
+
+    expect(backendAuthRepository.signOutGlobal).toHaveBeenCalledTimes(1);
+    expect(backendAuthRepository.signOutLocal).toHaveBeenCalledTimes(1);
   });
 
   test('does not allow local finish after a non-retryable remote failure', async () => {

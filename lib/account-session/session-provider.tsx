@@ -23,6 +23,7 @@ import {
   type BackendAuthState,
 } from '../supabase/auth-repository';
 import { startSupabaseAutoRefresh } from '../supabase/client';
+import { retireLegacySupabaseSession } from '../supabase/legacy-session';
 import {
   accountPurgeCoordinator,
   type AccountPurgeResult,
@@ -317,6 +318,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    await retireLegacySupabaseSession();
     const storedUser = await getStoredUser();
     const backendState = await backendAuthRepository.hydrate();
     if (backendState.kind === 'unconfigured') {
