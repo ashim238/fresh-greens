@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import type { Session, User } from '@supabase/supabase-js';
 
 import {
   backendAuthRepository,
   type BackendAuthState,
+  type BackendSession,
 } from '../../lib/supabase/auth-repository';
 import { rolesRepository } from '../../lib/supabase/roles-repository';
 import { useModeratorRole } from '../../hooks/useModeratorRole';
@@ -21,24 +21,16 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function user(id: string, isAnonymous = false): User {
+function session(id: string): BackendSession {
   return {
-    id,
-    app_metadata: {},
-    user_metadata: {},
-    aud: 'authenticated',
-    created_at: '2026-01-01T00:00:00.000Z',
-    is_anonymous: isAnonymous,
-  };
-}
-
-function session(id: string, isAnonymous = false): Session {
-  return {
-    access_token: `access-${id}`,
-    refresh_token: `refresh-${id}`,
-    expires_in: 3600,
-    token_type: 'bearer',
-    user: user(id, isAnonymous),
+    accessToken: `access-${id}`,
+    user: {
+      id,
+      email: null,
+      displayName: null,
+      provider: 'apple',
+      identities: [],
+    },
   };
 }
 
@@ -146,7 +138,7 @@ describe('useModeratorRole', () => {
   test.each([
     { kind: 'signed-out' } as const,
     { kind: 'unconfigured' } as const,
-    { kind: 'anonymous', session: session('anonymous-a', true) } as const,
+    { kind: 'anonymous', session: session('anonymous-a') } as const,
   ])('clears an established moderator immediately for $kind', async (state) => {
     getUserId.mockResolvedValue('user-a');
     hasModeratorRole.mockResolvedValue(true);

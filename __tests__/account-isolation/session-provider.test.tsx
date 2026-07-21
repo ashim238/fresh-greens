@@ -1,5 +1,4 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import type { Session } from '@supabase/supabase-js';
 import type { PropsWithChildren } from 'react';
 
 import {
@@ -15,6 +14,7 @@ import type { AccountPurgeResult } from '../../lib/account-session/purge-coordin
 import type { User } from '../../lib/api/user';
 import type {
   BackendAuthState,
+  BackendSession,
   BackendSessionValidation,
 } from '../../lib/supabase/auth-repository';
 
@@ -67,11 +67,8 @@ jest.mock('../../lib/supabase/auth-repository', () => ({
     signInWithApple: jest.fn(),
     subscribe: jest.fn(),
     signOutLocal: jest.fn(),
+    startAutoRefresh: jest.fn(),
   },
-}));
-
-jest.mock('../../lib/supabase/client', () => ({
-  startSupabaseAutoRefresh: jest.fn(),
 }));
 
 jest.mock('../../lib/supabase/legacy-session', () => ({
@@ -100,9 +97,6 @@ const operationGateModule = jest.mocked(
 const { accountOperationGate } = operationGateModule;
 const { backendAuthRepository } = jest.mocked(
   require('../../lib/supabase/auth-repository'),
-);
-const { startSupabaseAutoRefresh } = jest.mocked(
-  require('../../lib/supabase/client'),
 );
 const { retireLegacySupabaseSession } = jest.mocked(
   require('../../lib/supabase/legacy-session'),
@@ -170,40 +164,23 @@ function supabaseSession(
     appleSubject?: string | null;
     identityProvider?: string;
   } = {},
-): Session {
+): BackendSession {
   const id = overrides.id ?? 'user-a';
   return {
-    access_token: overrides.accessToken ?? 'hydrated-access-token',
-    refresh_token: 'synthetic-refresh-token',
-    expires_in: 3_600,
-    expires_at: 1_800_000_000,
-    token_type: 'bearer',
+    accessToken: overrides.accessToken ?? 'hydrated-access-token',
     user: {
       id,
-      app_metadata: { provider: 'apple', providers: ['apple'] },
-      user_metadata: overrides.fullName
-        ? { full_name: overrides.fullName }
-        : {},
-      aud: 'authenticated',
-      ...(overrides.email === null
-        ? {}
-        : { email: overrides.email ?? `${id}@example.com` }),
-      created_at: '2026-01-01T00:00:00.000Z',
-      updated_at: '2026-01-01T00:00:00.000Z',
-      is_anonymous: overrides.is_anonymous ?? false,
-      ...(overrides.appleSubject !== undefined
-        ? {
-            identities: [
-              {
-                id: 'provider-identity',
-                user_id: id,
-                identity_id: 'provider-identity-id',
-                provider: overrides.identityProvider ?? 'apple',
-                identity_data: { sub: overrides.appleSubject },
-              },
-            ],
-          }
-        : {}),
+      provider: 'apple',
+      displayName: overrides.fullName ?? null,
+      email: overrides.email === undefined
+        ? `${id}@example.com`
+        : overrides.email,
+      identities: overrides.appleSubject === undefined
+        ? []
+        : [{
+            provider: overrides.identityProvider ?? 'apple',
+            subject: overrides.appleSubject,
+          }],
     },
   };
 }
@@ -281,7 +258,7 @@ describe('SessionProvider', () => {
       authListener = listener;
       return authUnsubscribe;
     });
-    startSupabaseAutoRefresh.mockReturnValue(autoRefreshCleanup);
+    backendAuthRepository.startAutoRefresh.mockReturnValue(autoRefreshCleanup);
     retireLegacySupabaseSession.mockResolvedValue(undefined);
 
     Crypto.randomUUID.mockReturnValue('synthetic-raw-nonce');
@@ -1109,7 +1086,7 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(result.current.phase).toBe('signedOut'));
 
     await rerender(undefined);
-    expect(startSupabaseAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(backendAuthRepository.startAutoRefresh).toHaveBeenCalledTimes(1);
     expect(backendAuthRepository.subscribe).toHaveBeenCalledTimes(1);
 
     await unmount();

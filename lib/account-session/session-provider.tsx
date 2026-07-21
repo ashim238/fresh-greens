@@ -1,6 +1,5 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
-import type { Session } from '@supabase/supabase-js';
 import {
   useCallback,
   useEffect,
@@ -21,8 +20,8 @@ import {
 import {
   backendAuthRepository,
   type BackendAuthState,
+  type BackendSession,
 } from '../supabase/auth-repository';
-import { startSupabaseAutoRefresh } from '../supabase/client';
 import { retireLegacySupabaseSession } from '../supabase/legacy-session';
 import {
   accountPurgeCoordinator,
@@ -77,21 +76,14 @@ function appleDisplayName(
     .join(' ') || null;
 }
 
-function backendDisplayName(session: Session): string | null {
-  const fullName = session.user.user_metadata.full_name;
-  return typeof fullName === 'string' && fullName.trim()
-    ? fullName.trim()
-    : null;
-}
-
-function backendProvider(session: Session): AuthProvider {
-  const provider = session.user.app_metadata.provider;
+function backendProvider(session: BackendSession): AuthProvider {
+  const provider = session.user.provider;
   return provider === 'google' || provider === 'email' ? provider : 'apple';
 }
 
-function appleProviderSubject(session: Session): string | undefined {
-  for (const identity of session.user.identities ?? []) {
-    const subject = identity.identity_data?.sub;
+function appleProviderSubject(session: BackendSession): string | undefined {
+  for (const identity of session.user.identities) {
+    const subject = identity.subject;
     if (
       identity.provider === 'apple' &&
       typeof subject === 'string' &&
@@ -104,15 +96,15 @@ function appleProviderSubject(session: Session): string | undefined {
 }
 
 async function profileForBackendSession(
-  session: Session,
+  session: BackendSession,
   storedUser: User | null,
 ): Promise<User> {
   if (storedUser?.id === session.user.id) return storedUser;
   const profile = {
     id: session.user.id,
     provider: backendProvider(session),
-    displayName: backendDisplayName(session),
-    email: session.user.email ?? null,
+    displayName: session.user.displayName,
+    email: session.user.email,
   };
   const migrateFromId = appleProviderSubject(session);
   return migrateFromId
@@ -351,7 +343,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       return;
     }
     publishHydratedSession(hydratedUser);
-    validateHydratedSession(backendState.session.access_token, generation);
+    validateHydratedSession(backendState.session.accessToken, generation);
   }, [
     applyPurgeResult,
     drainCurrentOperations,
@@ -515,7 +507,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     mountedRef.current = true;
-    const stopAutoRefresh = startSupabaseAutoRefresh();
+    const stopAutoRefresh = backendAuthRepository.startAutoRefresh();
     const unsubscribe = backendAuthRepository.subscribe(transitionFromAuthEvent);
     return () => {
       mountedRef.current = false;

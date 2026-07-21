@@ -25,6 +25,7 @@ The thesis case turns on whether the architecture demonstrably encodes these cla
 - **expo-location** — permission flow, current location, geocoding.
 - **react-native-safe-area-context** — replaced built-in SafeAreaView (which clobbered horizontal padding).
 - **suncalc** — solar geometry for the daylight gradient.
+- **@supabase/supabase-js** — one configured backend client behind Fresh Greens-owned auth, community-report, role, and moderation repositories.
 - **@expo/vector-icons** (Ionicons) — pre-installed icon font.
 - **`.npmrc` with `legacy-peer-deps=true`** — Expo's recommended workaround for peer-dep conflicts.
 
@@ -42,6 +43,24 @@ Three-layer data flow. Each layer has one job. Adding a new data source or new s
 Adapters (lib/api/*)        →   Scoring (lib/scoring.ts)        →   Screens (app/*)
 "talks to outside world"        "transforms data, no I/O"            "renders"
 ```
+
+Supabase follows a narrower enforced boundary:
+
+```text
+Screens and hooks
+      → Fresh Greens repositories and adapters
+      → lib/supabase/*
+      → one configured Supabase SDK client
+      → Auth, database, RPC, Storage, and Edge Functions
+```
+
+Only `lib/supabase/` may import `@supabase/supabase-js`, access the configured
+client or Supabase environment values, or construct Supabase service URLs. The
+architecture test in `__tests__/supabase/architecture-boundary.test.ts` enforces
+that invariant mechanically. Product consumers receive Fresh Greens domain
+types and errors rather than SDK sessions, rows, or response wrappers. Storage
+and Edge Functions have no approved client use yet; future access must enter
+through a repository without widening this boundary.
 
 ### Why zones exist
 
@@ -119,8 +138,10 @@ Onboarding flow:
 - Trusted Contact Setup (`/trusted-contact-setup`) — page 5 of 5. iOS-native contact picker via `expo-contacts`; selected contact stored in AsyncStorage and read by /pulled-over's contact phase. Skip allowed (Call/Text show as disabled in /pulled-over until set).
 
 Auth + identity:
-- `lib/api/user.ts` — AsyncStorage-backed user adapter (`getStoredUser` / `setStoredUser` / `clearStoredUser` / `upsertUser`). Same adapter pattern as community-reports; backend swap-in point for the future. `User` type holds id, provider, displayName, email, derived initials, and signedInAt timestamp.
-- `hooks/useUser.ts` — reactive wrapper. Exposes `{ user, loading, signInWithApple, signOut }`. Apple's first-sign-in-only `fullName`/`email` are merged via `upsertUser` so returning sign-ins don't overwrite cached identity with nulls.
+- `lib/supabase/auth-repository.ts` — owns the SDK session lifecycle, anonymous-session reuse, Apple identity linking and returning-account fallback, validation, auth-state events, and global/local sign-out. It maps SDK sessions to a small Fresh Greens-owned session shape before returning state to `SessionProvider`.
+- `lib/account-session/session-provider.tsx` — coordinates backend auth with the account operation gate and purge recovery. A configured Apple sign-in links or restores a permanent Supabase user; that Supabase UUID is the canonical app identity.
+- `lib/api/user.ts` — AsyncStorage-backed display-profile cache (`getStoredUser` / `setStoredUser` / `clearStoredUser` / `upsertUser`). `User` holds id, provider, displayName, email, derived initials, and signedInAt; it is not the backend authentication authority.
+- `hooks/useUser.ts` — reactive wrapper. Exposes `{ user, loading, signInWithApple, signOut }`. Apple's first-sign-in-only `fullName`/`email` are merged into the local profile without replacing the SDK-owned backend identity.
 - `lib/api/trusted-contact.ts` — AsyncStorage-backed trusted-contact adapter (`getTrustedContact` / `setTrustedContact` / `clearTrustedContact`). Stores only what the safety flow needs (id, name, initials, phone, setAt) — not the full Contact, for both privacy and storage-size reasons.
 - `hooks/useTrustedContact.ts` — reactive wrapper. Exposes `{ contact, loading, pickContact, clearContact }`. `pickContact` opens iOS's native picker via `expo-contacts`'s `presentContactPickerAsync`, normalizes to our shape, and persists.
 
@@ -168,7 +189,7 @@ The reporting flow itself is shipped (`/report` modal: picker → detail → tha
   2. **Tap then drag:** tap Report → a draggable marker appears anchored to the user's current location → user drags it to refine → confirm to open the modal.
   Drag-to-place is more direct but cramps the map's pan gesture during the drag; tap-then-drag is two-step but composes cleanly with map navigation. Pick before building. (En-route's entry point stays current-GPS — the driver isn't placing pins mid-drive.)
 - **v2 inputs.** Preset checkbox sub-tags per category, deferred from v1 until we have submission data telling us which sub-types matter.
-- **Real backend.** Replace the AsyncStorage adapter internals; public surface (`addCommunityReport`, `getCommunityReportsAsZones`) already designed to swap.
+- **Supabase deployment acceptance.** The repository-backed client path is implemented; target-project migrations, Apple provider settings, RLS, and two-device real-iPhone behavior still need release-environment verification.
 
 ### Safety flow — open follow-ups
 
@@ -256,8 +277,7 @@ Lower priority / deferred:
 
 ### Out-of-scope for thesis (defer)
 
-- Real auth backend. Apple Sign In + AsyncStorage user object ships in `feat/auth-apple-signin`; identity is local-only. A real backend (Supabase / Firestore / custom) would slot in by replacing `lib/api/user.ts`'s read/write internals — the public surface and `User` type stay stable, so consumers (`useUser`, screens that read user state) don't change.
-- Real community-report storage backend.
+- Supabase Storage uploads for recordings, insurance cards, avatars, or report photos. These files remain local until bucket access, retention, deletion, and consent behavior is designed.
 - Real-time live re-routing.
 - Real turn-by-turn instructions on /en-route (basic en-route screen exists; copy is static placeholder until a routing engine that gives instructions, not just geometry, is integrated).
 - Trip Summary screen variants.

@@ -11,7 +11,9 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 - `2c534c5` — investigation panels (submitter history, nearby reports, flag breakdown)
 - `c5f4c14` — ~~bulk mode~~ multi-select hide/remove for `/moderation` queue
 
-**Blocked (Apple / Supabase config):** Apple Sign-in (requires Apple Developer Program), Phone OTP (Supabase SMS provider), moderator role bootstrap (manual `auth.users` update), M1.2 push notifications.
+**SDK rewrite code blocker: resolved.** Auth, Apple identity linking, community reports, roles, moderation, and RPCs now run through Fresh Greens repositories over one configured `@supabase/supabase-js` client. The hand-written Auth/REST session owner is deleted, and `__tests__/supabase/architecture-boundary.test.ts` rejects direct SDK, configured-client, environment, or Supabase service-URL access outside `lib/supabase/`.
+
+**Still blocked on external configuration and device acceptance:** permanent Apple bundle/capability setup, Supabase Apple provider configuration, anonymous sign-ins, manual identity linking, current migrations/seed, moderator role bootstrap, EAS environment values, and the real-iPhone identity/RLS/two-device checks. Phone OTP remains a separate optional feature requiring a Supabase SMS provider; M1.2 push notifications keep their own Apple release gate.
 
 **Unblocked enhancements (remaining):** ~~bulk mode~~, push notifications (M1.2), transparency page.
 
@@ -426,43 +428,21 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 
 ## Architecture / data v2
 
-- ~~**User auth + report sync (backend TBD)**~~ — **adapter seam shipped (B1, `feat/community-cloud-b1`).** `lib/api/sources/community-cloud.ts` + merged reads in `community-reports.ts`. **No Supabase account required for thesis** — unset env = local-only (unchanged). Cross-phone demo needs setup in **Supabase (B1)** below. `submittedBy` already uses real Apple ids locally; cloud unlocks *other* phones seeing your reports.
+- **User auth + report sync:** Supabase-backed architecture shipped in code. `lib/api/sources/community-cloud.ts` keeps local-first mapping and queue behavior; `lib/supabase/` owns the SDK client, auth, typed database queries, RPCs, roles, and moderation. Unset environment values still preserve local-only development behavior.
 
 ### Supabase (B1) — optional community-report cloud
 
-**You don't need an account to build or demo on one device.** The app ignores cloud when `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` are missing from `.env.local`.
+**Local-only remains supported.** When either `EXPO_PUBLIC_SUPABASE_URL` or `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is absent, the lazy client is not created and product adapters keep their existing local behavior.
 
-**When you want two-phone community sync (or thesis "shared community" story):**
+**Configured acceptance checklist:**
 
-1. **Create a free Supabase project** — [supabase.com](https://supabase.com) → New project → note **Project URL** + **anon public** key (Settings → API).
-2. **Add to `.env.local`** (gitignored; template in `.env.example`):
-  - `EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co`
-  - `EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...`
-3. **Create table** `community_reports` in SQL editor (column names must match adapter — snake_case):
-  ```sql
-   create table public.community_reports (
-     id text primary key,
-     category_id text not null,
-     location jsonb not null,
-     detail text,
-     sub_tag text,
-     place_name text,
-     google_place_id text,
-     submitted_by text,
-     photo_uri text,
-     timestamp bigint not null
-   );
-  ```
-4. **RLS (thesis-minimal)** — tighten later for production:
-  - Enable RLS on the table.
-  - Policy: allow **anon SELECT** (read all reports for demo).
-  - Policy: allow **anon INSERT** (submit from app) and **anon DELETE** (Undo / hold-to-delete) — or restrict INSERT/DELETE to authenticated users once auth is wired to Supabase.
-5. **Restart Expo** so env vars load.
-6. **QA** — same keys on two simulators/devices: submit on A → focus `/home` on B → orange eye pin should appear. Photos stay **local-only** in v1 (`photo_uri` in cloud is usually null until an upload PR exists).
+1. Apply the repository's current Supabase migrations and seed to the target project; do not recreate the old minimal table by hand.
+2. Enable anonymous sign-ins and manual identity linking, then configure the Apple provider for the permanent bundle identifier.
+3. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the EAS build environment. Never ship a service-role key.
+4. Complete first Apple sign-in on a real iPhone, then assign the resulting permanent Supabase UUID the moderator role.
+5. Verify returning Apple sign-in, persisted-session relaunch, sign-out/sign-in, offline and interrupted auth, two-device report visibility, ownership/RLS, flagging, and moderation.
 
-**Code map:** `lib/api/sources/community-cloud.ts` (fetch / push / queue), `docs/archive/superpowers/plans/2026-06-04-corridor-data-richness.md` Task B1, `docs/learnings.md` → `feat/community-cloud-b1`.
-
-**Don't want Supabase at all?** Stay local-only for the thesis; corridor B0/B4/B5 are unrelated. Alternative later: `/api/reports` on the existing Vercel proxy (no second vendor) — not specced yet.
+**Code map:** `lib/supabase/client.ts` (sole configured client), `lib/supabase/auth-repository.ts`, `lib/supabase/community-reports-repository.ts`, `lib/supabase/roles-repository.ts`, `lib/supabase/moderation-repository.ts`, and `lib/api/sources/community-cloud.ts` (product mapping + local retry queue). Photos remain local until a separate Storage bucket, access, retention, and consent contract is approved.
 
 - ~~**Real photo capture in /report**~~ — **stale, shipped (verified 2026-06-02).** `app/report.tsx` uses `expo-image-picker` — `requestCameraPermissionsAsync` + `launchCameraAsync` (camera capture only, copied out of the picker's cache), with a `photoUri` state. Real, not a stub.
 - ~~**Schedule CTA → expo-notifications**~~ — shipped: `scheduleDepartureNotification` fires a real local notification (inline permission request) at the suggested departure.
@@ -604,4 +584,3 @@ Findings from `docs/archive/audits/2026-05-31-app-wide-fidelity-audit.md`. Criti
 - **[/fuel] Segmented fuel-type buttons lack composite label; toggle row lacks role** — [Audit 2026-05-31 §/fuel F3, Important] lines 148-150, 183-192.
 - **[/fuel] "Next reminder" hides time-of-day reality of TIME_INTERVAL** — [Audit 2026-05-31 §/fuel F4, Minor] lines 92-99, 196 — add WHY comment or surface time.
 - **[/fuel] No haptic on Save / "I filled up"** — [Audit 2026-05-31 §/fuel F5, Minor].
-

@@ -10,15 +10,30 @@ import {
 
 import {
   getSupabaseClient,
+  startSupabaseAutoRefresh,
   validateSupabaseAccessToken,
 } from './client';
 import type { Database } from './database.types';
 
+export type BackendSession = {
+  accessToken: string;
+  user: {
+    id: string;
+    email: string | null;
+    displayName: string | null;
+    provider: string | null;
+    identities: readonly {
+      provider: string;
+      subject: string | null;
+    }[];
+  };
+};
+
 export type BackendAuthState =
   | { kind: 'unconfigured' }
   | { kind: 'signed-out' }
-  | { kind: 'anonymous'; session: Session }
-  | { kind: 'authenticated'; session: Session };
+  | { kind: 'anonymous'; session: BackendSession }
+  | { kind: 'authenticated'; session: BackendSession };
 
 export type BackendSessionValidation = 'valid' | 'invalid' | 'unavailable';
 
@@ -40,11 +55,37 @@ export class BackendAuthError extends Error {
   }
 }
 
+function backendSessionFromSdk(session: Session): BackendSession {
+  const displayName = session.user.user_metadata.full_name;
+  const provider = session.user.app_metadata.provider;
+
+  return {
+    accessToken: session.access_token,
+    user: {
+      id: session.user.id,
+      email: session.user.email ?? null,
+      displayName: typeof displayName === 'string' && displayName.trim()
+        ? displayName.trim()
+        : null,
+      provider: typeof provider === 'string' ? provider : null,
+      identities: (session.user.identities ?? []).map((identity) => {
+        const subject = identity.identity_data?.sub;
+        return {
+          provider: identity.provider,
+          subject: typeof subject === 'string' && subject.trim()
+            ? subject
+            : null,
+        };
+      }),
+    },
+  };
+}
+
 function stateFromSession(session: Session | null): BackendAuthState {
   if (!session) return { kind: 'signed-out' };
   return session.user.is_anonymous
-    ? { kind: 'anonymous', session }
-    : { kind: 'authenticated', session };
+    ? { kind: 'anonymous', session: backendSessionFromSdk(session) }
+    : { kind: 'authenticated', session: backendSessionFromSdk(session) };
 }
 
 type AccessTokenValidator = (
@@ -118,9 +159,17 @@ export function createBackendAuthRepository(
     const client = readClient();
     if (!client) return null;
 
-    const state = await hydrate();
-    if (state.kind === 'anonymous' || state.kind === 'authenticated') {
-      return state.session;
+    let sessionResponse;
+    try {
+      sessionResponse = await client.auth.getSession();
+    } catch {
+      throw new BackendAuthError('Unable to restore the online session');
+    }
+    if (sessionResponse.error) {
+      throw new BackendAuthError('Unable to restore the online session');
+    }
+    if (sessionResponse.data.session) {
+      return sessionResponse.data.session;
     }
 
     if (!anonymousSessionRequest) {
@@ -300,6 +349,11 @@ export function createBackendAuthRepository(
   };
 }
 
-export const backendAuthRepository = createBackendAuthRepository(
+const configuredBackendAuthRepository = createBackendAuthRepository(
   getSupabaseClient,
 );
+
+export const backendAuthRepository = {
+  ...configuredBackendAuthRepository,
+  startAutoRefresh: startSupabaseAutoRefresh,
+};
