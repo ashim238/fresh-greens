@@ -9,9 +9,11 @@ export function createSupabaseTransport(
         : input instanceof URL
           ? input.toString()
           : input.url;
-    const headers = new Headers(init?.headers);
+    const headers = new Headers(input instanceof Request ? input.headers : undefined);
+    new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+    const pathname = new URL(url).pathname;
 
-    if (url.includes('/rest/v1/') || url.includes('/functions/v1/')) {
+    if (pathname.startsWith('/rest/v1/') || pathname.startsWith('/functions/v1/')) {
       headers.set('x-device-uuid', await readDeviceUUID());
     }
 

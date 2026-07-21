@@ -51,6 +51,38 @@ describe('Supabase client foundation', () => {
       .toBe(false);
   });
 
+  test('does not add device UUID to Auth URLs with a data-path query', async () => {
+    const baseFetch = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(
+      async () => new Response('{}'),
+    );
+    const transport = createSupabaseTransport(baseFetch, async () => 'device-a');
+
+    await transport(
+      'https://project.supabase.co/auth/v1/token?next=/rest/v1/reports',
+      {},
+    );
+
+    expect(new Headers(baseFetch.mock.calls[0][1]?.headers).has('x-device-uuid'))
+      .toBe(false);
+  });
+
+  test('preserves Request headers before overlaying init headers', async () => {
+    const baseFetch = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(
+      async () => new Response('{}'),
+    );
+    const transport = createSupabaseTransport(baseFetch, async () => 'device-a');
+    const request = new Request('https://project.supabase.co/rest/v1/reports', {
+      headers: { Authorization: 'Bearer request-token' },
+    });
+
+    await transport(request, { headers: { 'x-client-info': 'fresh-greens' } });
+
+    const headers = new Headers(baseFetch.mock.calls[0][1]?.headers);
+    expect(headers.get('authorization')).toBe('Bearer request-token');
+    expect(headers.get('x-client-info')).toBe('fresh-greens');
+    expect(headers.get('x-device-uuid')).toBe('device-a');
+  });
+
   test('creates one client from a complete environment', () => {
     const client = createConfiguredSupabaseClient({
       url: 'https://project.supabase.co',
