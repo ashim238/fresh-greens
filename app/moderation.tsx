@@ -451,8 +451,14 @@ function ReportCard({
       try {
         const rows = await loadFlags(report.id);
         if (!cancelled) setFlags(rows);
-      } catch {
-        if (!cancelled) setFlags([]);
+      } catch (error) {
+        if (
+          !cancelled &&
+          (!(error instanceof ModerationRepositoryError) ||
+            error.code !== 'rejected')
+        ) {
+          setFlags([]);
+        }
       } finally {
         if (!cancelled) setFlagsLoading(false);
       }

@@ -73,7 +73,7 @@ describe('moderation consumer source contracts', () => {
     expect(screenSource).not.toContain('Could not load flags');
   });
 
-  test('all queue failures use base copy and all flag failures settle empty', () => {
+  test('queue and flag failures preserve their base presentation semantics', () => {
     const queueLoader = screenSource.slice(
       screenSource.indexOf('const fetchQueue'),
       screenSource.indexOf('useEffect', screenSource.indexOf('const fetchQueue')),
@@ -89,10 +89,11 @@ describe('moderation consumer source contracts', () => {
       screenSource.match(/Could not load queue — check connection\./g),
     ).toHaveLength(1);
 
-    expect(flagsLoader).toContain('catch {');
+    expect(flagsLoader).toContain('catch (error)');
     expect(flagsLoader).toContain('setFlags([])');
     expect(flagsLoader).not.toContain('flagsError');
-    expect(flagsLoader).not.toContain('ModerationRepositoryError');
+    expect(flagsLoader).toContain('error instanceof ModerationRepositoryError');
+    expect(flagsLoader).toContain("error.code !== 'rejected'");
     expect(screenSource).toContain('No flags on this report.');
   });
 });
