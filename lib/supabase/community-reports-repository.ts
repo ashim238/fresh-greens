@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { backendAuthRepository } from './auth-repository';
 import { getSupabaseClient } from './client';
-import type { Database, Json } from './database.types';
+import type { Database } from './database.types';
 
 type PublicViewRow = Database['public']['Views']['community_reports_public']['Row'];
 
@@ -30,7 +30,12 @@ export type CommunityReportPublicRow = Omit<
   trust_tier: CommunityReportTrustTier | null;
 };
 
-export type CommunityReportInsert = Database['public']['Tables']['community_reports']['Insert'];
+type CommunityReportDatabaseInsert = Database['public']['Tables']['community_reports']['Insert'];
+
+export type CommunityReportInsert = Omit<
+  CommunityReportDatabaseInsert,
+  'auth_user_id'
+>;
 
 export type CommunityReportSubmitError =
   | 'device-banned'
@@ -68,28 +73,51 @@ const TRUST_TIERS = new Set<CommunityReportTrustTier>([
   'contributor',
 ]);
 
-function isCoordinate(value: Json | null): value is {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+function isCoordinate(value: unknown): value is {
   latitude: number;
   longitude: number;
 } {
-  if (!value || Array.isArray(value) || typeof value !== 'object') return false;
+  if (!isRecord(value)) return false;
   return (
     typeof value.latitude === 'number' &&
     Number.isFinite(value.latitude) &&
+    value.latitude >= -90 &&
+    value.latitude <= 90 &&
     typeof value.longitude === 'number' &&
-    Number.isFinite(value.longitude)
+    Number.isFinite(value.longitude) &&
+    value.longitude >= -180 &&
+    value.longitude <= 180
   );
 }
 
-function isPublicRow(row: PublicViewRow): row is CommunityReportPublicRow {
+function isPublicRow(row: unknown): row is CommunityReportPublicRow {
+  if (!isRecord(row)) return false;
   return (
     typeof row.id === 'string' &&
+    row.id.trim().length > 0 &&
+    typeof row.category_id === 'string' &&
     REPORT_CATEGORIES.has(row.category_id as CommunityReportCategoryId) &&
     typeof row.timestamp === 'number' &&
     Number.isFinite(row.timestamp) &&
     isCoordinate(row.location) &&
+    isNullableString(row.detail) &&
+    isNullableString(row.sub_tag) &&
+    isNullableString(row.place_name) &&
+    isNullableString(row.place_type) &&
+    isNullableString(row.google_place_id) &&
+    isNullableString(row.submitted_by) &&
+    isNullableString(row.photo_uri) &&
     (row.trust_tier === null ||
-      TRUST_TIERS.has(row.trust_tier as CommunityReportTrustTier))
+      (typeof row.trust_tier === 'string' &&
+        TRUST_TIERS.has(row.trust_tier as CommunityReportTrustTier)))
   );
 }
 
@@ -136,10 +164,16 @@ export function createCommunityReportsRepository(
     signal?: AbortSignal,
   ): Promise<CommunityReportInsertResult> {
     try {
-      const client = await authenticatedClient();
-      if (!client) return { ok: false, error: 'unknown' };
+      const session = await authRepository.ensureAnonymous();
+      const client = readClient();
+      const authUserId = session?.user?.id;
+      if (!client || !authUserId) return { ok: false, error: 'unknown' };
 
-      let query = client.from('community_reports').insert(row);
+      const databaseRow: CommunityReportDatabaseInsert = {
+        ...row,
+        auth_user_id: authUserId,
+      };
+      let query = client.from('community_reports').insert(databaseRow);
       if (signal) query = query.abortSignal(signal);
       const { error } = await query;
 

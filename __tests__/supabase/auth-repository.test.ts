@@ -36,6 +36,16 @@ type AccessTokenValidator = (
   accessToken: string,
 ) => Promise<AccessTokenValidationResponse>;
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 const client: {
   auth: AuthMethodMocks & {
     admin: {
@@ -274,6 +284,63 @@ describe('backend auth repository', () => {
 
     await expect(repository.ensureAnonymous()).resolves.toBe(anonymousSession);
     expect(client.auth.signInAnonymously).toHaveBeenCalledTimes(1);
+  });
+
+  test('shares one anonymous sign-in across concurrent signed-out callers', async () => {
+    const anonymousSession = session({ id: 'shared-anonymous', is_anonymous: true });
+    const signIn = deferred<Awaited<ReturnType<AuthClient['signInAnonymously']>>>();
+    client.auth.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    client.auth.signInAnonymously.mockReturnValue(signIn.promise);
+
+    const first = repository.ensureAnonymous();
+    const second = repository.ensureAnonymous();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(client.auth.signInAnonymously).toHaveBeenCalledTimes(1);
+    signIn.resolve({
+      data: { session: anonymousSession, user: anonymousSession.user },
+      error: null,
+    });
+
+    const [firstSession, secondSession] = await Promise.all([first, second]);
+    expect(firstSession).toBe(anonymousSession);
+    expect(secondSession).toBe(anonymousSession);
+
+    await expect(repository.ensureAnonymous()).resolves.toBe(anonymousSession);
+    expect(client.auth.signInAnonymously).toHaveBeenCalledTimes(2);
+  });
+
+  test('shares a failed anonymous sign-in and clears it for retry', async () => {
+    const failedSignIn = deferred<Awaited<ReturnType<AuthClient['signInAnonymously']>>>();
+    const retrySession = session({ id: 'retry-anonymous', is_anonymous: true });
+    client.auth.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    client.auth.signInAnonymously
+      .mockReturnValueOnce(failedSignIn.promise)
+      .mockResolvedValueOnce({
+        data: { session: retrySession, user: retrySession.user },
+        error: null,
+      });
+
+    const first = repository.ensureAnonymous();
+    const second = repository.ensureAnonymous();
+    await Promise.resolve();
+    await Promise.resolve();
+    failedSignIn.reject(new Error('synthetic network failure'));
+
+    await expect(Promise.all([first, second])).rejects.toEqual(
+      new BackendAuthError('Unable to start an online session'),
+    );
+    expect(client.auth.signInAnonymously).toHaveBeenCalledTimes(1);
+
+    await expect(repository.ensureAnonymous()).resolves.toBe(retrySession);
+    expect(client.auth.signInAnonymously).toHaveBeenCalledTimes(2);
   });
 
   test('rejects a successful anonymous response that has no session', async () => {

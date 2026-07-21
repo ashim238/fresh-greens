@@ -95,6 +95,8 @@ export function createBackendAuthRepository(
   readClient: () => SupabaseClient<Database> | null,
   validateAccessToken: AccessTokenValidator = validateSupabaseAccessToken,
 ) {
+  let anonymousSessionRequest: Promise<Session> | null = null;
+
   async function hydrate(): Promise<BackendAuthState> {
     const client = readClient();
     if (!client) return { kind: 'unconfigured' };
@@ -121,17 +123,25 @@ export function createBackendAuthRepository(
       return state.session;
     }
 
-    let response;
-    try {
-      response = await client.auth.signInAnonymously();
-    } catch {
-      throw new BackendAuthError('Unable to start an online session');
+    if (!anonymousSessionRequest) {
+      const request = (async () => {
+        let response;
+        try {
+          response = await client.auth.signInAnonymously();
+        } catch {
+          throw new BackendAuthError('Unable to start an online session');
+        }
+        const { data, error } = response;
+        if (error || !data.session) {
+          throw new BackendAuthError('Unable to start an online session');
+        }
+        return data.session;
+      })();
+      anonymousSessionRequest = request.finally(() => {
+        anonymousSessionRequest = null;
+      });
     }
-    const { data, error } = response;
-    if (error || !data.session) {
-      throw new BackendAuthError('Unable to start an online session');
-    }
-    return data.session;
+    return anonymousSessionRequest;
   }
 
   async function signInWithApple(input: AppleIdentityInput) {

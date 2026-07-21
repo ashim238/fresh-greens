@@ -10,7 +10,6 @@ import {
   runBestEffortAccountOperation,
 } from '../../account-session/operation-gate';
 import { getDeviceUUID } from '../../device-uuid';
-import { backendAuthRepository } from '../../supabase/auth-repository';
 import {
   communityReportsRepository,
   isCommunityReportsRepositoryConfigured,
@@ -68,11 +67,7 @@ export async function pushCommunityReportToCloud(
   if (!isCommunityCloudConfigured()) return { ok: false, error: 'unknown' };
   try {
     return await accountOperationGate.runCurrent(async (signal) => {
-      await backendAuthRepository.ensureAnonymous();
-      const [deviceUUID, authUserId] = await Promise.all([
-        getDeviceUUID(),
-        backendAuthRepository.getUserId(),
-      ]);
+      const deviceUUID = await getDeviceUUID();
       return communityReportsRepository.insertCommunityReport(
         {
           id: report.id,
@@ -87,7 +82,6 @@ export async function pushCommunityReportToCloud(
           photo_uri: report.photoUri ?? null,
           timestamp: report.timestamp,
           device_uuid: deviceUUID,
-          auth_user_id: authUserId,
           is_verified_phone: false,
         },
         signal,

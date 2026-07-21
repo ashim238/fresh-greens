@@ -96,7 +96,6 @@ const insertRow: CommunityReportInsert = {
   photo_uri: null,
   timestamp: 1_800_000_000_000,
   device_uuid: 'device-a',
-  auth_user_id: 'user-a',
   is_verified_phone: false,
 };
 
@@ -161,7 +160,19 @@ describe('community reports repository', () => {
 
   test.each([
     ['coordinate', { location: { latitude: 'invalid', longitude: -74 } }],
+    ['latitude above range', { location: { latitude: 90.01, longitude: -74 } }],
+    ['latitude below range', { location: { latitude: -90.01, longitude: -74 } }],
+    ['longitude above range', { location: { latitude: 40.7, longitude: 180.01 } }],
+    ['longitude below range', { location: { latitude: 40.7, longitude: -180.01 } }],
+    ['empty id', { id: '   ' }],
     ['category', { category_id: 'not-a-category' }],
+    ['detail', { detail: 42 }],
+    ['sub tag', { sub_tag: false }],
+    ['place name', { place_name: { raw: 'invalid' } }],
+    ['place type', { place_type: ['invalid'] }],
+    ['Google place id', { google_place_id: 101 }],
+    ['submitter', { submitted_by: true }],
+    ['photo URI', { photo_uri: { uri: 'file:///private.jpg' } }],
     ['trust tier', { trust_tier: 'super-user' }],
   ])('rejects a malformed %s without leaking it to domain mapping', async (_label, malformed) => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -170,6 +181,17 @@ describe('community reports repository', () => {
       error: null,
     });
     client.from.mockReturnValue(builder);
+
+    await expect(repository.fetchCommunityReports()).resolves.toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      '[community-reports-repository] invalid public report data',
+    );
+    warn.mockRestore();
+  });
+
+  test('rejects a null response row before community-cloud mapping', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    client.from.mockReturnValue(queryBuilder({ data: [null], error: null }));
 
     await expect(repository.fetchCommunityReports()).resolves.toEqual([]);
     expect(warn).toHaveBeenCalledWith(
@@ -211,11 +233,45 @@ describe('community reports repository', () => {
     ).resolves.toEqual({ ok: true });
 
     expect(client.from).toHaveBeenCalledWith('community_reports');
-    expect(builder.insert).toHaveBeenCalledWith(insertRow);
+    expect(builder.insert).toHaveBeenCalledWith({
+      ...insertRow,
+      auth_user_id: 'user-a',
+    });
     expect(builder.abortSignal).toHaveBeenCalledWith(controller.signal);
+    expect(auth.ensureAnonymous).toHaveBeenCalledTimes(1);
     expect(auth.ensureAnonymous.mock.invocationCallOrder[0]).toBeLessThan(
       client.from.mock.invocationCallOrder[0],
     );
+  });
+
+  test('overwrites a runtime-spoofed auth user id with the captured session user', async () => {
+    const builder = queryBuilder({ data: null, error: null });
+    client.from.mockReturnValue(builder);
+    const spoofedRow = {
+      ...insertRow,
+      auth_user_id: 'spoofed-user',
+    } as unknown as CommunityReportInsert;
+
+    await expect(repository.insertCommunityReport(spoofedRow)).resolves.toEqual({
+      ok: true,
+    });
+
+    expect(builder.insert).toHaveBeenCalledWith({
+      ...insertRow,
+      auth_user_id: 'user-a',
+    });
+  });
+
+  test('fails a configured insert safely when auth returns no session', async () => {
+    auth.ensureAnonymous.mockResolvedValue(null);
+
+    await expect(repository.insertCommunityReport(insertRow)).resolves.toEqual({
+      ok: false,
+      error: 'unknown',
+    });
+
+    expect(auth.ensureAnonymous).toHaveBeenCalledTimes(1);
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   test.each([
@@ -275,9 +331,13 @@ describe('community reports repository', () => {
     );
   });
 
-  test('creates one missing anonymous session and reuses it for the next insert', async () => {
+  test('shares one first anonymous session across concurrent read and insert', async () => {
     let currentSession: Session | null = null;
     const anonymousSession = session('anonymous-a', true);
+    let resolveSignIn!: () => void;
+    const signInReady = new Promise<void>((resolve) => {
+      resolveSignIn = resolve;
+    });
     const authClient = {
       auth: {
         getSession: jest.fn(async () => ({
@@ -285,6 +345,7 @@ describe('community reports repository', () => {
           error: null,
         })),
         signInAnonymously: jest.fn(async () => {
+          await signInReady;
           currentSession = anonymousSession;
           return {
             data: { session: anonymousSession, user: anonymousSession.user },
@@ -295,9 +356,11 @@ describe('community reports repository', () => {
       from: jest.fn(),
       rpc: jest.fn(),
     };
-    authClient.from
-      .mockReturnValueOnce(queryBuilder({ data: [publicRow], error: null }))
-      .mockReturnValueOnce(queryBuilder({ data: null, error: null }));
+    const readBuilder = queryBuilder({ data: [publicRow], error: null });
+    const insertBuilder = queryBuilder({ data: null, error: null });
+    authClient.from.mockImplementation((relation: string) =>
+      relation === 'community_reports_public' ? readBuilder : insertBuilder,
+    );
     const backendAuth = createBackendAuthRepository(
       () => authClient as unknown as SupabaseClient<Database>,
     );
@@ -306,11 +369,24 @@ describe('community reports repository', () => {
       backendAuth,
     );
 
-    await sharedRepository.fetchCommunityReports();
-    await sharedRepository.insertCommunityReport(insertRow);
+    const read = sharedRepository.fetchCommunityReports();
+    const insert = sharedRepository.insertCommunityReport(insertRow);
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(authClient.auth.signInAnonymously).toHaveBeenCalledTimes(1);
+    resolveSignIn();
+
+    await expect(Promise.all([read, insert])).resolves.toEqual([
+      [publicRow],
+      { ok: true },
+    ]);
+    expect(authClient.auth.signInAnonymously).toHaveBeenCalledTimes(1);
     expect(authClient.auth.getSession).toHaveBeenCalledTimes(2);
+    expect(insertBuilder.insert).toHaveBeenCalledWith({
+      ...insertRow,
+      auth_user_id: 'anonymous-a',
+    });
   });
 
   test('reuses an existing permanent session unchanged', async () => {
@@ -415,13 +491,13 @@ describe('community cloud adapter', () => {
     expect(fetchReports).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 
-  test('attributes inserts to the current SDK user and keeps photo files local', async () => {
+  test('passes report data and device UUID while keeping photo files local', async () => {
     await expect(cloud.pushCommunityReportToCloud(secondReport)).resolves.toEqual({
       ok: true,
     });
 
-    expect(ensureAnonymous).toHaveBeenCalledTimes(1);
-    expect(getUserId).toHaveBeenCalledTimes(1);
+    expect(ensureAnonymous).not.toHaveBeenCalled();
+    expect(getUserId).not.toHaveBeenCalled();
     expect(insertReport).toHaveBeenCalledWith(
       {
         id: 'report-second',
@@ -436,7 +512,6 @@ describe('community cloud adapter', () => {
         photo_uri: 'file:///documents/reports/local-only.jpg',
         timestamp: 200,
         device_uuid: 'device-current',
-        auth_user_id: 'current-user',
         is_verified_phone: false,
       },
       expect.any(AbortSignal),
