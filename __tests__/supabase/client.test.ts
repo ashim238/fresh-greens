@@ -12,15 +12,55 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 import * as SecureStore from 'expo-secure-store';
+import type { AppStateStatus } from 'react-native';
 
 import { supabaseAuthStorage } from '../../lib/supabase/auth-storage';
 import {
   readSupabaseEnvironment,
   createConfiguredSupabaseClient,
+  startSupabaseAutoRefresh,
   validateSupabaseAccessToken,
   type StatelessAuthClientFactory,
 } from '../../lib/supabase/client';
 import { createSupabaseTransport } from '../../lib/supabase/transport';
+
+type RefreshClient = {
+  auth: {
+    startAutoRefresh: jest.Mock;
+    stopAutoRefresh: jest.Mock;
+  };
+};
+
+type RefreshAppState = {
+  currentState: AppStateStatus;
+  addEventListener: jest.Mock;
+};
+
+function autoRefreshHarness(initialState: AppStateStatus) {
+  const client: RefreshClient = {
+    auth: {
+      startAutoRefresh: jest.fn(),
+      stopAutoRefresh: jest.fn(),
+    },
+  };
+  let listener: ((state: AppStateStatus) => void) | undefined;
+  const remove = jest.fn();
+  const appState: RefreshAppState = {
+    currentState: initialState,
+    addEventListener: jest.fn((_event, nextListener) => {
+      listener = nextListener;
+      return { remove };
+    }),
+  };
+  const cleanup = startSupabaseAutoRefresh(() => client, appState);
+  return {
+    appState,
+    cleanup,
+    client,
+    emit: (state: AppStateStatus) => listener?.(state),
+    remove,
+  };
+}
 
 describe('Supabase client foundation', () => {
   test('treats a partial environment as unconfigured', () => {
@@ -91,6 +131,36 @@ describe('Supabase client foundation', () => {
       publishableKey: 'sb_publishable_test',
     });
     expect(client.auth).toBeDefined();
+  });
+
+  test('starts token refresh immediately while the app is active', () => {
+    const harness = autoRefreshHarness('active');
+
+    expect(harness.client.auth.startAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(harness.client.auth.stopAutoRefresh).not.toHaveBeenCalled();
+    expect(harness.appState.addEventListener).toHaveBeenCalledWith(
+      'change',
+      expect.any(Function),
+    );
+  });
+
+  test('tracks active and background app-state transitions', () => {
+    const harness = autoRefreshHarness('background');
+
+    expect(harness.client.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    harness.emit('active');
+    expect(harness.client.auth.startAutoRefresh).toHaveBeenCalledTimes(1);
+    harness.emit('inactive');
+    expect(harness.client.auth.stopAutoRefresh).toHaveBeenCalledTimes(2);
+  });
+
+  test('removes the app-state listener and stops refresh during cleanup', () => {
+    const harness = autoRefreshHarness('active');
+
+    harness.cleanup();
+
+    expect(harness.remove).toHaveBeenCalledTimes(1);
+    expect(harness.client.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
   });
 
   test('validates an access token with a fresh non-persisting public client', async () => {

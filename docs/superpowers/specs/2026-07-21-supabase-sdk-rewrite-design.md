@@ -3,8 +3,9 @@
 **Date:** 2026-07-21  
 **Status:** Approved architecture  
 **Scope:** Replace every direct Supabase REST call and the custom token owner
-with one configured `@supabase/supabase-js` client behind Fresh Greens-owned
-repositories and adapters.
+with one persistent configured `@supabase/supabase-js` client behind Fresh
+Greens-owned repositories and adapters. Ephemeral stateless, non-persisting
+auth verifiers are allowed only for captured access-token validation.
 
 ## Context
 
@@ -51,7 +52,7 @@ Screens and hooks
 Fresh Greens repositories and adapters
       |
       v
-One configured Supabase SDK client
+One persistent configured Supabase SDK client
       |
       v
 Auth, database, RPC, storage, and Edge Functions
@@ -67,6 +68,11 @@ Create a lazy singleton client under `lib/supabase/`. It is created only when
 both `EXPO_PUBLIC_SUPABASE_URL` and
 `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are configured. Repositories return their
 existing local-only or unconfigured behavior when no client exists.
+
+Captured access-token validation creates a fresh stateless verifier using the
+same public URL and publishable key. The verifier has persistence, automatic
+refresh, and URL session detection disabled, stores no session, and is not used
+for normal app auth or data access.
 
 The client configuration will:
 
@@ -259,7 +265,8 @@ The code can be completed locally, but end-to-end acceptance also requires:
 
 - No production module performs a direct fetch to a Supabase Auth, REST, RPC,
   Storage, or Functions URL.
-- Exactly one configured Supabase client exists.
+- Exactly one persistent configured Supabase client exists. Ephemeral
+  non-persisting auth verifiers are used only for captured-token validation.
 - Screens and hooks access Supabase only through Fresh Greens repositories or
   adapters.
 - Native Apple sign-in creates or restores a permanent Supabase-backed Fresh

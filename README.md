@@ -12,6 +12,8 @@ Requires Node, npm, and a physical iPhone (the app is iPhone-first; Apple MapKit
 
 Supabase-backed identity, report sync, roles, and moderation are enabled when `.env.local` provides `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Without both values, the app preserves its local-only development behavior. Never place a Supabase service-role key in the app.
 
+The app keeps one persistent configured Supabase client for normal auth and data work. Captured access-token validation creates an ephemeral stateless verifier with persistence and auto-refresh disabled. That verifier validates only the supplied token and stores no session.
+
 Two ways to run, depending on which features you want:
 
 **Expo Go (fast, most of the app)** — works for the core experience: routing, the browse sheet, en-route navigation, safety surfaces, /search, /menu (minus the calendar feature). No native build required.

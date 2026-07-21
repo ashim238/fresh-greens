@@ -11,7 +11,7 @@ Post-`v1.0-thesis` iteration backlog, captured at the end of the thesis push (20
 - `2c534c5` — investigation panels (submitter history, nearby reports, flag breakdown)
 - `c5f4c14` — ~~bulk mode~~ multi-select hide/remove for `/moderation` queue
 
-**SDK rewrite code blocker: resolved.** Auth, Apple identity linking, community reports, roles, moderation, and RPCs now run through Fresh Greens repositories over one configured `@supabase/supabase-js` client. The hand-written Auth/REST session owner is deleted, and `__tests__/supabase/architecture-boundary.test.ts` rejects direct SDK, configured-client, environment, or Supabase service-URL access outside `lib/supabase/`.
+**SDK rewrite code blocker: resolved.** Auth, Apple identity linking, community reports, roles, moderation, and RPCs now run through Fresh Greens repositories over one persistent configured `@supabase/supabase-js` client. Ephemeral stateless verifiers with persistence and auto-refresh disabled are created only for captured access-token validation. The hand-written Auth/REST session owner is deleted, and `__tests__/supabase/architecture-boundary.test.ts` rejects direct SDK, configured-client, environment, or Supabase service-URL access outside `lib/supabase/`.
 
 **Still blocked on external configuration and device acceptance:** permanent Apple bundle/capability setup, Supabase Apple provider configuration, anonymous sign-ins, manual identity linking, current migrations/seed, moderator role bootstrap, EAS environment values, and the real-iPhone identity/RLS/two-device checks. Phone OTP remains a separate optional feature requiring a Supabase SMS provider; M1.2 push notifications keep their own Apple release gate.
 
@@ -442,7 +442,7 @@ Carried over from the old `docs/v2-followups.md` (folded in 2026-05-19). These a
 4. Complete first Apple sign-in on a real iPhone, then assign the resulting permanent Supabase UUID the moderator role.
 5. Verify returning Apple sign-in, persisted-session relaunch, sign-out/sign-in, offline and interrupted auth, two-device report visibility, ownership/RLS, flagging, and moderation.
 
-**Code map:** `lib/supabase/client.ts` (sole configured client), `lib/supabase/auth-repository.ts`, `lib/supabase/community-reports-repository.ts`, `lib/supabase/roles-repository.ts`, `lib/supabase/moderation-repository.ts`, and `lib/api/sources/community-cloud.ts` (product mapping + local retry queue). Photos remain local until a separate Storage bucket, access, retention, and consent contract is approved.
+**Code map:** `lib/supabase/client.ts` (sole persistent configured client plus ephemeral token verifiers), `lib/supabase/auth-repository.ts`, `lib/supabase/community-reports-repository.ts`, `lib/supabase/roles-repository.ts`, `lib/supabase/moderation-repository.ts`, and `lib/api/sources/community-cloud.ts` (product mapping + local retry queue). Photos remain local until a separate Storage bucket, access, retention, and consent contract is approved.
 
 - ~~**Real photo capture in /report**~~ — **stale, shipped (verified 2026-06-02).** `app/report.tsx` uses `expo-image-picker` — `requestCameraPermissionsAsync` + `launchCameraAsync` (camera capture only, copied out of the picker's cache), with a `photoUri` state. Real, not a stub.
 - ~~**Schedule CTA → expo-notifications**~~ — shipped: `scheduleDepartureNotification` fires a real local notification (inline permission request) at the suggested departure.

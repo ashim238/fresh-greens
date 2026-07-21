@@ -91,8 +91,23 @@ export function getSupabaseClient(): SupabaseClient<Database> | null {
   return configuredClient;
 }
 
-export function startSupabaseAutoRefresh(): () => void {
-  const client = getSupabaseClient();
+type AutoRefreshClient = {
+  auth: Pick<
+    SupabaseClient<Database>['auth'],
+    'startAutoRefresh' | 'stopAutoRefresh'
+  >;
+};
+
+type AppStateLifecycle = Pick<
+  typeof AppState,
+  'currentState' | 'addEventListener'
+>;
+
+export function startSupabaseAutoRefresh(
+  readClient: () => AutoRefreshClient | null = getSupabaseClient,
+  appState: AppStateLifecycle = AppState,
+): () => void {
+  const client = readClient();
   if (!client) return () => undefined;
 
   const apply = (state: string) => {
@@ -100,8 +115,8 @@ export function startSupabaseAutoRefresh(): () => void {
     else client.auth.stopAutoRefresh();
   };
 
-  apply(AppState.currentState);
-  const subscription = AppState.addEventListener('change', apply);
+  apply(appState.currentState);
+  const subscription = appState.addEventListener('change', apply);
 
   return () => {
     subscription.remove();

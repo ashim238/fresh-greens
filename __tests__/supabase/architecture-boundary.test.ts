@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
+import { findSupabaseBoundaryViolations } from './architecture-boundary-helpers';
+
 const productionRoots = ['app', 'hooks', 'lib'];
-const supabaseRoot = `${path.join('lib', 'supabase')}${path.sep}`;
 
 function collectTypeScriptFiles(roots: readonly string[]): string[] {
   const visit = (entry: string): string[] => {
@@ -20,24 +21,92 @@ function collectTypeScriptFiles(roots: readonly string[]): string[] {
 
 test('only lib/supabase accesses the SDK client or Supabase connection details', () => {
   const violations = collectTypeScriptFiles(productionRoots).flatMap((file) => {
-    if (file.startsWith(supabaseRoot)) return [];
-
     const source = fs.readFileSync(file, 'utf8');
-    const directSdk = /(?:from\s*|require\(\s*)['"]@supabase\/supabase-js['"]/.test(
-      source,
-    );
-    const directClient = /(?:from\s*|require\(\s*)['"][^'"]*supabase\/client['"]/.test(
-      source,
-    );
-    const directUrl = /\/(?:auth|rest|storage|functions)\/v1\b/.test(source);
-    const directEnvironment = /EXPO_PUBLIC_SUPABASE_(?:URL|PUBLISHABLE_KEY|ANON_KEY)/.test(
-      source,
-    );
-
-    return directSdk || directClient || directUrl || directEnvironment
+    return findSupabaseBoundaryViolations(file, source).length > 0
       ? [file]
       : [];
   });
 
   expect(violations).toEqual([]);
+});
+
+describe('Supabase boundary source classification', () => {
+  test.each([
+    {
+      name: 'dynamic SDK import',
+      file: 'app/bypass.ts',
+      source: "const sdk = import('@supabase/supabase-js');",
+      violation: 'supabase-sdk',
+    },
+    {
+      name: 'dynamic configured-client import',
+      file: 'hooks/bypass.ts',
+      source: "const client = import('../lib/supabase/client');",
+      violation: 'configured-client',
+    },
+    {
+      name: 'unapproved Supabase facade import',
+      file: 'lib/api/bypass.ts',
+      source: "import { backend } from '../supabase/backend-facade';",
+      violation: 'unapproved-supabase-module',
+    },
+    {
+      name: 'forbidden client symbol imported through a facade',
+      file: 'app/bypass.ts',
+      source: "import { getSupabaseClient as backend } from '../lib/backend';",
+      violation: 'forbidden-client-symbol',
+    },
+    {
+      name: 'forbidden client symbol accessed with bracket notation',
+      file: 'app/bypass.ts',
+      source: "const backend = facade['getSupabaseClient']();",
+      violation: 'forbidden-client-symbol',
+    },
+    {
+      name: 'Supabase environment accessed with bracket notation',
+      file: 'lib/api/bypass.ts',
+      source: "const url = process.env['EXPO_PUBLIC_SUPABASE_URL'];",
+      violation: 'environment',
+    },
+    {
+      name: 'configured client re-exported from inside the boundary',
+      file: 'lib/supabase/backend-facade.ts',
+      source: "export { getSupabaseClient as backend } from './client';",
+      violation: 'client-facade',
+    },
+    {
+      name: 'SDK re-exported from inside the boundary',
+      file: 'lib/supabase/sdk-facade.ts',
+      source: "export { createClient as backend } from '@supabase/supabase-js';",
+      violation: 'client-facade',
+    },
+  ])('rejects $name', ({ file, source, violation }) => {
+    expect(findSupabaseBoundaryViolations(file, source)).toContain(violation);
+  });
+
+  test.each([
+    {
+      name: 'product auth repository import',
+      file: 'hooks/use-auth.ts',
+      source:
+        "import { backendAuthRepository } from '../lib/supabase/auth-repository';",
+    },
+    {
+      name: 'SDK import within a repository',
+      file: 'lib/supabase/auth-repository.ts',
+      source: "import type { Session } from '@supabase/supabase-js';",
+    },
+    {
+      name: 'client import within a repository',
+      file: 'lib/supabase/auth-repository.ts',
+      source: "import { getSupabaseClient } from './client';",
+    },
+    {
+      name: 'forbidden text in a comment',
+      file: 'lib/api/example.ts',
+      source: '// EXPO_PUBLIC_SUPABASE_URL is intentionally unavailable here.',
+    },
+  ])('allows $name', ({ file, source }) => {
+    expect(findSupabaseBoundaryViolations(file, source)).toEqual([]);
+  });
 });

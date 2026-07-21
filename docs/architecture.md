@@ -25,7 +25,7 @@ The thesis case turns on whether the architecture demonstrably encodes these cla
 - **expo-location** — permission flow, current location, geocoding.
 - **react-native-safe-area-context** — replaced built-in SafeAreaView (which clobbered horizontal padding).
 - **suncalc** — solar geometry for the daylight gradient.
-- **@supabase/supabase-js** — one configured backend client behind Fresh Greens-owned auth, community-report, role, and moderation repositories.
+- **@supabase/supabase-js:** one persistent configured backend client behind Fresh Greens-owned auth, community-report, role, and moderation repositories, plus ephemeral non-persisting auth verifiers used only for captured-token validation.
 - **@expo/vector-icons** (Ionicons) — pre-installed icon font.
 - **`.npmrc` with `legacy-peer-deps=true`** — Expo's recommended workaround for peer-dep conflicts.
 
@@ -50,7 +50,7 @@ Supabase follows a narrower enforced boundary:
 Screens and hooks
       → Fresh Greens repositories and adapters
       → lib/supabase/*
-      → one configured Supabase SDK client
+      → one persistent configured Supabase SDK client
       → Auth, database, RPC, Storage, and Edge Functions
 ```
 
@@ -61,6 +61,12 @@ that invariant mechanically. Product consumers receive Fresh Greens domain
 types and errors rather than SDK sessions, rows, or response wrappers. Storage
 and Edge Functions have no approved client use yet; future access must enter
 through a repository without widening this boundary.
+
+Captured access-token validation is the narrow exception to the persistent
+singleton. `lib/supabase/client.ts` creates a fresh stateless verifier for each
+validation call with session persistence, URL detection, and auto-refresh
+disabled. It uses the public URL and publishable key, stores nothing, and is not
+available to screens, hooks, or adapters.
 
 ### Why zones exist
 

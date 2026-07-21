@@ -36,10 +36,12 @@ The minimum for strangers to use it on their own phones and *generate real data*
 
 ### M1.1 — Community cloud: stand up + harden  *(the thesis linchpin)*
 The app-side migration is complete: auth, community reports, roles, moderation,
-and RPCs now run through typed repositories over one configured Supabase SDK
-client. Local-first reads and the sync queue remain intact, and an architecture
-test prevents screens, hooks, or non-Supabase libraries from reaching the SDK,
-configured client, environment, or service URLs directly.
+and RPCs now run through typed repositories over one persistent configured
+Supabase SDK client. Ephemeral stateless, non-persisting auth verifiers are
+created only to validate captured access tokens. Local-first reads and the sync
+queue remain intact, and an architecture test prevents screens, hooks, or
+non-Supabase libraries from reaching the SDK, configured client, environment,
+or service URLs directly.
 
 What remains is deployment acceptance rather than another client rewrite:
 - Apply the current migrations and seed to the target Supabase project.

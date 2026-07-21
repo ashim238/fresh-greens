@@ -11,9 +11,11 @@ import {
 
 import {
   BackendAuthError,
+  backendAuthRepository,
   createBackendAuthRepository,
   type AppleIdentityInput,
 } from '../../lib/supabase/auth-repository';
+import { startSupabaseAutoRefresh } from '../../lib/supabase/client';
 import type { Database } from '../../lib/supabase/database.types';
 
 type AuthClient = SupabaseClient<Database>['auth'];
@@ -222,6 +224,60 @@ describe('backend auth repository', () => {
     await expect(repository.hydrate()).resolves.toMatchObject({
       kind: 'authenticated',
     });
+  });
+
+  test('maps an SDK session to the exact product session contract', async () => {
+    const sdkSession = session({ id: 'permanent', is_anonymous: false });
+    sdkSession.access_token = 'captured-access-token';
+    sdkSession.refresh_token = 'must-not-escape';
+    sdkSession.user.email = 'person@example.test';
+    sdkSession.user.user_metadata = {
+      full_name: '  Alice Example  ',
+      raw_profile: 'must-not-escape',
+    };
+    sdkSession.user.app_metadata = {
+      provider: 'apple',
+      raw_role: 'must-not-escape',
+    };
+    sdkSession.user.identities = [{
+      id: 'apple-identity',
+      user_id: 'permanent',
+      identity_id: 'apple-identity-id',
+      provider: 'apple',
+      identity_data: { sub: 'apple-provider-subject' },
+    }];
+    client.auth.getSession.mockResolvedValue({
+      data: { session: sdkSession },
+      error: null,
+    });
+
+    const state = await repository.hydrate();
+
+    expect(state).toEqual({
+      kind: 'authenticated',
+      session: {
+        accessToken: 'captured-access-token',
+        user: {
+          id: 'permanent',
+          email: 'person@example.test',
+          displayName: 'Alice Example',
+          provider: 'apple',
+          identities: [{
+            provider: 'apple',
+            subject: 'apple-provider-subject',
+          }],
+        },
+      },
+    });
+    expect(state).not.toHaveProperty('session.refresh_token');
+    expect(state).not.toHaveProperty('session.user.user_metadata');
+    expect(state).not.toHaveProperty('session.user.app_metadata');
+  });
+
+  test('exposes the real auto-refresh lifecycle through production wiring', () => {
+    expect(backendAuthRepository.startAutoRefresh).toBe(
+      startSupabaseAutoRefresh,
+    );
   });
 
   test('hydrates a missing session as signed out', async () => {
