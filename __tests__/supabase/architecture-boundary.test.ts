@@ -3,7 +3,16 @@ const path = require('path');
 
 import { findSupabaseBoundaryViolations } from './architecture-boundary-helpers';
 
-const productionRoots = ['app', 'hooks', 'lib'];
+// tsconfig.app excludes proxy, node_modules, and coverage. Tests are not
+// production code; types is included because its declarations ship to tsc.
+const productionRoots = [
+  'app',
+  'components',
+  'hooks',
+  'lib',
+  'theme',
+  'types',
+];
 
 function collectTypeScriptFiles(roots: readonly string[]): string[] {
   const visit = (entry: string): string[] => {
@@ -28,6 +37,21 @@ test('only lib/supabase accesses the SDK client or Supabase connection details',
   });
 
   expect(violations).toEqual([]);
+});
+
+test('scans every production TypeScript root and catches component violations', () => {
+  expect(productionRoots).toEqual([
+    'app',
+    'components',
+    'hooks',
+    'lib',
+    'theme',
+    'types',
+  ]);
+  expect(findSupabaseBoundaryViolations(
+    'components/bypass.tsx',
+    "const client = import('../lib/supabase/client');",
+  )).toContain('configured-client');
 });
 
 describe('Supabase boundary source classification', () => {
