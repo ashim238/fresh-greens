@@ -55,16 +55,20 @@ export default function Moderation() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkActing, setBulkActing] = useState(false);
-  const [fetchError, setFetchError] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchQueue = useCallback(async () => {
-    setFetchError(false);
+    setFetchError(null);
     try {
       setReports(await moderationRepository.fetchModerationQueue());
-    } catch {
+    } catch (error) {
       console.warn('[moderation] queue unavailable');
-      setFetchError(true);
+      setFetchError(
+        error instanceof ModerationRepositoryError && error.code === 'rejected'
+          ? 'Could not load queue — try again.'
+          : 'Could not load queue — check connection.',
+      );
     } finally {
       setLoading(false);
     }
@@ -248,7 +252,7 @@ export default function Moderation() {
 
           {!loading && fetchError && (
             <View style={styles.centered}>
-              <Text style={styles.errorText}>Could not load queue — check connection.</Text>
+              <Text style={styles.errorText}>{fetchError}</Text>
               <Pressable
                 onPress={() => { setLoading(true); void fetchQueue(); }}
                 accessibilityRole="button"
@@ -418,6 +422,7 @@ function ReportCard({
   const [showFlags, setShowFlags] = useState(false);
   const [flags, setFlags] = useState<ReportFlag[] | null>(null);
   const [flagsLoading, setFlagsLoading] = useState(false);
+  const [flagsError, setFlagsError] = useState<string | null>(null);
 
   const submitterReports = useMemo(
     () => allReports.filter((r) => r.device_uuid === report.device_uuid && r.id !== report.id),
@@ -447,17 +452,19 @@ function ReportCard({
     if (!showFlags || flags !== null) return;
     let cancelled = false;
     async function fetchFlags() {
+      setFlagsError(null);
       setFlagsLoading(true);
       try {
         const rows = await loadFlags(report.id);
         if (!cancelled) setFlags(rows);
       } catch (error) {
-        if (
-          !cancelled &&
-          (!(error instanceof ModerationRepositoryError) ||
-            error.code !== 'rejected')
-        ) {
-          setFlags([]);
+        if (!cancelled) {
+          setFlagsError(
+            error instanceof ModerationRepositoryError &&
+              error.code === 'rejected'
+              ? 'Could not load flags — try again.'
+              : 'Could not load flags — check connection.',
+          );
         }
       } finally {
         if (!cancelled) setFlagsLoading(false);
@@ -623,6 +630,9 @@ function ReportCard({
             >
               {flagsLoading && (
                 <ActivityIndicator color={colors.wiltedgreen} style={styles.panelLoader} />
+              )}
+              {!flagsLoading && flagsError && (
+                <Text style={styles.panelError}>{flagsError}</Text>
               )}
               {!flagsLoading && flags !== null && flags.length === 0 && (
                 <Text style={styles.panelEmpty}>No flags on this report.</Text>
@@ -1128,6 +1138,11 @@ const styles = StyleSheet.create({
   panelEmpty: {
     ...dynamicType(typography.caption1Regular),
     color: colors.mutedSecondary,
+    paddingVertical: spacing.xs,
+  },
+  panelError: {
+    ...dynamicType(typography.caption1Regular),
+    color: colors.severityCritical,
     paddingVertical: spacing.xs,
   },
   panelLoader: {

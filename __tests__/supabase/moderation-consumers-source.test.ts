@@ -52,6 +52,9 @@ describe('moderation consumer source contracts', () => {
     for (const copy of [
       'No reports to review',
       'Could not load queue — check connection.',
+      'Could not load queue — try again.',
+      'Could not load flags — check connection.',
+      'Could not load flags — try again.',
       'Restore failed — try again.',
       'Restore failed — check connection.',
       'Remove failed — try again.',
@@ -71,12 +74,21 @@ describe('moderation consumer source contracts', () => {
     expect(screenSource).toContain('flags.map((f) => (');
   });
 
-  test('a rejected flag query preserves the legacy unresolved panel state', () => {
+  test('queue and flag errors distinguish rejected from unavailable', () => {
+    const queueLoader = screenSource.slice(
+      screenSource.indexOf('const fetchQueue'),
+      screenSource.indexOf('useEffect', screenSource.indexOf('const fetchQueue')),
+    );
     const flagsLoader = screenSource.slice(
       screenSource.indexOf('async function fetchFlags()'),
       screenSource.indexOf('const { holdProgress', screenSource.indexOf('async function fetchFlags()')),
     );
 
-    expect(flagsLoader.includes("error.code !== 'rejected'")).toBe(true);
+    expect(queueLoader.includes("error.code === 'rejected'")).toBe(true);
+    expect(queueLoader.includes('Could not load queue — try again.')).toBe(true);
+    expect(queueLoader.includes('Could not load queue — check connection.')).toBe(true);
+    expect(flagsLoader.includes("error.code === 'rejected'")).toBe(true);
+    expect(flagsLoader.includes('Could not load flags — try again.')).toBe(true);
+    expect(flagsLoader.includes('Could not load flags — check connection.')).toBe(true);
   });
 });

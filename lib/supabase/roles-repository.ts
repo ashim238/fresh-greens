@@ -32,6 +32,10 @@ function asRepositoryError(error: unknown): RolesRepositoryError {
     : new RolesRepositoryError('unavailable');
 }
 
+function responseError(status: number): RolesRepositoryError {
+  return new RolesRepositoryError(status === 0 ? 'unavailable' : 'rejected');
+}
+
 function isRoleRow(value: unknown, userId: string): boolean {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -47,14 +51,14 @@ export function createRolesRepository(readClient: ClientReader) {
       const client = readClient();
       if (!client) return false;
 
-      const { data, error } = await client
+      const { data, error, status } = await client
         .from('user_roles')
         .select('user_id')
         .eq('user_id', userId)
         .eq('role', 'moderator')
         .limit(1);
 
-      if (error) throw new RolesRepositoryError('rejected');
+      if (error) throw responseError(status);
       if (!Array.isArray(data) || !data.every((row) => isRoleRow(row, userId))) {
         throw new RolesRepositoryError('invalid-data');
       }

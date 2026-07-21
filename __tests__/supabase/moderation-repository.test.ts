@@ -11,6 +11,7 @@ import {
 type QueryResponse<T> = {
   data: T;
   error: { code?: string; message?: string; details?: string } | null;
+  status?: number;
 };
 
 type QueryBuilder<T> = PromiseLike<QueryResponse<T>> & {
@@ -68,13 +69,13 @@ describe('moderation repository', () => {
     from: jest.fn(),
     rpc: jest.fn(),
   };
+  const readClient = jest.fn();
   let repository: ReturnType<typeof createModerationRepository>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    repository = createModerationRepository(
-      () => client as unknown as SupabaseClient<Database>,
-    );
+    readClient.mockReturnValue(client as unknown as SupabaseClient<Database>);
+    repository = createModerationRepository(readClient);
   });
 
   test('orders the moderation queue by hidden state then timestamp', async () => {
@@ -160,6 +161,8 @@ describe('moderation repository', () => {
     ['wrong report', { ...flag, report_id: 'report-b' }],
     ['device UUID', { ...flag, flagger_device_uuid: 3 }],
     ['flagger IP', { ...flag, flagger_ip: false }],
+    ['null flagger IP', { ...flag, flagger_ip: null }],
+    ['blank flagger IP', { ...flag, flagger_ip: '  ' }],
     ['reason', { ...flag, reason: [] }],
     ['reason category', { ...flag, reason_category: '' }],
     ['unknown reason category', { ...flag, reason_category: 'brigading' }],
@@ -192,6 +195,78 @@ describe('moderation repository', () => {
       p_report_id: 'report-b',
       p_reason: 'Removed via moderation queue',
     });
+  });
+
+  test.each(['', '  ', '\n']) (
+    'rejects an invalid flag report id before client access',
+    async (reportId) => {
+      await expect(repository.fetchReportFlags(reportId)).rejects.toEqual(
+        new ModerationRepositoryError('invalid-input'),
+      );
+
+      expect(readClient).not.toHaveBeenCalled();
+      expect(client.from).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    ['restore', '', 'valid reason'],
+    ['restore', 'report-a', '  '],
+    ['remove', '\t', 'valid reason'],
+    ['remove', 'report-a', ''],
+  ] as const)(
+    'rejects invalid %s input before client or RPC access',
+    async (action, id, reason) => {
+      const operation = action === 'restore'
+        ? repository.restoreReport(id, reason)
+        : repository.removeReport(id, reason);
+
+      await expect(operation).rejects.toEqual(
+        new ModerationRepositoryError('invalid-input'),
+      );
+      expect(readClient).not.toHaveBeenCalled();
+      expect(client.rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  test('rejects an unknown bulk action without defaulting to remove', async () => {
+    const runWithRuntimeAction = repository.runBulkModeration as (
+      ids: readonly string[],
+      action: string,
+    ) => Promise<{ failedIds: string[] }>;
+
+    let caught: unknown;
+    try {
+      await runWithRuntimeAction(
+        ['report-dangerous-action-token'],
+        'destroy',
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toEqual(new ModerationRepositoryError('invalid-input'));
+    expect(JSON.stringify(caught)).not.toContain('destroy');
+    expect(JSON.stringify(caught)).not.toContain('dangerous-action-token');
+    expect(readClient).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  test('validates every bulk id before executing any RPC', async () => {
+    let caught: unknown;
+    try {
+      await repository.runBulkModeration(
+        ['report-safe', '  ', 'report-private-input-token'],
+        'remove',
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toEqual(new ModerationRepositoryError('invalid-input'));
+    expect(JSON.stringify(caught)).not.toContain('report-private-input-token');
+    expect(readClient).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   test('returns only failed ids from a bulk remove without leaking failures', async () => {
@@ -269,8 +344,10 @@ describe('moderation repository', () => {
       message: 'raw RLS body synthetic-access-token',
       details: 'private moderation details',
     };
-    client.from.mockReturnValue(queryBuilder({ data: null, error: rawError }));
-    client.rpc.mockResolvedValue({ data: undefined, error: rawError });
+    client.from.mockReturnValue(
+      queryBuilder({ data: null, error: rawError, status: 403 }),
+    );
+    client.rpc.mockResolvedValue({ data: undefined, error: rawError, status: 403 });
 
     let caught: unknown;
     try {
@@ -283,6 +360,36 @@ describe('moderation repository', () => {
     expect(JSON.stringify(caught)).not.toContain('42501');
     expect(JSON.stringify(caught)).not.toContain('synthetic-access-token');
     expect(JSON.stringify(caught)).not.toContain('private moderation details');
+  });
+
+  test.each([
+    ['queue', () => repository.fetchModerationQueue()],
+    ['flags', () => repository.fetchReportFlags('report-a')],
+    ['restore', () => repository.restoreReport('report-a', 'reason')],
+    ['remove', () => repository.removeReport('report-a', 'reason')],
+  ])('maps a resolved status-zero %s failure to unavailable', async (_label, operation) => {
+    const rawError = {
+      code: 'NETWORK_ERROR',
+      message: 'raw offline response synthetic-access-token',
+      details: 'private transport details',
+    };
+    client.from.mockReturnValue(
+      queryBuilder({ data: null, error: rawError, status: 0 }),
+    );
+    client.rpc.mockResolvedValue({ data: undefined, error: rawError, status: 0 });
+
+    let caught: unknown;
+    try {
+      await operation();
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toEqual(new ModerationRepositoryError('unavailable'));
+    expect(JSON.stringify(caught)).not.toContain('NETWORK_ERROR');
+    expect(JSON.stringify(caught)).not.toContain('synthetic-access-token');
+    expect(JSON.stringify(caught)).not.toContain('private transport details');
+    expect(JSON.stringify(caught)).not.toContain('status');
   });
 
   test('redacts thrown transport failures', async () => {

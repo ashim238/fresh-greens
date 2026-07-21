@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { backendAuthRepository } from '../lib/supabase/auth-repository';
 import { rolesRepository } from '../lib/supabase/roles-repository';
@@ -10,23 +10,57 @@ export function useModeratorRole(): {
 } {
   const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
+  const requestToken = useRef(0);
 
-  const check = useCallback(async () => {
+  const checkRole = useCallback(async (userId: string, token: number) => {
     try {
-      const userId = await backendAuthRepository.getUserId();
-      setIsModerator(
-        userId ? await rolesRepository.hasModeratorRole(userId) : false,
-      );
+      const moderator = await rolesRepository.hasModeratorRole(userId);
+      if (requestToken.current === token) setIsModerator(moderator);
     } catch {
-      setIsModerator(false);
+      if (requestToken.current === token) setIsModerator(false);
     } finally {
-      setLoading(false);
+      if (requestToken.current === token) setLoading(false);
     }
   }, []);
 
+  const check = useCallback(async () => {
+    const token = ++requestToken.current;
+    setIsModerator(false);
+    setLoading(true);
+    try {
+      const userId = await backendAuthRepository.getUserId();
+      if (requestToken.current !== token) return;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+      await checkRole(userId, token);
+    } catch {
+      if (requestToken.current === token) {
+        setIsModerator(false);
+        setLoading(false);
+      }
+    }
+  }, [checkRole]);
+
   useEffect(() => {
     void check();
-  }, [check]);
+    const unsubscribe = backendAuthRepository.subscribe((state) => {
+      const token = ++requestToken.current;
+      setIsModerator(false);
+      if (state.kind !== 'authenticated') {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      void checkRole(state.session.user.id, token);
+    });
+
+    return () => {
+      requestToken.current += 1;
+      unsubscribe();
+    };
+  }, [check, checkRole]);
 
   return { isModerator, loading, refresh: check };
 }

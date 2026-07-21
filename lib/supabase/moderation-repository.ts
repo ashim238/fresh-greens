@@ -47,9 +47,8 @@ export type ReportFlag = Omit<
     | 'reason_category'
     | 'created_at'
   >,
-  'flagger_ip' | 'reason_category'
+  'reason_category'
 > & {
-  flagger_ip: string | null;
   reason_category: ReportFlagReasonCategory;
 };
 
@@ -57,13 +56,15 @@ export type ModerationRepositoryErrorCode =
   | 'unconfigured'
   | 'rejected'
   | 'unavailable'
-  | 'invalid-data';
+  | 'invalid-data'
+  | 'invalid-input';
 
 const ERROR_MESSAGES: Record<ModerationRepositoryErrorCode, string> = {
   unconfigured: 'Moderation service is not configured',
   rejected: 'Moderation request was rejected',
   unavailable: 'Moderation service is unavailable',
   'invalid-data': 'Moderation response was invalid',
+  'invalid-input': 'Moderation input was invalid',
 };
 
 const REPORT_CATEGORIES = new Set<CommunityReportCategoryId>([
@@ -97,6 +98,12 @@ function asRepositoryError(error: unknown): ModerationRepositoryError {
   return error instanceof ModerationRepositoryError
     ? error
     : new ModerationRepositoryError('unavailable');
+}
+
+function responseError(status: number): ModerationRepositoryError {
+  return new ModerationRepositoryError(
+    status === 0 ? 'unavailable' : 'rejected',
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -180,7 +187,7 @@ function parseReportFlag(row: unknown, reportId: string): ReportFlag | null {
     !isNonEmptyString(row.id) ||
     row.report_id !== reportId ||
     !isNonEmptyString(row.flagger_device_uuid) ||
-    !isNullableString(row.flagger_ip) ||
+    !isNonEmptyString(row.flagger_ip) ||
     !isNullableString(row.reason) ||
     typeof row.reason_category !== 'string' ||
     !FLAG_REASON_CATEGORIES.has(
@@ -212,13 +219,13 @@ export function createModerationRepository(readClient: ClientReader) {
 
   async function fetchModerationQueue(): Promise<ModerationReport[]> {
     try {
-      const { data, error } = await requireClient()
+      const { data, error, status } = await requireClient()
         .from('community_reports_moderation')
         .select('*')
         .order('hidden_at', { ascending: false, nullsFirst: false })
         .order('timestamp', { ascending: false });
 
-      if (error) throw new ModerationRepositoryError('rejected');
+      if (error) throw responseError(status);
       if (!Array.isArray(data)) {
         throw new ModerationRepositoryError('invalid-data');
       }
@@ -233,8 +240,12 @@ export function createModerationRepository(readClient: ClientReader) {
   }
 
   async function fetchReportFlags(reportId: string): Promise<ReportFlag[]> {
+    if (!isNonEmptyString(reportId)) {
+      throw new ModerationRepositoryError('invalid-input');
+    }
+
     try {
-      const { data, error } = await requireClient()
+      const { data, error, status } = await requireClient()
         .from('report_flags')
         .select(
           'id,report_id,flagger_device_uuid,flagger_ip,reason,reason_category,created_at',
@@ -242,7 +253,7 @@ export function createModerationRepository(readClient: ClientReader) {
         .eq('report_id', reportId)
         .order('created_at', { ascending: false });
 
-      if (error) throw new ModerationRepositoryError('rejected');
+      if (error) throw responseError(status);
       if (!Array.isArray(data)) {
         throw new ModerationRepositoryError('invalid-data');
       }
@@ -257,24 +268,32 @@ export function createModerationRepository(readClient: ClientReader) {
   }
 
   async function restoreReport(id: string, reason: string): Promise<void> {
+    if (!isNonEmptyString(id) || !isNonEmptyString(reason)) {
+      throw new ModerationRepositoryError('invalid-input');
+    }
+
     try {
-      const { error } = await requireClient().rpc('moderator_restore_report', {
+      const { error, status } = await requireClient().rpc('moderator_restore_report', {
         p_report_id: id,
         p_reason: reason,
       });
-      if (error) throw new ModerationRepositoryError('rejected');
+      if (error) throw responseError(status);
     } catch (error) {
       throw asRepositoryError(error);
     }
   }
 
   async function removeReport(id: string, reason: string): Promise<void> {
+    if (!isNonEmptyString(id) || !isNonEmptyString(reason)) {
+      throw new ModerationRepositoryError('invalid-input');
+    }
+
     try {
-      const { error } = await requireClient().rpc('moderator_remove_report', {
+      const { error, status } = await requireClient().rpc('moderator_remove_report', {
         p_report_id: id,
         p_reason: reason,
       });
-      if (error) throw new ModerationRepositoryError('rejected');
+      if (error) throw responseError(status);
     } catch (error) {
       throw asRepositoryError(error);
     }
@@ -284,12 +303,26 @@ export function createModerationRepository(readClient: ClientReader) {
     ids: readonly string[],
     action: 'restore' | 'remove',
   ): Promise<{ failedIds: string[] }> {
+    let moderate: (id: string) => Promise<void>;
+    switch (action) {
+      case 'restore':
+        moderate = (id) =>
+          restoreReport(id, 'Bulk restored via moderation queue');
+        break;
+      case 'remove':
+        moderate = (id) =>
+          removeReport(id, 'Bulk removed via moderation queue');
+        break;
+      default:
+        throw new ModerationRepositoryError('invalid-input');
+    }
+
+    if (!Array.isArray(ids) || !ids.every(isNonEmptyString)) {
+      throw new ModerationRepositoryError('invalid-input');
+    }
+
     const results = await Promise.allSettled(
-      ids.map((id) =>
-        action === 'restore'
-          ? restoreReport(id, 'Bulk restored via moderation queue')
-          : removeReport(id, 'Bulk removed via moderation queue'),
-      ),
+      ids.map(moderate),
     );
     return {
       failedIds: results.flatMap((result, index) =>

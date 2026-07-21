@@ -9,6 +9,7 @@ import type { Database } from '../../lib/supabase/database.types';
 type QueryResponse<T> = {
   data: T;
   error: { code?: string; message?: string; details?: string } | null;
+  status?: number;
 };
 
 type QueryBuilder<T> = PromiseLike<QueryResponse<T>> & {
@@ -94,6 +95,7 @@ describe('roles repository', () => {
           message: 'raw RLS body synthetic-access-token',
           details: 'private role details',
         },
+        status: 403,
       }),
     );
 
@@ -108,6 +110,33 @@ describe('roles repository', () => {
     expect(JSON.stringify(caught)).not.toContain('42501');
     expect(JSON.stringify(caught)).not.toContain('synthetic-access-token');
     expect(JSON.stringify(caught)).not.toContain('private role details');
+  });
+
+  test('maps a resolved status-zero role response to unavailable', async () => {
+    client.from.mockReturnValue(
+      queryBuilder({
+        data: null,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: 'raw offline role response synthetic-access-token',
+          details: 'private role transport details',
+        },
+        status: 0,
+      }),
+    );
+
+    let caught: unknown;
+    try {
+      await repository.hasModeratorRole('user-a');
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toEqual(new RolesRepositoryError('unavailable'));
+    expect(JSON.stringify(caught)).not.toContain('NETWORK_ERROR');
+    expect(JSON.stringify(caught)).not.toContain('synthetic-access-token');
+    expect(JSON.stringify(caught)).not.toContain('private role transport details');
+    expect(JSON.stringify(caught)).not.toContain('status');
   });
 
   test('redacts thrown transport failures', async () => {
