@@ -83,6 +83,37 @@ describe('identity storage', () => {
     });
   });
 
+  test('migrating an empty backend profile preserves all cached Apple fields', async () => {
+    await setStoredUser({
+      id: 'apple-provider-subject',
+      provider: 'apple',
+      displayName: 'Alice Example',
+      email: 'apple-private-relay@example.com',
+      initials: 'AE',
+      avatarUri: 'file:///documents/avatar-a.png',
+      signedInAt: 123,
+    });
+
+    await expect(
+      upsertUser(
+        {
+          id: 'supabase-user',
+          provider: 'apple',
+          displayName: null,
+          email: null,
+        },
+        { migrateFromId: 'apple-provider-subject' },
+      ),
+    ).resolves.toMatchObject({
+      id: 'supabase-user',
+      provider: 'apple',
+      displayName: 'Alice Example',
+      email: 'apple-private-relay@example.com',
+      initials: 'AE',
+      avatarUri: 'file:///documents/avatar-a.png',
+    });
+  });
+
   test('malformed stored JSON fails closed instead of exposing a guest session', async () => {
     asyncStorageState.values.set('fresh-greens.user.v1', '{not-valid-json');
 

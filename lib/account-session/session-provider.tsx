@@ -88,22 +88,47 @@ function backendProvider(session: Session): AuthProvider {
   return provider === 'google' || provider === 'email' ? provider : 'apple';
 }
 
+function appleProviderSubject(session: Session): string | undefined {
+  for (const identity of session.user.identities ?? []) {
+    const subject = identity.identity_data?.sub;
+    if (
+      identity.provider === 'apple' &&
+      typeof subject === 'string' &&
+      subject.trim().length > 0
+    ) {
+      return subject;
+    }
+  }
+  return undefined;
+}
+
 async function profileForBackendSession(
   session: Session,
   storedUser: User | null,
 ): Promise<User> {
   if (storedUser?.id === session.user.id) return storedUser;
-  return upsertUser({
+  const profile = {
     id: session.user.id,
     provider: backendProvider(session),
     displayName: backendDisplayName(session),
     email: session.user.email ?? null,
-  });
+  };
+  const migrateFromId = appleProviderSubject(session);
+  return migrateFromId
+    ? upsertUser(profile, { migrateFromId })
+    : upsertUser(profile);
 }
 
 function isClosedOperation(error: unknown): boolean {
   return error instanceof AccountOperationClosedError;
 }
+
+type BackendAvailability = 'unknown' | 'unconfigured' | 'configured';
+
+type SequencedAuthState = {
+  sequence: number;
+  state: BackendAuthState;
+};
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const [phase, setPhase] = useState<SessionPhase>('hydrating');
@@ -120,7 +145,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const mountedRef = useRef(true);
   const quarantinedRef = useRef(true);
   const appleSignInRef = useRef(false);
-  const authTransitionRef = useRef(false);
+  const backendAvailabilityRef = useRef<BackendAvailability>('unknown');
+  const authSequenceRef = useRef(0);
+  const pendingAuthStateRef = useRef<SequencedAuthState | null>(null);
+  const authTransitionRunningRef = useRef(false);
+  const processAuthQueueRef = useRef<() => void>(() => undefined);
   sessionGenerationRef.current = sessionGeneration;
   phaseRef.current = phase;
   userRef.current = user;
@@ -154,14 +183,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const invalidateAuthQueue = useCallback(() => {
+    authSequenceRef.current += 1;
+    pendingAuthStateRef.current = null;
+  }, []);
+
   const enterQuarantineAndDrain = useCallback(async () => {
     quarantinedRef.current = true;
+    invalidateAuthQueue();
     publishUser(null);
     setFailure(null);
     setSignOutCompletion(null);
     publishPhase('signingOut');
     await drainCurrentOperations();
-  }, [drainCurrentOperations, publishPhase, publishUser]);
+  }, [drainCurrentOperations, invalidateAuthQueue, publishPhase, publishUser]);
 
   const applyPurgeResult = useCallback((result: AccountPurgeResult) => {
     if (result.status === 'failed') {
@@ -185,18 +220,27 @@ export function SessionProvider({ children }: PropsWithChildren) {
     publishPhase('signedOut');
   }, [publishGeneration, publishPhase, publishUser]);
 
-  const openHydratedSession = useCallback((storedUser: User | null) => {
+  const openHydrationGeneration = useCallback(() => {
     const nextGeneration = sessionGenerationRef.current + 1;
     accountOperationGate.open(nextGeneration);
     publishGeneration(nextGeneration);
+    return nextGeneration;
+  }, [publishGeneration]);
+
+  const publishHydratedSession = useCallback((storedUser: User | null) => {
     publishUser(storedUser);
     setFailure(null);
     setSessionError(null);
     setSignOutCompletion(null);
     quarantinedRef.current = false;
     publishPhase(storedUser ? 'authenticated' : 'signedOut');
+  }, [publishPhase, publishUser]);
+
+  const openHydratedSession = useCallback((storedUser: User | null) => {
+    const nextGeneration = openHydrationGeneration();
+    publishHydratedSession(storedUser);
     return nextGeneration;
-  }, [publishGeneration, publishPhase, publishUser]);
+  }, [openHydrationGeneration, publishHydratedSession]);
 
   const advanceOpenSession = useCallback((nextUser: User | null) => {
     const nextGeneration = sessionGenerationRef.current + 1;
@@ -258,6 +302,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const hydrateSession = useCallback(async (preserveSessionError = false) => {
     quarantinedRef.current = true;
+    backendAvailabilityRef.current = 'unknown';
+    invalidateAuthQueue();
     publishPhase('hydrating');
     publishUser(null);
     setFailure(null);
@@ -274,51 +320,69 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const storedUser = await getStoredUser();
     const backendState = await backendAuthRepository.hydrate();
     if (backendState.kind === 'unconfigured') {
+      backendAvailabilityRef.current = 'unconfigured';
       openHydratedSession(storedUser);
       return;
     }
+    backendAvailabilityRef.current = 'configured';
     if (backendState.kind !== 'authenticated') {
       openHydratedSession(null);
       return;
     }
 
-    const hydratedUser = await profileForBackendSession(
-      backendState.session,
-      storedUser,
+    const generation = openHydrationGeneration();
+    const hydratedUser = await accountOperationGate.runCurrent(
+      async (signal) => {
+        const profile = await profileForBackendSession(
+          backendState.session,
+          storedUser,
+        );
+        assertAccountOperationOpen(signal);
+        return profile;
+      },
     );
-    const generation = openHydratedSession(hydratedUser);
+    if (
+      generation !== sessionGenerationRef.current ||
+      !quarantinedRef.current ||
+      !mountedRef.current
+    ) {
+      return;
+    }
+    publishHydratedSession(hydratedUser);
     validateHydratedSession(backendState.session.access_token, generation);
   }, [
     applyPurgeResult,
     drainCurrentOperations,
+    invalidateAuthQueue,
+    openHydrationGeneration,
     openHydratedSession,
+    publishHydratedSession,
     publishPhase,
     publishUser,
     validateHydratedSession,
   ]);
 
-  const transitionFromAuthEvent = useCallback((state: BackendAuthState) => {
-    if (
-      state.kind === 'unconfigured' ||
-      quarantinedRef.current ||
-      authTransitionRef.current ||
-      !mountedRef.current
-    ) {
-      return;
-    }
-    if (state.kind === 'authenticated' && appleSignInRef.current) return;
+  const runAuthTransition = useCallback(async (
+    queued: SequencedAuthState,
+  ) => {
+    const isCurrentSequence = () =>
+      queued.sequence === authSequenceRef.current &&
+      !quarantinedRef.current &&
+      mountedRef.current;
+
+    if (!isCurrentSequence() || queued.state.kind === 'unconfigured') return;
 
     const currentPhase = phaseRef.current;
     const currentUser = userRef.current;
     if (
-      state.kind === 'authenticated' &&
+      queued.state.kind === 'authenticated' &&
       currentPhase === 'authenticated' &&
-      currentUser?.id === state.session.user.id
+      currentUser?.id === queued.state.session.user.id
     ) {
       return;
     }
     if (
-      state.kind !== 'authenticated' &&
+      queued.state.kind !== 'authenticated' &&
       currentPhase === 'signedOut'
     ) {
       return;
@@ -326,79 +390,126 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
     const generation = sessionGenerationRef.current;
     let transitionGeneration = generation;
-    authTransitionRef.current = true;
     publishUser(null);
     publishPhase('hydrating');
+    try {
+      accountOperationGate.seal(generation);
+      const drain = await accountOperationGate.drain(
+        generation,
+        ACCOUNT_OPERATION_DRAIN_TIMEOUT_MS,
+      );
+      if (drain.kind === 'timed-out') {
+        throw new SessionUnavailableError(
+          'Account session change is waiting for an unfinished operation',
+        );
+      }
+      if (
+        generation !== sessionGenerationRef.current ||
+        !isCurrentSequence()
+      ) {
+        return;
+      }
+
+      const nextGeneration = generation + 1;
+      accountOperationGate.open(nextGeneration);
+      transitionGeneration = nextGeneration;
+      publishGeneration(nextGeneration);
+
+      let nextUser: User | null = null;
+      if (queued.state.kind === 'authenticated') {
+        const session = queued.state.session;
+        nextUser = await accountOperationGate.runCurrent(async (signal) => {
+          const storedUser = await getStoredUser();
+          assertAccountOperationOpen(signal);
+          const profile = await profileForBackendSession(
+            session,
+            storedUser,
+          );
+          assertAccountOperationOpen(signal);
+          return profile;
+        });
+      }
+      if (
+        nextGeneration !== sessionGenerationRef.current ||
+        !isCurrentSequence()
+      ) {
+        return;
+      }
+
+      publishUser(nextUser);
+      setFailure(null);
+      setSessionError(null);
+      setSignOutCompletion(null);
+      publishPhase(nextUser ? 'authenticated' : 'signedOut');
+    } catch (error) {
+      if (
+        isClosedOperation(error) ||
+        transitionGeneration !== sessionGenerationRef.current ||
+        !isCurrentSequence()
+      ) {
+        return;
+      }
+      publishUser(null);
+      setSessionError(
+        error instanceof Error ? error : new SessionUnavailableError(),
+      );
+      publishPhase('sessionError');
+    }
+  }, [publishGeneration, publishPhase, publishUser]);
+
+  const processAuthQueue = useCallback(() => {
+    if (
+      authTransitionRunningRef.current ||
+      appleSignInRef.current ||
+      quarantinedRef.current ||
+      !mountedRef.current
+    ) {
+      return;
+    }
+
+    authTransitionRunningRef.current = true;
     void (async () => {
       try {
-        accountOperationGate.seal(generation);
-        const drain = await accountOperationGate.drain(
-          generation,
-          ACCOUNT_OPERATION_DRAIN_TIMEOUT_MS,
-        );
-        if (drain.kind === 'timed-out') {
-          throw new SessionUnavailableError(
-            'Account session change is waiting for an unfinished operation',
-          );
-        }
-        if (
-          generation !== sessionGenerationRef.current ||
-          quarantinedRef.current ||
-          !mountedRef.current
+        while (
+          pendingAuthStateRef.current &&
+          !appleSignInRef.current &&
+          !quarantinedRef.current &&
+          mountedRef.current
         ) {
-          return;
+          const queued = pendingAuthStateRef.current;
+          pendingAuthStateRef.current = null;
+          await runAuthTransition(queued);
         }
-
-        const nextGeneration = generation + 1;
-        accountOperationGate.open(nextGeneration);
-        transitionGeneration = nextGeneration;
-        publishGeneration(nextGeneration);
-
-        let nextUser: User | null = null;
-        if (state.kind === 'authenticated') {
-          nextUser = await accountOperationGate.runCurrent(async (signal) => {
-            const storedUser = await getStoredUser();
-            assertAccountOperationOpen(signal);
-            const profile = await profileForBackendSession(
-              state.session,
-              storedUser,
-            );
-            assertAccountOperationOpen(signal);
-            return profile;
-          });
-        }
-        if (
-          nextGeneration !== sessionGenerationRef.current ||
-          quarantinedRef.current ||
-          !mountedRef.current
-        ) {
-          return;
-        }
-
-        publishUser(nextUser);
-        setFailure(null);
-        setSessionError(null);
-        setSignOutCompletion(null);
-        publishPhase(nextUser ? 'authenticated' : 'signedOut');
-      } catch (error) {
-        if (
-          isClosedOperation(error) ||
-          transitionGeneration !== sessionGenerationRef.current ||
-          quarantinedRef.current ||
-          !mountedRef.current
-        ) {
-          return;
-        }
-        publishUser(null);
-        setSessionError(
-          error instanceof Error ? error : new SessionUnavailableError(),
-        );
-        publishPhase('sessionError');
       } finally {
-        authTransitionRef.current = false;
+        authTransitionRunningRef.current = false;
+        if (
+          pendingAuthStateRef.current &&
+          !appleSignInRef.current &&
+          !quarantinedRef.current &&
+          mountedRef.current
+        ) {
+          processAuthQueueRef.current();
+        }
       }
     })();
-  }, [publishGeneration, publishPhase, publishUser]);
+  }, [runAuthTransition]);
+  processAuthQueueRef.current = processAuthQueue;
+
+  const transitionFromAuthEvent = useCallback((state: BackendAuthState) => {
+    if (
+      state.kind === 'unconfigured' ||
+      quarantinedRef.current ||
+      !mountedRef.current
+    ) {
+      return;
+    }
+
+    backendAvailabilityRef.current = 'configured';
+    const sequence = authSequenceRef.current + 1;
+    authSequenceRef.current = sequence;
+    pendingAuthStateRef.current = { sequence, state };
+    processAuthQueueRef.current();
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -406,10 +517,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const unsubscribe = backendAuthRepository.subscribe(transitionFromAuthEvent);
     return () => {
       mountedRef.current = false;
+      invalidateAuthQueue();
       unsubscribe();
       stopAutoRefresh();
     };
-  }, [transitionFromAuthEvent]);
+  }, [invalidateAuthQueue, transitionFromAuthEvent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -433,6 +545,30 @@ export function SessionProvider({ children }: PropsWithChildren) {
     };
   }, [hydrateSession, publishPhase, publishUser]);
 
+  const reconcileAfterAppleFailure = useCallback(async (
+    generation: number,
+  ) => {
+    try {
+      const backendState = await accountOperationGate.runCurrent(
+        async (signal) => {
+          const state = await backendAuthRepository.hydrate();
+          assertAccountOperationOpen(signal);
+          return state;
+        },
+      );
+      if (
+        generation !== sessionGenerationRef.current ||
+        quarantinedRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+      transitionFromAuthEvent(backendState);
+    } catch {
+      // Preserve the original Apple sign-in error; queued auth events still run.
+    }
+  }, [transitionFromAuthEvent]);
+
   const signInWithApple = useCallback(async () => {
     if (
       phaseRef.current !== 'signedOut' ||
@@ -443,6 +579,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
 
     const generation = sessionGenerationRef.current;
+    let exchangeBegan = false;
     appleSignInRef.current = true;
     try {
       const result = await accountOperationGate.runCurrent(async (signal) => {
@@ -469,6 +606,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
 
         const displayName = appleDisplayName(credential.fullName);
+        exchangeBegan = true;
         const cloudIdentity = await backendAuthRepository.signInWithApple({
           identityToken: credential.identityToken,
           nonce: rawNonce,
@@ -495,29 +633,62 @@ export function SessionProvider({ children }: PropsWithChildren) {
       ) {
         throw new SessionUnavailableError();
       }
-      advanceOpenSession(result.signedInUser);
+      if (!pendingAuthStateRef.current) {
+        advanceOpenSession(result.signedInUser);
+      }
       return {
         user: result.signedInUser,
         wasReturning: result.wasReturning,
       };
+    } catch (error) {
+      if (exchangeBegan) {
+        await reconcileAfterAppleFailure(generation);
+      }
+      throw error;
     } finally {
       appleSignInRef.current = false;
+      processAuthQueueRef.current();
     }
-  }, [advanceOpenSession]);
+  }, [advanceOpenSession, reconcileAfterAppleFailure]);
 
   const signInAsDevUser = useCallback(async () => {
-    if (phaseRef.current !== 'signedOut' || quarantinedRef.current) {
+    if (
+      phaseRef.current !== 'signedOut' ||
+      quarantinedRef.current ||
+      backendAvailabilityRef.current !== 'unconfigured'
+    ) {
       throw new SessionUnavailableError();
     }
     if (!__DEV__) {
       throw new Error('Dev sign-in is only available in development builds');
     }
-    const signedInUser = await upsertUser({
-      id: 'dev-simulator-user',
-      provider: 'apple',
-      displayName: 'Dev User',
-      email: 'dev@localhost',
+    const generation = sessionGenerationRef.current;
+    const signedInUser = await accountOperationGate.runCurrent(async (
+      signal,
+    ) => {
+      if (backendAvailabilityRef.current !== 'unconfigured') {
+        throw new SessionUnavailableError();
+      }
+      const profile = await upsertUser({
+        id: 'dev-simulator-user',
+        provider: 'apple',
+        displayName: 'Dev User',
+        email: 'dev@localhost',
+      });
+      assertAccountOperationOpen(signal);
+      if (backendAvailabilityRef.current !== 'unconfigured') {
+        throw new SessionUnavailableError();
+      }
+      return profile;
     });
+    if (
+      generation !== sessionGenerationRef.current ||
+      phaseRef.current !== 'signedOut' ||
+      quarantinedRef.current ||
+      backendAvailabilityRef.current !== 'unconfigured'
+    ) {
+      throw new SessionUnavailableError();
+    }
     advanceOpenSession(signedInUser);
     return signedInUser;
   }, [advanceOpenSession]);
