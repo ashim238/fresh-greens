@@ -83,7 +83,7 @@ const localSessionStorage = {
 const input: AppleIdentityInput = {
   identityToken: 'synthetic-apple-id-token',
   nonce: 'synthetic-raw-nonce',
-  displayName: 'Myles Ashitey',
+  displayName: 'Test Person',
 };
 
 function user(id: string): User {
@@ -473,7 +473,7 @@ describe('backend auth repository', () => {
     await expect(repository.signInWithApple({
       identityToken: 'apple-id-token',
       nonce: 'raw-nonce',
-      displayName: 'Myles Ashitey',
+      displayName: 'Test Person',
     })).resolves.toMatchObject({ userId: 'permanent', linked: true });
     expect(client.auth.linkIdentity).toHaveBeenCalledWith({
       provider: 'apple',
@@ -481,7 +481,7 @@ describe('backend auth repository', () => {
       nonce: 'raw-nonce',
     });
     expect(client.auth.updateUser).toHaveBeenCalledWith({
-      data: { full_name: 'Myles Ashitey' },
+      data: { full_name: 'Test Person' },
     });
   });
 

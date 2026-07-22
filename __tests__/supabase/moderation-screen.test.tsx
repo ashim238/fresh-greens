@@ -59,7 +59,7 @@ const report: ModerationReport = {
   detail: 'Dark block',
   place_name: 'Corner store',
   place_type: 'store',
-  submitted_by: 'Myles',
+  submitted_by: 'Test User',
   timestamp: 1_800_000_000_000,
   device_uuid: 'device-a',
   auth_user_id: 'user-a',
