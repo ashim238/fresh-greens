@@ -1,7 +1,19 @@
 import {
+  AuthRetryableFetchError,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
+
+import {
   asyncStorageState,
   resetTestHarness,
 } from './test-harness';
+
+jest.mock('../../lib/supabase/auth-repository', () => ({
+  backendAuthRepository: {
+    signOutGlobal: jest.fn(),
+    signOutLocal: jest.fn(),
+  },
+}));
 
 import {
   ACCOUNT_PURGE_MANIFEST,
@@ -15,9 +27,15 @@ import {
 } from '../../lib/account-session/purge-marker';
 import {
   AccountPurgeRemoteError,
+  accountPurgeCoordinator,
   createAccountPurgeCoordinator,
   type AccountPurgeCoordinatorDependencies,
 } from '../../lib/account-session/purge-coordinator';
+import type { Database } from '../../lib/supabase/database.types';
+
+const { backendAuthRepository } = jest.mocked(
+  require('../../lib/supabase/auth-repository'),
+);
 
 const EXPECTED_IDS = [
   'identity.user',
@@ -374,6 +392,58 @@ describe('account purge coordinator', () => {
     expect(identityPurge).toHaveBeenCalledTimes(1);
     expect(clearLocalCloudSession).toHaveBeenCalledTimes(1);
     expect(asyncStorageState.values.has(PENDING_ACCOUNT_PURGE_KEY)).toBe(false);
+  });
+
+  test('keeps finish-on-device available after a retryable SDK failure', async () => {
+    backendAuthRepository.signOutGlobal.mockResolvedValue({
+      kind: 'retryable',
+      reason: 'network',
+    });
+    backendAuthRepository.signOutLocal.mockResolvedValue(undefined);
+
+    await expect(accountPurgeCoordinator.begin()).resolves.toMatchObject({
+      status: 'failed',
+    });
+    await expect(accountPurgeCoordinator.finishOnDevice()).resolves.toMatchObject({
+      status: 'completed-locally',
+    });
+
+    expect(backendAuthRepository.signOutGlobal).toHaveBeenCalledTimes(1);
+    expect(backendAuthRepository.signOutLocal).toHaveBeenCalledTimes(1);
+  });
+
+  test('completes purge when an SDK-shaped offline local sign-out meets its storage postcondition', async () => {
+    const { createBackendAuthRepository } = jest.requireActual(
+      '../../lib/supabase/auth-repository',
+    ) as typeof import('../../lib/supabase/auth-repository');
+    const sdkSignOut = jest.fn(async () => ({
+      error: new AuthRetryableFetchError('offline', 0),
+    }));
+    const ensureCleared = jest.fn(async () => undefined);
+    const authRepository = createBackendAuthRepository(
+      () => ({ auth: { signOut: sdkSignOut } }) as unknown as SupabaseClient<Database>,
+      async () => null,
+      {
+        ensureCleared,
+        clearIfAccessTokenMatches: async () => 'absent',
+      },
+    );
+    const coordinator = createAccountPurgeCoordinator(
+      coordinatorDependencies(
+        [
+          entry('identity.user', 'identity', async () => undefined),
+          entry('auth.supabase', 'remote', async () => undefined),
+        ],
+        { clearLocalCloudSession: authRepository.signOutLocal },
+      ),
+    );
+
+    await expect(coordinator.begin()).resolves.toEqual({
+      status: 'completed',
+      failures: [],
+    });
+    expect(sdkSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(ensureCleared).toHaveBeenCalledTimes(1);
   });
 
   test('does not allow local finish after a non-retryable remote failure', async () => {

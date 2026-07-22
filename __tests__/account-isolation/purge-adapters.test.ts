@@ -5,6 +5,30 @@ import {
   resetTestHarness,
 } from './test-harness';
 
+jest.mock('../../lib/supabase/auth-repository', () => ({
+  backendAuthRepository: {
+    signOutGlobal: jest.fn(),
+    signOutLocal: jest.fn(),
+  },
+}));
+
+const { backendAuthRepository } = jest.mocked(
+  require('../../lib/supabase/auth-repository'),
+);
+const AsyncStorage = require(
+  '@react-native-async-storage/async-storage',
+).default as typeof import('@react-native-async-storage/async-storage').default;
+const SecureStore = require(
+  'expo-secure-store',
+) as typeof import('expo-secure-store');
+const {
+  ACCOUNT_PURGE_MANIFEST,
+  AccountPurgeRemoteError,
+} = require('../../lib/account-session/purge-manifest') as typeof import('../../lib/account-session/purge-manifest');
+const {
+  retireLegacySupabaseSession,
+} = require('../../lib/supabase/legacy-session') as typeof import('../../lib/supabase/legacy-session');
+
 const {
   purgeRecentSearchesForAccount,
 } = require('../../lib/api/recent-searches') as typeof import('../../lib/api/recent-searches');
@@ -74,6 +98,56 @@ describe('account isolation purge adapters', () => {
 
   afterEach(() => {
     resetTestHarness();
+  });
+
+  test('accepts terminal SDK sign-out before identity deletion', async () => {
+    backendAuthRepository.signOutGlobal.mockResolvedValue({
+      kind: 'terminal',
+      reason: 'signed-out',
+    });
+    const authPurgeEntry = ACCOUNT_PURGE_MANIFEST.find(
+      ({ id }) => id === 'auth.supabase',
+    );
+
+    await expect(authPurgeEntry?.purge()).resolves.toBeUndefined();
+    expect(backendAuthRepository.signOutGlobal).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ['network', true],
+    ['unexpected-client', false],
+  ] as const)(
+    'maps SDK %s sign-out without exposing SDK error details',
+    async (reason, retryable) => {
+      backendAuthRepository.signOutGlobal.mockResolvedValue(
+        retryable
+          ? { kind: 'retryable', reason }
+          : { kind: 'required-failure', reason },
+      );
+      const authPurgeEntry = ACCOUNT_PURGE_MANIFEST.find(
+        ({ id }) => id === 'auth.supabase',
+      );
+
+      await expect(authPurgeEntry?.purge()).rejects.toMatchObject({
+        name: AccountPurgeRemoteError.name,
+        message: 'The online session could not be confirmed as closed',
+        reason,
+        retryable,
+      });
+    },
+  );
+
+  test('deletes both legacy custom-session keys without parsing tokens', async () => {
+    await retireLegacySupabaseSession();
+
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
+      'fresh-greens.supabase-session.v2',
+    );
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
+      'fresh-greens.supabase-session.v1',
+    );
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
+    expect(AsyncStorage.getItem).not.toHaveBeenCalled();
   });
 
   test.each([

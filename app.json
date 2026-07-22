@@ -20,7 +20,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSCalendarsUsageDescription": "Fresh Greens reads your upcoming events to offer them as safe-routed destinations. It never edits your calendar."
       },
-      "bundleIdentifier": "com.anonymous.fresh-greens"
+      "bundleIdentifier": "com.freshgreens.navigation"
     },
     "android": {
       "adaptiveIcon": {
@@ -75,6 +75,7 @@
         }
       ],
       "expo-font",
+      "expo-apple-authentication",
       "expo-secure-store"
     ]
   }

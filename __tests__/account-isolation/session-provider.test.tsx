@@ -7,16 +7,30 @@ import {
 } from './test-harness';
 import {
   SessionProvider,
+  SessionUnavailableError,
   useSession,
 } from '../../lib/account-session/session-provider';
 import type { AccountPurgeResult } from '../../lib/account-session/purge-coordinator';
 import type { User } from '../../lib/api/user';
+import type {
+  BackendAuthState,
+  BackendSession,
+  BackendSessionValidation,
+} from '../../lib/supabase/auth-repository';
 
 jest.mock('expo-apple-authentication', () => ({
   signInAsync: jest.fn(),
   AppleAuthenticationScope: {
     FULL_NAME: 'FULL_NAME',
     EMAIL: 'EMAIL',
+  },
+}));
+
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(),
+  digestStringAsync: jest.fn(),
+  CryptoDigestAlgorithm: {
+    SHA256: 'SHA-256',
   },
 }));
 
@@ -32,26 +46,34 @@ jest.mock('../../lib/account-session/purge-coordinator', () => ({
   },
 }));
 
-jest.mock('../../lib/account-session/operation-gate', () => ({
-  accountOperationGate: {
-    seal: jest.fn(),
-    drain: jest.fn(),
-    open: jest.fn(),
-    advanceOpenGeneration: jest.fn(),
-    runCurrent: jest.fn((operation) =>
-      operation(new AbortController().signal),
-    ),
+jest.mock('../../lib/account-session/operation-gate', () => {
+  const actual = jest.requireActual('../../lib/account-session/operation-gate');
+  return {
+    ...actual,
+    accountOperationGate: {
+      seal: jest.fn(),
+      drain: jest.fn(),
+      open: jest.fn(),
+      advanceOpenGeneration: jest.fn(),
+      runCurrent: jest.fn(),
+    },
+  };
+});
+
+jest.mock('../../lib/supabase/auth-repository', () => ({
+  backendAuthRepository: {
+    hydrate: jest.fn(),
+    validateCurrentUser: jest.fn(),
+    signInWithApple: jest.fn(),
+    subscribe: jest.fn(),
+    signOutLocal: jest.fn(),
+    clearLocalSessionIfCurrent: jest.fn(),
+    startAutoRefresh: jest.fn(),
   },
-  assertAccountOperationOpen: jest.fn(),
 }));
 
-jest.mock('../../lib/cloud-session', () => ({
-  supabaseCloudSessionOwner: {
-    hydrateLocalSession: jest.fn(),
-    ensureSession: jest.fn(),
-    revokeCurrentSession: jest.fn(),
-    clearLocalSession: jest.fn(),
-  },
+jest.mock('../../lib/supabase/legacy-session', () => ({
+  retireLegacySupabaseSession: jest.fn(),
 }));
 
 jest.mock('../../lib/api/user', () => ({
@@ -63,19 +85,28 @@ jest.mock('../../lib/api/user', () => ({
 const AppleAuthentication = jest.mocked(
   require('expo-apple-authentication'),
 );
+const Crypto = jest.mocked(require('expo-crypto'));
 const { readPendingAccountPurge } = jest.mocked(
   require('../../lib/account-session/purge-marker'),
 );
 const { accountPurgeCoordinator } = jest.mocked(
   require('../../lib/account-session/purge-coordinator'),
 );
-const { supabaseCloudSessionOwner } = jest.mocked(
-  require('../../lib/cloud-session'),
-);
-const { accountOperationGate } = jest.mocked(
+const operationGateModule = jest.mocked(
   require('../../lib/account-session/operation-gate'),
 );
+const { accountOperationGate } = operationGateModule;
+const { backendAuthRepository } = jest.mocked(
+  require('../../lib/supabase/auth-repository'),
+);
+const { retireLegacySupabaseSession } = jest.mocked(
+  require('../../lib/supabase/legacy-session'),
+);
 const userApi = jest.mocked(require('../../lib/api/user'));
+
+type AppleAuthResult = NonNullable<
+  Awaited<ReturnType<typeof backendAuthRepository.signInWithApple>>
+>;
 
 const USER: User = {
   id: 'user-a',
@@ -87,22 +118,104 @@ const USER: User = {
   signedInAt: 123,
 };
 
+const APPLE_SUBJECT_USER: User = {
+  ...USER,
+  id: 'apple-provider-subject',
+  avatarUri: 'file:///documents/apple-avatar.png',
+};
+
+const CANONICAL_USER: User = {
+  ...APPLE_SUBJECT_USER,
+  id: 'supabase-user',
+  email: 'a@example.com',
+  signedInAt: 456,
+};
+
+const USER_B: User = {
+  ...USER,
+  id: 'user-b',
+  displayName: 'Backend User',
+  email: 'user-b@example.com',
+  initials: 'BU',
+};
+
+const USER_C: User = {
+  ...USER,
+  id: 'user-c',
+  displayName: 'Current User',
+  email: 'user-c@example.com',
+  initials: 'CU',
+};
+
+const DEV_USER: User = {
+  ...USER,
+  id: 'dev-simulator-user',
+  displayName: 'Dev User',
+  email: 'dev@localhost',
+  initials: 'DU',
+};
+
+function supabaseSession(
+  overrides: {
+    id?: string;
+    is_anonymous?: boolean;
+    email?: string | null;
+    fullName?: string | null;
+    accessToken?: string;
+    appleSubject?: string | null;
+    identityProvider?: string;
+  } = {},
+): BackendSession {
+  const id = overrides.id ?? 'user-a';
+  return {
+    accessToken: overrides.accessToken ?? 'hydrated-access-token',
+    user: {
+      id,
+      provider: 'apple',
+      displayName: overrides.fullName ?? null,
+      email: overrides.email === undefined
+        ? `${id}@example.com`
+        : overrides.email,
+      identities: overrides.appleSubject === undefined
+        ? []
+        : [{
+            provider: overrides.identityProvider ?? 'apple',
+            subject: overrides.appleSubject,
+          }],
+    },
+  };
+}
+
 function wrapper({ children }: PropsWithChildren) {
   return <SessionProvider>{children}</SessionProvider>;
 }
 
 describe('SessionProvider', () => {
+  let authListener: ((state: BackendAuthState) => void) | undefined;
+  let autoRefreshCleanup: jest.Mock;
+  let authUnsubscribe: jest.Mock;
+  let gateOpen: boolean;
+  let gateControllers: Set<AbortController>;
+
   beforeEach(() => {
     resetTestHarness();
     jest.clearAllMocks();
+    gateOpen = true;
+    gateControllers = new Set();
+    autoRefreshCleanup = jest.fn();
+    authUnsubscribe = jest.fn();
+    authListener = undefined;
+
     readPendingAccountPurge.mockResolvedValue(null);
     userApi.getStoredUser.mockResolvedValue(null);
     userApi.upsertUser.mockResolvedValue(USER);
     userApi.updateStoredUserProfile.mockResolvedValue(USER);
-    accountPurgeCoordinator.begin.mockResolvedValue({
-      status: 'completed',
-      failures: [],
-    });
+    accountPurgeCoordinator.begin.mockImplementation(
+      async (onQuarantined?: () => void | Promise<void>) => {
+        await onQuarantined?.();
+        return { status: 'completed', failures: [] };
+      },
+    );
     accountPurgeCoordinator.recover.mockResolvedValue({
       status: 'completed',
       failures: [],
@@ -111,18 +224,67 @@ describe('SessionProvider', () => {
       status: 'completed-locally',
       failures: [],
     });
-    accountOperationGate.drain.mockResolvedValue({ kind: 'drained' });
-    supabaseCloudSessionOwner.hydrateLocalSession.mockResolvedValue({
-      kind: 'missing',
+
+    accountOperationGate.seal.mockImplementation(() => {
+      gateOpen = false;
+      for (const controller of gateControllers) controller.abort();
     });
-    supabaseCloudSessionOwner.ensureSession.mockResolvedValue(undefined);
+    accountOperationGate.drain.mockResolvedValue({ kind: 'drained' });
+    accountOperationGate.open.mockImplementation(() => {
+      gateOpen = true;
+    });
+    accountOperationGate.advanceOpenGeneration.mockImplementation(() => {
+      gateOpen = true;
+    });
+    accountOperationGate.runCurrent.mockImplementation(async (
+      operation: (signal: AbortSignal) => Promise<unknown>,
+    ) => {
+      if (!gateOpen) {
+        throw new operationGateModule.AccountOperationClosedError();
+      }
+      const controller = new AbortController();
+      gateControllers.add(controller);
+      try {
+        return await operation(controller.signal);
+      } finally {
+        gateControllers.delete(controller);
+      }
+    });
+
+    backendAuthRepository.hydrate.mockResolvedValue({ kind: 'unconfigured' });
+    backendAuthRepository.validateCurrentUser.mockResolvedValue('valid');
+    backendAuthRepository.signInWithApple.mockResolvedValue(null);
+    backendAuthRepository.signOutLocal.mockResolvedValue(undefined);
+    backendAuthRepository.clearLocalSessionIfCurrent.mockResolvedValue(
+      'cleared',
+    );
+    backendAuthRepository.subscribe.mockImplementation((
+      listener: (state: BackendAuthState) => void,
+    ) => {
+      authListener = listener;
+      return authUnsubscribe;
+    });
+    backendAuthRepository.startAutoRefresh.mockReturnValue(autoRefreshCleanup);
+    retireLegacySupabaseSession.mockResolvedValue(undefined);
+
+    Crypto.randomUUID.mockReturnValue('synthetic-raw-nonce');
+    Crypto.digestStringAsync.mockResolvedValue('synthetic-hashed-nonce');
+    AppleAuthentication.signInAsync.mockResolvedValue({
+      user: 'apple-provider-subject',
+      identityToken: 'synthetic-apple-id-token',
+      authorizationCode: null,
+      email: 'apple@example.com',
+      fullName: { givenName: 'Alice', familyName: 'Example' },
+      realUserStatus: 1,
+      state: null,
+    });
   });
 
   afterEach(() => {
     resetTestHarness();
   });
 
-  test('checks purge recovery before hydrating an authenticated user', async () => {
+  test('checks purge recovery before hydrating either identity store', async () => {
     const order: string[] = [];
     const markerRead = deferred<null>();
     readPendingAccountPurge.mockImplementation(() => {
@@ -132,6 +294,13 @@ describe('SessionProvider', () => {
     userApi.getStoredUser.mockImplementation(async () => {
       order.push('user');
       return USER;
+    });
+    backendAuthRepository.hydrate.mockImplementation(async () => {
+      order.push('backend');
+      return { kind: 'unconfigured' };
+    });
+    retireLegacySupabaseSession.mockImplementation(async () => {
+      order.push('legacy');
     });
 
     const { result } = await renderHook(() => useSession(), { wrapper });
@@ -143,11 +312,23 @@ describe('SessionProvider', () => {
     });
     await waitFor(() => expect(result.current.phase).toBe('authenticated'));
 
-    expect(order).toEqual(['marker', 'user']);
+    expect(order).toEqual(['marker', 'legacy', 'user', 'backend']);
+    expect(retireLegacySupabaseSession).toHaveBeenCalledTimes(1);
     expect(result.current.user).toEqual(USER);
-    await waitFor(() =>
-      expect(supabaseCloudSessionOwner.ensureSession).toHaveBeenCalledTimes(1),
+  });
+
+  test('fails closed before SDK hydration when legacy retirement fails', async () => {
+    retireLegacySupabaseSession.mockRejectedValue(
+      new Error('legacy deletion failed'),
     );
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('sessionError'));
+    expect(result.current.user).toBeNull();
+    expect(result.current.sessionError).toBeInstanceOf(Error);
+    expect(userApi.getStoredUser).not.toHaveBeenCalled();
+    expect(backendAuthRepository.hydrate).not.toHaveBeenCalled();
   });
 
   test('quarantines and recovers an interrupted purge before reading a user', async () => {
@@ -164,15 +345,15 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(result.current.phase).toBe('signingOut'));
     expect(accountOperationGate.seal).toHaveBeenCalledWith(0);
     expect(accountOperationGate.drain).toHaveBeenCalledWith(0, 2_000);
+    expect(retireLegacySupabaseSession).not.toHaveBeenCalled();
     expect(userApi.getStoredUser).not.toHaveBeenCalled();
-    expect(supabaseCloudSessionOwner.ensureSession).not.toHaveBeenCalled();
+    expect(backendAuthRepository.hydrate).not.toHaveBeenCalled();
 
     await act(async () => {
       recovery.resolve({ status: 'completed', failures: [] });
       await recovery.promise;
     });
     await waitFor(() => expect(result.current.phase).toBe('signedOut'));
-    expect(result.current.user).toBeNull();
     expect(result.current.signOutCompletion).toBe('confirmed');
     expect(accountOperationGate.open).toHaveBeenCalledWith(1);
   });
@@ -185,25 +366,6 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(result.current.phase).toBe('sessionError'));
     expect(result.current.user).toBeNull();
     expect(result.current.sessionError).toBeInstanceOf(Error);
-    expect(supabaseCloudSessionOwner.ensureSession).not.toHaveBeenCalled();
-  });
-
-  test('purges an orphaned cloud session before exposing guest sign-in', async () => {
-    supabaseCloudSessionOwner.hydrateLocalSession.mockResolvedValue({
-      kind: 'found',
-    });
-    accountPurgeCoordinator.begin.mockImplementation(
-      async (onQuarantined?: () => void | Promise<void>) => {
-        await onQuarantined?.();
-        return { status: 'completed', failures: [] };
-      },
-    );
-
-    const { result } = await renderHook(() => useSession(), { wrapper });
-
-    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
-    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
-    expect(result.current.signOutCompletion).toBe('confirmed');
   });
 
   test('does not quarantine when the coordinator cannot write its marker', async () => {
@@ -222,7 +384,7 @@ describe('SessionProvider', () => {
     expect(result.current.user).toEqual(USER);
   });
 
-  test('closes the authenticated state as soon as quarantine is durable', async () => {
+  test('keeps cleanup failures quarantined after the marker is durable', async () => {
     const completion = deferred<AccountPurgeResult>();
     userApi.getStoredUser.mockResolvedValue(USER);
     accountPurgeCoordinator.begin.mockImplementation(
@@ -235,9 +397,8 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(result.current.phase).toBe('authenticated'));
 
     let signOut!: Promise<void>;
-    await act(async () => {
+    await act(() => {
       signOut = result.current.beginSignOut();
-      await Promise.resolve();
     });
     await waitFor(() => expect(result.current.phase).toBe('signingOut'));
 
@@ -257,6 +418,7 @@ describe('SessionProvider', () => {
     });
 
     expect(result.current.phase).toBe('cleanupFailed');
+    expect(result.current.user).toBeNull();
     expect(result.current.failure).toEqual({
       failures: [
         {
@@ -268,6 +430,791 @@ describe('SessionProvider', () => {
       ],
       canFinishOnDevice: false,
     });
+  });
+
+  test('keeps an anonymous backend session in the signed-out app phase', async () => {
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'anonymous',
+      session: supabaseSession({ is_anonymous: true }),
+    });
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(result.current.user).toBeNull();
+    expect(accountPurgeCoordinator.begin).not.toHaveBeenCalled();
+  });
+
+  test('purges a stored account when the configured backend is signed out', async () => {
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({ kind: 'signed-out' });
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(result.current.user).toBeNull();
+    expect(userApi.upsertUser).not.toHaveBeenCalled();
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+  });
+
+  test('reconciles the newest auth event buffered during SDK hydration', async () => {
+    const hydration = deferred<BackendAuthState>();
+    backendAuthRepository.hydrate.mockReturnValue(hydration.promise);
+    userApi.upsertUser.mockResolvedValue(USER_C);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(backendAuthRepository.hydrate).toHaveBeenCalled());
+
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-c' }),
+      });
+    });
+    await act(async () => {
+      hydration.resolve({ kind: 'signed-out' });
+      await hydration.promise;
+    });
+
+    await waitFor(() => expect(result.current.user?.id).toBe('user-c'));
+    expect(result.current.phase).toBe('authenticated');
+    expect(userApi.upsertUser).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-c' }),
+    );
+    expect(userApi.upsertUser).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-b' }),
+    );
+  });
+
+  test('purges instead of publishing a different event received during profile hydration', async () => {
+    const profileWrite = deferred<User>();
+    const observedUserIds: Array<string | null> = [];
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession({ id: 'user-a' }),
+    });
+    userApi.upsertUser.mockReturnValue(profileWrite.promise);
+    const { result } = await renderHook(() => {
+      const session = useSession();
+      observedUserIds.push(session.user?.id ?? null);
+      return session;
+    }, { wrapper });
+    await waitFor(() => expect(userApi.upsertUser).toHaveBeenCalledTimes(1));
+
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+    });
+    await act(async () => {
+      profileWrite.resolve(USER);
+      await profileWrite.promise;
+    });
+
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+    expect(observedUserIds).not.toContain('user-a');
+    expect(observedUserIds).not.toContain('user-b');
+  });
+
+  test('reconstructs a missing local profile from a permanent backend session', async () => {
+    const reconstructed = {
+      ...USER,
+      id: 'supabase-user',
+      displayName: 'Supabase Person',
+      email: 'supabase@example.com',
+      initials: 'SP',
+    };
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession({
+        id: 'supabase-user',
+        fullName: 'Supabase Person',
+        email: 'supabase@example.com',
+      }),
+    });
+    userApi.upsertUser.mockResolvedValue(reconstructed);
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+    expect(userApi.upsertUser).toHaveBeenCalledWith({
+      id: 'supabase-user',
+      provider: 'apple',
+      displayName: 'Supabase Person',
+      email: 'supabase@example.com',
+    });
+    expect(result.current.user).toEqual(reconstructed);
+  });
+
+  test('purges instead of hydrating a backend UUID that differs from stored ownership', async () => {
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession({ id: 'user-b' }),
+    });
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(result.current.user).toBeNull();
+    expect(userApi.upsertUser).not.toHaveBeenCalled();
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+  });
+
+  test('migrates a cached Apple profile from the verified hydration identity subject', async () => {
+    const migratedUser = {
+      ...APPLE_SUBJECT_USER,
+      id: 'supabase-user',
+      signedInAt: 456,
+    };
+    userApi.getStoredUser.mockResolvedValue(APPLE_SUBJECT_USER);
+    userApi.upsertUser.mockResolvedValue(migratedUser);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession({
+        id: 'supabase-user',
+        email: null,
+        fullName: null,
+        appleSubject: 'apple-provider-subject',
+      }),
+    });
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+    expect(userApi.upsertUser).toHaveBeenCalledWith(
+      {
+        id: 'supabase-user',
+        provider: 'apple',
+        displayName: null,
+        email: null,
+      },
+      { migrateFromId: 'apple-provider-subject' },
+    );
+    expect(
+      accountOperationGate.runCurrent.mock.invocationCallOrder[0],
+    ).toBeLessThan(userApi.upsertUser.mock.invocationCallOrder[0]);
+    expect(result.current.user).toMatchObject({
+      id: 'supabase-user',
+      displayName: 'Alice Example',
+      email: 'alice@example.com',
+      avatarUri: 'file:///documents/apple-avatar.png',
+    });
+  });
+
+  test('purges instead of migrating a cached profile from provider name alone', async () => {
+    userApi.getStoredUser.mockResolvedValue(APPLE_SUBJECT_USER);
+    userApi.upsertUser.mockResolvedValue(CANONICAL_USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession({
+        id: 'supabase-user',
+        email: null,
+        fullName: null,
+        appleSubject: 'apple-provider-subject',
+        identityProvider: 'google',
+      }),
+    });
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(userApi.upsertUser).not.toHaveBeenCalled();
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps an offline permanent session after validation is unavailable', async () => {
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession({ accessToken: 'captured-access-token' }),
+    });
+    backendAuthRepository.validateCurrentUser.mockResolvedValue('unavailable');
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+    await waitFor(() =>
+      expect(backendAuthRepository.validateCurrentUser).toHaveBeenCalledWith(
+        'captured-access-token',
+      ),
+    );
+    expect(result.current.user).toEqual(USER);
+    expect(backendAuthRepository.signOutLocal).not.toHaveBeenCalled();
+  });
+
+  test('signs out a permanent session only after confirmed-invalid validation', async () => {
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession(),
+    });
+    backendAuthRepository.validateCurrentUser.mockResolvedValue('invalid');
+
+    const { result } = await renderHook(() => useSession(), { wrapper });
+
+    await waitFor(() =>
+      expect(
+        backendAuthRepository.clearLocalSessionIfCurrent,
+      ).toHaveBeenCalledWith('hydrated-access-token'),
+    );
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(result.current.user).toBeNull();
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+    expect(backendAuthRepository.signOutLocal).not.toHaveBeenCalled();
+  });
+
+  test('does not clear or purge when stale-token validation sees a newer session', async () => {
+    const validation = deferred<BackendSessionValidation>();
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession({ accessToken: 'captured-access-token' }),
+    });
+    backendAuthRepository.validateCurrentUser.mockReturnValue(validation.promise);
+    backendAuthRepository.clearLocalSessionIfCurrent.mockResolvedValue('changed');
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+
+    await act(async () => {
+      validation.resolve('invalid');
+      await validation.promise;
+    });
+    await waitFor(() =>
+      expect(
+        backendAuthRepository.clearLocalSessionIfCurrent,
+      ).toHaveBeenCalledWith('captured-access-token'),
+    );
+
+    expect(result.current.phase).toBe('authenticated');
+    expect(result.current.user?.id).toBe('user-a');
+    expect(accountPurgeCoordinator.begin).not.toHaveBeenCalled();
+    expect(backendAuthRepository.signOutLocal).not.toHaveBeenCalled();
+  });
+
+  test('does not authenticate locally until Apple is persisted by Supabase', async () => {
+    const exchange = deferred<AppleAuthResult>();
+    userApi.getStoredUser
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(APPLE_SUBJECT_USER);
+    userApi.upsertUser.mockResolvedValue(CANONICAL_USER);
+    backendAuthRepository.signInWithApple.mockReturnValue(exchange.promise);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    let pending!: Promise<unknown>;
+    await act(() => {
+      pending = result.current.signInWithApple();
+    });
+    await waitFor(() =>
+      expect(backendAuthRepository.signInWithApple).toHaveBeenCalledTimes(1),
+    );
+
+    expect(result.current.phase).toBe('signedOut');
+    expect(userApi.upsertUser).not.toHaveBeenCalled();
+
+    exchange.resolve({
+      userId: 'supabase-user',
+      email: 'a@example.com',
+      linked: true,
+    });
+    let signInResult;
+    await act(async () => {
+      signInResult = await pending;
+    });
+
+    expect(userApi.upsertUser).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'supabase-user' }),
+      { migrateFromId: 'apple-provider-subject' },
+    );
+    expect(signInResult).toEqual({ user: CANONICAL_USER, wasReturning: true });
+    expect(result.current.phase).toBe('authenticated');
+  });
+
+  test('keeps Apple sign-in local-only when Supabase is unconfigured', async () => {
+    userApi.upsertUser.mockResolvedValue(APPLE_SUBJECT_USER);
+    backendAuthRepository.signInWithApple.mockResolvedValue(null);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    await act(async () => {
+      await result.current.signInWithApple();
+    });
+
+    expect(userApi.upsertUser).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'apple-provider-subject' }),
+      { migrateFromId: 'apple-provider-subject' },
+    );
+    expect(result.current.user).toEqual(APPLE_SUBJECT_USER);
+    expect(result.current.phase).toBe('authenticated');
+  });
+
+  test('passes a hashed nonce to Apple authentication', async () => {
+    userApi.upsertUser.mockResolvedValue(APPLE_SUBJECT_USER);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    await act(async () => {
+      await result.current.signInWithApple();
+    });
+
+    expect(Crypto.digestStringAsync).toHaveBeenCalledWith(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      'synthetic-raw-nonce',
+    );
+    expect(AppleAuthentication.signInAsync).toHaveBeenCalledWith({
+      nonce: 'synthetic-hashed-nonce',
+      requestedScopes: ['FULL_NAME', 'EMAIL'],
+    });
+  });
+
+  test('passes only the raw nonce and Apple identity fields to Supabase', async () => {
+    userApi.upsertUser.mockResolvedValue(CANONICAL_USER);
+    backendAuthRepository.signInWithApple.mockResolvedValue({
+      userId: 'supabase-user',
+      email: 'a@example.com',
+      linked: true,
+    });
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    await act(async () => {
+      await result.current.signInWithApple();
+    });
+
+    expect(backendAuthRepository.signInWithApple).toHaveBeenCalledWith({
+      identityToken: 'synthetic-apple-id-token',
+      nonce: 'synthetic-raw-nonce',
+      displayName: 'Alice Example',
+    });
+    expect(userApi.upsertUser).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        identityToken: expect.anything(),
+        nonce: expect.anything(),
+      }),
+      expect.anything(),
+    );
+  });
+
+  test('rejects an Apple credential without an identity token', async () => {
+    AppleAuthentication.signInAsync.mockResolvedValue({
+      user: 'apple-provider-subject',
+      identityToken: null,
+      authorizationCode: null,
+      email: null,
+      fullName: null,
+      realUserStatus: 1,
+      state: null,
+    });
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    await expect(result.current.signInWithApple()).rejects.toEqual(
+      new SessionUnavailableError('Apple did not provide an identity token'),
+    );
+
+    expect(backendAuthRepository.signInWithApple).not.toHaveBeenCalled();
+    expect(userApi.upsertUser).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe('signedOut');
+  });
+
+  test('leaves the app signed out when Apple authentication is cancelled', async () => {
+    const cancellation = Object.assign(new Error('The user canceled'), {
+      code: 'ERR_REQUEST_CANCELED',
+    });
+    AppleAuthentication.signInAsync.mockRejectedValue(cancellation);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    await expect(result.current.signInWithApple()).rejects.toBe(cancellation);
+
+    expect(backendAuthRepository.signInWithApple).not.toHaveBeenCalled();
+    expect(backendAuthRepository.hydrate).toHaveBeenCalledTimes(1);
+    expect(userApi.upsertUser).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe('signedOut');
+  });
+
+  test('reconciles an SDK session after backend Apple profile persistence fails', async () => {
+    const backendError = new Error('Apple profile could not be saved');
+    const permanentSession = supabaseSession({
+      id: 'supabase-user',
+      email: 'a@example.com',
+      appleSubject: 'apple-provider-subject',
+    });
+    backendAuthRepository.hydrate
+      .mockResolvedValueOnce({ kind: 'signed-out' })
+      .mockResolvedValueOnce({
+        kind: 'authenticated',
+        session: permanentSession,
+      });
+    backendAuthRepository.signInWithApple.mockImplementation(async () => {
+      authListener?.({ kind: 'authenticated', session: permanentSession });
+      throw backendError;
+    });
+    userApi.upsertUser.mockResolvedValue(CANONICAL_USER);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    let signInError: unknown;
+    await act(async () => {
+      try {
+        await result.current.signInWithApple();
+      } catch (error) {
+        signInError = error;
+      }
+    });
+    expect(signInError).toBe(backendError);
+
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+    expect(result.current.user).toEqual(CANONICAL_USER);
+    expect(backendAuthRepository.hydrate).toHaveBeenCalledTimes(2);
+  });
+
+  test('reconciles an SDK session after local Apple profile persistence fails', async () => {
+    const localError = new Error('local profile write failed');
+    const permanentSession = supabaseSession({
+      id: 'supabase-user',
+      email: 'a@example.com',
+      appleSubject: 'apple-provider-subject',
+    });
+    backendAuthRepository.hydrate
+      .mockResolvedValueOnce({ kind: 'signed-out' })
+      .mockResolvedValueOnce({
+        kind: 'authenticated',
+        session: permanentSession,
+      });
+    backendAuthRepository.signInWithApple.mockResolvedValue({
+      userId: 'supabase-user',
+      email: 'a@example.com',
+      linked: true,
+    });
+    userApi.upsertUser
+      .mockRejectedValueOnce(localError)
+      .mockResolvedValueOnce(CANONICAL_USER);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    let signInError: unknown;
+    await act(async () => {
+      try {
+        await result.current.signInWithApple();
+      } catch (error) {
+        signInError = error;
+      }
+    });
+    expect(signInError).toBe(localError);
+
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+    expect(result.current.user).toEqual(CANONICAL_USER);
+    expect(backendAuthRepository.hydrate).toHaveBeenCalledTimes(2);
+    for (const [profile] of userApi.upsertUser.mock.calls) {
+      expect(profile).not.toEqual(expect.objectContaining({
+        identityToken: expect.anything(),
+        nonce: expect.anything(),
+      }));
+    }
+  });
+
+  test('purges on a backend sign-out event and remains quarantined until completion', async () => {
+    const completion = deferred<AccountPurgeResult>();
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession(),
+    });
+    accountPurgeCoordinator.begin.mockImplementation(
+      async (onQuarantined?: () => void | Promise<void>) => {
+        await onQuarantined?.();
+        return completion.promise;
+      },
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+
+    await act(() => {
+      authListener?.({ kind: 'signed-out' });
+    });
+
+    await waitFor(() => expect(result.current.phase).toBe('signingOut'));
+    expect(result.current.user).toBeNull();
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      completion.resolve({ status: 'completed', failures: [] });
+      await completion.promise;
+    });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(result.current.user).toBeNull();
+  });
+
+  test('never admits a different canonical UUID before durable cleanup completes', async () => {
+    const completion = deferred<AccountPurgeResult>();
+    const observedUserIds: Array<string | null> = [];
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession(),
+    });
+    accountPurgeCoordinator.begin.mockImplementation(
+      async (onQuarantined?: () => void | Promise<void>) => {
+        await onQuarantined?.();
+        return completion.promise;
+      },
+    );
+    const { result } = await renderHook(() => {
+      const session = useSession();
+      observedUserIds.push(session.user?.id ?? null);
+      return session;
+    }, { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+    });
+    await waitFor(() => expect(result.current.phase).toBe('signingOut'));
+    expect(result.current.user).toBeNull();
+    expect(observedUserIds).not.toContain('user-b');
+
+    await act(async () => {
+      completion.resolve({ status: 'completed', failures: [] });
+      await completion.promise;
+    });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(userApi.upsertUser).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-b' }),
+      expect.anything(),
+    );
+  });
+
+  test('shares one purge when an auth boundary changes before manual quarantine begins', async () => {
+    const markerReady = deferred<void>();
+    const completion = deferred<AccountPurgeResult>();
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession(),
+    });
+    accountPurgeCoordinator.begin.mockImplementation(
+      async (onQuarantined?: () => void | Promise<void>) => {
+        await markerReady.promise;
+        await onQuarantined?.();
+        return completion.promise;
+      },
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+
+    let signOut!: Promise<void>;
+    await act(() => {
+      signOut = result.current.beginSignOut();
+    });
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+    });
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      markerReady.resolve();
+      await markerReady.promise;
+    });
+    await waitFor(() => expect(result.current.phase).toBe('signingOut'));
+
+    await act(async () => {
+      completion.resolve({ status: 'completed', failures: [] });
+      await signOut;
+    });
+
+    expect(result.current.phase).toBe('signedOut');
+    expect(accountPurgeCoordinator.begin).toHaveBeenCalledTimes(1);
+    expect(accountOperationGate.open).toHaveBeenCalledTimes(2);
+  });
+
+  test('keeps a different canonical UUID quarantined when durable cleanup fails', async () => {
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession(),
+    });
+    accountPurgeCoordinator.begin.mockImplementation(
+      async (onQuarantined?: () => void | Promise<void>) => {
+        await onQuarantined?.();
+        return {
+          status: 'failed',
+          failures: [{
+            id: 'places.saved',
+            errorName: 'Error',
+            scope: 'local',
+            retryable: true,
+          }],
+        };
+      },
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+    });
+
+    await waitFor(() => expect(result.current.phase).toBe('cleanupFailed'));
+    expect(result.current.user).toBeNull();
+
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+    });
+    expect(result.current.phase).toBe('cleanupFailed');
+    expect(result.current.user).toBeNull();
+    expect(userApi.upsertUser).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-b' }),
+      expect.anything(),
+    );
+  });
+
+  test('keeps dev sign-in available when startup confirms no backend', async () => {
+    userApi.upsertUser.mockResolvedValue(DEV_USER);
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    accountOperationGate.runCurrent.mockClear();
+
+    await act(async () => {
+      await result.current.signInAsDevUser();
+    });
+
+    expect(accountOperationGate.runCurrent).toHaveBeenCalledTimes(1);
+    expect(result.current.user).toEqual(DEV_USER);
+    expect(result.current.phase).toBe('authenticated');
+  });
+
+  test('rejects dev sign-in when startup confirms a configured backend', async () => {
+    backendAuthRepository.hydrate.mockResolvedValue({ kind: 'signed-out' });
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    let signInError: unknown;
+    await act(async () => {
+      try {
+        await result.current.signInAsDevUser();
+      } catch (error) {
+        signInError = error;
+      }
+    });
+
+    expect(signInError).toBeInstanceOf(SessionUnavailableError);
+
+    expect(userApi.upsertUser).not.toHaveBeenCalled();
+  });
+
+  test('purges a deferred local dev profile before admitting backend authentication', async () => {
+    const devWrite = deferred<User>();
+    const completion = deferred<AccountPurgeResult>();
+    const observedUserIds: Array<string | null> = [];
+    userApi.upsertUser.mockReturnValue(devWrite.promise);
+    accountPurgeCoordinator.begin.mockImplementation(
+      async (onQuarantined?: () => void | Promise<void>) => {
+        await onQuarantined?.();
+        return completion.promise;
+      },
+    );
+    const { result } = await renderHook(() => {
+      const session = useSession();
+      observedUserIds.push(session.user?.id ?? null);
+      return session;
+    }, { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+
+    let pending!: Promise<User>;
+    await act(() => {
+      pending = result.current.signInAsDevUser();
+    });
+    await waitFor(() => expect(userApi.upsertUser).toHaveBeenCalledTimes(1));
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+    });
+    await waitFor(() => expect(result.current.phase).toBe('signingOut'));
+
+    let devError: unknown;
+    await act(async () => {
+      devWrite.resolve(DEV_USER);
+      try {
+        await pending;
+      } catch (error) {
+        devError = error;
+      }
+    });
+    expect(devError).toBeInstanceOf(
+      operationGateModule.AccountOperationClosedError,
+    );
+
+    await act(async () => {
+      completion.resolve({ status: 'completed', failures: [] });
+      await completion.promise;
+    });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
+    expect(result.current.user).toBeNull();
+    expect(observedUserIds).not.toContain('user-b');
+    expect(observedUserIds).not.toContain('dev-simulator-user');
+  });
+
+  test('does not let an auth event reopen the app during purge quarantine', async () => {
+    const completion = deferred<AccountPurgeResult>();
+    userApi.getStoredUser.mockResolvedValue(USER);
+    backendAuthRepository.hydrate.mockResolvedValue({
+      kind: 'authenticated',
+      session: supabaseSession(),
+    });
+    accountPurgeCoordinator.begin.mockImplementation(
+      async (onQuarantined?: () => void | Promise<void>) => {
+        await onQuarantined?.();
+        return completion.promise;
+      },
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.phase).toBe('authenticated'));
+
+    let signOut!: Promise<void>;
+    await act(() => {
+      signOut = result.current.beginSignOut();
+    });
+    await waitFor(() => expect(result.current.phase).toBe('signingOut'));
+
+    await act(() => {
+      authListener?.({
+        kind: 'authenticated',
+        session: supabaseSession({ id: 'user-b' }),
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.phase).toBe('signingOut');
+    expect(result.current.user).toBeNull();
+
+    await act(async () => {
+      completion.resolve({ status: 'completed', failures: [] });
+      await signOut;
+    });
+    expect(result.current.phase).toBe('signedOut');
   });
 
   test('keeps the account quarantined when an old write cannot drain', async () => {
@@ -294,39 +1241,20 @@ describe('SessionProvider', () => {
     expect(purgeStarted).not.toHaveBeenCalled();
     expect(result.current.user).toBeNull();
     expect(result.current.phase).toBe('cleanupFailed');
-    expect(result.current.failure).toEqual({
-      failures: [],
-      canFinishOnDevice: false,
-    });
   });
 
-  test('publishes sign-in to every consumer and returns returning-user state', async () => {
-    const existing = { ...USER, signedInAt: 100 };
-    userApi.getStoredUser
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(existing);
-    AppleAuthentication.signInAsync.mockResolvedValue({
-      user: USER.id,
-      fullName: { givenName: 'Alice', familyName: 'Example' },
-      email: USER.email,
+  test('starts auth lifecycle services once and cleans them up on unmount', async () => {
+    const { result, rerender, unmount } = await renderHook(() => useSession(), {
+      wrapper,
     });
+    await waitFor(() => expect(result.current.phase).toBe('signedOut'));
 
-    const { result } = await renderHook(
-      () => ({ first: useSession(), second: useSession() }),
-      { wrapper },
-    );
-    await waitFor(() => expect(result.current.first.phase).toBe('signedOut'));
+    await rerender(undefined);
+    expect(backendAuthRepository.startAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(backendAuthRepository.subscribe).toHaveBeenCalledTimes(1);
 
-    let signInResult;
-    await act(async () => {
-      signInResult = await result.current.first.signInWithApple();
-    });
-
-    expect(signInResult).toEqual({ user: USER, wasReturning: true });
-    expect(result.current.first.user).toEqual(USER);
-    expect(result.current.second.user).toEqual(USER);
-    expect(result.current.first.phase).toBe('authenticated');
-    expect(result.current.first.sessionGeneration).toBe(2);
-    expect(accountOperationGate.advanceOpenGeneration).toHaveBeenCalledWith(2);
+    await unmount();
+    expect(autoRefreshCleanup).toHaveBeenCalledTimes(1);
+    expect(authUnsubscribe).toHaveBeenCalledTimes(1);
   });
 });

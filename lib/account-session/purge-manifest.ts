@@ -21,7 +21,7 @@ import {
 } from '../api/user';
 import { purgeCorridorZonesForAccount } from '../api/zone-cache';
 import { purgeZoneTilesForAccount } from '../api/zone-tile-cache';
-import { supabaseCloudSessionOwner } from '../cloud-session';
+import { backendAuthRepository } from '../supabase/auth-repository';
 
 export type AccountPurgeEntryKind = 'local' | 'identity' | 'remote';
 
@@ -43,7 +43,7 @@ export class AccountPurgeRemoteError extends Error {
 }
 
 async function purgeSupabaseRemoteSession(): Promise<void> {
-  const result = await supabaseCloudSessionOwner.revokeCurrentSession();
+  const result = await backendAuthRepository.signOutGlobal();
   if (result.kind === 'terminal') return;
 
   throw new AccountPurgeRemoteError(

@@ -20,10 +20,10 @@ fuel reminders (now distance-aware), calendar destinations, a polished design
 system (Figma fidelity audited through #10), a live portfolio piece, the MFA
 thesis, and real user-research interviews.
 
-**What it is NOT yet:** multi-user, installable by strangers, or evidenced. Those
-three gaps — not more features — are what stand between "impressive demo" and
-"fundable, pilotable project." The surface is wide enough; the next work is
-*depth on the thesis claim*.
+**What it is NOT yet:** verified across real multi-user devices, installable by
+strangers, or evidenced. Those three gaps — not more features — are what stand
+between "impressive demo" and "fundable, pilotable project." The surface is
+wide enough; the next work is *depth on the thesis claim*.
 
 The encouraging part, from a grounding pass on 2026-06-17: the biggest gap is
 **closer than it looks** (see M1.1).
@@ -35,27 +35,41 @@ The encouraging part, from a grounding pass on 2026-06-17: the biggest gap is
 The minimum for strangers to use it on their own phones and *generate real data*.
 
 ### M1.1 — Community cloud: stand up + harden  *(the thesis linchpin)*
-The client is **already built** — `lib/api/sources/community-cloud.ts` is a
-complete 181-line Supabase REST client (reads/inserts/deletes + a sync queue),
-gated behind `isCommunityCloudConfigured()` (`EXPO_PUBLIC_SUPABASE_*`). What's
-missing is the **server side**:
-- Create the Supabase project + `community_reports` table (match the client's shape).
-- Set `EXPO_PUBLIC_SUPABASE_*` in the build; verify two phones see each other's pins.
-- **RLS + abuse — the real work, and thesis-integrity, not just security:** anon
-  SELECT (read the map), gated INSERT (signed-in or rate-limited), no editing
-  others' rows, and a **report-flagging / moderation path**. The weaponization
-  risk surfaced in the Jacobs thread ("a biased cluster of reports redlines a
-  neighborhood") goes live the instant two users share data — hardening before
-  any real user submits is non-negotiable.
+The app-side migration is complete: auth, community reports, roles, moderation,
+and RPCs now run through typed repositories over one persistent configured
+Supabase SDK client. Ephemeral stateless, non-persisting auth verifiers are
+created only to validate captured access tokens. Local-first reads and the sync
+queue remain intact, and an architecture test prevents screens, hooks, or
+non-Supabase libraries from reaching the SDK, configured client, environment,
+or service URLs directly.
 
-*Size: small-to-medium (client done; the RLS/abuse design is the thinking).
-Start here.*
+What remains is deployment acceptance rather than another client rewrite:
+- Apply migrations `0001_m1.1_initial.sql` then
+  `0002_supabase_sdk_contract_fix.sql` to the target Supabase project.
+- Enable anonymous sign-ins and manual identity linking.
+- Configure the Supabase Apple provider for `com.freshgreens.navigation`.
+- Complete the first anonymous-to-Apple login, then run the guarded moderator
+  seed only when exactly one permanent user and no moderator exist.
+- Enable or verify the nightly IP-retention job and run the sanitized
+  anonymous, permanent, unpromoted, and moderator authorization matrix.
+- Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in
+  the local signed-device environment. EAS environment configuration remains
+  blocked until the manual release runbook passes.
+- Verify RLS, cross-device report visibility, deletion, flagging, and
+  moderation on real phones against the deployed schema.
+
+The RLS and abuse model remains thesis-integrity work, not only security. A
+biased cluster of reports can redline a neighborhood, so deployment evidence is
+required before any real pilot submission.
 
 ### M1.2 — Distribution: EAS → TestFlight
-Real bundle id (currently the `com.anonymous.fresh-greens` placeholder), an
-`eas.json`, Apple Developer Program ($99/yr), `eas build` + `eas submit`,
-TestFlight internal/external testers. Lead time: Apple review for external
-testing (~days). This is also your **grant-demo link**. *Runs in parallel with M1.1.*
+The permanent `com.freshgreens.navigation` bundle ID is configured locally.
+Remaining external work is registering the explicit App ID, enabling Sign in
+with Apple, confirming provisioning entitlements, adding `eas.json`, setting
+the public Supabase EAS environment, validating signing/credentials, running
+the first production build and submit, and configuring TestFlight testers and
+external review. The Apple Developer membership is in place. This is also your
+**grant-demo link**. *Runs in parallel with M1.1.*
 
 ### M1.3 — First-use quality
 - **Seed a demo neighborhood** (Clinton Hill / Fort Greene) so first-open isn't

@@ -1,4 +1,4 @@
-import { supabaseCloudSessionOwner } from '../cloud-session';
+import { backendAuthRepository } from '../supabase/auth-repository';
 import {
   ACCOUNT_PURGE_MANIFEST,
   AccountPurgeRemoteError,
@@ -211,7 +211,6 @@ export function createAccountPurgeCoordinator(
 
 export const accountPurgeCoordinator = createAccountPurgeCoordinator({
   entries: ACCOUNT_PURGE_MANIFEST,
-  clearLocalCloudSession: () =>
-    supabaseCloudSessionOwner.clearLocalSession(),
+  clearLocalCloudSession: () => backendAuthRepository.signOutLocal(),
   now: () => Date.now(),
 });

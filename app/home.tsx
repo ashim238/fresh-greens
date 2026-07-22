@@ -1324,7 +1324,7 @@ export default function Home() {
 
       const hit = enabledReportZones
         .filter((z) => {
-          if (z.geometry !== 'point' || z.reportSubmittedBy !== user?.id) return false;
+          if (z.geometry !== 'point' || !z.reportOwnedByCurrentUser) return false;
           const pt = z.coordinates[0];
           return Math.abs(pt.latitude - latitude) < hitLat && Math.abs(pt.longitude - longitude) < hitLng;
         })
@@ -2236,7 +2236,7 @@ export default function Home() {
           onDismiss={() => setSelectedReport(null)}
           onRemove={
             enabledReportZones.find(
-              (z) => z.id === selectedReport.zoneId && z.reportSubmittedBy === user?.id,
+              (z) => z.id === selectedReport.zoneId && z.reportOwnedByCurrentUser,
             )
               ? () => {
                   Alert.alert(

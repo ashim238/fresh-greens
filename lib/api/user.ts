@@ -134,12 +134,14 @@ export async function purgeAvatarFilesForAccount(): Promise<void> {
 export async function upsertUser(
   partial: Pick<User, 'id' | 'provider'> &
     Partial<Pick<User, 'displayName' | 'email'>>,
+  options: { migrateFromId?: string } = {},
 ): Promise<User> {
   const existing = await getStoredUser();
-  const sameAccount = existing?.id === partial.id;
+  const sameAccount =
+    existing?.id === partial.id || existing?.id === options.migrateFromId;
   const displayName = partial.displayName ?? (sameAccount ? existing?.displayName : null) ?? null;
   const email = partial.email ?? (sameAccount ? existing?.email : null) ?? null;
-  const merged: User = {
+  return setStoredUser({
     id: partial.id,
     provider: partial.provider,
     displayName,
@@ -149,8 +151,7 @@ export async function upsertUser(
     // don't-clobber logic as displayName/email.
     avatarUri: sameAccount ? existing?.avatarUri ?? null : null,
     signedInAt: Date.now(),
-  };
-  return setStoredUser(merged);
+  });
 }
 
 /**

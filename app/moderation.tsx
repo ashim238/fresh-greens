@@ -26,7 +26,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { SettingsHeader } from '../components/settings/SettingsHeader';
 import { useHoldToConfirm } from '../hooks/useHoldToConfirm';
 import { useReduceMotion } from '../hooks/useReduceMotion';
-import { getAuthHeaders } from '../lib/supabase-auth';
+import {
+  moderationRepository,
+  ModerationRepositoryError,
+  type ModerationReport,
+  type ReportFlag,
+} from '../lib/supabase/moderation-repository';
 import { colors } from '../theme/colors';
 import { dynamicType, relaxedLineHeight } from '../theme/dynamic-type';
 import { pressedDim, tapTarget44 } from '../theme/interaction';
@@ -38,33 +43,9 @@ import { typography } from '../theme/typography';
 const NEARBY_RADIUS_METERS = 500;
 const BULK_BAR_HEIGHT = 80;
 
-type ModerationReport = {
-  id: string;
-  category_id: string;
-  location: { latitude: number; longitude: number };
-  detail: string | null;
-  place_name: string | null;
-  place_type: string | null;
-  submitted_by: string | null;
-  timestamp: number;
-  device_uuid: string;
-  auth_user_id: string | null;
-  submitter_ip: string | null;
-  hidden_at: string | null;
-  hidden_reason: string | null;
-  removed_at: string | null;
-  is_verified_phone: boolean;
-};
-
-type ReportFlag = {
-  id: string;
-  report_id: string;
-  flagger_device_uuid: string;
-  flagger_ip: string | null;
-  reason: string | null;
-  reason_category: string;
-  created_at: string;
-};
+function loadReportFlags(reportId: string): Promise<ReportFlag[]> {
+  return moderationRepository.fetchReportFlags(reportId);
+}
 
 export default function Moderation() {
   const router = useRouter();
@@ -80,19 +61,9 @@ export default function Moderation() {
   const fetchQueue = useCallback(async () => {
     setFetchError(false);
     try {
-      const headers = await getAuthHeaders();
-      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
-      const url = `${base}/rest/v1/community_reports_moderation?select=*&order=hidden_at.desc.nullslast,timestamp.desc`;
-      const res = await fetch(url, { headers });
-      if (!res.ok) {
-        console.warn('[moderation] fetch failed:', res.status);
-        setFetchError(true);
-        return;
-      }
-      const rows = (await res.json()) as ModerationReport[];
-      setReports(Array.isArray(rows) ? rows : []);
-    } catch (error) {
-      console.warn('[moderation] fetch error:', error);
+      setReports(await moderationRepository.fetchModerationQueue());
+    } catch {
+      console.warn('[moderation] queue unavailable');
       setFetchError(true);
     } finally {
       setLoading(false);
@@ -129,56 +100,40 @@ export default function Moderation() {
   async function handleRestore(reportId: string) {
     setActionError(null);
     try {
-      const headers = await getAuthHeaders();
-      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
-      const url = `${base}/rest/v1/rpc/moderator_restore_report`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          p_report_id: reportId,
-          p_reason: 'Restored via moderation queue',
-        }),
-      });
-      if (res.ok) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        void fetchQueue();
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        setActionError('Restore failed — try again.');
-      }
+      await moderationRepository.restoreReport(
+        reportId,
+        'Restored via moderation queue',
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void fetchQueue();
     } catch (error) {
-      console.warn('[moderation] restore error:', error);
+      console.warn('[moderation] restore unavailable');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      setActionError('Restore failed — check connection.');
+      setActionError(
+        error instanceof ModerationRepositoryError && error.code === 'rejected'
+          ? 'Restore failed — try again.'
+          : 'Restore failed — check connection.',
+      );
     }
   }
 
   async function handleRemove(reportId: string) {
     setActionError(null);
     try {
-      const headers = await getAuthHeaders();
-      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
-      const url = `${base}/rest/v1/rpc/moderator_remove_report`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          p_report_id: reportId,
-          p_reason: 'Removed via moderation queue',
-        }),
-      });
-      if (res.ok) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        void fetchQueue();
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        setActionError('Remove failed — try again.');
-      }
+      await moderationRepository.removeReport(
+        reportId,
+        'Removed via moderation queue',
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void fetchQueue();
     } catch (error) {
-      console.warn('[moderation] remove error:', error);
+      console.warn('[moderation] remove unavailable');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      setActionError('Remove failed — check connection.');
+      setActionError(
+        error instanceof ModerationRepositoryError && error.code === 'rejected'
+          ? 'Remove failed — try again.'
+          : 'Remove failed — check connection.',
+      );
     }
   }
 
@@ -190,32 +145,15 @@ export default function Moderation() {
     setBulkActing(true);
     setActionError(null);
     try {
-      const headers = await getAuthHeaders();
-      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
-      const url = `${base}/rest/v1/rpc/moderator_restore_report`;
-      const results = await Promise.allSettled(
-        applicable.map(async (r) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              p_report_id: r.id,
-              p_reason: 'Bulk restored via moderation queue',
-            }),
-          });
-          if (!res.ok) throw new Error(`${res.status}`);
-          return r.id;
-        }),
+      const { failedIds } = await moderationRepository.runBulkModeration(
+        applicable.map((report) => report.id),
+        'restore',
       );
-      const failedIds = new Set<string>();
-      results.forEach((result, i) => {
-        if (result.status === 'rejected') failedIds.add(applicable[i].id);
-      });
-      if (failedIds.size > 0) {
-        console.warn(`[moderation] bulk restore: ${failedIds.size}/${results.length} failed`);
+      if (failedIds.length > 0) {
+        console.warn(`[moderation] bulk restore: ${failedIds.length}/${applicable.length} failed`);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        setActionError(`${failedIds.size} of ${results.length} restores failed. They remain selected.`);
-        setSelectedIds(failedIds);
+        setActionError(`${failedIds.length} of ${applicable.length} restores failed. They remain selected.`);
+        setSelectedIds(new Set(failedIds));
         setBulkActing(false);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -223,8 +161,8 @@ export default function Moderation() {
         exitBulkMode();
       }
       void fetchQueue();
-    } catch (error) {
-      console.warn('[moderation] bulk restore error:', error);
+    } catch {
+      console.warn('[moderation] bulk restore unavailable');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setActionError('Bulk restore failed — check connection.');
       setBulkActing(false);
@@ -239,32 +177,15 @@ export default function Moderation() {
     setBulkActing(true);
     setActionError(null);
     try {
-      const headers = await getAuthHeaders();
-      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
-      const url = `${base}/rest/v1/rpc/moderator_remove_report`;
-      const results = await Promise.allSettled(
-        applicable.map(async (r) => {
-          const res = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              p_report_id: r.id,
-              p_reason: 'Bulk removed via moderation queue',
-            }),
-          });
-          if (!res.ok) throw new Error(`${res.status}`);
-          return r.id;
-        }),
+      const { failedIds } = await moderationRepository.runBulkModeration(
+        applicable.map((report) => report.id),
+        'remove',
       );
-      const failedIds = new Set<string>();
-      results.forEach((result, i) => {
-        if (result.status === 'rejected') failedIds.add(applicable[i].id);
-      });
-      if (failedIds.size > 0) {
-        console.warn(`[moderation] bulk remove: ${failedIds.size}/${results.length} failed`);
+      if (failedIds.length > 0) {
+        console.warn(`[moderation] bulk remove: ${failedIds.length}/${applicable.length} failed`);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        setActionError(`${failedIds.size} of ${results.length} removals failed. They remain selected.`);
-        setSelectedIds(failedIds);
+        setActionError(`${failedIds.length} of ${applicable.length} removals failed. They remain selected.`);
+        setSelectedIds(new Set(failedIds));
         setBulkActing(false);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -272,8 +193,8 @@ export default function Moderation() {
         exitBulkMode();
       }
       void fetchQueue();
-    } catch (error) {
-      console.warn('[moderation] bulk remove error:', error);
+    } catch {
+      console.warn('[moderation] bulk remove unavailable');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setActionError('Bulk remove failed — check connection.');
       setBulkActing(false);
@@ -367,6 +288,7 @@ export default function Moderation() {
               bulkMode={bulkMode}
               selectedIds={selectedIds}
               onSelect={toggleSelected}
+              loadFlags={loadReportFlags}
             />
           )}
 
@@ -382,6 +304,7 @@ export default function Moderation() {
               bulkMode={bulkMode}
               selectedIds={selectedIds}
               onSelect={toggleSelected}
+              loadFlags={loadReportFlags}
             />
           )}
 
@@ -397,6 +320,7 @@ export default function Moderation() {
               bulkMode={bulkMode}
               selectedIds={selectedIds}
               onSelect={toggleSelected}
+              loadFlags={loadReportFlags}
             />
           )}
         </ScrollView>
@@ -425,6 +349,7 @@ function QueueSection({
   bulkMode,
   selectedIds,
   onSelect,
+  loadFlags,
 }: {
   title: string;
   reports: ModerationReport[];
@@ -436,6 +361,7 @@ function QueueSection({
   bulkMode: boolean;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
+  loadFlags: (reportId: string) => Promise<ReportFlag[]>;
 }) {
   return (
     <View style={styles.section}>
@@ -452,6 +378,7 @@ function QueueSection({
           bulkMode={bulkMode}
           selected={selectedIds.has(report.id)}
           onSelect={() => onSelect(report.id)}
+          loadFlags={loadFlags}
         />
       ))}
     </View>
@@ -468,6 +395,7 @@ function ReportCard({
   bulkMode,
   selected,
   onSelect,
+  loadFlags,
 }: {
   report: ModerationReport;
   allReports: ModerationReport[];
@@ -478,6 +406,7 @@ function ReportCard({
   bulkMode: boolean;
   selected: boolean;
   onSelect: () => void;
+  loadFlags: (reportId: string) => Promise<ReportFlag[]>;
 }) {
   const age = formatAge(report.timestamp);
   const displayName = report.place_name ?? report.category_id;
@@ -520,23 +449,23 @@ function ReportCard({
     async function fetchFlags() {
       setFlagsLoading(true);
       try {
-        const headers = await getAuthHeaders();
-        const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
-        const url = `${base}/rest/v1/report_flags?report_id=eq.${encodeURIComponent(report.id)}&order=created_at.desc`;
-        const res = await fetch(url, { headers });
-        if (res.ok && !cancelled) {
-          const rows = (await res.json()) as ReportFlag[];
-          setFlags(Array.isArray(rows) ? rows : []);
+        const rows = await loadFlags(report.id);
+        if (!cancelled) setFlags(rows);
+      } catch (error) {
+        if (
+          !cancelled &&
+          (!(error instanceof ModerationRepositoryError) ||
+            error.code !== 'rejected')
+        ) {
+          setFlags([]);
         }
-      } catch {
-        if (!cancelled) setFlags([]);
       } finally {
         if (!cancelled) setFlagsLoading(false);
       }
     }
     void fetchFlags();
     return () => { cancelled = true; };
-  }, [showFlags, flags, report.id]);
+  }, [showFlags, flags, report.id, loadFlags]);
 
   const { holdProgress, pressHandlers, isVoiceOverOn } = useHoldToConfirm({
     thresholdMs: 800,

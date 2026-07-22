@@ -1,45 +1,66 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { getAuthHeaders, getAuthUserId } from '../lib/supabase-auth';
-import { isCommunityCloudConfigured } from '../lib/api/sources/community-cloud';
+import { backendAuthRepository } from '../lib/supabase/auth-repository';
+import { rolesRepository } from '../lib/supabase/roles-repository';
 
 export function useModeratorRole(): {
   isModerator: boolean;
   loading: boolean;
   refresh: () => void;
 } {
-  const [isModerator, setIsModerator] = useState(__DEV__);
+  const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
+  const requestToken = useRef(0);
 
-  const check = useCallback(async () => {
-    if (!isCommunityCloudConfigured()) {
-      setLoading(false);
-      return;
-    }
-    const userId = await getAuthUserId();
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+  const checkRole = useCallback(async (userId: string, token: number) => {
     try {
-      const headers = await getAuthHeaders();
-      const base = process.env.EXPO_PUBLIC_SUPABASE_URL!.replace(/\/$/, '');
-      const url = `${base}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.moderator&select=user_id&limit=1`;
-      const res = await fetch(url, { headers });
-      if (res.ok) {
-        const rows = await res.json();
-        setIsModerator(Array.isArray(rows) && rows.length > 0);
-      }
+      const moderator = await rolesRepository.hasModeratorRole(userId);
+      if (requestToken.current === token) setIsModerator(moderator);
     } catch {
-      // Network failure — default to non-moderator
+      if (requestToken.current === token) setIsModerator(false);
     } finally {
-      setLoading(false);
+      if (requestToken.current === token) setLoading(false);
     }
   }, []);
 
+  const check = useCallback(async () => {
+    const token = ++requestToken.current;
+    setIsModerator(false);
+    setLoading(true);
+    try {
+      const userId = await backendAuthRepository.getUserId();
+      if (requestToken.current !== token) return;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+      await checkRole(userId, token);
+    } catch {
+      if (requestToken.current === token) {
+        setIsModerator(false);
+        setLoading(false);
+      }
+    }
+  }, [checkRole]);
+
   useEffect(() => {
     void check();
-  }, [check]);
+    const unsubscribe = backendAuthRepository.subscribe((state) => {
+      const token = ++requestToken.current;
+      setIsModerator(false);
+      if (state.kind !== 'authenticated') {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      void checkRole(state.session.user.id, token);
+    });
+
+    return () => {
+      requestToken.current += 1;
+      unsubscribe();
+    };
+  }, [check, checkRole]);
 
   return { isModerator, loading, refresh: check };
 }
