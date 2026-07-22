@@ -44,25 +44,32 @@ non-Supabase libraries from reaching the SDK, configured client, environment,
 or service URLs directly.
 
 What remains is deployment acceptance rather than another client rewrite:
-- Apply the current migrations and seed to the target Supabase project.
+- Apply migrations `0001_m1.1_initial.sql` then
+  `0002_supabase_sdk_contract_fix.sql` to the target Supabase project.
 - Enable anonymous sign-ins and manual identity linking.
-- Configure the Supabase Apple provider for the permanent bundle identifier.
+- Configure the Supabase Apple provider for `com.freshgreens.navigation`.
+- Complete the first anonymous-to-Apple login, then run the guarded moderator
+  seed only when exactly one permanent user and no moderator exist.
+- Enable or verify the nightly IP-retention job and run the sanitized
+  anonymous, permanent, unpromoted, and moderator authorization matrix.
 - Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in
-  the EAS build environment.
-- Promote the first permanent Supabase user to moderator, then verify RLS,
-  cross-device report visibility, deletion, flagging, and moderation on real
-  phones.
+  the local signed-device environment. EAS environment configuration remains
+  blocked until the manual release runbook passes.
+- Verify RLS, cross-device report visibility, deletion, flagging, and
+  moderation on real phones against the deployed schema.
 
 The RLS and abuse model remains thesis-integrity work, not only security. A
 biased cluster of reports can redline a neighborhood, so deployment evidence is
 required before any real pilot submission.
 
 ### M1.2 — Distribution: EAS → TestFlight
-Real bundle id (currently the `com.anonymous.fresh-greens` placeholder), an
-`eas.json`, Apple signing/capabilities, `eas build` + `eas submit`, and
-TestFlight internal/external testers. The Apple Developer membership is in
-place; bundle configuration, credentials, build validation, and external-test
-review remain. This is also your **grant-demo link**. *Runs in parallel with M1.1.*
+The permanent `com.freshgreens.navigation` bundle ID is configured locally.
+Remaining external work is registering the explicit App ID, enabling Sign in
+with Apple, confirming provisioning entitlements, adding `eas.json`, setting
+the public Supabase EAS environment, validating signing/credentials, running
+the first production build and submit, and configuring TestFlight testers and
+external review. The Apple Developer membership is in place. This is also your
+**grant-demo link**. *Runs in parallel with M1.1.*
 
 ### M1.3 — First-use quality
 - **Seed a demo neighborhood** (Clinton Hill / Fort Greene) so first-open isn't

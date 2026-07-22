@@ -92,6 +92,12 @@ describe('corrective Supabase migration security contract', () => {
     expect(policyDefinition(migration, 'user_roles_self_select')).not.toContain(
       'from public.user_roles',
     );
+    expect(migration).toContain(
+      'grant usage on schema private to authenticated',
+    );
+    expect(normalizedSql(migration)).toContain(
+      'grant execute on function private.is_moderator() to authenticated',
+    );
   });
 
   test('restricts every callable definer and audits report state transitions', () => {

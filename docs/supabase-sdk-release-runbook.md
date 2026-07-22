@@ -7,9 +7,9 @@ intentionally unchecked until someone performs that step against the release
 environment.
 
 For each check, mark exactly one status box and record no values or issue notes
-in this file. Do not add Apple private keys, Supabase secrets, private user
-identifiers, identity or access tokens, or copied dashboard payloads. If a check
-fails, record the details only in a separate bug with sanitized logs.
+in this file. Do not record UUIDs, tokens, secrets, IP addresses, Apple private
+keys, copied dashboard payloads, or raw error bodies. If a check fails, record
+details only in a separate bug with sanitized logs and session labels.
 
 ## Allowed Local Device Path
 
@@ -27,13 +27,61 @@ EAS configuration, production or store builds, and TestFlight uploads remain pro
 - Pass [ ] Fail [ ] Enable Sign in with Apple for the App ID.
 - Pass [ ] Fail [ ] Confirm local Xcode development provisioning includes `com.apple.developer.applesignin`.
 
-## Supabase
+## Ordered Supabase Setup
+
+Perform these rows from top to bottom. Never run the seed before the first
+permanent login.
 
 - Pass [ ] Fail [ ] Apply `supabase/migrations/0001_m1.1_initial.sql`.
+- Pass [ ] Fail [ ] Apply `supabase/migrations/0002_supabase_sdk_contract_fix.sql`.
 - Pass [ ] Fail [ ] Enable anonymous sign-ins.
 - Pass [ ] Fail [ ] Enable manual identity linking.
 - Pass [ ] Fail [ ] Enable Apple and add `com.freshgreens.navigation` to Client IDs.
 - Pass [ ] Fail [ ] Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in gitignored `.env.local`.
+
+## First Login And Safe Promotion
+
+Use session labels such as Anonymous A and Permanent A in test notes. Never
+write the underlying user identifier into this runbook or a bug.
+
+- Pass [ ] Fail [ ] Complete the first anonymous-to-Apple login on Device A and confirm it converts the existing anonymous account in place.
+- Pass [ ] Fail [ ] Confirm exactly one permanent `auth.users` row and no moderator row exist before promotion, without recording either identifier.
+- Pass [ ] Fail [ ] Run `supabase/seed.sql` only after the first permanent login and confirm `private.bootstrap_first_moderator()` succeeds once.
+- Pass [ ] Fail [ ] Re-running the seed is rejected because a moderator already exists; do not bypass the guard with a direct role insert.
+
+## IP Retention
+
+Migration `0002` installs the nightly job when `pg_cron` is already enabled.
+If the extension was unavailable during migration, enable it in the Supabase
+dashboard and, only when no job with this name exists, schedule it in SQL
+Editor with:
+
+```sql
+SELECT cron.schedule(
+  'fresh-greens-purge-old-ips',
+  '0 3 * * *',
+  'SELECT public.purge_old_ips()'
+);
+```
+
+- Pass [ ] Fail [ ] Confirm the `fresh-greens-purge-old-ips` job runs nightly at `0 3 * * *` and calls `public.purge_old_ips()`.
+- Pass [ ] Fail [ ] Run the owner-only purge once and confirm report and flag IPs older than 90 days become null while newer rows remain populated; record only Pass/Fail.
+- Pass [ ] Fail [ ] Confirm anonymous, permanent, unpromoted, and moderator app sessions cannot execute the owner-only purge function.
+
+## Authorization Matrix
+
+Use disposable labeled sessions and sanitized test reports. Check both the
+expected success and expected denial for every role. Do not record UUIDs,
+tokens, secrets, IP addresses, device identifiers, or raw policy errors.
+
+- Pass [ ] Fail [ ] Anonymous session: can read `community_reports_public` and submit an allowed low-risk report through `submit_report`.
+- Pass [ ] Fail [ ] Anonymous session: cannot submit a protected report category, call moderator RPCs, read moderation rows, or mutate base tables directly.
+- Pass [ ] Fail [ ] Permanent session: can submit a protected report and delete its own report through the guarded RPCs.
+- Pass [ ] Fail [ ] Permanent session: cannot delete another session's report or mutate report, flag, role, ban, device, or audit tables directly.
+- Pass [ ] Fail [ ] Unpromoted session: sees no moderator role and cannot list moderation reports or flags, restore reports, or remove reports.
+- Pass [ ] Fail [ ] Unpromoted session: cannot inspect another session's role row or bypass RLS with direct base-table reads.
+- Pass [ ] Fail [ ] Moderator session: can list moderation reports and flags through the security-invoker RPCs and can restore or remove reports through audited RPCs.
+- Pass [ ] Fail [ ] Moderator session: still cannot insert, update, or delete protected base tables directly, and each successful state transition creates the expected sanitized audit action.
 
 ## Real iPhone
 

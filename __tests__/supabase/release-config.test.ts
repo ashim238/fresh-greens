@@ -81,3 +81,42 @@ test('requires anonymous identity preservation before cross-device acceptance', 
   )).toBe(true);
   expect(runbook).not.toMatch(/(?:Pass|Fail) \[[xX]\]/);
 });
+
+test('orders schema, first login, promotion, retention, and authorization acceptance', () => {
+  const orderedSteps = [
+    'Apply `supabase/migrations/0001_m1.1_initial.sql`.',
+    'Apply `supabase/migrations/0002_supabase_sdk_contract_fix.sql`.',
+    'Complete the first anonymous-to-Apple login',
+    'Run `supabase/seed.sql` only after the first permanent login',
+    'Confirm the `fresh-greens-purge-old-ips` job runs nightly',
+    '## Authorization Matrix',
+  ];
+
+  let previousIndex = -1;
+  for (const step of orderedSteps) {
+    const currentIndex = runbook.indexOf(step);
+    expect(currentIndex).toBeGreaterThan(previousIndex);
+    previousIndex = currentIndex;
+  }
+
+  for (const sessionLabel of [
+    'Anonymous session',
+    'Permanent session',
+    'Unpromoted session',
+    'Moderator session',
+  ]) {
+    expect(runbook).toContain(sessionLabel);
+  }
+
+  expect(runbook).toContain('`public.purge_old_ips()`');
+  expect(runbook).toContain('Do not record UUIDs, tokens, secrets, IP addresses');
+  expect(envExample).toContain(
+    'supabase/migrations/0002_supabase_sdk_contract_fix.sql',
+  );
+  expect(envExample.indexOf('0001_m1.1_initial.sql')).toBeLessThan(
+    envExample.indexOf('0002_supabase_sdk_contract_fix.sql'),
+  );
+  expect(envExample.indexOf('0002_supabase_sdk_contract_fix.sql')).toBeLessThan(
+    envExample.indexOf('supabase/seed.sql'),
+  );
+});

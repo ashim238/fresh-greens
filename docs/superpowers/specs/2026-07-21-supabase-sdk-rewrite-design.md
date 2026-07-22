@@ -1,7 +1,7 @@
 # Supabase SDK Rewrite Design
 
-**Date:** 2026-07-21  
-**Status:** Approved architecture  
+**Date:** 2026-07-21
+**Status:** Approved architecture
 **Scope:** Replace every direct Supabase REST call and the custom token owner
 with one persistent configured `@supabase/supabase-js` client behind Fresh
 Greens-owned repositories and adapters. Ephemeral stateless, non-persisting

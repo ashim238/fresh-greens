@@ -123,6 +123,11 @@ AS $$
   );
 $$;
 
+-- Authenticated callers need schema resolution for the one role helper they
+-- may execute. All other private functions remain unreachable because their
+-- EXECUTE privilege is revoked below.
+GRANT USAGE ON SCHEMA private TO authenticated;
+
 CREATE POLICY community_reports_moderator_select
   ON public.community_reports
   FOR SELECT TO authenticated
