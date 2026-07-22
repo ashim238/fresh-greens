@@ -14,7 +14,12 @@ jest.mock('expo-secure-store', () => ({
 import * as SecureStore from 'expo-secure-store';
 import type { AppStateStatus } from 'react-native';
 
-import { supabaseAuthStorage } from '../../lib/supabase/auth-storage';
+import {
+  clearSupabaseLocalSessionIfAccessTokenMatches,
+  ensureSupabaseLocalSessionStorageCleared,
+  getSupabaseAuthStorageKey,
+  supabaseAuthStorage,
+} from '../../lib/supabase/auth-storage';
 import {
   readSupabaseEnvironment,
   createConfiguredSupabaseClient,
@@ -63,6 +68,11 @@ function autoRefreshHarness(initialState: AppStateStatus) {
 }
 
 describe('Supabase client foundation', () => {
+  beforeEach(() => {
+    mockSecureStoreValues.clear();
+    jest.clearAllMocks();
+  });
+
   test('treats a partial environment as unconfigured', () => {
     expect(readSupabaseEnvironment({
       EXPO_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
@@ -76,6 +86,66 @@ describe('Supabase client foundation', () => {
     );
     await supabaseAuthStorage.removeItem('sb-session');
     await expect(SecureStore.getItemAsync('sb-session')).resolves.toBeNull();
+  });
+
+  test('derives the same explicit auth storage key used by the SDK client', () => {
+    expect(getSupabaseAuthStorageKey('https://project.supabase.co')).toBe(
+      'sb-project-auth-token',
+    );
+  });
+
+  test('clears a remaining SDK session and auxiliary auth storage locally', async () => {
+    const env = {
+      EXPO_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+    };
+    const storageKey = getSupabaseAuthStorageKey(env.EXPO_PUBLIC_SUPABASE_URL);
+    mockSecureStoreValues.set(storageKey, JSON.stringify({
+      access_token: 'offline-access-token',
+      refresh_token: 'offline-refresh-token',
+    }));
+    mockSecureStoreValues.set(`${storageKey}-code-verifier`, 'verifier');
+    mockSecureStoreValues.set(`${storageKey}-user`, 'user');
+
+    await ensureSupabaseLocalSessionStorageCleared(env);
+
+    expect(mockSecureStoreValues.has(storageKey)).toBe(false);
+    expect(mockSecureStoreValues.has(`${storageKey}-code-verifier`)).toBe(false);
+    expect(mockSecureStoreValues.has(`${storageKey}-user`)).toBe(false);
+  });
+
+  test('does not clear a newer SDK session after stale-token validation', async () => {
+    const env = {
+      EXPO_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+    };
+    const storageKey = getSupabaseAuthStorageKey(env.EXPO_PUBLIC_SUPABASE_URL);
+    const newerSession = JSON.stringify({
+      access_token: 'newer-access-token',
+      refresh_token: 'newer-refresh-token',
+    });
+    mockSecureStoreValues.set(storageKey, newerSession);
+
+    await expect(clearSupabaseLocalSessionIfAccessTokenMatches(
+      'stale-access-token',
+      env,
+    )).resolves.toBe('changed');
+    expect(mockSecureStoreValues.get(storageKey)).toBe(newerSession);
+  });
+
+  test('clears the SDK session when the captured token is still current', async () => {
+    const env = {
+      EXPO_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+    };
+    const storageKey = getSupabaseAuthStorageKey(env.EXPO_PUBLIC_SUPABASE_URL);
+    mockSecureStoreValues.set(storageKey, JSON.stringify({
+      access_token: 'captured-access-token',
+      refresh_token: 'captured-refresh-token',
+    }));
+
+    await expect(clearSupabaseLocalSessionIfAccessTokenMatches(
+      'captured-access-token',
+      env,
+    )).resolves.toBe('cleared');
+    expect(mockSecureStoreValues.has(storageKey)).toBe(false);
   });
 
   test('adds device UUID only to data and function requests', async () => {

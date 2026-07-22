@@ -137,11 +137,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const userRef = useRef(user);
   const mountedRef = useRef(true);
   const quarantinedRef = useRef(true);
+  const hydrationQuarantineRef = useRef(true);
+  const ownedAccountIdRef = useRef<string | null>(null);
   const appleSignInRef = useRef(false);
   const backendAvailabilityRef = useRef<BackendAvailability>('unknown');
   const authSequenceRef = useRef(0);
   const pendingAuthStateRef = useRef<SequencedAuthState | null>(null);
   const authTransitionRunningRef = useRef(false);
+  const unexpectedPurgeRef = useRef<Promise<void> | null>(null);
   const processAuthQueueRef = useRef<() => void>(() => undefined);
   sessionGenerationRef.current = sessionGeneration;
   phaseRef.current = phase;
@@ -182,6 +185,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, []);
 
   const enterQuarantineAndDrain = useCallback(async () => {
+    hydrationQuarantineRef.current = false;
     quarantinedRef.current = true;
     invalidateAuthQueue();
     publishUser(null);
@@ -193,11 +197,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const applyPurgeResult = useCallback((result: AccountPurgeResult) => {
     if (result.status === 'failed') {
+      hydrationQuarantineRef.current = false;
       quarantinedRef.current = true;
       setFailure(failureSummary(result.failures));
       publishPhase('cleanupFailed');
       return;
     }
+    ownedAccountIdRef.current = null;
     publishUser(null);
     setFailure(null);
     setSessionError(null);
@@ -210,6 +216,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     accountOperationGate.open(nextGeneration);
     publishGeneration(nextGeneration);
     quarantinedRef.current = false;
+    hydrationQuarantineRef.current = false;
     publishPhase('signedOut');
   }, [publishGeneration, publishPhase, publishUser]);
 
@@ -221,12 +228,15 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [publishGeneration]);
 
   const publishHydratedSession = useCallback((storedUser: User | null) => {
+    ownedAccountIdRef.current = storedUser?.id ?? null;
     publishUser(storedUser);
     setFailure(null);
     setSessionError(null);
     setSignOutCompletion(null);
     quarantinedRef.current = false;
+    hydrationQuarantineRef.current = false;
     publishPhase(storedUser ? 'authenticated' : 'signedOut');
+    processAuthQueueRef.current();
   }, [publishPhase, publishUser]);
 
   const openHydratedSession = useCallback((storedUser: User | null) => {
@@ -239,13 +249,66 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const nextGeneration = sessionGenerationRef.current + 1;
     accountOperationGate.advanceOpenGeneration(nextGeneration);
     publishGeneration(nextGeneration);
+    ownedAccountIdRef.current = nextUser?.id ?? null;
     publishUser(nextUser);
     setFailure(null);
     setSessionError(null);
     setSignOutCompletion(null);
     quarantinedRef.current = false;
+    hydrationQuarantineRef.current = false;
     publishPhase(nextUser ? 'authenticated' : 'signedOut');
   }, [publishGeneration, publishPhase, publishUser]);
+
+  const purgeAccountBoundary = useCallback(async (
+    preserveUserBeforeMarker = false,
+  ): Promise<void> => {
+    let operation = unexpectedPurgeRef.current;
+    if (!operation) {
+      operation = (async () => {
+        let markerIsDurable = false;
+        try {
+          const result = await accountPurgeCoordinator.begin(async () => {
+            markerIsDurable = true;
+            await enterQuarantineAndDrain();
+          });
+          applyPurgeResult(result);
+        } catch (error) {
+          if (!markerIsDurable) throw error;
+          hydrationQuarantineRef.current = false;
+          quarantinedRef.current = true;
+          invalidateAuthQueue();
+          publishUser(null);
+          setFailure({ failures: [], canFinishOnDevice: false });
+          publishPhase('cleanupFailed');
+        }
+      })();
+      unexpectedPurgeRef.current = operation;
+    }
+
+    try {
+      await operation;
+    } catch (error) {
+      if (preserveUserBeforeMarker) throw error;
+      hydrationQuarantineRef.current = false;
+      quarantinedRef.current = true;
+      invalidateAuthQueue();
+      publishUser(null);
+      setSessionError(
+        error instanceof Error ? error : new SessionUnavailableError(),
+      );
+      publishPhase('sessionError');
+    } finally {
+      if (unexpectedPurgeRef.current === operation) {
+        unexpectedPurgeRef.current = null;
+      }
+    }
+  }, [
+    applyPurgeResult,
+    enterQuarantineAndDrain,
+    invalidateAuthQueue,
+    publishPhase,
+    publishUser,
+  ]);
 
   const validateHydratedSession = useCallback((
     accessToken: string,
@@ -260,8 +323,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
             );
             assertAccountOperationOpen(signal);
             if (result === 'invalid') {
-              await backendAuthRepository.signOutLocal();
+              const clearResult =
+                await backendAuthRepository.clearLocalSessionIfCurrent(
+                  accessToken,
+                );
               assertAccountOperationOpen(signal);
+              if (clearResult === 'changed') return 'stale';
             }
             return result;
           },
@@ -274,7 +341,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         ) {
           return;
         }
-        advanceOpenSession(null);
+        await purgeAccountBoundary();
       } catch (error) {
         if (
           isClosedOperation(error) ||
@@ -284,6 +351,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
         ) {
           return;
         }
+        hydrationQuarantineRef.current = true;
+        quarantinedRef.current = true;
         publishUser(null);
         setSessionError(
           error instanceof Error ? error : new SessionUnavailableError(),
@@ -291,12 +360,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
         publishPhase('sessionError');
       }
     })();
-  }, [advanceOpenSession, publishPhase, publishUser]);
+  }, [purgeAccountBoundary, publishPhase, publishUser]);
 
   const hydrateSession = useCallback(async (preserveSessionError = false) => {
+    hydrationQuarantineRef.current = true;
     quarantinedRef.current = true;
     backendAvailabilityRef.current = 'unknown';
-    invalidateAuthQueue();
     publishPhase('hydrating');
     publishUser(null);
     setFailure(null);
@@ -305,51 +374,103 @@ export function SessionProvider({ children }: PropsWithChildren) {
     await drainCurrentOperations();
     const pendingPurge = await readPendingAccountPurge();
     if (pendingPurge) {
+      hydrationQuarantineRef.current = false;
+      invalidateAuthQueue();
       publishPhase('signingOut');
       applyPurgeResult(await accountPurgeCoordinator.recover());
       return;
     }
 
     await retireLegacySupabaseSession();
-    const storedUser = await getStoredUser();
-    const backendState = await backendAuthRepository.hydrate();
-    if (backendState.kind === 'unconfigured') {
-      backendAvailabilityRef.current = 'unconfigured';
-      openHydratedSession(storedUser);
-      return;
-    }
-    backendAvailabilityRef.current = 'configured';
-    if (backendState.kind !== 'authenticated') {
-      openHydratedSession(null);
-      return;
-    }
+    let storedUser = await getStoredUser();
+    ownedAccountIdRef.current = storedUser?.id ?? null;
+    let backendState = await backendAuthRepository.hydrate();
+    let generation: number | null = null;
 
-    const generation = openHydrationGeneration();
-    const hydratedUser = await accountOperationGate.runCurrent(
-      async (signal) => {
-        const profile = await profileForBackendSession(
-          backendState.session,
-          storedUser,
-        );
-        assertAccountOperationOpen(signal);
-        return profile;
-      },
-    );
-    if (
-      generation !== sessionGenerationRef.current ||
-      !quarantinedRef.current ||
-      !mountedRef.current
-    ) {
+    while (mountedRef.current && hydrationQuarantineRef.current) {
+      const buffered = pendingAuthStateRef.current;
+      if (buffered) {
+        pendingAuthStateRef.current = null;
+        backendState = buffered.state;
+      }
+
+      if (backendState.kind === 'unconfigured') {
+        backendAvailabilityRef.current = 'unconfigured';
+        openHydratedSession(storedUser);
+        return;
+      }
+      backendAvailabilityRef.current = 'configured';
+
+      if (backendState.kind !== 'authenticated') {
+        if (ownedAccountIdRef.current) {
+          await purgeAccountBoundary();
+          return;
+        }
+        openHydratedSession(null);
+        return;
+      }
+
+      const backendSession = backendState.session;
+      const backendUserId = backendSession.user.id;
+      const ownedAccountId = ownedAccountIdRef.current;
+      const isVerifiedLegacyAlias =
+        storedUser?.id === ownedAccountId &&
+        appleProviderSubject(backendSession) === storedUser?.id;
+      if (
+        ownedAccountId &&
+        ownedAccountId !== backendUserId &&
+        !isVerifiedLegacyAlias
+      ) {
+        await purgeAccountBoundary();
+        return;
+      }
+
+      if (generation === null) generation = openHydrationGeneration();
+      if (!ownedAccountId) ownedAccountIdRef.current = backendUserId;
+      const hydratedUser = await accountOperationGate.runCurrent(
+        async (signal) => {
+          const profile = await profileForBackendSession(
+            backendSession,
+            storedUser,
+          );
+          assertAccountOperationOpen(signal);
+          return profile;
+        },
+      );
+      if (
+        generation !== sessionGenerationRef.current ||
+        !quarantinedRef.current ||
+        !hydrationQuarantineRef.current ||
+        !mountedRef.current
+      ) {
+        return;
+      }
+
+      ownedAccountIdRef.current = backendUserId;
+      storedUser = hydratedUser;
+      const newer = pendingAuthStateRef.current;
+      if (newer) {
+        pendingAuthStateRef.current = null;
+        if (
+          newer.state.kind !== 'authenticated' ||
+          newer.state.session.user.id !== backendUserId
+        ) {
+          backendState = newer.state;
+          continue;
+        }
+      }
+
+      publishHydratedSession(hydratedUser);
+      validateHydratedSession(backendSession.accessToken, generation);
       return;
     }
-    publishHydratedSession(hydratedUser);
-    validateHydratedSession(backendState.session.accessToken, generation);
   }, [
     applyPurgeResult,
     drainCurrentOperations,
     invalidateAuthQueue,
     openHydrationGeneration,
     openHydratedSession,
+    purgeAccountBoundary,
     publishHydratedSession,
     publishPhase,
     publishUser,
@@ -368,6 +489,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
     const currentPhase = phaseRef.current;
     const currentUser = userRef.current;
+    const ownedAccountId = ownedAccountIdRef.current;
+    if (
+      ownedAccountId &&
+      (
+        queued.state.kind !== 'authenticated' ||
+        queued.state.session.user.id !== ownedAccountId
+      )
+    ) {
+      await purgeAccountBoundary();
+      return;
+    }
     if (
       queued.state.kind === 'authenticated' &&
       currentPhase === 'authenticated' &&
@@ -412,6 +544,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       let nextUser: User | null = null;
       if (queued.state.kind === 'authenticated') {
         const session = queued.state.session;
+        ownedAccountIdRef.current = session.user.id;
         nextUser = await accountOperationGate.runCurrent(async (signal) => {
           const storedUser = await getStoredUser();
           assertAccountOperationOpen(signal);
@@ -430,6 +563,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         return;
       }
 
+      ownedAccountIdRef.current = nextUser?.id ?? null;
       publishUser(nextUser);
       setFailure(null);
       setSessionError(null);
@@ -443,13 +577,22 @@ export function SessionProvider({ children }: PropsWithChildren) {
       ) {
         return;
       }
+      if (ownedAccountIdRef.current) {
+        hydrationQuarantineRef.current = true;
+        quarantinedRef.current = true;
+      }
       publishUser(null);
       setSessionError(
         error instanceof Error ? error : new SessionUnavailableError(),
       );
       publishPhase('sessionError');
     }
-  }, [publishGeneration, publishPhase, publishUser]);
+  }, [
+    publishGeneration,
+    publishPhase,
+    publishUser,
+    purgeAccountBoundary,
+  ]);
 
   const processAuthQueue = useCallback(() => {
     if (
@@ -492,7 +635,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const transitionFromAuthEvent = useCallback((state: BackendAuthState) => {
     if (
       state.kind === 'unconfigured' ||
-      quarantinedRef.current ||
+      (quarantinedRef.current && !hydrationQuarantineRef.current) ||
       !mountedRef.current
     ) {
       return;
@@ -502,7 +645,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const sequence = authSequenceRef.current + 1;
     authSequenceRef.current = sequence;
     pendingAuthStateRef.current = { sequence, state };
-    processAuthQueueRef.current();
+    if (!quarantinedRef.current) processAuthQueueRef.current();
   }, []);
 
   useEffect(() => {
@@ -607,6 +750,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
           displayName,
         });
         assertAccountOperationOpen(signal);
+        ownedAccountIdRef.current = cloudIdentity?.userId ?? credential.user;
         const signedInUser = await upsertUser(
           {
             id: cloudIdentity?.userId ?? credential.user,
@@ -663,6 +807,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       if (backendAvailabilityRef.current !== 'unconfigured') {
         throw new SessionUnavailableError();
       }
+      ownedAccountIdRef.current = 'dev-simulator-user';
       const profile = await upsertUser({
         id: 'dev-simulator-user',
         provider: 'apple',
@@ -691,20 +836,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
     if (phaseRef.current !== 'authenticated') {
       throw new SessionUnavailableError();
     }
-    let quarantined = false;
-    try {
-      const result = await accountPurgeCoordinator.begin(async () => {
-        quarantined = true;
-        await enterQuarantineAndDrain();
-      });
-      applyPurgeResult(result);
-    } catch (error) {
-      if (!quarantined) throw error;
-      quarantinedRef.current = true;
-      setFailure({ failures: [], canFinishOnDevice: false });
-      publishPhase('cleanupFailed');
-    }
-  }, [applyPurgeResult, enterQuarantineAndDrain, publishPhase]);
+    await purgeAccountBoundary(true);
+  }, [purgeAccountBoundary]);
 
   const retryCleanup = useCallback(async () => {
     if (phaseRef.current !== 'cleanupFailed') {

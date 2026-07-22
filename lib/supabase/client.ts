@@ -10,7 +10,10 @@ import {
 import { AppState } from 'react-native';
 
 import { getDeviceUUID } from '../device-uuid';
-import { supabaseAuthStorage } from './auth-storage';
+import {
+  getSupabaseAuthStorageKey,
+  supabaseAuthStorage,
+} from './auth-storage';
 import type { Database } from './database.types';
 import { createSupabaseTransport } from './transport';
 
@@ -49,6 +52,7 @@ export function createConfiguredSupabaseClient(
   return createClient<Database>(env.url, env.publishableKey, {
     auth: {
       storage: supabaseAuthStorage,
+      storageKey: getSupabaseAuthStorageKey(env.url),
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,

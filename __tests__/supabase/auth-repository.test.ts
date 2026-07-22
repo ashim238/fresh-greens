@@ -75,6 +75,10 @@ const validateAccessToken = jest.fn<
   ReturnType<AccessTokenValidator>,
   Parameters<AccessTokenValidator>
 >();
+const localSessionStorage = {
+  ensureCleared: jest.fn(),
+  clearIfAccessTokenMatches: jest.fn(),
+};
 
 const input: AppleIdentityInput = {
   identityToken: 'synthetic-apple-id-token',
@@ -172,10 +176,13 @@ beforeEach(() => {
   }));
   client.auth.signOut.mockResolvedValue({ error: null });
   client.auth.admin.signOut.mockResolvedValue({ data: null, error: null });
+  localSessionStorage.ensureCleared.mockResolvedValue(undefined);
+  localSessionStorage.clearIfAccessTokenMatches.mockResolvedValue('cleared');
 
   repository = createBackendAuthRepository(
     () => asClient(),
     validateAccessToken,
+    localSessionStorage,
   );
 });
 
@@ -201,6 +208,9 @@ describe('backend auth repository', () => {
       reason: 'no-session',
     });
     await expect(unconfigured.signOutLocal()).resolves.toBeUndefined();
+    await expect(unconfigured.clearLocalSessionIfCurrent(
+      'synthetic-access-token',
+    )).resolves.toBe('absent');
 
     expect(unsubscribe()).toBeUndefined();
     expect(listener).not.toHaveBeenCalled();
@@ -989,10 +999,33 @@ describe('backend auth repository', () => {
     expect(client.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 
-  test('redacts SDK errors from local sign-out failures', async () => {
+  test('accepts SDK local sign-out errors once the storage postcondition is met', async () => {
     client.auth.signOut.mockResolvedValue({
       error: new AuthApiError('contains a raw token', 422, 'validation_failed'),
     });
+
+    await expect(repository.signOutLocal()).resolves.toBeUndefined();
+    expect(localSessionStorage.ensureCleared).toHaveBeenCalledTimes(1);
+    expect(client.auth.admin.signOut).not.toHaveBeenCalled();
+  });
+
+  test('accepts a rejected offline local sign-out after repository-owned clearing', async () => {
+    client.auth.signOut.mockRejectedValue(
+      new Error('raw local payload synthetic-access-token'),
+    );
+
+    await expect(repository.signOutLocal()).resolves.toBeUndefined();
+    expect(localSessionStorage.ensureCleared).toHaveBeenCalledTimes(1);
+    expect(client.auth.admin.signOut).not.toHaveBeenCalled();
+  });
+
+  test('redacts local sign-out when both the SDK and storage fallback fail', async () => {
+    client.auth.signOut.mockRejectedValue(
+      new Error('raw local payload synthetic-access-token'),
+    );
+    localSessionStorage.ensureCleared.mockRejectedValue(
+      new Error('raw storage payload synthetic-refresh-token'),
+    );
 
     await expect(repository.signOutLocal()).rejects.toMatchObject({
       name: 'BackendAuthError',
@@ -1000,14 +1033,16 @@ describe('backend auth repository', () => {
     });
   });
 
-  test('redacts rejected local sign-out failures', async () => {
-    client.auth.signOut.mockRejectedValue(
-      new Error('raw local payload synthetic-access-token'),
-    );
+  test('clears an invalid token only when it is still the stored session', async () => {
+    localSessionStorage.clearIfAccessTokenMatches.mockResolvedValue('changed');
 
-    await expect(repository.signOutLocal()).rejects.toMatchObject({
-      name: 'BackendAuthError',
-      message: 'Unable to clear the local online session',
-    });
+    await expect(repository.clearLocalSessionIfCurrent(
+      'captured-access-token',
+    )).resolves.toBe('changed');
+
+    expect(localSessionStorage.clearIfAccessTokenMatches).toHaveBeenCalledWith(
+      'captured-access-token',
+    );
+    expect(client.auth.signOut).not.toHaveBeenCalled();
   });
 });

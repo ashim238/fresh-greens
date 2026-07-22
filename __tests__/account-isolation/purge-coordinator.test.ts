@@ -1,4 +1,9 @@
 import {
+  AuthRetryableFetchError,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
+
+import {
   asyncStorageState,
   resetTestHarness,
 } from './test-harness';
@@ -26,6 +31,7 @@ import {
   createAccountPurgeCoordinator,
   type AccountPurgeCoordinatorDependencies,
 } from '../../lib/account-session/purge-coordinator';
+import type { Database } from '../../lib/supabase/database.types';
 
 const { backendAuthRepository } = jest.mocked(
   require('../../lib/supabase/auth-repository'),
@@ -404,6 +410,40 @@ describe('account purge coordinator', () => {
 
     expect(backendAuthRepository.signOutGlobal).toHaveBeenCalledTimes(1);
     expect(backendAuthRepository.signOutLocal).toHaveBeenCalledTimes(1);
+  });
+
+  test('completes purge when an SDK-shaped offline local sign-out meets its storage postcondition', async () => {
+    const { createBackendAuthRepository } = jest.requireActual(
+      '../../lib/supabase/auth-repository',
+    ) as typeof import('../../lib/supabase/auth-repository');
+    const sdkSignOut = jest.fn(async () => ({
+      error: new AuthRetryableFetchError('offline', 0),
+    }));
+    const ensureCleared = jest.fn(async () => undefined);
+    const authRepository = createBackendAuthRepository(
+      () => ({ auth: { signOut: sdkSignOut } }) as unknown as SupabaseClient<Database>,
+      async () => null,
+      {
+        ensureCleared,
+        clearIfAccessTokenMatches: async () => 'absent',
+      },
+    );
+    const coordinator = createAccountPurgeCoordinator(
+      coordinatorDependencies(
+        [
+          entry('identity.user', 'identity', async () => undefined),
+          entry('auth.supabase', 'remote', async () => undefined),
+        ],
+        { clearLocalCloudSession: authRepository.signOutLocal },
+      ),
+    );
+
+    await expect(coordinator.begin()).resolves.toEqual({
+      status: 'completed',
+      failures: [],
+    });
+    expect(sdkSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(ensureCleared).toHaveBeenCalledTimes(1);
   });
 
   test('does not allow local finish after a non-retryable remote failure', async () => {

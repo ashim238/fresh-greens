@@ -9,6 +9,11 @@ import {
 } from '@supabase/supabase-js';
 
 import {
+  clearSupabaseLocalSessionIfAccessTokenMatches,
+  ensureSupabaseLocalSessionStorageCleared,
+  type LocalSessionCompareClearResult,
+} from './auth-storage';
+import {
   getSupabaseClient,
   startSupabaseAutoRefresh,
   validateSupabaseAccessToken,
@@ -92,6 +97,19 @@ type AccessTokenValidator = (
   accessToken: string,
 ) => Promise<UserResponse | null>;
 
+type LocalSessionStorage = {
+  ensureCleared(): Promise<void>;
+  clearIfAccessTokenMatches(
+    accessToken: string,
+  ): Promise<LocalSessionCompareClearResult>;
+};
+
+const configuredLocalSessionStorage: LocalSessionStorage = {
+  ensureCleared: ensureSupabaseLocalSessionStorageCleared,
+  clearIfAccessTokenMatches:
+    clearSupabaseLocalSessionIfAccessTokenMatches,
+};
+
 function validationFromError(error: unknown): BackendSessionValidation {
   if (isAuthRetryableFetchError(error)) return 'unavailable';
   if (
@@ -135,6 +153,7 @@ function globalSignOutResultFromError(
 export function createBackendAuthRepository(
   readClient: () => SupabaseClient<Database> | null,
   validateAccessToken: AccessTokenValidator = validateSupabaseAccessToken,
+  localSessionStorage: LocalSessionStorage = configuredLocalSessionStorage,
 ) {
   let anonymousSessionRequest: Promise<Session> | null = null;
 
@@ -329,10 +348,30 @@ export function createBackendAuthRepository(
     try {
       response = await client.auth.signOut({ scope: 'local' });
     } catch {
-      throw new BackendAuthError('Unable to clear the local online session');
+      try {
+        await localSessionStorage.ensureCleared();
+        return;
+      } catch {
+        throw new BackendAuthError('Unable to clear the local online session');
+      }
     }
     const { error } = response;
     if (error) {
+      try {
+        await localSessionStorage.ensureCleared();
+      } catch {
+        throw new BackendAuthError('Unable to clear the local online session');
+      }
+    }
+  }
+
+  async function clearLocalSessionIfCurrent(
+    accessToken: string,
+  ): Promise<LocalSessionCompareClearResult> {
+    if (!readClient()) return 'absent';
+    try {
+      return await localSessionStorage.clearIfAccessTokenMatches(accessToken);
+    } catch {
       throw new BackendAuthError('Unable to clear the local online session');
     }
   }
@@ -346,6 +385,7 @@ export function createBackendAuthRepository(
     subscribe,
     signOutGlobal,
     signOutLocal,
+    clearLocalSessionIfCurrent,
   };
 }
 
