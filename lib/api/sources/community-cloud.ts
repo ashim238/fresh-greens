@@ -9,7 +9,6 @@ import {
   accountOperationGate,
   runBestEffortAccountOperation,
 } from '../../account-session/operation-gate';
-import { getDeviceUUID } from '../../device-uuid';
 import {
   communityReportsRepository,
   isCommunityReportsRepositoryConfigured,
@@ -35,7 +34,7 @@ function rowToReport(row: CommunityReportPublicRow): CommunityReport {
     placeName: row.place_name ?? undefined,
     placeType: row.place_type ?? undefined,
     googlePlaceId: row.google_place_id ?? undefined,
-    submittedBy: row.submitted_by ?? undefined,
+    ownedByCurrentUser: row.owned_by_current_user ?? undefined,
     photoUri: row.photo_uri ?? undefined,
     timestamp: row.timestamp,
     trustTier: row.trust_tier ?? undefined,
@@ -67,7 +66,6 @@ export async function pushCommunityReportToCloud(
   if (!isCommunityCloudConfigured()) return { ok: false, error: 'unknown' };
   try {
     return await accountOperationGate.runCurrent(async (signal) => {
-      const deviceUUID = await getDeviceUUID();
       return communityReportsRepository.insertCommunityReport(
         {
           id: report.id,
@@ -78,11 +76,6 @@ export async function pushCommunityReportToCloud(
           place_name: report.placeName ?? null,
           place_type: report.placeType ?? null,
           google_place_id: report.googlePlaceId ?? null,
-          submitted_by: report.submittedBy ?? null,
-          photo_uri: report.photoUri ?? null,
-          timestamp: report.timestamp,
-          device_uuid: deviceUUID,
-          is_verified_phone: false,
         },
         signal,
       );

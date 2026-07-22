@@ -311,7 +311,7 @@ export default function Report() {
       placeType: selectedPlaceType,
       placeName: nearest?.name,
       googlePlaceId: nearest?.googlePlaceId,
-      submittedBy: category.anonymous ? undefined : user?.id,
+      ownedByCurrentUser: category.anonymous ? undefined : Boolean(user),
       photoUri,
     });
 

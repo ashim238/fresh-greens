@@ -13,10 +13,9 @@
 // consumer changes. Severity-to-zoneType mapping is per-category; see
 // CATEGORIES below.
 //
-// Anonymity is handled at write time, not at storage time: sensitive-
-// category reports never persist a `submittedBy` field. The user can't
-// later "de-anonymize" a sensitive report because there's no record
-// of who they were when they made it.
+// Anonymity is handled at write time: sensitive-category reports do not
+// persist ownership attribution. Other reports store only a boolean indicating
+// that they belong to the current local account, never a canonical user id.
 //
 // The `addCommunityReport` → `removeCommunityReport` pair supports the
 // Thank-You screen's Undo affordance — a 5-second window where the user
@@ -282,7 +281,7 @@ export function getCategory(id: ReportCategoryId): ReportCategory {
 // --- Storage shape --------------------------------------------------------
 
 /**
- * Persisted shape. `submittedBy` is omitted on anonymous categories —
+ * Persisted shape. `ownedByCurrentUser` is omitted on anonymous categories -
  * see file header comment on anonymity-at-write-time.
  */
 export type CommunityReport = {
@@ -320,8 +319,8 @@ export type CommunityReport = {
    * for matching external listings and hydrating card fields).
    */
   googlePlaceId?: string;
-  /** Anonymous-category reports never set this. */
-  submittedBy?: string;
+  /** Anonymous-category reports never set this. No canonical user id is exposed. */
+  ownedByCurrentUser?: boolean;
   /**
    * Local file URI from `expo-image-picker.launchCameraAsync` when
    * the user attached a photo via /report. Local-device only —
@@ -456,7 +455,7 @@ function reportToZone(report: CommunityReport): Zone {
     reportDetail: report.detail,
     reportTimestamp: report.timestamp,
     reportPlaceName: report.placeName,
-    reportSubmittedBy: report.submittedBy,
+    reportOwnedByCurrentUser: report.ownedByCurrentUser,
     reportPhotoUri: report.photoUri,
   };
 }

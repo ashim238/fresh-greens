@@ -203,9 +203,8 @@ export type Zone = {
    * Surfaces as the title in ReportDetailCard when present.
    */
   reportPlaceName?: string;
-  /** Author id (`CommunityReport.submittedBy`) — used by hold-to-delete
-   *  to gate deletion to the report's author. */
-  reportSubmittedBy?: string;
+  /** Non-identifying ownership bit used to gate hold-to-delete. */
+  reportOwnedByCurrentUser?: boolean;
   /** Local file URI for the optional photo the user attached at
    *  submit time (`CommunityReport.photoUri`). Lives in
    *  expo-file-system documentDirectory so it survives cache evictions.

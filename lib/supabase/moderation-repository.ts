@@ -1,16 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import {
+  AccountOperationClosedError,
+  accountOperationGate,
+  assertAccountOperationOpen,
+  type AccountOperationGate,
+} from '../account-session/operation-gate';
 import { getSupabaseClient } from './client';
 import type { CommunityReportCategoryId } from './community-reports-repository';
 import type { Database } from './database.types';
 
 type ClientReader = () => SupabaseClient<Database> | null;
-type ModerationViewRow =
-  Database['public']['Views']['community_reports_moderation']['Row'];
-type ReportFlagRow = Database['public']['Tables']['report_flags']['Row'];
+type ModerationRpcRow =
+  Database['public']['Functions']['moderator_list_reports']['Returns'][number];
+type ReportFlagRpcRow =
+  Database['public']['Functions']['moderator_list_report_flags']['Returns'][number];
+type OperationGate = Pick<AccountOperationGate, 'runCurrent'>;
 
 export type ModerationReport = Pick<
-  ModerationViewRow,
+  ModerationRpcRow,
   | 'detail'
   | 'place_name'
   | 'place_type'
@@ -38,7 +46,7 @@ export type ReportFlagReasonCategory =
 
 export type ReportFlag = Omit<
   Pick<
-    ReportFlagRow,
+    ReportFlagRpcRow,
     | 'id'
     | 'report_id'
     | 'flagger_device_uuid'
@@ -94,10 +102,14 @@ export class ModerationRepositoryError extends Error {
   }
 }
 
-function asRepositoryError(error: unknown): ModerationRepositoryError {
-  return error instanceof ModerationRepositoryError
-    ? error
-    : new ModerationRepositoryError('unavailable');
+function asRepositoryError(error: unknown): Error {
+  if (
+    error instanceof ModerationRepositoryError ||
+    error instanceof AccountOperationClosedError
+  ) {
+    return error;
+  }
+  return new ModerationRepositoryError('unavailable');
 }
 
 function responseError(status: number): ModerationRepositoryError {
@@ -187,7 +199,7 @@ function parseReportFlag(row: unknown, reportId: string): ReportFlag | null {
     !isNonEmptyString(row.id) ||
     row.report_id !== reportId ||
     !isNonEmptyString(row.flagger_device_uuid) ||
-    !isNonEmptyString(row.flagger_ip) ||
+    !(row.flagger_ip === null || isNonEmptyString(row.flagger_ip)) ||
     !isNullableString(row.reason) ||
     typeof row.reason_category !== 'string' ||
     !FLAG_REASON_CATEGORIES.has(
@@ -210,21 +222,30 @@ function parseReportFlag(row: unknown, reportId: string): ReportFlag | null {
   };
 }
 
-export function createModerationRepository(readClient: ClientReader) {
+export function createModerationRepository(
+  readClient: ClientReader,
+  operationGate: OperationGate = accountOperationGate,
+) {
   function requireClient(): SupabaseClient<Database> {
     const client = readClient();
     if (!client) throw new ModerationRepositoryError('unconfigured');
     return client;
   }
 
-  async function fetchModerationQueue(): Promise<ModerationReport[]> {
+  function boundaryError(signal: AbortSignal, error: unknown): Error {
+    if (signal.aborted) return new AccountOperationClosedError();
+    return asRepositoryError(error);
+  }
+
+  async function fetchModerationQueueWithinBoundary(
+    signal: AbortSignal,
+  ): Promise<ModerationReport[]> {
     try {
       const { data, error, status } = await requireClient()
-        .from('community_reports_moderation')
-        .select('*')
-        .order('hidden_at', { ascending: false, nullsFirst: false })
-        .order('timestamp', { ascending: false });
+        .rpc('moderator_list_reports')
+        .abortSignal(signal);
 
+      assertAccountOperationOpen(signal);
       if (error) throw responseError(status);
       if (!Array.isArray(data)) {
         throw new ModerationRepositoryError('invalid-data');
@@ -235,24 +256,20 @@ export function createModerationRepository(readClient: ClientReader) {
       }
       return reports as ModerationReport[];
     } catch (error) {
-      throw asRepositoryError(error);
+      throw boundaryError(signal, error);
     }
   }
 
-  async function fetchReportFlags(reportId: string): Promise<ReportFlag[]> {
-    if (!isNonEmptyString(reportId)) {
-      throw new ModerationRepositoryError('invalid-input');
-    }
-
+  async function fetchReportFlagsWithinBoundary(
+    reportId: string,
+    signal: AbortSignal,
+  ): Promise<ReportFlag[]> {
     try {
       const { data, error, status } = await requireClient()
-        .from('report_flags')
-        .select(
-          'id,report_id,flagger_device_uuid,flagger_ip,reason,reason_category,created_at',
-        )
-        .eq('report_id', reportId)
-        .order('created_at', { ascending: false });
+        .rpc('moderator_list_report_flags', { p_report_id: reportId })
+        .abortSignal(signal);
 
+      assertAccountOperationOpen(signal);
       if (error) throw responseError(status);
       if (!Array.isArray(data)) {
         throw new ModerationRepositoryError('invalid-data');
@@ -263,55 +280,73 @@ export function createModerationRepository(readClient: ClientReader) {
       }
       return flags as ReportFlag[];
     } catch (error) {
-      throw asRepositoryError(error);
+      throw boundaryError(signal, error);
     }
   }
 
-  async function restoreReport(id: string, reason: string): Promise<void> {
-    if (!isNonEmptyString(id) || !isNonEmptyString(reason)) {
-      throw new ModerationRepositoryError('invalid-input');
-    }
-
+  async function mutateReportWithinBoundary(
+    action: 'restore' | 'remove',
+    id: string,
+    reason: string,
+    signal: AbortSignal,
+  ): Promise<void> {
     try {
-      const { error, status } = await requireClient().rpc('moderator_restore_report', {
-        p_report_id: id,
-        p_reason: reason,
-      });
+      const rpc = action === 'restore'
+        ? 'moderator_restore_report'
+        : 'moderator_remove_report';
+      const { error, status } = await requireClient()
+        .rpc(rpc, { p_report_id: id, p_reason: reason })
+        .abortSignal(signal);
+
+      assertAccountOperationOpen(signal);
       if (error) throw responseError(status);
     } catch (error) {
-      throw asRepositoryError(error);
+      throw boundaryError(signal, error);
     }
   }
 
-  async function removeReport(id: string, reason: string): Promise<void> {
-    if (!isNonEmptyString(id) || !isNonEmptyString(reason)) {
-      throw new ModerationRepositoryError('invalid-input');
-    }
+  function fetchModerationQueue(): Promise<ModerationReport[]> {
+    return operationGate.runCurrent(fetchModerationQueueWithinBoundary);
+  }
 
-    try {
-      const { error, status } = await requireClient().rpc('moderator_remove_report', {
-        p_report_id: id,
-        p_reason: reason,
-      });
-      if (error) throw responseError(status);
-    } catch (error) {
-      throw asRepositoryError(error);
+  function fetchReportFlags(reportId: string): Promise<ReportFlag[]> {
+    if (!isNonEmptyString(reportId)) {
+      return Promise.reject(new ModerationRepositoryError('invalid-input'));
     }
+    return operationGate.runCurrent((signal) =>
+      fetchReportFlagsWithinBoundary(reportId, signal),
+    );
+  }
+
+  function restoreReport(id: string, reason: string): Promise<void> {
+    if (!isNonEmptyString(id) || !isNonEmptyString(reason)) {
+      return Promise.reject(new ModerationRepositoryError('invalid-input'));
+    }
+    return operationGate.runCurrent((signal) =>
+      mutateReportWithinBoundary('restore', id, reason, signal),
+    );
+  }
+
+  function removeReport(id: string, reason: string): Promise<void> {
+    if (!isNonEmptyString(id) || !isNonEmptyString(reason)) {
+      return Promise.reject(new ModerationRepositoryError('invalid-input'));
+    }
+    return operationGate.runCurrent((signal) =>
+      mutateReportWithinBoundary('remove', id, reason, signal),
+    );
   }
 
   async function runBulkModeration(
     ids: readonly string[],
     action: 'restore' | 'remove',
   ): Promise<{ failedIds: string[] }> {
-    let moderate: (id: string) => Promise<void>;
+    let reason: string;
     switch (action) {
       case 'restore':
-        moderate = (id) =>
-          restoreReport(id, 'Bulk restored via moderation queue');
+        reason = 'Bulk restored via moderation queue';
         break;
       case 'remove':
-        moderate = (id) =>
-          removeReport(id, 'Bulk removed via moderation queue');
+        reason = 'Bulk removed via moderation queue';
         break;
       default:
         throw new ModerationRepositoryError('invalid-input');
@@ -321,14 +356,19 @@ export function createModerationRepository(readClient: ClientReader) {
       throw new ModerationRepositoryError('invalid-input');
     }
 
-    const results = await Promise.allSettled(
-      ids.map(moderate),
-    );
-    return {
-      failedIds: results.flatMap((result, index) =>
-        result.status === 'rejected' ? [ids[index]] : [],
-      ),
-    };
+    return operationGate.runCurrent(async (signal) => {
+      const failedIds: string[] = [];
+      for (const id of ids) {
+        assertAccountOperationOpen(signal);
+        try {
+          await mutateReportWithinBoundary(action, id, reason, signal);
+        } catch (error) {
+          if (error instanceof AccountOperationClosedError) throw error;
+          failedIds.push(id);
+        }
+      }
+      return { failedIds };
+    });
   }
 
   return {

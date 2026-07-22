@@ -30,12 +30,16 @@ export type CommunityReportPublicRow = Omit<
   trust_tier: CommunityReportTrustTier | null;
 };
 
-type CommunityReportDatabaseInsert = Database['public']['Tables']['community_reports']['Insert'];
-
-export type CommunityReportInsert = Omit<
-  CommunityReportDatabaseInsert,
-  'auth_user_id'
->;
+export type CommunityReportInsert = {
+  id: string;
+  category_id: CommunityReportCategoryId;
+  location: { latitude: number; longitude: number };
+  detail: string | null;
+  sub_tag: string | null;
+  place_name: string | null;
+  place_type: string | null;
+  google_place_id: string | null;
+};
 
 export type CommunityReportSubmitError =
   | 'device-banned'
@@ -81,6 +85,17 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
+function isNullableCloudPhotoUri(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== 'string') return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function isCoordinate(value: unknown): value is {
   latitude: number;
   longitude: number;
@@ -113,8 +128,8 @@ function isPublicRow(row: unknown): row is CommunityReportPublicRow {
     isNullableString(row.place_name) &&
     isNullableString(row.place_type) &&
     isNullableString(row.google_place_id) &&
-    isNullableString(row.submitted_by) &&
-    isNullableString(row.photo_uri) &&
+    typeof row.owned_by_current_user === 'boolean' &&
+    isNullableCloudPhotoUri(row.photo_uri) &&
     (row.trust_tier === null ||
       (typeof row.trust_tier === 'string' &&
         TRUST_TIERS.has(row.trust_tier as CommunityReportTrustTier)))
@@ -166,14 +181,18 @@ export function createCommunityReportsRepository(
     try {
       const session = await authRepository.ensureAnonymous();
       const client = readClient();
-      const authUserId = session?.user?.id;
-      if (!client || !authUserId) return { ok: false, error: 'unknown' };
+      if (!client || !session?.user?.id) return { ok: false, error: 'unknown' };
 
-      const databaseRow: CommunityReportDatabaseInsert = {
-        ...row,
-        auth_user_id: authUserId,
-      };
-      let query = client.from('community_reports').insert(databaseRow);
+      let query = client.rpc('submit_report', {
+        p_id: row.id,
+        p_category_id: row.category_id,
+        p_location: row.location,
+        p_detail: row.detail,
+        p_sub_tag: row.sub_tag,
+        p_place_name: row.place_name,
+        p_place_type: row.place_type,
+        p_google_place_id: row.google_place_id,
+      });
       if (signal) query = query.abortSignal(signal);
       const { error } = await query;
 

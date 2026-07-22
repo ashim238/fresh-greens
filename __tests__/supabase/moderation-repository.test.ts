@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import {
+  AccountOperationClosedError,
+  AccountOperationGate,
+} from '../../lib/account-session/operation-gate';
 import type { Database } from '../../lib/supabase/database.types';
 import {
   createModerationRepository,
@@ -18,6 +22,7 @@ type QueryBuilder<T> = PromiseLike<QueryResponse<T>> & {
   select: jest.Mock;
   eq: jest.Mock;
   order: jest.Mock;
+  abortSignal: jest.Mock;
 };
 
 function queryBuilder<T>(response: QueryResponse<T>): QueryBuilder<T> {
@@ -25,6 +30,7 @@ function queryBuilder<T>(response: QueryResponse<T>): QueryBuilder<T> {
     select: jest.fn(),
     eq: jest.fn(),
     order: jest.fn(),
+    abortSignal: jest.fn(),
     then: <TResult1 = QueryResponse<T>, TResult2 = never>(
       onfulfilled?: ((value: QueryResponse<T>) => TResult1 | PromiseLike<TResult1>) | null,
       onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
@@ -33,7 +39,18 @@ function queryBuilder<T>(response: QueryResponse<T>): QueryBuilder<T> {
   builder.select.mockReturnValue(builder);
   builder.eq.mockReturnValue(builder);
   builder.order.mockReturnValue(builder);
+  builder.abortSignal.mockReturnValue(builder);
   return builder;
+}
+
+function deferredQueryBuilder<T>() {
+  let resolve!: (response: QueryResponse<T>) => void;
+  const response = new Promise<QueryResponse<T>>((resolveResponse) => {
+    resolve = resolveResponse;
+  });
+  const builder = queryBuilder<T>({ data: null as T, error: null });
+  builder.then = response.then.bind(response);
+  return { builder, resolve };
 }
 
 const report: ModerationReport = {
@@ -70,29 +87,24 @@ describe('moderation repository', () => {
     rpc: jest.fn(),
   };
   const readClient = jest.fn();
+  let gate: AccountOperationGate;
   let repository: ReturnType<typeof createModerationRepository>;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    gate = new AccountOperationGate();
     readClient.mockReturnValue(client as unknown as SupabaseClient<Database>);
-    repository = createModerationRepository(readClient);
+    repository = createModerationRepository(readClient, gate);
   });
 
-  test('orders the moderation queue by hidden state then timestamp', async () => {
+  test('reads the server-ordered moderation queue through its guarded RPC', async () => {
     const builder = queryBuilder({ data: [report], error: null });
-    client.from.mockReturnValue(builder);
+    client.rpc.mockReturnValue(builder);
 
     await expect(repository.fetchModerationQueue()).resolves.toEqual([report]);
 
-    expect(client.from).toHaveBeenCalledWith('community_reports_moderation');
-    expect(builder.select).toHaveBeenCalledWith('*');
-    expect(builder.order).toHaveBeenNthCalledWith(1, 'hidden_at', {
-      ascending: false,
-      nullsFirst: false,
-    });
-    expect(builder.order).toHaveBeenNthCalledWith(2, 'timestamp', {
-      ascending: false,
-    });
+    expect(client.rpc).toHaveBeenCalledWith('moderator_list_reports');
+    expect(builder.abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 
   test('maps validated rows without exposing raw SDK object references', async () => {
@@ -100,7 +112,7 @@ describe('moderation repository', () => {
       ...report,
       location: { latitude: 40.7, longitude: -74 },
     };
-    client.from.mockReturnValue(
+    client.rpc.mockReturnValue(
       queryBuilder({ data: [rawReport], error: null }),
     );
 
@@ -132,7 +144,7 @@ describe('moderation repository', () => {
     ['removed timestamp', { ...report, removed_at: {} }],
     ['verified status', { ...report, is_verified_phone: 'yes' }],
   ])('rejects a malformed moderation %s', async (_label, malformed) => {
-    client.from.mockReturnValue(
+    client.rpc.mockReturnValue(
       queryBuilder({ data: [malformed], error: null }),
     );
 
@@ -143,16 +155,25 @@ describe('moderation repository', () => {
 
   test('orders report flags newest first and validates their report identity', async () => {
     const builder = queryBuilder({ data: [flag], error: null });
-    client.from.mockReturnValue(builder);
+    client.rpc.mockReturnValue(builder);
 
     await expect(repository.fetchReportFlags('report-a')).resolves.toEqual([flag]);
 
-    expect(client.from).toHaveBeenCalledWith('report_flags');
-    expect(builder.select).toHaveBeenCalledWith(
-      'id,report_id,flagger_device_uuid,flagger_ip,reason,reason_category,created_at',
+    expect(client.rpc).toHaveBeenCalledWith('moderator_list_report_flags', {
+      p_report_id: 'report-a',
+    });
+    expect(builder.abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
+  });
+
+  test('accepts a retained flag after its IP address has been purged', async () => {
+    const purgedFlag = { ...flag, flagger_ip: null };
+    client.rpc.mockReturnValue(
+      queryBuilder({ data: [purgedFlag], error: null }),
     );
-    expect(builder.eq).toHaveBeenCalledWith('report_id', 'report-a');
-    expect(builder.order).toHaveBeenCalledWith('created_at', { ascending: false });
+
+    await expect(repository.fetchReportFlags('report-a')).resolves.toEqual([
+      purgedFlag,
+    ]);
   });
 
   test.each([
@@ -161,14 +182,13 @@ describe('moderation repository', () => {
     ['wrong report', { ...flag, report_id: 'report-b' }],
     ['device UUID', { ...flag, flagger_device_uuid: 3 }],
     ['flagger IP', { ...flag, flagger_ip: false }],
-    ['null flagger IP', { ...flag, flagger_ip: null }],
     ['blank flagger IP', { ...flag, flagger_ip: '  ' }],
     ['reason', { ...flag, reason: [] }],
     ['reason category', { ...flag, reason_category: '' }],
     ['unknown reason category', { ...flag, reason_category: 'brigading' }],
     ['created timestamp', { ...flag, created_at: 'not-a-date' }],
   ])('rejects a malformed flag %s', async (_label, malformed) => {
-    client.from.mockReturnValue(
+    client.rpc.mockReturnValue(
       queryBuilder({ data: [malformed], error: null }),
     );
 
@@ -178,7 +198,9 @@ describe('moderation repository', () => {
   });
 
   test('passes exact report ids and reasons to restore and remove RPCs', async () => {
-    client.rpc.mockResolvedValue({ data: undefined, error: null });
+    client.rpc.mockReturnValue(
+      queryBuilder({ data: undefined, error: null }),
+    );
 
     await expect(
       repository.restoreReport('report-a', 'Restored via moderation queue'),
@@ -205,7 +227,7 @@ describe('moderation repository', () => {
       );
 
       expect(readClient).not.toHaveBeenCalled();
-      expect(client.from).not.toHaveBeenCalled();
+      expect(client.rpc).not.toHaveBeenCalled();
     },
   );
 
@@ -271,15 +293,15 @@ describe('moderation repository', () => {
 
   test('returns only failed ids from a bulk remove without leaking failures', async () => {
     client.rpc
-      .mockResolvedValueOnce({ data: undefined, error: null })
-      .mockResolvedValueOnce({
+      .mockReturnValueOnce(queryBuilder({ data: undefined, error: null }))
+      .mockReturnValueOnce(queryBuilder({
         data: undefined,
         error: {
           code: '42501',
           message: 'raw RLS body synthetic-access-token',
           details: 'private moderation details',
         },
-      });
+      }));
 
     const result = await repository.runBulkModeration(['a', 'b'], 'remove');
 
@@ -297,7 +319,9 @@ describe('moderation repository', () => {
   });
 
   test('uses the bulk restore reason for every selected id', async () => {
-    client.rpc.mockResolvedValue({ data: undefined, error: null });
+    client.rpc.mockReturnValue(
+      queryBuilder({ data: undefined, error: null }),
+    );
 
     await expect(
       repository.runBulkModeration(['a', 'b'], 'restore'),
@@ -313,8 +337,73 @@ describe('moderation repository', () => {
     });
   });
 
+  test('aborts and suppresses a deferred moderation read across sign-out', async () => {
+    const deferred = deferredQueryBuilder<ModerationReport[]>();
+    client.rpc.mockReturnValue(deferred.builder);
+
+    const operation = repository.fetchModerationQueue();
+    await Promise.resolve();
+    const signal = deferred.builder.abortSignal.mock.calls[0][0] as AbortSignal;
+
+    gate.seal(0);
+    const drain = gate.drain(0, 1_000);
+    let drainSettled = false;
+    void drain.then(() => {
+      drainSettled = true;
+    });
+    await Promise.resolve();
+
+    expect(signal.aborted).toBe(true);
+    expect(drainSettled).toBe(false);
+
+    deferred.resolve({ data: [report], error: null });
+
+    await expect(operation).rejects.toEqual(new AccountOperationClosedError());
+    await expect(drain).resolves.toEqual({ kind: 'drained' });
+  });
+
+  test('aborts and suppresses a deferred moderation mutation across sign-out', async () => {
+    const deferred = deferredQueryBuilder<undefined>();
+    client.rpc.mockReturnValue(deferred.builder);
+
+    const operation = repository.removeReport('report-a', 'boundary test');
+    await Promise.resolve();
+    const signal = deferred.builder.abortSignal.mock.calls[0][0] as AbortSignal;
+
+    gate.seal(0);
+    const drain = gate.drain(0, 1_000);
+    expect(signal.aborted).toBe(true);
+
+    deferred.resolve({ data: undefined, error: null });
+
+    await expect(operation).rejects.toEqual(new AccountOperationClosedError());
+    await expect(drain).resolves.toEqual({ kind: 'drained' });
+  });
+
+  test('does not dispatch later bulk mutations after the account boundary seals', async () => {
+    const first = deferredQueryBuilder<undefined>();
+    client.rpc
+      .mockReturnValueOnce(first.builder)
+      .mockReturnValue(queryBuilder({ data: undefined, error: null }));
+
+    const operation = repository.runBulkModeration(['a', 'b'], 'remove');
+    await Promise.resolve();
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+
+    gate.seal(0);
+    const drain = gate.drain(0, 1_000);
+    first.resolve({ data: undefined, error: null });
+
+    await expect(operation).rejects.toEqual(new AccountOperationClosedError());
+    await expect(drain).resolves.toEqual({ kind: 'drained' });
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+  });
+
   test('fails closed when Supabase is unconfigured', async () => {
-    const unconfigured = createModerationRepository(() => null);
+    const unconfigured = createModerationRepository(
+      () => null,
+      new AccountOperationGate(),
+    );
 
     await expect(unconfigured.fetchModerationQueue()).rejects.toEqual(
       new ModerationRepositoryError('unconfigured'),
@@ -344,10 +433,9 @@ describe('moderation repository', () => {
       message: 'raw RLS body synthetic-access-token',
       details: 'private moderation details',
     };
-    client.from.mockReturnValue(
+    client.rpc.mockReturnValue(
       queryBuilder({ data: null, error: rawError, status: 403 }),
     );
-    client.rpc.mockResolvedValue({ data: undefined, error: rawError, status: 403 });
 
     let caught: unknown;
     try {
@@ -373,10 +461,9 @@ describe('moderation repository', () => {
       message: 'raw offline response synthetic-access-token',
       details: 'private transport details',
     };
-    client.from.mockReturnValue(
+    client.rpc.mockReturnValue(
       queryBuilder({ data: null, error: rawError, status: 0 }),
     );
-    client.rpc.mockResolvedValue({ data: undefined, error: rawError, status: 0 });
 
     let caught: unknown;
     try {
@@ -393,7 +480,7 @@ describe('moderation repository', () => {
   });
 
   test('redacts thrown transport failures', async () => {
-    client.from.mockImplementation(() => {
+    client.rpc.mockImplementation(() => {
       throw new Error('network failure synthetic-access-token');
     });
 

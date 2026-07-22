@@ -2,7 +2,6 @@ import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { accountOperationGate } from '../../lib/account-session/operation-gate';
-import * as deviceUuidModule from '../../lib/device-uuid';
 import { createBackendAuthRepository } from '../../lib/supabase/auth-repository';
 import { backendAuthRepository } from '../../lib/supabase/auth-repository';
 import * as communityRepositoryModule from '../../lib/supabase/community-reports-repository';
@@ -77,7 +76,7 @@ const publicRow: CommunityReportPublicRow = {
   place_name: null,
   place_type: null,
   google_place_id: null,
-  submitted_by: null,
+  owned_by_current_user: false,
   photo_uri: null,
   timestamp: 1_800_000_000_000,
   trust_tier: 'community',
@@ -92,11 +91,6 @@ const insertRow: CommunityReportInsert = {
   place_name: null,
   place_type: null,
   google_place_id: null,
-  submitted_by: null,
-  photo_uri: null,
-  timestamp: 1_800_000_000_000,
-  device_uuid: 'device-a',
-  is_verified_phone: false,
 };
 
 describe('community reports repository', () => {
@@ -158,6 +152,16 @@ describe('community reports repository', () => {
     expect(builder.abortSignal).toHaveBeenCalledWith(controller.signal);
   });
 
+  test('accepts an HTTPS photo URI returned by future cloud storage', async () => {
+    const row = {
+      ...publicRow,
+      photo_uri: 'https://storage.example.com/reports/report-a.jpg',
+    };
+    client.from.mockReturnValue(queryBuilder({ data: [row], error: null }));
+
+    await expect(repository.fetchCommunityReports()).resolves.toEqual([row]);
+  });
+
   test.each([
     ['coordinate', { location: { latitude: 'invalid', longitude: -74 } }],
     ['latitude above range', { location: { latitude: 90.01, longitude: -74 } }],
@@ -171,8 +175,10 @@ describe('community reports repository', () => {
     ['place name', { place_name: { raw: 'invalid' } }],
     ['place type', { place_type: ['invalid'] }],
     ['Google place id', { google_place_id: 101 }],
-    ['submitter', { submitted_by: true }],
+    ['ownership', { owned_by_current_user: 'yes' }],
     ['photo URI', { photo_uri: { uri: 'file:///private.jpg' } }],
+    ['local photo URI', { photo_uri: 'file:///private.jpg' }],
+    ['insecure photo URI', { photo_uri: 'http://example.com/private.jpg' }],
     ['trust tier', { trust_tier: 'super-user' }],
   ])('rejects a malformed %s without leaking it to domain mapping', async (_label, malformed) => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -223,43 +229,62 @@ describe('community reports repository', () => {
     warn.mockRestore();
   });
 
-  test('inserts a typed report row and forwards its abort signal', async () => {
+  test('submits a narrow report RPC payload and forwards its abort signal', async () => {
     const builder = queryBuilder({ data: null, error: null });
     const controller = new AbortController();
-    client.from.mockReturnValue(builder);
+    client.rpc.mockReturnValue(builder);
 
     await expect(
       repository.insertCommunityReport(insertRow, controller.signal),
     ).resolves.toEqual({ ok: true });
 
-    expect(client.from).toHaveBeenCalledWith('community_reports');
-    expect(builder.insert).toHaveBeenCalledWith({
-      ...insertRow,
-      auth_user_id: 'user-a',
+    expect(client.rpc).toHaveBeenCalledWith('submit_report', {
+      p_id: 'report-a',
+      p_category_id: 'lighting',
+      p_location: { latitude: 40.7, longitude: -74 },
+      p_detail: 'Dark block',
+      p_sub_tag: 'Dim area',
+      p_place_name: null,
+      p_place_type: null,
+      p_google_place_id: null,
     });
     expect(builder.abortSignal).toHaveBeenCalledWith(controller.signal);
     expect(auth.ensureAnonymous).toHaveBeenCalledTimes(1);
     expect(auth.ensureAnonymous.mock.invocationCallOrder[0]).toBeLessThan(
-      client.from.mock.invocationCallOrder[0],
+      client.rpc.mock.invocationCallOrder[0],
     );
   });
 
-  test('overwrites a runtime-spoofed auth user id with the captured session user', async () => {
+  test('never forwards runtime-spoofed server-owned or local-only fields', async () => {
     const builder = queryBuilder({ data: null, error: null });
-    client.from.mockReturnValue(builder);
+    client.rpc.mockReturnValue(builder);
     const spoofedRow = {
       ...insertRow,
       auth_user_id: 'spoofed-user',
+      submitted_by: 'Canonical User UUID',
+      device_uuid: 'spoofed-device',
+      is_verified_phone: true,
+      timestamp: 1,
+      trust_tier: 'verified',
+      photo_uri: 'file:///private/report.jpg',
     } as unknown as CommunityReportInsert;
 
     await expect(repository.insertCommunityReport(spoofedRow)).resolves.toEqual({
       ok: true,
     });
 
-    expect(builder.insert).toHaveBeenCalledWith({
-      ...insertRow,
-      auth_user_id: 'user-a',
+    expect(client.rpc).toHaveBeenCalledWith('submit_report', {
+      p_id: 'report-a',
+      p_category_id: 'lighting',
+      p_location: { latitude: 40.7, longitude: -74 },
+      p_detail: 'Dark block',
+      p_sub_tag: 'Dim area',
+      p_place_name: null,
+      p_place_type: null,
+      p_google_place_id: null,
     });
+    expect(JSON.stringify(client.rpc.mock.calls)).not.toContain('spoofed');
+    expect(JSON.stringify(client.rpc.mock.calls)).not.toContain('file://');
   });
 
   test('fails a configured insert safely when auth returns no session', async () => {
@@ -271,7 +296,7 @@ describe('community reports repository', () => {
     });
 
     expect(auth.ensureAnonymous).toHaveBeenCalledTimes(1);
-    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   test.each([
@@ -280,7 +305,7 @@ describe('community reports repository', () => {
     ['P0003', 'rate-limited'],
     ['P0004', 'cluster-limited'],
   ] as const)('maps %s to %s', async (code, expected) => {
-    client.from.mockReturnValue(
+    client.rpc.mockReturnValue(
       queryBuilder({ data: null, error: { code, message: 'raw server body' } }),
     );
 
@@ -292,7 +317,7 @@ describe('community reports repository', () => {
 
   test('does not log raw PostgREST bodies or token details', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    client.from.mockReturnValue(
+    client.rpc.mockReturnValue(
       queryBuilder({
         data: null,
         error: {
@@ -358,9 +383,8 @@ describe('community reports repository', () => {
     };
     const readBuilder = queryBuilder({ data: [publicRow], error: null });
     const insertBuilder = queryBuilder({ data: null, error: null });
-    authClient.from.mockImplementation((relation: string) =>
-      relation === 'community_reports_public' ? readBuilder : insertBuilder,
-    );
+    authClient.from.mockReturnValue(readBuilder);
+    authClient.rpc.mockReturnValue(insertBuilder);
     const backendAuth = createBackendAuthRepository(
       () => authClient as unknown as SupabaseClient<Database>,
     );
@@ -383,9 +407,15 @@ describe('community reports repository', () => {
     ]);
     expect(authClient.auth.signInAnonymously).toHaveBeenCalledTimes(1);
     expect(authClient.auth.getSession).toHaveBeenCalledTimes(2);
-    expect(insertBuilder.insert).toHaveBeenCalledWith({
-      ...insertRow,
-      auth_user_id: 'anonymous-a',
+    expect(authClient.rpc).toHaveBeenCalledWith('submit_report', {
+      p_id: 'report-a',
+      p_category_id: 'lighting',
+      p_location: { latitude: 40.7, longitude: -74 },
+      p_detail: 'Dark block',
+      p_sub_tag: 'Dim area',
+      p_place_name: null,
+      p_place_type: null,
+      p_google_place_id: null,
     });
   });
 
@@ -427,7 +457,6 @@ describe('community cloud adapter', () => {
   const deleteReport = jest.spyOn(repository, 'deleteCommunityReport');
   const ensureAnonymous = jest.spyOn(backendAuthRepository, 'ensureAnonymous');
   const getUserId = jest.spyOn(backendAuthRepository, 'getUserId');
-  const getDeviceUUID = jest.spyOn(deviceUuidModule, 'getDeviceUUID');
   const cloud = require(
     '../../lib/api/sources/community-cloud'
   ) as typeof import('../../lib/api/sources/community-cloud');
@@ -453,7 +482,6 @@ describe('community cloud adapter', () => {
     configured.mockReturnValue(true);
     ensureAnonymous.mockResolvedValue(session('current-user'));
     getUserId.mockResolvedValue('current-user');
-    getDeviceUUID.mockResolvedValue('device-current');
     fetchReports.mockResolvedValue([]);
     insertReport.mockResolvedValue({ ok: true });
     deleteReport.mockResolvedValue(undefined);
@@ -481,7 +509,7 @@ describe('community cloud adapter', () => {
         placeName: 'Corner store',
         placeType: undefined,
         googlePlaceId: undefined,
-        submittedBy: undefined,
+        ownedByCurrentUser: false,
         photoUri: undefined,
         timestamp: 1_800_000_000_000,
         trustTier: 'community',
@@ -491,7 +519,7 @@ describe('community cloud adapter', () => {
     expect(fetchReports).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 
-  test('passes report data and device UUID while keeping photo files local', async () => {
+  test('keeps local photo files out of the public cloud submission contract', async () => {
     await expect(cloud.pushCommunityReportToCloud(secondReport)).resolves.toEqual({
       ok: true,
     });
@@ -508,14 +536,10 @@ describe('community cloud adapter', () => {
         place_name: null,
         place_type: null,
         google_place_id: null,
-        submitted_by: null,
-        photo_uri: 'file:///documents/reports/local-only.jpg',
-        timestamp: 200,
-        device_uuid: 'device-current',
-        is_verified_phone: false,
       },
       expect.any(AbortSignal),
     );
+    expect(JSON.stringify(insertReport.mock.calls)).not.toContain('file://');
   });
 
   test('keeps deduplicated queue entries in local-first insertion order', async () => {
