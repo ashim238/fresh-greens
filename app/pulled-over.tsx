@@ -869,52 +869,55 @@ export default function PulledOver() {
 function ArmedView({ onAnswer }: { onAnswer: (a: ArmedAnswer) => void }) {
   return (
     <ScrollView
-      contentContainerStyle={armedStyles.page}
+      style={armedStyles.scroll}
+      contentContainerStyle={armedStyles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <View style={armedStyles.titleBlock}>
-        <Text style={armedStyles.eyebrow} maxFontSizeMultiplier={2}>
-          Ok. Got it.
-        </Text>
-        <Text style={armedStyles.title} maxFontSizeMultiplier={2}>
-          Are you armed?
-        </Text>
-      </View>
+      <View style={armedStyles.page}>
+        <View style={armedStyles.titleBlock}>
+          <Text style={armedStyles.eyebrow} maxFontSizeMultiplier={2}>
+            Ok. Got it.
+          </Text>
+          <Text style={armedStyles.title} maxFontSizeMultiplier={2}>
+            Are you armed?
+          </Text>
+        </View>
 
-      <View style={armedStyles.answersWrapper}>
-        {ANSWERS.map((answer) => (
-          <Pressable
-            key={answer.id}
-            style={({ pressed }) => [
-              armedStyles.answerCard,
-              pressed && pressedDim,
-            ]}
-            onPress={() => onAnswer(answer.id)}
-            accessibilityRole="button"
-            accessibilityLabel={
-              answer.subtitle
-                ? `${answer.title} — ${answer.subtitle}`
-                : answer.title
-            }
-          >
-            <View style={armedStyles.answerContent}>
-              <Text
-                style={armedStyles.answerTitle}
-                maxFontSizeMultiplier={2}
-              >
-                {answer.title}
-              </Text>
-              {answer.subtitle && (
+        <View style={armedStyles.answersWrapper}>
+          {ANSWERS.map((answer) => (
+            <Pressable
+              key={answer.id}
+              style={({ pressed }) => [
+                armedStyles.answerCard,
+                pressed && pressedDim,
+              ]}
+              onPress={() => onAnswer(answer.id)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                answer.subtitle
+                  ? `${answer.title} — ${answer.subtitle}`
+                  : answer.title
+              }
+            >
+              <View style={armedStyles.answerContent}>
                 <Text
-                  style={armedStyles.answerSubtitle}
+                  style={armedStyles.answerTitle}
                   maxFontSizeMultiplier={2}
                 >
-                  {answer.subtitle}
+                  {answer.title}
                 </Text>
-              )}
-            </View>
-          </Pressable>
-        ))}
+                {answer.subtitle && (
+                  <Text
+                    style={armedStyles.answerSubtitle}
+                    maxFontSizeMultiplier={2}
+                  >
+                    {answer.subtitle}
+                  </Text>
+                )}
+              </View>
+            </Pressable>
+          ))}
+        </View>
       </View>
     </ScrollView>
   );
@@ -1948,11 +1951,14 @@ const chipStyles = StyleSheet.create({
 });
 
 const armedStyles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   page: {
     flexGrow: 1,
-    minHeight: '100%',
-    gap: spacing.xl,
-    paddingBottom: spacing.md,
   },
   titleBlock: {
     gap: spacing.sm,
@@ -1976,9 +1982,10 @@ const armedStyles = StyleSheet.create({
     color: colors.black,
   },
   answersWrapper: {
-    flex: 1,
+    flexGrow: 1,
     gap: spacing.lg,
     justifyContent: 'center',
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xs,
   },
   answerCard: {
