@@ -7,7 +7,7 @@ const source = readFileSync('app/pulled-over.tsx', 'utf8');
 describe('pulled-over large-text layout contract', () => {
   test('keeps the armed decision and its answers reachable at AX5', () => {
     expect(source).toMatch(
-      /function ArmedView[\s\S]*?<ScrollView[\s\S]*?contentContainerStyle=\{armedStyles\.page\}/,
+      /function ArmedView[\s\S]*?<ScrollView[\s\S]*?contentContainerStyle=\{armedStyles\.scrollContent\}[\s\S]*?<View style=\{armedStyles\.page\}>/,
     );
     expect(source).toMatch(
       /style=\{armedStyles\.eyebrow\}[\s\S]*?maxFontSizeMultiplier=\{2\}/,

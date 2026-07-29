@@ -16,6 +16,32 @@ function styleBlock(source: string, name: string): string {
 }
 
 describe('safety flow choice layout contract', () => {
+  test('centers the armed choices inside an explicit scroll-safe region', () => {
+    expect(pulledOverSource).toMatch(
+      /<ScrollView[\s\S]*?style=\{armedStyles\.scroll\}[\s\S]*?contentContainerStyle=\{armedStyles\.scrollContent\}/,
+    );
+    expect(pulledOverSource).toMatch(
+      /contentContainerStyle=\{armedStyles\.scrollContent\}[\s\S]*?<View style=\{armedStyles\.page\}>[\s\S]*?<View style=\{armedStyles\.titleBlock\}>[\s\S]*?<View style=\{armedStyles\.answersWrapper\}>/,
+    );
+
+    expect(styleBlock(pulledOverSource, 'scroll')).toContain('flex: 1');
+    expect(styleBlock(pulledOverSource, 'scrollContent')).toContain(
+      'flexGrow: 1',
+    );
+
+    const page = styleBlock(pulledOverSource, 'page');
+    expect(page).toContain('flexGrow: 1');
+    expect(page).not.toContain("minHeight: '100%'");
+    expect(page).not.toContain('gap: spacing.xl');
+    expect(page).not.toContain('paddingBottom');
+
+    const answers = styleBlock(pulledOverSource, 'answersWrapper');
+    expect(answers).toContain('flexGrow: 1');
+    expect(answers).not.toMatch(/\n\s*flex:\s*1/);
+    expect(answers).toContain("justifyContent: 'center'");
+    expect(answers).toContain('paddingVertical: spacing.lg');
+  });
+
   test('centers choice stacks while keeping card copy leading-aligned', () => {
     expect(styleBlock(pulledOverSource, 'answersWrapper')).toContain(
       'gap: spacing.lg',
