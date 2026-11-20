@@ -12,7 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
-import { ListBullets } from 'phosphor-react-native/src/icons/ListBullets';
+import { MapTrifold } from 'phosphor-react-native/src/icons/MapTrifold';
 import { X } from 'phosphor-react-native/src/icons/X';
 
 import {
@@ -102,7 +102,7 @@ function MapKeyToggle({ ref, expanded, compact, onPress }: ToggleProps) {
       onAccessibilityEscape={expanded ? onPress : undefined}
       style={({ pressed }) => [compact ? tapTarget44 : styles.toggle, pressed && pressedDim]}
     >
-      {!expanded && <ListBullets size={spacing.md} color={colors.wiltedgreen} weight="bold" />}
+      {!expanded && <MapTrifold size={spacing.md} color={colors.wiltedgreen} weight="bold" />}
       {!compact && (
         <Text maxFontSizeMultiplier={2} style={styles.title}>
           Map key

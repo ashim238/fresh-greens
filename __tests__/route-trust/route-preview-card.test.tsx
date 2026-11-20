@@ -124,6 +124,16 @@ test('closing the sheet during preparation cancels navigation', async () => {
   expect(mockPush).not.toHaveBeenCalled();
 });
 
+test('a failed backup still opens live navigation without a driver-facing prompt', async () => {
+  mockPrepare.mockRejectedValueOnce(new Error('Storage unavailable'));
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const alert = jest.spyOn(Alert, 'alert');
+  await render(<RoutePreviewCard {...props} />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Start navigation' }));
+  expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/en-route' }));
+  expect(alert).not.toHaveBeenCalled();
+});
+
 test.each(['Go', 'Close', 'route change'])('a pending Schedule runs once and suppresses its alert after %s', async (change) => {
   jest.spyOn(daylight, 'suggestedDepartureForDaylight').mockReturnValue(new Date('2026-11-20T07:05:00-05:00'));
   const alert = jest.spyOn(Alert, 'alert');

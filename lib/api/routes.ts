@@ -12,7 +12,7 @@
 //
 // The consumer (app/home.tsx, app/en-route.tsx) gets back a RoutesResult
 // with a `source` tag. They use the tag to decide whether to show the
-// "Offline route" / "Demo route" pill — but the Route[] shape itself is
+// "Using saved route" / "Demo route" pill — but the Route[] shape itself is
 // identical across all four tiers (that's the adapter-pattern payoff).
 //
 // Note on tokens: Mapbox uses `process.env.EXPO_PUBLIC_MAPBOX_TOKEN`
@@ -224,9 +224,7 @@ export type RouteSource = 'mapbox' | 'osrm' | 'cache' | 'mock' | 'no-route';
 export type RoutesResult = {
   routes: Route[];
   source: RouteSource;
-  /** Present only when source === 'cache' — how stale the cached
-      routes are in ms. Lets /en-route surface "Offline route · 3h
-      old" so the driver knows the data isn't live. */
+  /** Age of the stored directions in milliseconds, present only for cached routes. */
   cacheAgeMs?: number;
 };
 

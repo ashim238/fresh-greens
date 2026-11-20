@@ -404,7 +404,6 @@ export function RoutePreviewCard({
     pendingRequest.current = request;
     haptics.tap();
     setPendingAction('go');
-    let routePrepStatus: 'ready' | 'degraded' = selectedRoute ? 'ready' : 'degraded';
 
     if (selectedRoute) {
       const validatedEvidence = enabledZones.filter((zone) =>
@@ -418,7 +417,6 @@ export function RoutePreviewCard({
           departureTimeMs: Date.now(),
         });
       } catch (error) {
-        routePrepStatus = 'degraded';
         console.warn('[route-resilience] bundle save failed:', error);
       }
     }
@@ -443,7 +441,6 @@ export function RoutePreviewCard({
               ...(arrivalLight ? { destArrivalLight: arrivalLight } : {}),
               destRouteRank: String(Math.max(0, selectedIndex)),
               ...(cloudCoverPct != null ? { destCloudCoverPct: String(cloudCoverPct) } : {}),
-              routePrepStatus,
             }
           : {}),
       },

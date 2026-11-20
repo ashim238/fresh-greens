@@ -32,7 +32,6 @@ import { ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise
 import { ArrowsMerge } from 'phosphor-react-native/src/icons/ArrowsMerge';
 import { FlagCheckered } from 'phosphor-react-native/src/icons/FlagCheckered';
 import { NavigationArrow } from 'phosphor-react-native/src/icons/NavigationArrow';
-import { WifiSlash } from 'phosphor-react-native/src/icons/WifiSlash';
 
 import EnRoutePath from '../assets/illustrations/enroute-path.svg';
 import EnRouteSearch from '../assets/illustrations/enroute-search.svg';
@@ -72,6 +71,7 @@ import { ReportDetailCard } from '../components/ReportDetailCard';
 import { FuelStopMarker } from '../components/FuelStopMarker';
 import { FuelStopsSheet } from '../components/FuelStopsSheet';
 import { MetaSeparator } from '../components/MetaSeparator';
+import { RouteSourceStatus } from '../components/RouteSourceStatus';
 import { RouteComparisonSheet, type ComparisonRow } from '../components/RouteComparisonSheet';
 import { usePreferences } from '../hooks/usePreferences';
 import {
@@ -285,20 +285,6 @@ function a11yLabelForTurnCard(
   return `${info.step.instruction}, in ${formatStepDistance(dist)}`;
 }
 
-/**
- * Coarse cache-age stamp for the "Offline route" pill. Keeps the
- * pill tight — buckets to "minutes" / "hours" / "23h" so the pill
- * width doesn't dance as the clock ticks. Floors so the user never
- * sees a more-recent number than reality.
- */
-function formatCacheAge(ms: number | null): string {
-  if (ms == null || ms < 60_000) return 'just now';
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h`;
-}
-
 // Sentence-form hazard copy for the Full bottom-sheet hazard panel
 // (Figma 1133:13329). `humanReadableHazard` returns labels for
 // VoiceOver interpolation; this returns the full-sentence variant
@@ -391,16 +377,7 @@ export default function EnRoute() {
     /** Geometry identifies the selected route across provider response order changes. */
     destRouteGeometry?: string;
     destRouteRank?: string;
-    /**
-     * Handoff from /home's Go button after it prepares the minimal
-     * route-resilience bundle for weak-signal areas.
-     */
-    routePrepStatus?: string;
   }>();
-  const routePrepStatus =
-    params.routePrepStatus === 'ready' || params.routePrepStatus === 'degraded'
-      ? params.routePrepStatus
-      : null;
   // Zone overlay rendering follows /home — driven by the user's
   // preference, which lives in AsyncStorage and is toggled from
   // /menu's Zone Settings accordion. Default off until they flip it,
@@ -543,7 +520,7 @@ export default function EnRoute() {
   const [routeScoringDepartureMs, setRouteScoringDepartureMs] = useState(() =>
     Date.now(),
   );
-  // Provenance of the rendered routes — drives the "Offline route" /
+  // Provenance of the rendered routes — drives the "Using saved route" /
   // "Demo route" pill on the turn card. 'mapbox' = live primary;
   // 'osrm' = live fallback (network up, but Mapbox tier failed);
   // 'cache' = AsyncStorage hydration after both network tiers failed;
@@ -552,7 +529,7 @@ export default function EnRoute() {
   // non-mapbox sources → 'mapbox' non-jarringly.
   const [routeSource, setRouteSource] = useState<RouteSource>('mapbox');
   // Cache age stamp at hydration time — displayed inside the offline
-  // pill ("Offline route · 3h old") so the driver knows how stale the
+  // pill ("Using saved route · 3h old") so the driver knows how stale the
   // saved data is. Null for live ('mapbox', 'osrm') and 'mock' sources.
   const [cacheAgeMs, setCacheAgeMs] = useState<number | null>(null);
   // Tapped community-report state — mirrors /home so the marker
@@ -1862,7 +1839,6 @@ export default function EnRoute() {
         destDistanceMeters: undefined,
         destArrivalLight: undefined,
         destCloudCoverPct: undefined,
-        routePrepStatus: undefined,
       });
     },
     [addRecent, router],
@@ -2280,55 +2256,7 @@ export default function EnRoute() {
                 ))}
               </View>
             )}
-            {(routeSource === 'cache' || routeSource === 'mock') && (
-              <View
-                style={styles.offlinePill}
-                accessibilityRole="text"
-                accessibilityLabel={
-                  routeSource === 'cache'
-                    ? `Offline route, saved ${formatCacheAge(cacheAgeMs)} ago. No live recalculation.`
-                    : 'Demo route — network and saved route both unavailable. Approximate path shown.'
-                }
-              >
-                <WifiSlash size={14} color={colors.white} weight="regular" />
-                <View style={styles.offlinePillTextRow}>
-                  {routeSource === 'cache' ? (
-                    <>
-                      <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
-                        Offline route
-                      </Text>
-                      {cacheAgeMs != null ? (
-                        <>
-                          <MetaSeparator style={styles.offlinePillSeparator} />
-                          <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
-                            {formatCacheAge(cacheAgeMs)} old
-                          </Text>
-                        </>
-                      ) : null}
-                    </>
-                  ) : (
-                    <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
-                      Demo route
-                    </Text>
-                  )}
-                </View>
-              </View>
-            )}
-            {routePrepStatus && routeSource !== 'cache' && routeSource !== 'mock' && (
-              <View
-                style={styles.offlinePill}
-                accessibilityRole="text"
-                accessibilityLabel={
-                  routePrepStatus === 'ready'
-                    ? 'Route saved for weak signal. Navigation details are available if connection drops.'
-                    : 'Route backup limited. Navigation continues, but saved offline details may be incomplete.'
-                }
-              >
-                <Text style={styles.offlinePillText} maxFontSizeMultiplier={1.5}>
-                  {routePrepStatus === 'ready' ? 'Route saved' : 'Backup limited'}
-                </Text>
-              </View>
-            )}
+            <RouteSourceStatus source={routeSource} cacheAgeMs={cacheAgeMs} />
           </View>
 
         </View>
@@ -2994,37 +2922,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  // "Offline route" pill — surfaced on the turn card when route
-  // source is 'cache' or 'mock'. Translucent dark backing reads as
-  // muted status, not alarm — offline navigation is a degraded state
-  // but not an error, and the alarmist palette (orange/red) is
-  // reserved for actual hazards per .cursorrules.
-  offlinePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    backgroundColor: colors.whiteFill20,
-    alignSelf: 'flex-start',
-  },
-  offlinePillTextRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  offlinePillText: {
-    // F5: bumped caption1Emphasized (12pt) → footnoteEmphasized (13pt)
-    // to match the 14pt WifiSlash icon's cap-height. Earlier 12pt sat
-    // visually low against the icon inside the compact pill.
-    ...dynamicType(typography.footnoteEmphasized, 1.5),
-    color: colors.white,
-  },
-  offlinePillSeparator: {
-    ...dynamicType(typography.footnoteEmphasized),
-    color: colors.white,
   },
   thenFooter: {
     backgroundColor: colors.burntgreen,

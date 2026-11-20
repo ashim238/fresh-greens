@@ -16,18 +16,13 @@ describe('RoutePreviewCard resilience handoff contract', () => {
     expect(pushIndex).toBeGreaterThan(prepareIndex);
   });
 
-  test('surfaces route-backup preparation as an explicit user state', () => {
+  test('shows preparation feedback on the Go button before the trip starts', () => {
     expect(routePreviewSource).toContain('Preparing route for weak signal');
     expect(routePreviewSource).toContain('Preparing…');
-    expect(routePreviewSource).toContain('routePrepStatus');
-    expect(routePreviewSource).toContain("'ready'");
-    expect(routePreviewSource).toContain("'degraded'");
   });
 
-  test('shows ready or degraded route-backup status after navigation starts', () => {
-    expect(enRouteSource).toContain('params.routePrepStatus === \'ready\'');
-    expect(enRouteSource).toContain('Route saved for weak signal');
-    expect(enRouteSource).toContain('Route backup limited');
-    expect(enRouteSource).toContain('Backup limited');
+  test('uses the source of the displayed directions for driving status', () => {
+    expect(enRouteSource).toContain('<RouteSourceStatus source={routeSource} cacheAgeMs={cacheAgeMs} />');
+    expect(enRouteSource).not.toContain('routePrepStatus');
   });
 });
