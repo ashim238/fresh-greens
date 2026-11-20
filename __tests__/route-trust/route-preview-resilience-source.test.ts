@@ -17,7 +17,6 @@ describe('RoutePreviewCard resilience handoff contract', () => {
   });
 
   test('surfaces route-backup preparation as an explicit user state', () => {
-    expect(routePreviewSource).toContain('useState<\'idle\' | \'preparing\'>');
     expect(routePreviewSource).toContain('Preparing route for weak signal');
     expect(routePreviewSource).toContain('Preparing…');
     expect(routePreviewSource).toContain('routePrepStatus');

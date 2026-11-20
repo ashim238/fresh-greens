@@ -12,10 +12,14 @@ import { typography } from '../theme/typography';
  * flanking Text siblings — flex `gap` or a leading "· " in a string leaves
  * the middot optically closer to one neighbor.
  */
-export function MetaSeparator({ style }: { style?: StyleProp<TextStyle> }) {
+export function MetaSeparator({ style, maxFontSizeMultiplier }: {
+  style?: StyleProp<TextStyle>;
+  maxFontSizeMultiplier?: number;
+}) {
   return (
     <Text
       style={[styles.base, style]}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       accessibilityElementsHidden
       importantForAccessibility="no"
     >

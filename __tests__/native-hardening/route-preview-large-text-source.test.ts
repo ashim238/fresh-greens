@@ -15,12 +15,12 @@ describe('route preview large-text layout contract', () => {
     expect(routePreviewSource).toMatch(
       /routeMetaCluster:\s*\{[\s\S]*?flexWrap:\s*'wrap'/,
     );
-    expect(routePreviewSource).toMatch(
-      /style=\{styles\.routeViaLabel\}[\s\S]*?numberOfLines=\{2\}[\s\S]*?maxFontSizeMultiplier=\{2\}/,
-    );
-    expect(routePreviewSource).toMatch(
-      /style=\{styles\.routeDestTitle\}[\s\S]*?numberOfLines=\{2\}/,
-    );
+    for (const label of ['routeCountLabel', 'routeViaLabel', 'routeDestTitle']) {
+      const tag = routePreviewSource.match(new RegExp(`<Text\\s+style=\\{styles\\.${label}\\}[^>]*>`))?.[0];
+      expect(tag).toBeDefined();
+      expect(tag).toContain('maxFontSizeMultiplier={2}');
+      expect(tag).not.toContain('numberOfLines');
+    }
     expect(routePreviewSource).not.toContain('adjustsFontSizeToFit');
     expect(routePreviewSource).not.toContain('minimumFontScale={0.7}');
   });

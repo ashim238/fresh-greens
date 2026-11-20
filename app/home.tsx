@@ -29,7 +29,7 @@ import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { ClusterMarker } from '../components/ClusterMarker';
-import { DaylightMapKey } from '../components/DaylightMapKey';
+import { PreviewDaylightMapKey } from '../components/DaylightMapKey';
 import { DestinationMarker } from '../components/DestinationMarker';
 import { EnRouteZone } from '../components/EnRouteZone';
 import { FuelStopMarker } from '../components/FuelStopMarker';
@@ -146,6 +146,14 @@ const FAB_HEIGHT = 56;
 /** Inter-FAB gap when two FABs stack vertically (Recenter above Report). */
 const FAB_STACK_GAP = 12;
 
+const EMPTY_ROUTES: Route[] = [];
+
+type PreviewRouteResult = {
+  destinationKey: string;
+  routes: Route[];
+  source: RouteSource | null;
+};
+
 /** One-line route-preview context for ReportDetailCard when a report zone intersects the selected route. */
 function reportRouteContextLine(
   zone: Zone | undefined,
@@ -191,7 +199,7 @@ export default function Home() {
   const [topOverlayHeight, setTopOverlayHeight] = useState(0);
   const [mapKeyHeight, setMapKeyHeight] = useState(44);
   const windowHeight = Dimensions.get('window').height;
-  // Reserve a painted Map key target between the menu and the route sheet.
+  // Leave the complete key clear of the menu, including any wrapped labels.
   const routeSheetMaxHeight = Math.min(
     windowHeight * 0.85,
     windowHeight - topOverlayHeight - mapKeyHeight - 2 * spacing.md,
@@ -345,22 +353,19 @@ export default function Home() {
   // tool one long-press away for re-staging. Never matters in production
   // (the chip is __DEV__-gated regardless).
   const [devChipHidden, setDevChipHidden] = useState(false);
-  // Raw OSRM routes — pre-scoring. Ranking is derived (useMemo below)
-  // so it recomputes automatically when zones change without needing
-  // another effect.
-  const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  const destinationKey = params.destLat && params.destLng
+    ? `${params.destLat},${params.destLng}`
+    : null;
+  const [routeResult, setRouteResult] = useState<PreviewRouteResult | null>(null);
+  // URL params can change a render before the fetch effect runs. Match
+  // geometry and source to the endpoint before the sheet or map reads them.
+  const currentResult = routeResult?.destinationKey === destinationKey ? routeResult : null;
+  const rawRoutes = currentResult?.routes ?? EMPTY_ROUTES;
+  const routeFetchSource = currentResult?.source ?? null;
+  const isCalculatingRoute = destinationKey != null && currentResult == null;
   const [routeScoringDepartureMs, setRouteScoringDepartureMs] = useState(() =>
     Date.now(),
   );
-  // Route fetch state for the bottom-sheet preview. `isCalculatingRoute`
-  // is true between fetch-start and fetch-resolve so the preview can
-  // render a "Calculating route…" indicator instead of looking broken
-  // on slow networks / long routes. `routeFetchSource` distinguishes
-  // "no route available" (transoceanic, unroutable) from "haven't
-  // fetched yet" / "fetched and got routes" — UI uses it to render
-  // distinct copy. Null until the first fetch resolves.
-  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
-  const [routeFetchSource, setRouteFetchSource] = useState<RouteSource | null>(null);
   // Measured bottom-sheet height. The Report button floats 24pt above
   // the sheet's top edge, so we need to know how tall the sheet is at
   // runtime (it grows with content). 0 until first layout pass — the
@@ -478,9 +483,20 @@ export default function Home() {
   // to take a different one — the conditions caption stays honest about
   // which it is.
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  useEffect(() => {
+    // Routing providers reuse alternate IDs across different trips.
+    setSelectedRouteId(null);
+    setOsmZones([]);
+  }, [destinationKey]);
   const selectedRoute =
     (selectedRouteId != null && routes.find((r) => r.id === selectedRouteId)) ||
     recommended;
+  const [previewKeyExpanded, setPreviewKeyExpanded] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setPreviewKeyExpanded(true);
+    }, [params.destLat, params.destLng, params.destName, selectedRoute?.id]),
+  );
 
   const routeHazardSession = useMemo(() => {
     if (!selectedRoute || !selectedRouteHazard) return null;
@@ -1024,29 +1040,16 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Immediate visual: clear the route polylines if there's no
-    // destination, BEFORE we await any I/O below. Pairs with the
-    // camera-animation skip further down so the X tap gives instant
-    // feedback (no ~1s perceived delay while we re-do location
-    // permission + GPS fetch + re-center).
-    if (!params.destLat || !params.destLng) {
-      setRawRoutes([]);
-      setRouteFetchSource(null);
-      setIsCalculatingRoute(false);
+    // A corridor retry can keep a usable route to the same endpoint.
+    setRouteResult((previous) =>
+      previous?.destinationKey === destinationKey && previous.routes.length > 0 ? previous : null,
+    );
+    if (!destinationKey) {
       setTripZonesStatus('idle');
       setTripZonesFetchFailed(false);
       setTripZonesCorridorComplete(false);
     } else {
-      // Mark calculating BEFORE awaiting permission/GPS so the route-
-      // preview bottom sheet shows LoadingState immediately on
-      // destination change (rather than displaying stale "—" headline
-      // for the ~1s permission + GPS resolution window). Cleared in
-      // the fetch resolve below.
       setRouteScoringDepartureMs(Date.now());
-      setIsCalculatingRoute(true);
-      // Drop stale OSM from the prior trip so chips don't read "All
-      // clear" against old geometry while the new corridor loads.
-      setOsmZones([]);
       setTripZonesStatus('loading');
       setTripZonesFetchFailed(false);
       setTripZonesCorridorComplete(false);
@@ -1055,14 +1058,8 @@ export default function Home() {
     let cancelled = false;
     let partialTimer: ReturnType<typeof setTimeout> | null = null;
     let corridorFetchCompleted = false;
-    const hadDestination = Boolean(params.destLat && params.destLng);
 
     async function fetchAndCenterOnUser() {
-      // try/finally ensures isCalculatingRoute clears on ALL exit paths
-      // — including permission denial, GPS error, or any uncaught throw.
-      // Without this, an entry with destination set but permission
-      // denied (or a thrown getCurrentPositionAsync) would leave the
-      // bottom sheet stuck on "Calculating route…" indefinitely.
       try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (cancelled || status !== 'granted') return;
@@ -1144,9 +1141,13 @@ export default function Home() {
       // (every successful network fetch writes to AsyncStorage), so
       // this /home route-preview call IS what populates the cache for
       // the future /en-route mount if the user drives into dead signal.
-      setRawRoutes(fetchedResult.routes);
-      setRouteFetchSource(fetchedResult.source);
-      setIsCalculatingRoute(false);
+      if (destinationKey) {
+        setRouteResult({
+          destinationKey,
+          routes: fetchedResult.routes,
+          source: fetchedResult.source,
+        });
+      }
 
       if (fetchedResult.routes.length > 0) {
         const best = fetchedResult.routes[0];
@@ -1173,6 +1174,7 @@ export default function Home() {
         // Corridor preview: partial OSM updates while waves run; cache on ready.
         try {
           const flushPartial = (zones: Zone[]) => {
+            if (cancelled) return;
             if (PARTIAL_DEBOUNCE_MS <= 0) {
               setOsmZones(zones);
               return;
@@ -1231,15 +1233,15 @@ export default function Home() {
       } catch (err) {
         console.warn('[home] fetchAndCenterOnUser failed:', err);
       } finally {
-        // Clear calc state on any exit. Guarded against the unmount
-        // race so a post-cancel setState doesn't fire on a stale
-        // component. The success path also calls setIsCalculatingRoute(false)
-        // before this finally — idempotent.
-        if (!cancelled) {
-          setIsCalculatingRoute(false);
-          // Permission denied, GPS error, or early return before corridor:
-          // tripZonesStatus may still be 'loading' — exit without false All clear.
-          if (hadDestination && !corridorFetchCompleted) {
+        if (!cancelled && destinationKey) {
+          // Permission denial or GPS failure yields an unavailable result,
+          // distinct from the routing provider's explicit "no-route".
+          setRouteResult((previous) =>
+            previous?.destinationKey === destinationKey
+              ? previous
+              : { destinationKey, routes: EMPTY_ROUTES, source: null },
+          );
+          if (!corridorFetchCompleted) {
             setTripZonesStatus('ready');
           }
         }
@@ -2156,11 +2158,17 @@ export default function Home() {
       */}
       {isRouteMode && sheetMode && selectedRoute && bottomSheetHeight > 0 &&
         !placingReport && !selectedReport && !selectedZone && !selectedRouteHazard && (
-          <DaylightMapKey
+          <PreviewDaylightMapKey
             cloudCoverPct={cloudCoverPct}
-            availableHeight={windowHeight - bottomSheetHeight - topOverlayHeight - 2 * spacing.md}
-            onTriggerHeightChange={setMapKeyHeight}
-            style={[styles.mapKey, { bottom: bottomSheetHeight + spacing.md }]}
+            expanded={previewKeyExpanded}
+            onExpandedChange={setPreviewKeyExpanded}
+            onHeightChange={setMapKeyHeight}
+            style={[styles.mapKey, {
+              bottom: bottomSheetHeight + spacing.md,
+              // Leave the right-hand Report and Recenter buttons unobstructed.
+              maxWidth: (mapSize?.width ?? Dimensions.get('window').width) -
+                FAB_HEIGHT - 3 * spacing.md,
+            }]}
           />
         )}
       {fabAnchorHeight > 0 && !placingReport && (

@@ -1,6 +1,6 @@
 import { CloudSun } from 'phosphor-react-native/src/icons/CloudSun';
 import { SunHorizon } from 'phosphor-react-native/src/icons/SunHorizon';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
 import DaylightSun from '../assets/illustrations/daylight-sun.svg';
@@ -18,11 +18,16 @@ const glyphs = {
 } satisfies Record<ArrivalLight, React.ReactElement>;
 
 /** Both ETA clusters announce the light with the time as a single reading. */
-export function ArrivalLightIndicator({ light }: { light: ArrivalLight }) {
+export function ArrivalLightIndicator({ light, size = 'compact' }: {
+  light: ArrivalLight;
+  size?: 'compact' | 'body';
+}) {
   return (
     <View style={styles.row} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       {glyphs[light]}
-      <Text style={styles.label} maxFontSizeMultiplier={2}>{light}</Text>
+      <Text style={[styles.label, size === 'body' && styles.bodyLabel]} maxFontSizeMultiplier={2}>
+        {light}
+      </Text>
     </View>
   );
 }
@@ -33,6 +38,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  bodyLabel: {
+    ...dynamicType(typography.bodyEmphasized, Platform.OS === 'ios' ? 1 : 2),
   },
   label: {
     ...dynamicType(typography.footnoteEmphasized, 2),

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Ref } from 'react';
 import {
   AccessibilityInfo,
   Modal,
@@ -21,8 +21,7 @@ import {
   DAYLIGHT_LEGEND_ANCHORS,
 } from '../lib/daylight';
 import { colors } from '../theme/colors';
-import { dynamicType } from '../theme/dynamic-type';
-import { pressedDim } from '../theme/interaction';
+import { pressedDim, tapTarget44 } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
@@ -34,52 +33,27 @@ const entries = {
   night: { label: 'After dark', pattern: 'Dotted' },
 } as const;
 
-export function DaylightMapKey({
-  cloudCoverPct,
-  availableHeight,
-  onTriggerHeightChange,
-  style,
-}: {
+type KeyContentProps = {
   cloudCoverPct?: number;
-  /** Clear height above the sheet, including the trigger. */
-  availableHeight?: number;
-  onTriggerHeightChange?: (height: number) => void;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const trigger = useRef<View>(null);
-  const modalClose = useRef<View>(null);
-  const { fontScale } = useWindowDimensions();
-  const lineHeight = Math.ceil(typography.footnoteRegular.lineHeight * Math.min(fontScale, 2));
-  const headerHeight = Math.max(44, lineHeight + 2 * spacing.xs);
-  const fullHeight = headerHeight + 3 * lineHeight + 2 * spacing.sm + spacing.md;
-  // A tall sheet, large text or a short viewport can leave room for the
-  // button alone. Present the same key in a native modal in that case.
-  const inModal = expanded && (
-    fontScale > 1.4 || (availableHeight != null && availableHeight < fullHeight)
-  );
-  const inline = expanded && !inModal;
-  const focusTrigger = () => {
-    if (trigger.current) AccessibilityInfo.sendAccessibilityEvent(trigger.current, 'focus');
-  };
-  const close = () => {
-    setExpanded(false);
-    // On iOS, wait for the native modal to relinquish VoiceOver focus.
-    if (!inModal || Platform.OS !== 'ios') requestAnimationFrame(focusTrigger);
-  };
+  compact?: boolean;
+  firstEntryRef?: Ref<View>;
+  onClose: () => void;
+};
 
-  const legend = expanded && (
-    <View style={styles.entries}>
+function MapKeyEntries({ cloudCoverPct, compact, firstEntryRef, onClose }: KeyContentProps) {
+  return (
+    <View style={compact ? styles.previewEntries : styles.drivingEntries}>
       {DAYLIGHT_LEGEND_ANCHORS.map(({ band, color }) => {
         const { label, pattern } = entries[band];
         return (
           <View
             key={band}
-            style={styles.entry}
+            ref={band === 'day' ? firstEntryRef : undefined}
+            style={compact ? styles.previewEntry : styles.drivingEntry}
             accessible
             accessibilityRole="text"
             accessibilityLabel={`${pattern} line, ${label}`}
-            onAccessibilityEscape={close}
+            onAccessibilityEscape={onClose}
           >
             <Svg width={spacing.xl} height={spacing.sm} viewBox="0 0 32 8" accessible={false}>
               {/* A dark edge keeps the pale daylight swatch legible on white. */}
@@ -99,10 +73,7 @@ export function DaylightMapKey({
                 strokeLinecap={band === 'twilight' ? 'butt' : 'round'}
               />
             </Svg>
-            <Text
-              maxFontSizeMultiplier={2}
-              style={[styles.label, dynamicType(typography.footnoteRegular, 2)]}
-            >
+            <Text maxFontSizeMultiplier={2} style={styles.label}>
               {label}
             </Text>
           </View>
@@ -110,36 +81,128 @@ export function DaylightMapKey({
       })}
     </View>
   );
+}
 
-  function renderToggle(showClose: boolean, ref: typeof trigger) {
-    return (
-      <Pressable
-        ref={ref}
-        onLayout={(event) => onTriggerHeightChange?.(event.nativeEvent.layout.height)}
-        accessibilityRole="button"
-        accessibilityLabel={showClose ? 'Close map key' : 'Map key'}
-        accessibilityHint={showClose ? undefined : 'Shows the daylight patterns on your route'}
-        accessibilityState={{ expanded }}
-        onPress={showClose ? close : () => setExpanded(true)}
-        onAccessibilityEscape={showClose ? close : undefined}
-        style={({ pressed }) => [styles.toggle, pressed && pressedDim]}
-      >
-        {!showClose && <ListBullets size={spacing.md} color={colors.wiltedgreen} weight="bold" />}
-        <Text
-          maxFontSizeMultiplier={2}
-          style={[styles.title, dynamicType(typography.footnoteEmphasized, 2)]}
-        >
+type ToggleProps = {
+  ref?: Ref<View>;
+  expanded: boolean;
+  compact?: boolean;
+  onPress: () => void;
+};
+
+function MapKeyToggle({ ref, expanded, compact, onPress }: ToggleProps) {
+  return (
+    <Pressable
+      ref={ref}
+      accessibilityRole="button"
+      accessibilityLabel={expanded ? 'Close map key' : 'Map key'}
+      accessibilityHint={expanded ? undefined : 'Shows the daylight patterns on your route'}
+      accessibilityState={{ expanded }}
+      onPress={onPress}
+      onAccessibilityEscape={expanded ? onPress : undefined}
+      style={({ pressed }) => [compact ? tapTarget44 : styles.toggle, pressed && pressedDim]}
+    >
+      {!expanded && <ListBullets size={spacing.md} color={colors.wiltedgreen} weight="bold" />}
+      {!compact && (
+        <Text maxFontSizeMultiplier={2} style={styles.title}>
           Map key
         </Text>
-        {showClose && <X size={spacing.md} color={colors.labelSecondary} weight="bold" />}
-      </Pressable>
-    );
-  }
+      )}
+      {expanded && <X size={spacing.md} color={colors.labelSecondary} weight="bold" />}
+    </Pressable>
+  );
+}
+
+/** Planning shows each pattern immediately. Reserve its actual height above the sheet as labels wrap. */
+export function PreviewDaylightMapKey({
+  cloudCoverPct,
+  expanded,
+  onExpandedChange,
+  onHeightChange,
+  style,
+}: {
+  cloudCoverPct?: number;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+  onHeightChange: (height: number) => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const trigger = useRef<View>(null);
+  const firstEntry = useRef<View>(null);
+  const focusOnOpen = useRef(false);
+  useEffect(() => {
+    if (!expanded || !focusOnOpen.current) return;
+    const frame = requestAnimationFrame(() => {
+      if (firstEntry.current) AccessibilityInfo.sendAccessibilityEvent(firstEntry.current, 'focus');
+      focusOnOpen.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [expanded]);
+  const open = () => {
+    focusOnOpen.current = true;
+    onExpandedChange(true);
+  };
+  const close = () => {
+    focusOnOpen.current = false;
+    onExpandedChange(false);
+    requestAnimationFrame(() => {
+      if (trigger.current) AccessibilityInfo.sendAccessibilityEvent(trigger.current, 'focus');
+    });
+  };
+
+  return (
+    <View
+      style={[styles.surface, expanded && styles.previewPanel, style]}
+      onLayout={(event) => onHeightChange(event.nativeEvent.layout.height)}
+    >
+      {expanded && (
+        <MapKeyEntries compact firstEntryRef={firstEntry} cloudCoverPct={cloudCoverPct} onClose={close} />
+      )}
+      <MapKeyToggle
+        ref={trigger}
+        compact={expanded}
+        expanded={expanded}
+        onPress={expanded ? close : open}
+      />
+    </View>
+  );
+}
+
+/** Driving puts the key away until requested; use a native modal if it will not fit above the sheet. */
+export function DaylightMapKey({
+  cloudCoverPct,
+  availableHeight,
+}: {
+  cloudCoverPct?: number;
+  availableHeight: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const trigger = useRef<View>(null);
+  const modalClose = useRef<View>(null);
+  const { fontScale } = useWindowDimensions();
+  const lineHeight = Math.ceil(typography.footnoteRegular.lineHeight * Math.min(fontScale, 2));
+  const headerHeight = Math.max(44, lineHeight + 2 * spacing.xs);
+  const fullHeight = headerHeight + 3 * lineHeight + 2 * spacing.sm + spacing.md;
+  const inModal = expanded && (fontScale > 1.4 || availableHeight < fullHeight);
+  const inline = expanded && !inModal;
+  const focusTrigger = () => {
+    if (trigger.current) AccessibilityInfo.sendAccessibilityEvent(trigger.current, 'focus');
+  };
+  const close = () => {
+    setExpanded(false);
+    // On iOS, wait for the native modal to relinquish VoiceOver focus.
+    if (!inModal || Platform.OS !== 'ios') requestAnimationFrame(focusTrigger);
+  };
+  const legend = <MapKeyEntries cloudCoverPct={cloudCoverPct} onClose={close} />;
 
   return (
     <>
-      <View style={[styles.surface, inline && styles.openSurface, style]}>
-        {renderToggle(inline, trigger)}
+      <View style={[styles.surface, inline && styles.openSurface]}>
+        <MapKeyToggle
+          ref={trigger}
+          expanded={inline}
+          onPress={inline ? close : () => setExpanded(true)}
+        />
         {inline && legend}
       </View>
       <Modal
@@ -158,7 +221,7 @@ export function DaylightMapKey({
             accessibilityViewIsModal
             onAccessibilityEscape={close}
           >
-            {renderToggle(true, modalClose)}
+            <MapKeyToggle ref={modalClose} expanded onPress={close} />
             {legend}
           </View>
         </View>
@@ -176,6 +239,24 @@ const styles = StyleSheet.create({
   },
   openSurface: {
     borderRadius: radii.lg,
+  },
+  previewPanel: {
+    borderRadius: radii.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  previewEntries: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    columnGap: spacing.md,
+    rowGap: spacing.sm,
+    paddingLeft: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  previewEntry: {
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   modalBackdrop: {
     flex: 1,
@@ -198,20 +279,23 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   title: {
+    // Native Text scales both the glyphs and the explicit line height.
+    ...typography.footnoteEmphasized,
     color: colors.wiltedgreen,
     flexShrink: 1,
   },
-  entries: {
+  drivingEntries: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
     gap: spacing.sm,
   },
-  entry: {
+  drivingEntry: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
   label: {
+    ...typography.footnoteRegular,
     color: colors.labelSecondary,
     flexShrink: 1,
   },

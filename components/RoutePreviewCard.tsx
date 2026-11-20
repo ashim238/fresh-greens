@@ -14,18 +14,20 @@ import { useRouter } from 'expo-router';
 import * as haptics from '../lib/haptics';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   Animated,
   Easing,
   PixelRatio,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 
 import { ArrowClockwise } from 'phosphor-react-native/src/icons/ArrowClockwise';
 import { ArrowRight } from 'phosphor-react-native/src/icons/ArrowRight';
@@ -61,7 +63,7 @@ import {
 } from '../lib/daylight';
 import { getErrorMessage } from '../lib/error-message';
 import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
-import { pathLengthMeters } from '../lib/geo';
+import { metersToMiles, pathLengthMeters } from '../lib/geo';
 import { routeGeometryFingerprint } from '../lib/route-identity';
 import { scheduleDepartureNotification } from '../lib/notifications';
 import {
@@ -142,10 +144,15 @@ export function RoutePreviewCard({
   const fontScale = PixelRatio.getFontScale();
   const reduceMotion = useReduceMotion();
   const { regulars, markRegular, unmarkRegular } = useRegularDestinations();
-  const [navigationPrepStatus, setNavigationPrepStatus] = useState<'idle' | 'preparing'>(
-    'idle',
-  );
-  const isPreparingNavigation = navigationPrepStatus === 'preparing';
+  const [pendingAction, setPendingAction] = useState<'go' | 'schedule' | null>(null);
+  const pendingRequest = useRef<{ kind: 'go' | 'schedule' } | null>(null);
+  const isPreparingNavigation = pendingAction === 'go';
+  const isScheduling = pendingAction === 'schedule';
+
+  useEffect(() => {
+    setPendingAction(null);
+    return () => { pendingRequest.current = null; };
+  }, [params.destLat, params.destLng, selectedRoute?.id]);
 
   // ---- Route cycling -------------------------------------------------------
 
@@ -154,17 +161,24 @@ export function RoutePreviewCard({
   const lastCycleDirRef = useRef<1 | -1 | null>(null);
 
   const selectedIndex = routes.findIndex((r) => r.id === selectedRoute?.id);
-  const canPrevRoute = selectedIndex > 0;
-  const canNextRoute = selectedIndex >= 0 && selectedIndex < routes.length - 1;
+  const canPrevRoute = selectedIndex > 0 && !isPreparingNavigation;
+  const canNextRoute = selectedIndex >= 0 && selectedIndex < routes.length - 1 && !isPreparingNavigation;
 
   function cycleRoute(dir: 1 | -1) {
     if (routes.length < 2) return;
     const cur = routes.findIndex((r) => r.id === selectedRoute?.id);
     const next = Math.min(routes.length - 1, Math.max(0, cur + dir));
     if (next === cur) return;
+    pendingRequest.current = null;
+    setPendingAction(null);
     lastCycleDirRef.current = dir;
     haptics.tap();
-    onSelectRoute(routes[next].id);
+    const choice = routes[next];
+    onSelectRoute(choice.id);
+    if (Platform.OS === 'ios') {
+      const road = primaryRoadName(choice.steps);
+      AccessibilityInfo.announceForAccessibility(`Route ${next + 1} of ${routes.length}${road ? ` via ${road}` : ''}`);
+    }
   }
 
   // ---- ETA entrance animation ----------------------------------------------
@@ -256,26 +270,35 @@ export function RoutePreviewCard({
 
   // ---- Derived display values -----------------------------------------------
 
+  const destinationName = params.destName?.trim() || 'Destination';
+  const noDrivingRoute = routeFetchSource === 'no-route';
+  const unavailableTitle = noDrivingRoute ? 'No route available' : 'Route unavailable';
+  const unavailableBody = noDrivingRoute
+    ? `We couldn't find a driving route to ${destinationName}. Try a different destination.`
+    : 'Check your location access and try again.';
+  const routeReady = !!selectedRoute && !isCalculatingRoute && routeFetchSource !== 'no-route';
   const viaRoad = primaryRoadName(selectedRoute?.steps);
-
-  const arrival = selectedRoute
-    ? new Date(Date.now() + selectedRoute.estimatedMinutes * 60_000)
+  const duration = selectedRoute?.estimatedMinutes;
+  const durationLabel = duration != null && Number.isFinite(duration) && duration >= 0
+    ? formatDuration(duration)
+    : null;
+  const arrival = durationLabel && duration != null
+    ? new Date(Date.now() + duration * 60_000)
     : null;
   const arrivalTime = arrival ? formatTimeOfDay(arrival) : null;
   const arrivalLight = selectedRoute && arrival
     ? arrivalLightAt(selectedRoute.coordinates[selectedRoute.coordinates.length - 1], arrival, cloudCoverPct)
     : null;
-  const METERS_PER_MILE = 1609.34;
-  const distanceLabel =
-    selectedRoute?.distanceMeters != null
-      ? formatDistance(selectedRoute.distanceMeters / METERS_PER_MILE)
-      : null;
+  const distance = selectedRoute?.distanceMeters;
+  const distanceLabel = distance != null && Number.isFinite(distance) && distance >= 0
+    ? formatDistance(metersToMiles(distance))
+    : null;
 
   // ---- Chip computations ----------------------------------------------------
 
   const suggestedDeparture = useMemo(
-    () => (recommended ? suggestedDepartureForDaylight(recommended) : null),
-    [recommended],
+    () => (selectedRoute ? suggestedDepartureForDaylight(selectedRoute) : null),
+    [selectedRoute],
   );
 
   // Comprehensive hazard chips for the route-preview card: counts of every
@@ -340,10 +363,47 @@ export function RoutePreviewCard({
 
   const trustedNoun = fuelType === 'electric' ? 'charger' : 'station';
 
-  async function handleStartNavigation() {
-    if (isPreparingNavigation) return;
+  async function handleSchedule() {
+    if (!suggestedDeparture || pendingRequest.current) return;
+    const request = { kind: 'schedule' } as const;
+    pendingRequest.current = request;
+    setPendingAction('schedule');
     haptics.tap();
-    setNavigationPrepStatus('preparing');
+    const result = await scheduleDepartureNotification(suggestedDeparture, params.destName)
+      .catch(() => ({ ok: false, reason: 'failed' }) as const);
+    if (pendingRequest.current !== request) return;
+    pendingRequest.current = null;
+    setPendingAction(null);
+    if (result.ok) {
+      const timeLabel = formatTimeOfDay(suggestedDeparture);
+      haptics.confirm();
+      Alert.alert(
+        `Scheduled for ${timeLabel}`,
+        `We'll send a heads-up at ${timeLabel} so you can leave when the daylight's right.`,
+        [{ text: 'Got it' }],
+      );
+    } else if (result.reason === 'permission-denied') {
+      Alert.alert(
+        'Notification access needed',
+        "Allow Notifications in Settings to get a heads-up when it's time to leave. You can still leave at the suggested time manually.",
+      );
+    } else if (result.reason === 'past-time') {
+      Alert.alert(
+        "Can't schedule that time",
+        'That moment has already passed. Try picking a new destination.',
+      );
+    } else {
+      const { title, body } = getErrorMessage('save', 'transient');
+      Alert.alert(title, body);
+    }
+  }
+
+  async function handleStartNavigation() {
+    if (!routeReady || pendingRequest.current?.kind === 'go') return;
+    const request = { kind: 'go' } as const;
+    pendingRequest.current = request;
+    haptics.tap();
+    setPendingAction('go');
     let routePrepStatus: 'ready' | 'degraded' = selectedRoute ? 'ready' : 'degraded';
 
     if (selectedRoute) {
@@ -363,7 +423,9 @@ export function RoutePreviewCard({
       }
     }
 
-    setNavigationPrepStatus('idle');
+    if (pendingRequest.current !== request) return;
+    pendingRequest.current = null;
+    setPendingAction(null);
     router.push({
       pathname: '/en-route',
       params: {
@@ -405,177 +467,136 @@ export function RoutePreviewCard({
         contentContainerStyle={styles.bottomSheetContent}
         showsVerticalScrollIndicator={false}
       >
-        {/*
-          Clear-destination row — right-aligned 44pt X plus, when there's
-          more than one route, a chevron pair to switch between them.
-          Chevrons sit immediately left of the X so all three controls
-          right-align together as one cluster.
-        */}
-        <View style={styles.routeTopRow}>
-          {routes.length > 1 && (
-            <>
-              <Pressable
-                onPress={() => cycleRoute(-1)}
-                disabled={!canPrevRoute}
-                accessibilityRole="button"
-                accessibilityLabel="Previous route"
-                accessibilityState={{ disabled: !canPrevRoute }}
-                style={({ pressed }) => [
-                  tapTarget44,
-                  !canPrevRoute && styles.routeCycleBtnDisabled,
-                  pressed && canPrevRoute && pressedDim,
-                ]}
-              >
-                <CaretLeft size={22} weight="bold" color={colors.labelSecondary} />
-              </Pressable>
-              {/* Sighted route count — chevron pair alone doesn't say how many
-                  alternates exist. VoiceOver gets it from the ETA label. */}
-              <Text
-                style={styles.routeCountLabel}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-              >
-                {selectedIndex + 1} of {routes.length}
-              </Text>
-              <Pressable
-                onPress={() => cycleRoute(1)}
-                disabled={!canNextRoute}
-                accessibilityRole="button"
-                accessibilityLabel="Next route"
-                accessibilityState={{ disabled: !canNextRoute }}
-                style={({ pressed }) => [
-                  tapTarget44,
-                  !canNextRoute && styles.routeCycleBtnDisabled,
-                  pressed && canNextRoute && pressedDim,
-                ]}
-              >
-                <CaretRight size={22} weight="bold" color={colors.labelSecondary} />
-              </Pressable>
-            </>
-          )}
+        <View style={styles.destinationHeader}>
+          <Text style={styles.routeDestTitle} accessibilityRole="header" maxFontSizeMultiplier={2}>
+            {destinationName}
+          </Text>
+          {params.destLat && params.destLng ? (
+            <Pressable
+              onPress={handleToggleRegular}
+              accessibilityRole="button"
+              accessibilityLabel={isRegularDestination ? 'Remove from regular destinations' : 'Save as a regular destination'}
+              accessibilityState={{ selected: isRegularDestination }}
+              style={({ pressed }) => [styles.headerButton, pressed && pressedDim]}
+            >
+              <SavedPlaceBookmark size={22} variant={isRegularDestination ? 'selected' : 'default'} />
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() => {
               haptics.tap();
+              pendingRequest.current = null;
               router.replace({ pathname: '/home', params: {} });
             }}
             accessibilityRole="button"
             accessibilityLabel="Clear destination and return to browsing"
-            style={({ pressed }) => [styles.routeClearBtn, pressed && pressedDim]}
+            style={({ pressed }) => [styles.headerButton, pressed && pressedDim]}
           >
             <X size={16} color={colors.labelSecondary} weight="bold" />
           </Pressable>
         </View>
 
-        {/*
-          Route-preview body — three branches:
-            1. Calculating — fetch in flight, no data yet.
-            2. No-route — Mapbox+OSRM both returned unroutable.
-            3. Default — route is loaded.
-        */}
         {isCalculatingRoute ? (
           <LoadingState text="Mapping the safest way there…" style={styles.routePreviewState} />
-        ) : routeFetchSource === 'no-route' ? (
+        ) : !routeReady ? (
           <View
             style={styles.noRouteState}
             accessible
             accessibilityRole="text"
-            accessibilityLabel={`No route available. We couldn't find a driving route to ${params.destName ?? 'your destination'}. Try a different destination.`}
+            accessibilityLabel={`${unavailableTitle}. ${unavailableBody}`}
           >
             <PathIcon size={40} color={colors.wiltedgreen} weight="duotone" />
             <View style={styles.noRouteText}>
-              <Text style={styles.noRouteHeadline}>No route available</Text>
-              <Text style={styles.noRouteBody}>
-                We couldn't find a driving route to{' '}
-                {params.destName ?? 'your destination'}. Try a different
-                destination.
-              </Text>
+              <Text style={styles.noRouteHeadline}>{unavailableTitle}</Text>
+              <Text style={styles.noRouteBody}>{unavailableBody}</Text>
             </View>
           </View>
         ) : (
           <>
-            {/*
-              Trip-summary block — destination title, hero duration + arrival,
-              and distance are ONE unit, so they sit in a tight 4pt group
-              rather than each taking the card's 16pt inter-row gap.
-            */}
             <View style={styles.routeSummaryBlock}>
-              {/*
-                Destination title — card title + tappable save-as-regular
-                toggle. Saved regulars show the bookmark glyph.
-              */}
-              <Pressable
-                onPress={handleToggleRegular}
-                accessibilityRole="button"
-                accessibilityLabel={`${params.destName ?? 'Destination'}. ${
-                  isRegularDestination ? 'Saved as a regular' : 'Not a regular'
-                }.`}
-                accessibilityHint={
-                  isRegularDestination
-                    ? 'Removes this destination from your regulars'
-                    : 'Saves this destination as a regular'
-                }
-                style={({ pressed }) => [styles.routeDestTitleHit, pressed && pressedDim]}
-              >
-                <View style={styles.routeDestTitleRow}>
-                  <Text
-                    style={styles.routeDestTitle}
-                    numberOfLines={2}
-                    maxFontSizeMultiplier={2}
-                  >
-                    {params.destName ?? 'your destination'}
-                  </Text>
-                  <SavedPlaceBookmark
-                    size={22}
-                    variant={isRegularDestination ? 'selected' : 'default'}
-                  />
+              {routes.length > 1 ? (
+                <View style={[styles.routeChoiceRow, fontScale > 1.4 && styles.routeChoiceStack]}>
+                  <View style={styles.routeSwitcher}>
+                    <Pressable
+                      onPress={() => cycleRoute(-1)}
+                      disabled={!canPrevRoute}
+                      accessibilityRole="button"
+                      accessibilityLabel="Previous route"
+                      accessibilityState={{ disabled: !canPrevRoute }}
+                      style={({ pressed }) => [
+                        styles.routeArrow,
+                        !canPrevRoute && styles.routeCycleBtnDisabled,
+                        pressed && canPrevRoute && pressedDim,
+                      ]}
+                    >
+                      <CaretLeft size={20} weight="bold" color={colors.labelSecondary} />
+                    </Pressable>
+                    <Text
+                      style={styles.routeCountLabel}
+                      maxFontSizeMultiplier={2}
+                      accessibilityLabel={`Route ${selectedIndex + 1} of ${routes.length}`}
+                      accessibilityLiveRegion="polite"
+                    >
+                      {selectedIndex + 1} of {routes.length}
+                    </Text>
+                    <Pressable
+                      onPress={() => cycleRoute(1)}
+                      disabled={!canNextRoute}
+                      accessibilityRole="button"
+                      accessibilityLabel="Next route"
+                      accessibilityState={{ disabled: !canNextRoute }}
+                      style={({ pressed }) => [
+                        styles.routeArrow,
+                        !canNextRoute && styles.routeCycleBtnDisabled,
+                        pressed && canNextRoute && pressedDim,
+                      ]}
+                    >
+                      <CaretRight size={20} weight="bold" color={colors.labelSecondary} />
+                    </Pressable>
+                  </View>
+                  {viaRoad && (
+                    <View style={[styles.routeRoad, fontScale > 1.4 && styles.routeRoadStacked]}>
+                      <Text style={styles.routeViaLabel} maxFontSizeMultiplier={2}>Via {viaRoad}</Text>
+                    </View>
+                  )}
                 </View>
-              </Pressable>
+              ) : viaRoad ? (
+                <Text style={styles.routeViaLabel} maxFontSizeMultiplier={2}>Via {viaRoad}</Text>
+              ) : null}
 
-              {/*
-                Hero row: "{N} min" headline + promoted arrival time.
-                The ETA has a directional slide-in when a chevron drives the
-                change — right chevron → slides in from +24pt, left → from -24pt.
-              */}
-              <View style={styles.routeHeroRow}>
-                <Animated.Text
-                  style={[
-                    styles.routeMinutes,
-                    { opacity: minutesOpacity, transform: [{ translateX: routeShiftX }] },
-                  ]}
-                  accessibilityLabel={`${
-                    selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : 'No route'
-                  }${routes.length > 1 ? `, route ${selectedIndex + 1} of ${routes.length}` : ''}`}
-                  numberOfLines={1}
-                  maxFontSizeMultiplier={2}
-                >
-                  {selectedRoute ? formatDuration(selectedRoute.estimatedMinutes) : '—'}
-                </Animated.Text>
-                {(arrivalTime || distanceLabel) && (
+              <View style={styles.tripFacts}>
+                {(durationLabel || distanceLabel) && (
+                  <Animated.View
+                    style={[
+                      styles.routeHeroRow,
+                      { opacity: minutesOpacity, transform: [{ translateX: routeShiftX }] },
+                    ]}
+                    accessible
+                    accessibilityRole="text"
+                    accessibilityLabel={[durationLabel, distanceLabel].filter(Boolean).join(', ')}
+                  >
+                    {durationLabel && <Text style={styles.routeMinutes} maxFontSizeMultiplier={2}>{durationLabel}</Text>}
+                    {distanceLabel && (
+                      <View style={styles.metricPart}>
+                        {durationLabel && <MetaSeparator style={styles.routeMetaSeparator} maxFontSizeMultiplier={2} />}
+                        <Text style={styles.routeDistance} maxFontSizeMultiplier={2}>{distanceLabel}</Text>
+                      </View>
+                    )}
+                  </Animated.View>
+                )}
+                {arrivalTime && (
                   <View
                     style={styles.routeMetaCluster}
                     accessible
                     accessibilityRole="text"
-                    accessibilityLabel={[
-                      arrivalTime ? `Arrive at ${arrivalTime}` : null,
-                      arrivalLight,
-                      distanceLabel,
-                    ]
-                      .filter(Boolean)
-                      .join(', ')}
+                    accessibilityLabel={[`Arrive at ${arrivalTime}`, arrivalLight].filter(Boolean).join(', ')}
                   >
-                    {arrivalTime && (
-                      <Text style={styles.routeArrival} maxFontSizeMultiplier={2}>
-                        {`arrive\u00a0${arrivalTime}`}
-                      </Text>
-                    )}
-                    {arrivalLight && <ArrivalLightIndicator light={arrivalLight} />}
-                    {arrivalTime && distanceLabel && (
-                      <MetaSeparator style={styles.routeMetaSeparator} />
-                    )}
-                    {distanceLabel && (
-                      <Text style={styles.routeDistance} maxFontSizeMultiplier={2}>
-                        {distanceLabel}
-                      </Text>
+                    <Text style={styles.routeArrival} maxFontSizeMultiplier={2}>Arrive {arrivalTime}</Text>
+                    {arrivalLight && (
+                      <View style={styles.metricPart}>
+                        <MetaSeparator style={styles.routeMetaSeparator} maxFontSizeMultiplier={2} />
+                        <ArrivalLightIndicator light={arrivalLight} size="body" />
+                      </View>
                     )}
                   </View>
                 )}
@@ -629,6 +650,8 @@ export function RoutePreviewCard({
                   ) : (
                     <View
                       style={styles.routeChipsRow}
+                      accessible
+                      accessibilityRole="text"
                       accessibilityLabel={
                         selectedRoute &&
                         pathLengthMeters(selectedRoute.coordinates) > LONG_TRIP_COPY_METERS
@@ -652,14 +675,6 @@ export function RoutePreviewCard({
               </>
             )}
 
-            <Text
-              style={styles.routeViaLabel}
-              numberOfLines={2}
-              maxFontSizeMultiplier={2}
-            >
-              Via {viaRoad ?? params.destName ?? 'your destination'}
-            </Text>
-
             {recommended && trustedStationOnRoute && (
               <View style={styles.trustedOnRouteRow}>
                 <Star size={16} color={colors.burntgreen} weight="fill" />
@@ -674,71 +689,36 @@ export function RoutePreviewCard({
                 <Text
                   style={[
                     styles.tradeoffCopy,
-                    dynamicType(relaxedLineHeight(typography.footnoteRegular)),
+                    previewType(relaxedLineHeight(typography.footnoteRegular)),
                   ]}
                 >
                   Heads up! You can leave in a bit and still make it on time with
                   some added daylight on your route.
                 </Text>
+                <Pressable
+                  style={({ pressed }) => [styles.scheduleBtn, pressed && pressedFeedback]}
+                  onPress={handleSchedule}
+                  disabled={isScheduling || isPreparingNavigation}
+                  accessibilityState={{ busy: isScheduling, disabled: isScheduling || isPreparingNavigation }}
+                  accessibilityRole="button"
+                  accessibilityLabel={isScheduling ? 'Scheduling departure reminder' : `Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
+                >
+                  <Text
+                    style={styles.scheduleText}
+                    numberOfLines={2}
+                    maxFontSizeMultiplier={2}
+                  >
+                    {isScheduling ? 'Scheduling…' : `Schedule for ${formatTimeOfDay(suggestedDeparture)}`}
+                  </Text>
+                </Pressable>
               </View>
             )}
           </>
         )}
       </ScrollView>
 
-      {/*
-        Actions row — Schedule (outline wiltedgreen) on the left, Go (filled
-        freshgreen) on the right. Hidden during calculating and no-route states.
-      */}
-      {!isCalculatingRoute && routeFetchSource !== 'no-route' && (
+      {routeReady && (
         <View style={styles.actionsRow}>
-          {suggestedDeparture && (
-            <Pressable
-              style={({ pressed }) => [styles.scheduleBtn, pressed && pressedFeedback]}
-              onPress={async () => {
-                haptics.tap();
-                const timeLabel = formatTimeOfDay(suggestedDeparture);
-                const result = await scheduleDepartureNotification(
-                  suggestedDeparture,
-                  params.destName,
-                );
-                if (result.ok) {
-                  haptics.confirm();
-                  Alert.alert(
-                    `Scheduled for ${timeLabel}`,
-                    `We'll send a heads-up at ${timeLabel} so you can leave when the daylight's right.`,
-                    [{ text: 'Got it' }],
-                  );
-                } else if (result.reason === 'permission-denied') {
-                  Alert.alert(
-                    'Notification access needed',
-                    "Allow Notifications in Settings to get a heads-up when it's time to leave. You can still leave at the suggested time manually.",
-                  );
-                } else if (result.reason === 'past-time') {
-                  Alert.alert(
-                    "Can't schedule that time",
-                    'That moment has already passed. Try picking a new destination.',
-                  );
-                } else {
-                  const { title, body } = getErrorMessage('save', 'transient');
-                  Alert.alert(title, body);
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Schedule trip for ${formatTimeOfDay(suggestedDeparture)} for better daylight`}
-            >
-              {/* Two lines keep "Schedule for 7:30 AM" readable on narrow
-                  buttons without shrinking text below the user's setting. */}
-              <Text
-                style={styles.scheduleText}
-                numberOfLines={2}
-                maxFontSizeMultiplier={2}
-              >
-                Schedule for {formatTimeOfDay(suggestedDeparture)}
-              </Text>
-            </Pressable>
-          )}
-
           <Pressable
             style={({ pressed }) => [
               styles.goBtn,
@@ -892,6 +872,12 @@ function RouteSafeChip({
 // ---------------------------------------------------------------------------
 // Styles
 
+// iOS scales an explicit lineHeight along with the glyphs. Give it the token's
+// baseline line box so accessibility sizes are applied exactly once.
+function previewType(token: TextStyle, maximumScale?: number) {
+  return dynamicType(token, Platform.OS === 'ios' ? 1 : maximumScale);
+}
+
 const styles = StyleSheet.create({
   routePreviewLayout: {
     flexShrink: 1,
@@ -922,74 +908,122 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   noRouteHeadline: {
-    ...dynamicType(typography.title3Emphasized),
+    ...previewType(typography.title3Emphasized),
     color: colors.wiltedgreen,
   },
   noRouteBody: {
-    ...dynamicType(typography.footnoteRegular),
+    ...previewType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
-  routeSummaryBlock: {
-    gap: spacing.xs,
-  },
-  routeDestTitleHit: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  routeDestTitleRow: {
+  destinationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   routeDestTitle: {
-    ...dynamicType(typography.title3Emphasized, 2),
+    ...previewType(typography.title2Emphasized, 2),
     color: colors.black,
     flex: 1,
+  },
+  headerButton: {
+    ...tapTarget44,
+    borderRadius: radii.pill,
+    backgroundColor: colors.fillsTertiary,
+  },
+  routeSummaryBlock: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  routeChoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  routeChoiceStack: {
+    flexDirection: 'column',
+    gap: spacing.xs,
+  },
+  routeSwitcher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  routeRoad: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  routeRoadStacked: {
+    flex: 0,
+    minHeight: 0,
+    alignSelf: 'stretch',
+  },
+  routeArrow: {
+    ...tapTarget44,
+    borderRadius: radii.pill,
+    backgroundColor: colors.fillsTertiary,
+  },
+  routeCountLabel: {
+    ...previewType(typography.subheadlineEmphasized, 2),
+    color: colors.labelSecondary,
+    minWidth: 44,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+  routeViaLabel: {
+    ...previewType(typography.calloutRegular, 2),
+    color: colors.labelSecondary,
+  },
+  tripFacts: {
+    gap: spacing.xs,
   },
   routeHeroRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'baseline',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+  },
+  routeMinutes: {
+    ...previewType(typography.title2Emphasized, 2),
+    color: colors.wiltedgreen,
+    flexShrink: 1,
+  },
+  routeDistance: {
+    ...previewType(typography.title3Regular, 2),
+    color: colors.labelSecondary,
+    flexShrink: 1,
   },
   routeMetaCluster: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: spacing.xs,
   },
   routeArrival: {
-    ...dynamicType(typography.subheadlineRegular, 2),
+    ...previewType(typography.bodyRegular, 2),
     color: colors.labelSecondary,
+    flexShrink: 1,
+  },
+  metricPart: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
   },
   routeMetaSeparator: {
-    ...dynamicType(typography.footnoteRegular),
+    ...previewType(typography.bodyRegular, 2),
     color: colors.labelTertiary,
-  },
-  routeDistance: {
-    ...dynamicType(typography.footnoteRegular, 2),
-    color: colors.labelTertiary,
-  },
-  routeMinutes: {
-    // H12: title2Emphasized (22pt) → largeTitleEmphasized (34pt). The "12 min"
-    // is the anchor number — Waze and Apple Maps put ETA in the 34-36pt range.
-    ...dynamicType(typography.largeTitleEmphasized, 2),
-    color: colors.wiltedgreen,
   },
   routeChipsBlock: {
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   routeChipsFootnote: {
-    ...dynamicType(typography.footnoteRegular),
+    ...previewType(typography.footnoteRegular),
     color: colors.labelTertiary,
     marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   routeChipsHeader: {
-    ...dynamicType(typography.footnoteRegular),
+    ...previewType(typography.footnoteRegular),
     color: colors.labelTertiary,
   },
   routeChipsRow: {
@@ -997,29 +1031,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  routeTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-  },
   routeCycleBtnDisabled: {
-    opacity: 0.25,
-  },
-  routeCountLabel: {
-    ...dynamicType(typography.caption1Regular),
-    color: colors.labelTertiary,
-    minWidth: 44,
-    textAlign: 'center',
-  },
-  routeClearBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.xl,
-    backgroundColor: colors.fillsTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    opacity: 0.4,
   },
   routeChip: {
     flexDirection: 'row',
@@ -1037,7 +1050,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   routeChipText: {
-    ...dynamicType(typography.caption1Emphasized),
+    ...previewType(typography.caption1Emphasized),
     color: colors.black,
   },
   routeAllClearChip: {
@@ -1050,7 +1063,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fadedgreen,
   },
   routeAllClearText: {
-    ...dynamicType(typography.caption1Emphasized),
+    ...previewType(typography.caption1Emphasized),
     color: colors.burntgreen,
   },
   routeZonesRetryChip: {
@@ -1064,16 +1077,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsTertiary,
   },
   routeZonesLoadingText: {
-    ...dynamicType(typography.caption1Emphasized),
+    ...previewType(typography.caption1Emphasized),
     color: colors.labelSecondary,
   },
   routeZonesMetaSeparator: {
+    ...previewType(typography.caption1Emphasized),
     color: colors.labelSecondary,
-  },
-  routeViaLabel: {
-    ...dynamicType(typography.subheadlineRegular, 2),
-    color: colors.labelSecondary,
-    paddingHorizontal: spacing.lg,
   },
   trustedOnRouteRow: {
     flexDirection: 'row',
@@ -1084,21 +1093,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   trustedOnRouteText: {
-    ...dynamicType(typography.footnoteRegular),
+    ...previewType(typography.footnoteRegular),
     color: colors.burntgreen,
   },
   tradeoffRow: {
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   tradeoffCopy: {
-    // Type comes from the render site's dynamicType(relaxedLineHeight(...))
+    // Type comes from the render site's previewType(relaxedLineHeight(...))
     // — the stress-relaxed variant. Keeping a base footnote here would just
     // be overridden every render, so only color lives in the StyleSheet.
     color: colors.mutedTertiary,
   },
   actionsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
+    alignItems: 'stretch',
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     // paddingBottom was spacing.xl (32pt). The parent `bottomSheet`
@@ -1110,7 +1119,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   scheduleBtn: {
-    flex: 1,
+    alignSelf: 'flex-start',
     minHeight: 44,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -1121,13 +1130,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scheduleText: {
-    ...dynamicType(typography.footnoteEmphasized, 2),
+    ...previewType(typography.footnoteEmphasized, 2),
     color: colors.wiltedgreen,
     flexShrink: 1,
     textAlign: 'center',
   },
   goBtn: {
-    flex: 1,
     minHeight: 44,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -1143,7 +1151,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   goText: {
-    ...dynamicType(typography.bodyEmphasized, 2),
+    ...previewType(typography.bodyEmphasized, 2),
     color: colors.black,
     flexShrink: 1,
     textAlign: 'center',
