@@ -62,6 +62,7 @@ export const colors = {
 
   // ── Daylight gradient ─────────────────────────────────────────
   daylightDawn: '#FFB347',
+  daylightDawnOnWhite: '#D18000', // Single-stroke map key sample on its white surface.
   daylightDusk: '#C4785A',
   daylightNight: '#2D1B69',
 

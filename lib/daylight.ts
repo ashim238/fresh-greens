@@ -65,7 +65,7 @@ export const DAYLIGHT_DASH_PATTERN: Record<DaylightBand, number[] | undefined> =
 
 /** Map key swatches, ordered from daylight to darkness. */
 export const DAYLIGHT_LEGEND_ANCHORS = [
-  { band: 'day' as const, color: colors.daylightDawn },
+  { band: 'day' as const, color: colors.daylightDawnOnWhite },
   { band: 'twilight' as const, color: colors.daylightDusk },
   { band: 'night' as const, color: colors.daylightNight },
 ];
@@ -241,7 +241,7 @@ export function cloudDesaturate(hex: string, cloudCoverPct?: number): string {
 /**
  * Maps minutes-to-sunset to a daylight color sampled from the
  * orange → mauve → indigo gradient used on the map. Intermediate stops
- * blend the three anchor colors shown in the map key.
+ * blend the three anchor hues represented in the map key.
  *
  * Bands map "minutes to sunset" → "what time of day this segment
  * looks like":

@@ -56,15 +56,6 @@ function MapKeyEntries({ cloudCoverPct, compact, firstEntryRef, onClose }: KeyCo
             onAccessibilityEscape={onClose}
           >
             <Svg width={spacing.xl} height={spacing.sm} viewBox="0 0 32 8" accessible={false}>
-              {/* A dark edge keeps the pale daylight swatch legible on white. */}
-              {band === 'day' && (
-                <Line
-                  x1="2" x2="30" y1="4" y2="4"
-                  stroke={colors.labelSecondary}
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                />
-              )}
               <Line
                 x1="2" x2="30" y1="4" y2="4"
                 stroke={cloudDesaturate(color, cloudCoverPct)}
