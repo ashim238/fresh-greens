@@ -16,7 +16,7 @@ describe('route preview large-text layout contract', () => {
       /routeMetaCluster:\s*\{[\s\S]*?flexWrap:\s*'wrap'/,
     );
     expect(routePreviewSource).toMatch(
-      /routeViaRow:\s*\{[\s\S]*?flexWrap:\s*'wrap'/,
+      /style=\{styles\.routeViaLabel\}[\s\S]*?numberOfLines=\{2\}[\s\S]*?maxFontSizeMultiplier=\{2\}/,
     );
     expect(routePreviewSource).toMatch(
       /style=\{styles\.routeDestTitle\}[\s\S]*?numberOfLines=\{2\}/,
@@ -45,7 +45,7 @@ describe('route preview large-text layout contract', () => {
     expect(homeSource).toContain('PixelRatio.getFontScale()');
     expect(routePreviewSource).toContain('PixelRatio.getFontScale()');
     expect(homeSource).toContain('fontScale > 1');
-    expect(homeSource).toContain('styles.bottomSheetLargeText');
+    expect(homeSource).toContain('{ height: routeSheetMaxHeight }');
     expect(homeSource).toContain('useSafeAreaInsets');
     expect(homeSource).toContain('largeTextRouteBodyHeight');
     expect(routePreviewSource).toContain('styles.bottomSheetScrollLargeText');

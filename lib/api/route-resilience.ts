@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
+import { stableHash } from '../route-identity';
 import type { Route } from './routes';
 import type { Zone } from './zones';
 
@@ -27,15 +28,6 @@ export type RouteResilienceInput = {
   departureTimeMs: number;
   createdAtMs?: number;
 };
-
-function stableHash(value: string): string {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36);
-}
 
 function routeIdentity(route: Route): string {
   return route.id;

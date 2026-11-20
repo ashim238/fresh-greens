@@ -11,10 +11,7 @@
 // Per .cursorrules: orange used here as functional daylight encoding (the
 // literal color of light at that time of day), NOT as signaling — exactly
 // the documented exception to the reserved-color rule. The polyline
-// palette (orange → mauve → indigo) matches the bottom-sheet daylight
-// strip on /home and Route (Experienced) so the legend and the polyline
-// agree visually — one canonical encoding for "amount of daylight,"
-// not two competing scales.
+// palette (orange → mauve → indigo) matches the map key on both screens.
 
 import SunCalc from 'suncalc';
 
@@ -66,24 +63,22 @@ export const DAYLIGHT_DASH_PATTERN: Record<DaylightBand, number[] | undefined> =
   night: [2, 8],
 };
 
-/** Anchor colors for the route daylight legend — left-to-right = more → less light. */
+/** Map key swatches, ordered from daylight to darkness. */
 export const DAYLIGHT_LEGEND_ANCHORS = [
   { band: 'day' as const, color: colors.daylightDawn },
   { band: 'twilight' as const, color: colors.daylightDusk },
   { band: 'night' as const, color: colors.daylightNight },
 ];
 
-/**
- * VoiceOver label for the daylight legend strip. Pairs with the visual
- * pattern swatches (solid → dashed → dotted) so colorblind users get
- * the dash-density cue in text as well as on the map polyline.
- */
-export const DAYLIGHT_LEGEND_A11Y_LABEL =
-  'Daylight along your route. Colors warm to cool as light fades. On the map, solid is full daylight, dashed is twilight, dotted is after dark. Denser dashes mean less light.';
-
-/** One-line route-loaded hint (en-route) — complements the map polyline. */
+/** One-line route-loaded hint, using the same names as the map key. */
 export const DAYLIGHT_ROUTE_PATTERN_A11Y =
-  'Route line uses color and dashes for daylight: solid is brightest; denser dashes mean darker segments.';
+  'Route line patterns: solid for daylight, dashed for dusk, dotted for after dark.';
+
+function minutesToSunsetAt(point: Coordinate, time: Date): number {
+  const { sunrise, sunset } = SunCalc.getTimes(time, point.latitude, point.longitude);
+  // Before sunrise, the next sunset can be many hours away even though it is dark.
+  return time < sunrise ? -1 : (sunset.getTime() - time.getTime()) / 60_000;
+}
 
 /**
  * Splits a route's coordinates into colored segments. The color of each
@@ -154,22 +149,7 @@ export function gradientSegments(
     // this matters — solar times vary by longitude (and by latitude in
     // winter).
     const midpoint = segmentCoords[Math.floor(segmentCoords.length / 2)];
-    const sunTimes = SunCalc.getTimes(
-      segmentTime,
-      midpoint.latitude,
-      midpoint.longitude,
-    );
-
-    // Pre-dawn departures must be treated as night, not as "many hours
-    // until today's sunset." SunCalc returns events for the calendar day
-    // passed in, so a 1 AM segment computes against today's 7:30 PM
-    // sunset and reports +1110 minutes — which the band table would
-    // mistakenly read as full daylight. Short-circuit: if we're before
-    // today's sunrise, the segment is night.
-    const isPreDawn = segmentTime.getTime() < sunTimes.sunrise.getTime();
-    const minutesToSunset = isPreDawn
-      ? -1
-      : (sunTimes.sunset.getTime() - segmentTime.getTime()) / 60_000;
+    const minutesToSunset = minutesToSunsetAt(midpoint, segmentTime);
 
     segments.push({
       coordinates: segmentCoords,
@@ -208,27 +188,32 @@ export function bandForMinutesToSunset(minutes: number): DaylightBand {
 /** Cloud % at/above which a daytime arrival reads as "low light". */
 const LOW_LIGHT_CLOUD_PCT = 60;
 
-/**
- * Short arrival-light descriptor for the route-preview conditions line.
- * `day` + heavy cloud reads as "low light" (overcast dims daylight);
- * twilight/night are cloud-independent. Returns null when band is
- * unknown so the caller can fall back to the plain conditions copy.
- */
-export function arrivalLightLabel(
-  band: DaylightBand,
+export const ARRIVAL_LIGHT_LABELS = ['Daylight', 'Low light', 'Dusk', 'After dark'] as const;
+export type ArrivalLight = (typeof ARRIVAL_LIGHT_LABELS)[number];
+
+/** Sample the actual destination at the ETA. The polyline samples segment midpoints. */
+export function arrivalLightAt(
+  destination: Coordinate | undefined,
+  arrival: Date,
   cloudCoverPct?: number,
-): string | null {
-  switch (band) {
+): ArrivalLight | null {
+  if (
+    !destination ||
+    !Number.isFinite(arrival.getTime()) ||
+    !Number.isFinite(destination.latitude) ||
+    !Number.isFinite(destination.longitude)
+  ) {
+    return null;
+  }
+  const minutes = minutesToSunsetAt(destination, arrival);
+  if (!Number.isFinite(minutes)) return null;
+  switch (bandForMinutesToSunset(minutes)) {
     case 'day':
-      return cloudCoverPct != null && cloudCoverPct >= LOW_LIGHT_CLOUD_PCT
-        ? 'arriving in low light'
-        : 'arriving in daylight';
+      return cloudCoverPct != null && cloudCoverPct >= LOW_LIGHT_CLOUD_PCT ? 'Low light' : 'Daylight';
     case 'twilight':
-      return 'arriving at dusk';
+      return 'Dusk';
     case 'night':
-      return 'arriving after dark';
-    default:
-      return null;
+      return 'After dark';
   }
 }
 
@@ -246,7 +231,7 @@ function desaturateHex(hex: string, amount: number): string {
   return `#${h(r)}${h(g)}${h(b)}`;
 }
 
-/** Cloud % → desaturation amount, capped. Exported (the card strip uses it directly). */
+/** Cloud % → desaturation amount, capped. Exported (the map key uses it directly). */
 export function cloudDesaturate(hex: string, cloudCoverPct?: number): string {
   if (cloudCoverPct == null || cloudCoverPct <= 0) return hex;
   const amount = (Math.min(cloudCoverPct, 100) / 100) * MAX_CLOUD_DESATURATION;
@@ -255,11 +240,8 @@ export function cloudDesaturate(hex: string, cloudCoverPct?: number): string {
 
 /**
  * Maps minutes-to-sunset to a daylight color sampled from the
- * orange → mauve → indigo gradient that the bottom-sheet daylight
- * strip uses (Figma 825:3635 / 825:3715). Intermediate stops are
- * linear-RGB blends between the three anchor colors, so the
- * five-segment polyline reads as a smooth left-to-right slice of
- * the same gradient the user sees in the legend.
+ * orange → mauve → indigo gradient used on the map. Intermediate stops
+ * blend the three anchor colors shown in the map key.
  *
  * Bands map "minutes to sunset" → "what time of day this segment
  * looks like":

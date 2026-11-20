@@ -29,6 +29,7 @@ import SidebtnRecenter from '../assets/illustrations/sidebtn-recenter.svg';
 import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 
 import { ClusterMarker } from '../components/ClusterMarker';
+import { DaylightMapKey } from '../components/DaylightMapKey';
 import { DestinationMarker } from '../components/DestinationMarker';
 import { EnRouteZone } from '../components/EnRouteZone';
 import { FuelStopMarker } from '../components/FuelStopMarker';
@@ -187,8 +188,16 @@ export default function Home() {
   const router = useRouter();
   const fontScale = PixelRatio.getFontScale();
   const safeAreaInsets = useSafeAreaInsets();
+  const [topOverlayHeight, setTopOverlayHeight] = useState(0);
+  const [mapKeyHeight, setMapKeyHeight] = useState(44);
+  const windowHeight = Dimensions.get('window').height;
+  // Reserve a painted Map key target between the menu and the route sheet.
+  const routeSheetMaxHeight = Math.min(
+    windowHeight * 0.85,
+    windowHeight - topOverlayHeight - mapKeyHeight - 2 * spacing.md,
+  );
   const largeTextRouteBodyHeight =
-    Dimensions.get('window').height * 0.85 -
+    routeSheetMaxHeight -
     12 - // bottomSheet paddingTop
     4 - // DragHandle height in route mode
     spacing.md - // bottomSheet gap
@@ -269,8 +278,8 @@ export default function Home() {
   // is exempt — it uses a tighter latitudeDelta + a much smaller placement bar
   // and doesn't have the visibility problem).
   const SHEET_CAMERA_OFFSET_RATIO = 0.2;
-  // Weather — drives cloud-aware daylight strip, route gradient, and
-  // conditions tail. `cloudCoverPct` is undefined until the first fix
+  // Cloud cover qualifies the arrival label and dims the route and its key.
+  // `cloudCoverPct` is undefined until the first fix
   // and weather fetch resolve; all consumers accept `number | undefined`.
   const { weather } = useWeather(userLocation);
   const cloudCoverPct = weather?.cloudCoverPct;
@@ -568,7 +577,7 @@ export default function Home() {
             // daylight color gradient with a dash pattern so day/twilight/
             // night reads through deuteranopia/tritanopia/monochromacy.
             // Solid = day, medium dashes = twilight, short dashes = night.
-            // The bottom-sheet daylight legend uses the same color anchors
+            // The map key uses the same color anchors
             // so the polyline + legend tell the same story two ways.
             lineDashPattern={isSelected ? DAYLIGHT_DASH_PATTERN[segment.band] : undefined}
           />
@@ -1925,6 +1934,7 @@ export default function Home() {
       */}
       <SafeAreaView
         style={styles.topOverlay}
+        onLayout={(event) => setTopOverlayHeight(event.nativeEvent.layout.height)}
         edges={['top']}
         pointerEvents="box-none"
       >
@@ -1997,7 +2007,7 @@ export default function Home() {
       {/*
         Bottom sheet — two visual modes:
           - Route established (destination set): trip-context greeting,
-            daylight strip, "About X min to Y", Schedule + Go.
+            arrival conditions, "About X min to Y", Schedule + Go.
             Figma node: 825:3635.
           - Browse mode (no destination yet): "Jordan's Local Recs",
             weather + driving conditions, "Things to Do: Black Owned"
@@ -2042,7 +2052,8 @@ export default function Home() {
           // At accessibility sizes the route card needs a definite frame,
           // not only maxHeight. That gives its ScrollView real overflow to
           // scroll and keeps the persistent actions inside the visible sheet.
-          isRouteMode && fontScale > 1.4 && styles.bottomSheetLargeText,
+          isRouteMode && { maxHeight: routeSheetMaxHeight },
+          isRouteMode && fontScale > 1.4 && { height: routeSheetMaxHeight },
         ]}
         edges={['bottom']}
         onLayout={(e) => {
@@ -2143,6 +2154,15 @@ export default function Home() {
         the user's location. Drag to refine, then Confirm to open
         /report with those coords.
       */}
+      {isRouteMode && sheetMode && selectedRoute && bottomSheetHeight > 0 &&
+        !placingReport && !selectedReport && !selectedZone && !selectedRouteHazard && (
+          <DaylightMapKey
+            cloudCoverPct={cloudCoverPct}
+            availableHeight={windowHeight - bottomSheetHeight - topOverlayHeight - 2 * spacing.md}
+            onTriggerHeightChange={setMapKeyHeight}
+            style={[styles.mapKey, { bottom: bottomSheetHeight + spacing.md }]}
+          />
+        )}
       {fabAnchorHeight > 0 && !placingReport && (
         <>
           {/*
@@ -2367,6 +2387,10 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
+  mapKey: {
+    position: 'absolute',
+    left: spacing.md,
+  },
   mapCoachScrim: {
     ...StyleSheet.absoluteFillObject,
     // Raise above the bottom sheet (zIndex: 10) so the coach mark
@@ -2494,9 +2518,6 @@ const styles = StyleSheet.create({
   // the maxHeight cap so the visual landing is identical to the prior
   // wrap-content behaviour when content was tall.
   bottomSheetExpanded: {
-    height: Dimensions.get('window').height * 0.85,
-  },
-  bottomSheetLargeText: {
     height: Dimensions.get('window').height * 0.85,
   },
   // ScrollView wrapper around the route-mode body content. flexShrink: 1

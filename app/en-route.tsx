@@ -6,7 +6,7 @@ import {
   useRouter,
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Alert,
@@ -54,15 +54,10 @@ import SidebtnReport from '../assets/illustrations/sidebtn-report.svg';
 import SidebtnSafety from '../assets/illustrations/sidebtn-safety.svg';
 import SidebtnSos from '../assets/illustrations/sidebtn-sos.svg';
 
-// Daylight glyphs — same SVGs Figma uses on /home's gradient key
-// (node 825:3647) so the symbol means the same thing on both
-// surfaces: arrival in daylight (sun) vs darkness (moon).
-import DaylightMoon from '../assets/illustrations/daylight-moon.svg';
-import DaylightSun from '../assets/illustrations/daylight-sun.svg';
-
+import { ArrivalLightIndicator } from '../components/ArrivalLightIndicator';
 import { ClusterMarker } from '../components/ClusterMarker';
 import { DestinationMarker } from '../components/DestinationMarker';
-import { DaylightRouteLegend } from '../components/DaylightRouteLegend';
+import { DaylightMapKey } from '../components/DaylightMapKey';
 import { DragHandle } from '../components/DragHandle';
 import { EnRouteZone } from '../components/EnRouteZone';
 import { FirstDriveGuide, type GuideStep } from '../components/FirstDriveGuide';
@@ -132,7 +127,14 @@ import {
   pathLengthMeters,
 } from '../lib/geo';
 import { clusterPointZones, regionToRevealCluster } from '../lib/clustering';
-import { DAYLIGHT_DASH_PATTERN, DAYLIGHT_ROUTE_PATTERN_A11Y, gradientSegments } from '../lib/daylight';
+import { matchRouteGeometry, routeGeometryFingerprint } from '../lib/route-identity';
+import {
+  ARRIVAL_LIGHT_LABELS,
+  DAYLIGHT_DASH_PATTERN,
+  DAYLIGHT_ROUTE_PATTERN_A11Y,
+  arrivalLightAt,
+  gradientSegments,
+} from '../lib/daylight';
 import { type Region } from '../lib/edge-indicators';
 import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
 import {
@@ -376,7 +378,7 @@ export default function EnRoute() {
     destLng?: string;
     destName?: string;
     /**
-     * Optional priming values from /home — the recommended route's
+     * Optional priming values from /home — the selected route's
      * estimatedMinutes + distanceMeters at the time the user tapped
      * Go. Let /en-route render the ETA, duration, and mileage on
      * first paint instead of "—" while its own OSRM fetch resolves.
@@ -384,13 +386,10 @@ export default function EnRoute() {
      */
     destEstMinutes?: string;
     destDistanceMeters?: string;
-    /**
-     * Which route the user picked on /home's preview (0 = recommended/
-     * safest, 1+ = an alternate). /en-route refetches its own routes, so
-     * we match by RANK: once routes resolve, start with routes[rank]
-     * active instead of the default recommended. Applied once — the user
-     * can still switch routes here afterward.
-     */
+    destArrivalLight?: string;
+    destCloudCoverPct?: string;
+    /** Geometry identifies the selected route across provider response order changes. */
+    destRouteGeometry?: string;
     destRouteRank?: string;
     /**
      * Handoff from /home's Go button after it prepares the minimal
@@ -540,6 +539,7 @@ export default function EnRoute() {
 
   const [reportZones, setReportZones] = useState<Zone[]>([]);
   const [rawRoutes, setRawRoutes] = useState<Route[]>([]);
+  const [routePending, setRoutePending] = useState(true);
   const [routeScoringDepartureMs, setRouteScoringDepartureMs] = useState(() =>
     Date.now(),
   );
@@ -613,10 +613,9 @@ export default function EnRoute() {
   // children relative to the measured value, conditionally render so we
   // never paint at the wrong position.
   const [bottomSheetHeight, setBottomSheetHeight] = useState(0);
-  // Measured turn-banner height — feeds the FAB column's clear-region
-  // clamp below (#2) so the bottom-anchored column can never rise into
-  // the top-anchored banner regardless of either's content height.
+  // The key can expand inline when it clears the speed display and turn banner.
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [speedStackHeight, setSpeedStackHeight] = useState(0);
   // Bottom sheet Collapsed ↔ Full per Figma 1133:13328 (Collapsed)
   // and 1133:13329 (Full). Tap the drag handle to toggle. Full
   // surfaces a hazard notice panel below the ETA when at least one
@@ -681,28 +680,24 @@ export default function EnRoute() {
 
   const recommended = routes.find((route) => route.type === 'recommended');
 
-  // Which route the screen follows. null = follow the recommended (the
-  // score winner). The comparison sheet sets this to switch routes; a
-  // stale id (after a reroute changes the set) falls back to recommended.
-  const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
-  const activeRoute =
-    (activeRouteId != null && routes.find((r) => r.id === activeRouteId)) ||
-    recommended;
-
-  // Honor the route the user picked on /home (destRouteRank). Once routes
-  // first resolve, start with routes[rank] active. Ref-guarded so it runs
-  // ONCE — the user can switch routes here afterward without this snapping
-  // them back.
-  const appliedRouteRankRef = useRef(false);
+  const geometryById = useMemo(
+    () => new Map(rawRoutes.map((route) => [route.id, routeGeometryFingerprint(route.coordinates)])),
+    [rawRoutes],
+  );
+  const [pickedGeometry, setPickedGeometry] = useState<string | null>(null);
+  const requestedGeometry = pickedGeometry ?? params.destRouteGeometry;
+  const selectedId = useMemo(
+    () => requestedGeometry ? matchRouteGeometry(geometryById, requestedGeometry) : undefined,
+    [geometryById, requestedGeometry],
+  );
+  // Older preview links carry only the previous rank. Pin its geometry as
+  // soon as alternatives load so new hazard evidence cannot change that choice.
+  const legacyRank = requestedGeometry ? NaN : Number(params.destRouteRank);
+  const legacyRoute = Number.isInteger(legacyRank) ? routes[legacyRank] : undefined;
+  const activeRoute = routes.find((route) => route.id === selectedId) ?? legacyRoute ?? recommended;
   useEffect(() => {
-    if (appliedRouteRankRef.current) return;
-    if (routes.length === 0) return;
-    appliedRouteRankRef.current = true;
-    const rank = params.destRouteRank ? parseInt(params.destRouteRank, 10) : 0;
-    if (Number.isFinite(rank) && rank > 0 && rank < routes.length) {
-      setActiveRouteId(routes[rank].id);
-    }
-  }, [routes, params.destRouteRank]);
+    if (legacyRoute) setPickedGeometry(geometryById.get(legacyRoute.id) ?? null);
+  }, [legacyRoute, geometryById]);
 
   const [showComparison, setShowComparison] = useState(false);
 
@@ -710,7 +705,7 @@ export default function EnRoute() {
     const recMinutes = recommended?.estimatedMinutes ?? null;
     return routes.map((route) => {
       const minutes = route.estimatedMinutes;
-      const arrival = new Date(Date.now() + minutes * 60_000);
+      const arrival = new Date(routeScoringDepartureMs + minutes * 60_000);
       let descriptor: string;
       if (route.type === 'recommended') {
         descriptor = 'Safest route with current conditions';
@@ -731,12 +726,12 @@ export default function EnRoute() {
         isRecommended: route.type === 'recommended',
       };
     });
-  }, [routes, recommended, activeRoute?.id, enabledZones]);
+  }, [routes, recommended, activeRoute?.id, enabledZones, routeScoringDepartureMs]);
 
   const handleSelectRoute = useCallback((id: string) => {
-    setActiveRouteId(id);
+    setPickedGeometry(geometryById.get(id) ?? null);
     setShowComparison(false);
-  }, []);
+  }, [geometryById]);
 
   // Refuel reminders — on-route fuel/charging stops. The entry in the
   // Full bottom sheet opens FuelStopsSheet; useRouteFuelStops only
@@ -1223,38 +1218,41 @@ export default function EnRoute() {
     [routeSegments, activeRoute?.id],
   );
 
-  // Arrival clock time (now + remaining minutes), formatted as "8:30".
-  // Figma shows the arrival time as `h:MM` with a sun/moon glyph
-  // beside it (not "8:30 PM") — the time stays compact (no wrap on
-  // narrow devices) and morning/evening reads as a graphic instead
-  // of an inline tag. We format manually rather than via
-  // toLocaleTimeString since the iOS default appends locale
-  // AM/PM that can't be cleanly stripped.
+  // Preview priming expires when the navigation request finishes, including a
+  // confirmed no-route response or an unavailable location fix.
+  const minutes = activeRoute?.estimatedMinutes ?? (routePending ? Number(params.destEstMinutes) : NaN);
+  const meters = activeRoute?.distanceMeters ?? (routePending ? Number(params.destDistanceMeters) : NaN);
+  const durationMinutes = Number.isFinite(minutes) ? minutes : null;
+  const distanceMiles = Number.isFinite(meters) ? meters / 1609.344 : null;
   const arrivalDisplay = useMemo(() => {
-    // Prefer the live recommended-route value; fall back to the
-    // primed `destEstMinutes` from /home until the local OSRM fetch
-    // resolves. Only show "—" if we have neither (e.g. user opened
-    // /en-route via deep-link without coming through /home's Go).
-    const minutesAhead =
-      activeRoute?.estimatedMinutes ??
-      (params.destEstMinutes ? parseFloat(params.destEstMinutes) : NaN);
-    if (!Number.isFinite(minutesAhead)) return { time: '—', isNight: false };
+    if (durationMinutes == null) {
+      return { time: '—', spokenTime: null, light: null };
+    }
 
-    const arrival = new Date(Date.now() + minutesAhead * 60_000);
-    const h24 = arrival.getHours();
-    const h12 = h24 % 12 || 12;
-    const minutes = String(arrival.getMinutes()).padStart(2, '0');
-    // Night ≈ 6pm–6am. Common app convention; matches the moon-glyph
-    // intent in Figma (moon = arriving in the dark, sun = daylight).
-    const isNight = h24 < 6 || h24 >= 18;
-    return { time: `${h12}:${minutes}`, isNight };
-  }, [activeRoute, params.destEstMinutes]);
+    const arrival = new Date(routeScoringDepartureMs + durationMinutes * 60_000);
+    const light = activeRoute
+      ? arrivalLightAt(
+          activeRoute.coordinates[activeRoute.coordinates.length - 1],
+          arrival,
+          cloudCoverPct ?? Number(params.destCloudCoverPct),
+        )
+      : ARRIVAL_LIGHT_LABELS.find((label) => label === params.destArrivalLight) ?? null;
+    const time = `${arrival.getHours() % 12 || 12}:${String(arrival.getMinutes()).padStart(2, '0')}`;
+    return { time, spokenTime: formatTimeOfDay(arrival), light };
+  }, [
+    activeRoute,
+    routeScoringDepartureMs,
+    cloudCoverPct,
+    durationMinutes,
+    params.destCloudCoverPct,
+    params.destArrivalLight,
+  ]);
 
   // ETA pulse animation during OSRM fetch. When arrivalDisplay.time
   // is '—' (loading) and reduce-motion is not set, pulse the opacity
   // from 1 → 0.35 → 1 continuously (600ms cycle, 600ms return).
   useEffect(() => {
-    if (arrivalDisplay.time === '—' && !reduceMotion) {
+    if (routePending && arrivalDisplay.time === '—' && !reduceMotion) {
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(etaPulseAnim, {
@@ -1274,33 +1272,7 @@ export default function EnRoute() {
     } else {
       etaPulseAnim.setValue(1);
     }
-  }, [arrivalDisplay.time, reduceMotion, etaPulseAnim]);
-
-  // Distance in miles, derived from the recommended route. Falls back
-  // to the primed `destDistanceMeters` from /home until the local
-  // OSRM fetch resolves. Same pattern as arrivalDisplay above —
-  // first paint has a real number instead of a dash.
-  const distanceMiles = useMemo(() => {
-    const meters =
-      activeRoute?.distanceMeters ??
-      (params.destDistanceMeters
-        ? parseFloat(params.destDistanceMeters)
-        : NaN);
-    if (!Number.isFinite(meters)) return null;
-    return meters / 1609.344;
-  }, [activeRoute, params.destDistanceMeters]);
-
-  // Duration in minutes — same priming logic as the ETA, but exposed
-  // as a number for formatDuration. Kept separate from arrivalDisplay
-  // because the two render in different rows (ETA cluster vs.
-  // secondary [distance · duration] line) and could conceivably want
-  // different formatters in the future.
-  const durationMinutes = useMemo(() => {
-    const m =
-      activeRoute?.estimatedMinutes ??
-      (params.destEstMinutes ? parseFloat(params.destEstMinutes) : NaN);
-    return Number.isFinite(m) ? m : null;
-  }, [activeRoute, params.destEstMinutes]);
+  }, [arrivalDisplay.time, reduceMotion, etaPulseAnim, routePending]);
 
   // Announce the route-loaded state once for screen reader users.
   // Apple Maps speaks each route recalc; we get the smaller version
@@ -1312,12 +1284,12 @@ export default function EnRoute() {
   const routeAnnouncedRef = useRef(false);
   useEffect(() => {
     if (routeAnnouncedRef.current) return;
-    if (durationMinutes == null) return;
+    if (routePending || durationMinutes == null) return;
     routeAnnouncedRef.current = true;
     AccessibilityInfo.announceForAccessibility(
       `Route loaded, ${formatDuration(durationMinutes)} to ${params.destName ?? 'your destination'}. ${DAYLIGHT_ROUTE_PATTERN_A11Y}`,
     );
-  }, [durationMinutes, params.destName]);
+  }, [durationMinutes, params.destName, routePending]);
 
   // User's current location, captured once on mount and used as the map's
   // initial focus. Real driving would update continuously via watchPosition
@@ -1327,13 +1299,26 @@ export default function EnRoute() {
     longitude: number;
   } | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
+    // setParams can change the destination without unmounting this screen.
+    // Clear the prior trip before painting its replacement.
+    setRawRoutes([]);
+    setPickedGeometry(null);
+    setRoutePending(true);
+    setRouteSource('mapbox');
+    setCacheAgeMs(null);
+    setOsmZones([]);
+    routeAnnouncedRef.current = false;
     setRouteScoringDepartureMs(Date.now());
 
     async function fetchAndCenterOnUser() {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (cancelled || status !== 'granted') return;
+      if (cancelled) return;
+      if (status !== 'granted') {
+        setRoutePending(false);
+        return;
+      }
 
       const location = await Location.getCurrentPositionAsync({});
       if (cancelled) return;
@@ -1378,52 +1363,49 @@ export default function EnRoute() {
       lastRollLocRef.current = null;
 
       const cached = await loadCorridorZones(destination);
-      if (cached && !cancelled) {
+      if (cancelled) return;
+      if (cached) {
         setOsmZones(cached.zones);
       }
       const needsPreview = !cached;
 
-      getRoutesBetween(center, destination)
-        .then(async ({ routes, source, cacheAgeMs: ageMs }) => {
-          if (cancelled) return;
-          setRouteScoringDepartureMs(Date.now());
-          setRawRoutes(routes);
-          setRouteSource(source);
-          setCacheAgeMs(ageMs ?? null);
+      const { routes, source, cacheAgeMs: ageMs } = await getRoutesBetween(center, destination);
+      if (cancelled) return;
+      setRouteScoringDepartureMs(Date.now());
+      setRawRoutes(routes);
+      setRouteSource(source);
+      setRoutePending(false);
+      setCacheAgeMs(ageMs ?? null);
 
-          const coords = routes[0]?.coordinates;
-          if (
-            !needsPreview ||
-            !coords ||
-            coords.length < 2
-          ) {
-            return;
-          }
-          try {
-            const zones = await getZonesForRouteAlternatives(
-              center,
-              destination,
-              routes,
-              { mode: 'preview', routeSource: source },
-            );
-            if (cancelled) return;
-            setOsmZones(zones);
-            await saveCorridorZones(zones, destination, {
-              pathMeters: pathLengthMeters(coords),
-              routeId: routes[0]?.id,
-            });
-          } catch {
-            // Overpass timeout / network fail → keep cache or empty.
-          }
-        })
-        .catch(() => {
-          // Silent failure → route polyline stays empty; the
-          // destination marker + car marker still render. /home
-          // already filters this branch out before navigating.
+      const coords = routes[0]?.coordinates;
+      if (
+        !needsPreview ||
+        !coords ||
+        coords.length < 2
+      ) {
+        return;
+      }
+      try {
+        const zones = await getZonesForRouteAlternatives(
+          center,
+          destination,
+          routes,
+          { mode: 'preview', routeSource: source },
+        );
+        if (cancelled) return;
+        setOsmZones(zones);
+        await saveCorridorZones(zones, destination, {
+          pathMeters: pathLengthMeters(coords),
+          routeId: routes[0]?.id,
         });
+      } catch {
+        // Overpass timeout / network fail → keep cache or empty.
+      }
     }
 
-    fetchAndCenterOnUser();
+    void fetchAndCenterOnUser().catch(() => {
+      if (!cancelled) setRoutePending(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -1858,7 +1840,7 @@ export default function EnRoute() {
   // Tapping a fuel stop reroutes mid-trip: same dest params contract as
   // /search?from=enroute (router.replace there; setParams here because
   // we're already on /en-route). Route refetch is owned by the existing
-  // useEffect keyed on params.destLat/destLng.
+  // effect keyed on params.destLat/destLng.
   const handleSelectFuelStop = useCallback(
     (stop: Place) => {
       setShowFuelStops(false);
@@ -1874,6 +1856,13 @@ export default function EnRoute() {
         destLat: String(stop.latitude),
         destLng: String(stop.longitude),
         destName: stop.name,
+        destRouteGeometry: undefined,
+        destRouteRank: undefined,
+        destEstMinutes: undefined,
+        destDistanceMeters: undefined,
+        destArrivalLight: undefined,
+        destCloudCoverPct: undefined,
+        routePrepStatus: undefined,
       });
     },
     [addRecent, router],
@@ -2053,7 +2042,7 @@ export default function EnRoute() {
               key={`badge-${route.id}-${isActive ? 'active' : 'alt'}`}
               coordinate={mid}
               anchor={{ x: 0.5, y: 0.5 }}
-              onPress={() => setActiveRouteId(route.id)}
+              onPress={() => handleSelectRoute(route.id)}
               tracksViewChanges={false}
               accessibilityLabel={`${formatDuration(route.estimatedMinutes)} route`}
             >
@@ -2380,68 +2369,79 @@ export default function EnRoute() {
       */}
       {bottomSheetHeight > 0 && (
         <View
-          ref={speedGuideRef}
-          collapsable={false}
-          style={[
-            styles.speedLimitWrap,
-            { bottom: bottomSheetHeight + columnBottomOffset },
-          ]}
           pointerEvents="box-none"
+          style={[styles.leftMapControls, { bottom: bottomSheetHeight + columnBottomOffset }]}
         >
-          {/* Posted speed-limit sign — the white-sign SHAPE (rounded
-              rect, thick black border, number only) carries the "speed
-              limit" meaning without a text label, mirroring the Apple
-              Maps in-nav indicator. Sits ABOVE the current-speed pill so
-              the limit is the reference the driver's speed reads against.
-              Flips to the reserved caution/hazard fill when the driver is
-              inside a zone — yellow (caution) / orange (avoid), a
-              sanctioned safety-signal use of the reserved palette.
-              Renders "—" when no posted limit is known for the segment.
-              The "speed limit" meaning is spoken to VoiceOver via
-              accessibilityLabel since the visual label is dropped. */}
           <View
-            style={[
-              styles.speedLimitSign,
-              enteredZoneSeverity === 'caution' && styles.speedLimitSignCaution,
-              enteredZoneSeverity === 'avoid' && styles.speedLimitSignAvoid,
-            ]}
-            accessible
-            accessibilityLabel={
-              postedLimitMph != null
-                ? `Speed limit ${postedLimitMph} miles per hour${
-                    enteredZoneSeverity ? `, ${enteredZoneSeverity} zone` : ''
-                  }`
-                : 'Speed limit unknown'
-            }
+            ref={speedGuideRef}
+            collapsable={false}
+            style={styles.speedLimitWrap}
+            onLayout={(event) => setSpeedStackHeight(event.nativeEvent.layout.height)}
           >
-            <Text
-              style={styles.speedLimitSignNumber}
-              numberOfLines={1}
-              allowFontScaling={false}
+            {/* Posted speed-limit sign — the white-sign SHAPE (rounded
+                rect, thick black border, number only) carries the "speed
+                limit" meaning without a text label, mirroring the Apple
+                Maps in-nav indicator. Sits ABOVE the current-speed pill so
+                the limit is the reference the driver's speed reads against.
+                Flips to the reserved caution/hazard fill when the driver is
+                inside a zone — yellow (caution) / orange (avoid), a
+                sanctioned safety-signal use of the reserved palette.
+                Renders "—" when no posted limit is known for the segment.
+                The "speed limit" meaning is spoken to VoiceOver via
+                accessibilityLabel since the visual label is dropped. */}
+            <View
+              style={[
+                styles.speedLimitSign,
+                enteredZoneSeverity === 'caution' && styles.speedLimitSignCaution,
+                enteredZoneSeverity === 'avoid' && styles.speedLimitSignAvoid,
+              ]}
+              accessible
+              accessibilityLabel={
+                postedLimitMph != null
+                  ? `Speed limit ${postedLimitMph} miles per hour${
+                      enteredZoneSeverity ? `, ${enteredZoneSeverity} zone` : ''
+                    }`
+                  : 'Speed limit unknown'
+              }
             >
-              {postedLimitMph ?? '—'}
-            </Text>
-          </View>
-          <View
-            style={styles.speedLimitCurrentPill}
-            accessible
-            accessibilityLabel={
-              speedMph != null
-                ? `Current speed ${speedMph} miles per hour`
-                : 'Current speed unavailable'
-            }
-          >
-            <Text
-              style={styles.speedLimitCurrentNumber}
-              numberOfLines={1}
-              allowFontScaling={false}
+              <Text
+                style={styles.speedLimitSignNumber}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
+                {postedLimitMph ?? '—'}
+              </Text>
+            </View>
+            <View
+              style={styles.speedLimitCurrentPill}
+              accessible
+              accessibilityLabel={
+                speedMph != null
+                  ? `Current speed ${speedMph} miles per hour`
+                  : 'Current speed unavailable'
+              }
             >
-              {speedMph ?? '—'}
-            </Text>
-            <Text style={styles.speedLimitCurrentUnit} allowFontScaling={false}>
-              mph
-            </Text>
+              <Text
+                style={styles.speedLimitCurrentNumber}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
+                {speedMph ?? '—'}
+              </Text>
+              <Text style={styles.speedLimitCurrentUnit} allowFontScaling={false}>
+                mph
+              </Text>
+            </View>
           </View>
+          {activeRoute && !selectedReport && (
+            <DaylightMapKey
+              cloudCoverPct={cloudCoverPct}
+              availableHeight={
+                windowHeight - headerHeight - speedStackHeight - bottomSheetHeight -
+                columnBottomOffset - 2 * spacing.sm
+              }
+            />
+          )}
         </View>
       )}
       {bottomSheetHeight > 0 && (
@@ -2628,38 +2628,25 @@ export default function EnRoute() {
               </FloatingActionButton>
             )}
 
-            <View style={styles.etaCluster}>
-              {/*
-                ETA cluster — `[16pt spacer] [time] [16pt sun/moon]`
-                per Figma 364:3116. The left spacer balances the right
-                glyph so the time text stays optically centered. nowrap
-                on the time defends against any locale-format expansion.
-              */}
-              <View style={styles.etaIconSpacer} />
+            <View
+              style={styles.etaCluster}
+              accessible
+              accessibilityRole="text"
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={arrivalDisplay.spokenTime
+                ? [`Arrival time ${arrivalDisplay.spokenTime}`, arrivalDisplay.light].filter(Boolean).join(', ')
+                : routePending ? 'Calculating arrival time' : 'Arrival time unavailable'}
+            >
               <Animated.Text
                 style={[styles.eta, { opacity: etaPulseAnim }]}
                 numberOfLines={1}
                 maxFontSizeMultiplier={1.5}
                 adjustsFontSizeToFit
                 minimumFontScale={0.7}
-                // accessibilityLiveRegion="polite" lets TalkBack
-                // re-announce the ETA when it updates after rerouting
-                // — Apple Maps speaks every route recalc; this is the
-                // text-region equivalent on Android.
-                accessibilityLiveRegion="polite"
-                accessibilityLabel={
-                  arrivalDisplay.time === '—'
-                    ? 'Calculating arrival time'
-                    : `Arrival time ${arrivalDisplay.time}${arrivalDisplay.isNight ? ', after dark' : ', in daylight'}`
-                }
               >
                 {arrivalDisplay.time}
               </Animated.Text>
-              {arrivalDisplay.isNight ? (
-                <DaylightMoon width={16} height={16} />
-              ) : (
-                <DaylightSun width={16} height={16} />
-              )}
+              {arrivalDisplay.light && <ArrivalLightIndicator light={arrivalDisplay.light} />}
             </View>
 
             {!sheetExpanded && (
@@ -2677,40 +2664,21 @@ export default function EnRoute() {
             )}
           </View>
 
-          {/*
-            Trip-context row — distance · duration on the left, the
-            daylight gradient legend on the right when the sheet is
-            Full. Previously these were two separate rows: the metadata
-            cluster sat center-aligned, and the legend hung as a
-            standalone right-aligned row below it, reading as orphaned
-            content with empty space on its left. Now they share one
-            row via space-between, which (a) reads as one "trip context"
-            cluster, (b) reclaims vertical space the hazard panel below
-            can use, and (c) mirrors the /home route-preview pattern
-            where via-text + daylight strip already share a row.
-          */}
           <View
-            style={[
-              styles.secondaryRow,
-              !sheetExpanded && styles.secondaryRowCollapsed,
-            ]}
+            style={styles.secondaryRow}
+            accessible
             accessibilityRole="text"
             accessibilityLabel={`${
               distanceMiles != null ? formatDistance(distanceMiles) : '—'
             }, ${durationMinutes != null ? formatDuration(durationMinutes) : '—'}`}
           >
-            <View style={styles.secondaryRowMeta}>
-              <Text style={styles.secondaryDistance} maxFontSizeMultiplier={1.5}>
-                {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
-              </Text>
-              <MetaSeparator style={styles.secondarySeparator} />
-              <Text style={styles.secondaryDuration} maxFontSizeMultiplier={1.5}>
-                {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
-              </Text>
-            </View>
-            {sheetExpanded && (
-              <DaylightRouteLegend cloudCoverPct={cloudCoverPct} />
-            )}
+            <Text style={styles.secondaryDistance} maxFontSizeMultiplier={1.5}>
+              {distanceMiles != null ? formatDistance(distanceMiles) : '—'}
+            </Text>
+            <MetaSeparator style={styles.secondarySeparator} />
+            <Text style={styles.secondaryDuration} maxFontSizeMultiplier={1.5}>
+              {durationMinutes != null ? formatDuration(durationMinutes) : '—'}
+            </Text>
           </View>
 
           {/*
@@ -3102,9 +3070,13 @@ const styles = StyleSheet.create({
   //     driver is inside a zone.
   //   • speedLimitCurrentPill — driver's GPS speed, black dashboard
   //     readout, BELOW.
-  speedLimitWrap: {
+  leftMapControls: {
     position: 'absolute',
-    left: 16,
+    left: spacing.md,
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  speedLimitWrap: {
     width: 88,
     alignItems: 'stretch',
     gap: spacing.xs,
@@ -3313,16 +3285,10 @@ const styles = StyleSheet.create({
   etaCluster: {
     flex: 1,
     flexDirection: 'row',
-    // Matches Figma 364:3116 ETA's `items-start`. The 16pt sun/moon
-    // glyph sits at the top of the row alongside the 41pt-line-height
-    // "8:30" — visually subtitling the time as "this is morning" or
-    // "this is night" rather than centered to the time's mid-line.
-    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  etaIconSpacer: {
-    width: 16,
-    height: 16,
+    columnGap: spacing.sm,
   },
   eta: {
     ...dynamicType(typography.largeTitleEmphasized, 1.5),
@@ -3341,24 +3307,11 @@ const styles = StyleSheet.create({
   // Body/Emphasized 17pt per Figma 364:3133/3135 — bumped from v1's
   // 15pt Subheadline. Distance + duration both emphasized; the "·"
   // separator stays Subheadline/Regular gray for a quiet beat.
-  // Trip-context row. Layout pivot: was center-justified meta-only
-  // with the daylight legend hanging as a separate right-aligned row
-  // below; now both share one row with space-between. The horizontal
-  // padding matches the sheet's inner-content gutter (etaRow uses 20pt
-  // for FAB alignment with the side column above; lg/24pt here keeps
-  // text and the legend off the rounded sheet corners).
   secondaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-  },
-  secondaryRowCollapsed: {
     justifyContent: 'center',
-  },
-  secondaryRowMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
   },
   secondaryDistance: {
     ...dynamicType(typography.bodyEmphasized, 1.5),

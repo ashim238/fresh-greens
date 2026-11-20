@@ -37,7 +37,7 @@ import { Star } from 'phosphor-react-native/src/icons/Star';
 import { WarningDiamond } from 'phosphor-react-native/src/icons/WarningDiamond';
 import { X } from 'phosphor-react-native/src/icons/X';
 
-import { DaylightRouteLegend } from './DaylightRouteLegend';
+import { ArrivalLightIndicator } from './ArrivalLightIndicator';
 import { MetaSeparator } from './MetaSeparator';
 import { LoadingState } from './StateCard';
 import { SavedPlaceBookmark } from './SavedPlaceBookmark';
@@ -56,13 +56,13 @@ import {
   LONG_TRIP_FOOTNOTE_COPY,
 } from '../lib/corridor/constants';
 import {
-  arrivalLightLabel,
-  gradientSegments,
+  arrivalLightAt,
   suggestedDepartureForDaylight,
 } from '../lib/daylight';
 import { getErrorMessage } from '../lib/error-message';
 import { formatDistance, formatDuration, formatTimeOfDay } from '../lib/format';
 import { pathLengthMeters } from '../lib/geo';
+import { routeGeometryFingerprint } from '../lib/route-identity';
 import { scheduleDepartureNotification } from '../lib/notifications';
 import {
   ROUTE_HAZARD_LABEL,
@@ -154,7 +154,6 @@ export function RoutePreviewCard({
   const lastCycleDirRef = useRef<1 | -1 | null>(null);
 
   const selectedIndex = routes.findIndex((r) => r.id === selectedRoute?.id);
-  const isRecommendedSelected = selectedRoute?.id === recommended?.id;
   const canPrevRoute = selectedIndex > 0;
   const canNextRoute = selectedIndex >= 0 && selectedIndex < routes.length - 1;
 
@@ -259,47 +258,18 @@ export function RoutePreviewCard({
 
   const viaRoad = primaryRoadName(selectedRoute?.steps);
 
-  const arrivalTime =
-    selectedRoute != null
-      ? formatTimeOfDay(new Date(Date.now() + selectedRoute.estimatedMinutes * 60_000))
-      : null;
+  const arrival = selectedRoute
+    ? new Date(Date.now() + selectedRoute.estimatedMinutes * 60_000)
+    : null;
+  const arrivalTime = arrival ? formatTimeOfDay(arrival) : null;
+  const arrivalLight = selectedRoute && arrival
+    ? arrivalLightAt(selectedRoute.coordinates[selectedRoute.coordinates.length - 1], arrival, cloudCoverPct)
+    : null;
   const METERS_PER_MILE = 1609.34;
   const distanceLabel =
     selectedRoute?.distanceMeters != null
       ? formatDistance(selectedRoute.distanceMeters / METERS_PER_MILE)
       : null;
-
-  const arrivalSegs = selectedRoute ? gradientSegments(selectedRoute) : [];
-  const arrivalBand = arrivalSegs.length
-    ? arrivalSegs[arrivalSegs.length - 1].band
-    : null;
-  const arrivalLabel = arrivalBand ? arrivalLightLabel(arrivalBand, cloudCoverPct) : null;
-
-  const routeIsAlternate = selectedRoute != null && !isRecommendedSelected;
-  const routeSpeedVsRecommended =
-    selectedRoute && recommended
-      ? Math.round(selectedRoute.estimatedMinutes - recommended.estimatedMinutes)
-      : 0;
-  const routeSpeedLabel =
-    routeSpeedVsRecommended < 0
-      ? `${Math.abs(routeSpeedVsRecommended)} min faster`
-      : routeSpeedVsRecommended > 0
-        ? `${routeSpeedVsRecommended} min longer`
-        : 'about the same time';
-  const routeConditionsText = routeIsAlternate
-    ? `Alternate route · ${routeSpeedLabel}${arrivalLabel ? ` · ${arrivalLabel}` : ''}.`
-    : arrivalLabel
-      ? `Safest route · ${arrivalLabel}.`
-      : 'Safest route with current conditions.';
-  const routeConditionsA11y = routeIsAlternate
-    ? routeConditionsText
-    : arrivalLabel || arrivalTime
-      ? `Safest route. ${
-          arrivalLabel
-            ? arrivalLabel.charAt(0).toUpperCase() + arrivalLabel.slice(1)
-            : 'Arriving'
-        }${arrivalTime ? ` at ${arrivalTime}` : ''}.`
-      : 'Safest route with current conditions.';
 
   // ---- Chip computations ----------------------------------------------------
 
@@ -402,12 +372,15 @@ export function RoutePreviewCard({
         ...(params.destName ? { destName: params.destName } : {}),
         // Prime /en-route with selected route data so ETA renders
         // immediately on mount instead of waiting for its own fetch.
-        // destRouteRank = which route the user chose (0 = recommended).
+        // Match the selected geometry when navigation refetches alternatives.
         ...(selectedRoute
           ? {
               destEstMinutes: String(selectedRoute.estimatedMinutes),
               destDistanceMeters: String(selectedRoute.distanceMeters),
+              destRouteGeometry: routeGeometryFingerprint(selectedRoute.coordinates),
+              ...(arrivalLight ? { destArrivalLight: arrivalLight } : {}),
               destRouteRank: String(Math.max(0, selectedIndex)),
+              ...(cloudCoverPct != null ? { destCloudCoverPct: String(cloudCoverPct) } : {}),
               routePrepStatus,
             }
           : {}),
@@ -580,9 +553,11 @@ export function RoutePreviewCard({
                 {(arrivalTime || distanceLabel) && (
                   <View
                     style={styles.routeMetaCluster}
+                    accessible
                     accessibilityRole="text"
                     accessibilityLabel={[
-                      arrivalTime ? `arrive ${arrivalTime}` : null,
+                      arrivalTime ? `Arrive at ${arrivalTime}` : null,
+                      arrivalLight,
                       distanceLabel,
                     ]
                       .filter(Boolean)
@@ -593,6 +568,7 @@ export function RoutePreviewCard({
                         {`arrive\u00a0${arrivalTime}`}
                       </Text>
                     )}
+                    {arrivalLight && <ArrivalLightIndicator light={arrivalLight} />}
                     {arrivalTime && distanceLabel && (
                       <MetaSeparator style={styles.routeMetaSeparator} />
                     )}
@@ -676,24 +652,13 @@ export function RoutePreviewCard({
               </>
             )}
 
-            {/*
-              Via + daylight share a row — both secondary context. Via flexes
-              to fill the left column, daylight strip anchors the right at its
-              fixed 96pt width.
-            */}
-            <View style={styles.routeViaRow}>
-              <Text
-                style={styles.routeViaLabel}
-                numberOfLines={2}
-                maxFontSizeMultiplier={2}
-              >
-                Via {viaRoad ?? params.destName ?? 'your destination'}
-              </Text>
-              <DaylightRouteLegend
-                cloudCoverPct={cloudCoverPct}
-                style={styles.daylightStripInline}
-              />
-            </View>
+            <Text
+              style={styles.routeViaLabel}
+              numberOfLines={2}
+              maxFontSizeMultiplier={2}
+            >
+              Via {viaRoad ?? params.destName ?? 'your destination'}
+            </Text>
 
             {recommended && trustedStationOnRoute && (
               <View style={styles.trustedOnRouteRow}>
@@ -992,7 +957,7 @@ const styles = StyleSheet.create({
   routeMetaCluster: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   routeArrival: {
@@ -1105,24 +1070,8 @@ const styles = StyleSheet.create({
   routeZonesMetaSeparator: {
     color: colors.labelSecondary,
   },
-  routeViaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  daylightStripInline: {
-    width: 96,
-    gap: spacing.xs,
-  },
   routeViaLabel: {
     ...dynamicType(typography.subheadlineRegular, 2),
-    color: colors.labelSecondary,
-    flex: 1,
-  },
-  routeConditionsCaption: {
-    ...dynamicType(typography.footnoteRegular),
     color: colors.labelSecondary,
     paddingHorizontal: spacing.lg,
   },
