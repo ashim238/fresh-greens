@@ -2187,7 +2187,7 @@ const contactStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.brandDisplay, 2),
+    ...dynamicType(typography.title1Emphasized, 2),
     color: colors.black,
   },
   subtitle: {

@@ -130,8 +130,8 @@ export const typography = {
 
   // ── Brand display — DM Serif Display ──────────────────────────
   // Warm serif for six emotional moments ONLY (source of truth:
-  // .impeccable/design.json): the /emergency heading, pulled-over
-  // reassurance, sign-out farewell, arrival, roadside thank-you, and
+  // .impeccable/design.json): the /emergency heading, unfamiliar-area
+  // lifeline, sign-out farewell, arrival, roadside thank-you, and
   // report confirmation. NEVER for navigation, settings, the "Hey
   // there," greeting, ETAs, the wordmark, or onboarding titles —
   // those stay Franklin. One weight (Regular), headings only.
