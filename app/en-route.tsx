@@ -131,6 +131,7 @@ import { matchRouteGeometry, routeGeometryFingerprint } from '../lib/route-ident
 import {
   ARRIVAL_LIGHT_LABELS,
   DAYLIGHT_DASH_PATTERN,
+  NIGHT_ROUTE_STROKE_WIDTH,
   DAYLIGHT_ROUTE_PATTERN_A11Y,
   arrivalLightAt,
   gradientSegments,
@@ -1180,13 +1181,13 @@ export default function EnRoute() {
             key={`${route.id}-hl-${idx}`}
             coordinates={segment.coordinates}
             strokeColor={isActive ? segment.color : 'transparent'}
-            strokeWidth={routeColors.recommended.width}
+            strokeWidth={segment.band === 'night' ? NIGHT_ROUTE_STROKE_WIDTH : routeColors.recommended.width}
             // WCAG 1.4.1 non-color cue on the active route — parity with
             // /home's route-preview polyline. Solid = day, medium dashes =
             // twilight, short dashes = night, so the daylight band reads
             // through deuteranopia/tritanopia/monochromacy during the live
             // drive.
-            lineDashPattern={isActive ? DAYLIGHT_DASH_PATTERN[segment.band] : undefined}
+            lineDashPattern={DAYLIGHT_DASH_PATTERN[segment.band]}
           />
         ));
       });

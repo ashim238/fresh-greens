@@ -88,7 +88,7 @@ import { maybeWarmZoneTile } from '../lib/corridor/passive-zone-tiles';
 import { getErrorMessage } from '../lib/error-message';
 import { pathLengthMeters } from '../lib/geo';
 import { clusterPointZones, regionToRevealCluster } from '../lib/clustering';
-import { DAYLIGHT_DASH_PATTERN, gradientSegments } from '../lib/daylight';
+import { DAYLIGHT_DASH_PATTERN, NIGHT_ROUTE_STROKE_WIDTH, gradientSegments } from '../lib/daylight';
 import { formatDuration } from '../lib/format';
 import {
   isPointInRegion,
@@ -588,14 +588,14 @@ export default function Home() {
             key={`${route.id}-hl-${idx}`}
             coordinates={segment.coordinates}
             strokeColor={isSelected ? segment.color : 'transparent'}
-            strokeWidth={routeColors.recommended.width}
+            strokeWidth={segment.band === 'night' ? NIGHT_ROUTE_STROKE_WIDTH : routeColors.recommended.width}
             // WCAG 1.4.1 non-color cue on the selected route: pair the
             // daylight color gradient with a dash pattern so day/twilight/
             // night reads through deuteranopia/tritanopia/monochromacy.
             // Solid = day, medium dashes = twilight, short dashes = night.
             // The map key uses the same color anchors
             // so the polyline + legend tell the same story two ways.
-            lineDashPattern={isSelected ? DAYLIGHT_DASH_PATTERN[segment.band] : undefined}
+            lineDashPattern={DAYLIGHT_DASH_PATTERN[segment.band]}
           />
         ));
       });

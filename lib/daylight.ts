@@ -63,6 +63,9 @@ export const DAYLIGHT_DASH_PATTERN: Record<DaylightBand, number[] | undefined> =
   night: [2, 8],
 };
 
+/** A round-capped dot at the full daylight width obscures short streets at overview zoom. */
+export const NIGHT_ROUTE_STROKE_WIDTH = 3;
+
 /** Map key swatches, ordered from daylight to darkness. */
 export const DAYLIGHT_LEGEND_ANCHORS = [
   { band: 'day' as const, color: colors.daylightDawnOnWhite },
@@ -151,11 +154,17 @@ export function gradientSegments(
     const midpoint = segmentCoords[Math.floor(segmentCoords.length / 2)];
     const minutesToSunset = minutesToSunsetAt(midpoint, segmentTime);
 
-    segments.push({
-      coordinates: segmentCoords,
-      color: colorForMinutesToSunset(minutesToSunset, cloudCoverPct),
-      band: bandForMinutesToSunset(minutesToSunset),
-    });
+    const color = colorForMinutesToSunset(minutesToSunset, cloudCoverPct);
+    const band = bandForMinutesToSunset(minutesToSunset);
+    const previous = segments[segments.length - 1];
+
+    // Each MapKit overlay restarts its dash pattern. Carry the stroke through
+    // samples with the same style so short streets don't become solid marks.
+    if (previous && previous.band === band && previous.color === color) {
+      previous.coordinates = previous.coordinates.concat(segmentCoords.slice(1));
+    } else {
+      segments.push({ coordinates: segmentCoords, color, band });
+    }
   }
 
   return segments;

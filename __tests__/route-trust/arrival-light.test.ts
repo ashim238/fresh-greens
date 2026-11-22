@@ -1,4 +1,4 @@
-import { arrivalLightAt } from '../../lib/daylight';
+import { arrivalLightAt, gradientSegments } from '../../lib/daylight';
 
 const manhattan = { latitude: 40.729, longitude: -73.996 };
 
@@ -31,5 +31,30 @@ describe('arrival light at the route destination', () => {
     expect(arrivalLightAt({ latitude: NaN, longitude: NaN }, arrival)).toBeNull();
     expect(arrivalLightAt({ latitude: 89.99, longitude: 0 }, arrival)).toBeNull();
     expect(arrivalLightAt(manhattan, new Date(NaN))).toBeNull();
+  });
+});
+
+describe('route line continuity', () => {
+  const coordinates = Array.from({ length: 48 }, (_, i) => ({
+    latitude: manhattan.latitude,
+    longitude: manhattan.longitude + i / 10000,
+  }));
+  const route = { id: 'trip', label: 'Trip', estimatedMinutes: 6, distanceMeters: 800, coordinates };
+
+  test('keeps after-dark dots continuous through every waypoint', () => {
+    const segments = gradientSegments(route, new Date('2026-11-20T21:00:00-05:00'));
+    expect(segments).toHaveLength(1);
+    expect(segments[0].band).toBe('night');
+    expect(segments[0].coordinates).toEqual(coordinates);
+  });
+
+  test('keeps real daylight transitions, including their shared boundary points', () => {
+    const segments = gradientSegments(
+      { ...route, estimatedMinutes: 160 },
+      new Date('2026-06-20T18:40:00-04:00'),
+    );
+    expect([...new Set(segments.map(segment => segment.band))]).toEqual(['day', 'twilight', 'night']);
+    const path = segments.flatMap((segment, index) => index ? segment.coordinates.slice(1) : segment.coordinates);
+    expect(path).toEqual(coordinates);
   });
 });

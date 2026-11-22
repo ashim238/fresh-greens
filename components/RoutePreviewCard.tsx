@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fillsTertiary,
   },
   routeSummaryBlock: {
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingHorizontal: spacing.lg,
   },
   routeChoiceRow: {
@@ -973,7 +973,7 @@ const styles = StyleSheet.create({
     color: colors.labelSecondary,
   },
   tripFacts: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   routeHeroRow: {
     flexDirection: 'row',
@@ -1105,7 +1105,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     alignItems: 'stretch',
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
     // paddingBottom was spacing.xl (32pt). The parent `bottomSheet`
     // (app/home.tsx) is a SafeAreaView with edges=['bottom'], which
