@@ -15,8 +15,8 @@ describe('pulled-over large-text layout contract', () => {
     expect(source).toMatch(
       /style=\{armedStyles\.title\}[\s\S]*?maxFontSizeMultiplier=\{2\}/,
     );
-    expect(source).toContain('dynamicType(typography.title3Regular, 2)');
-    expect(source).toContain('dynamicType(typography.title1Regular, 2)');
+    expect(source).toContain('...typography.title3Regular,');
+    expect(source).toContain('...typography.title1Regular,');
   });
 
   test('lets answer cards and labels grow instead of clipping', () => {

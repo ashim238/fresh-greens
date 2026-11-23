@@ -20,7 +20,7 @@
       "daylight-night": { "role": "functional", "displayName": "Daylight Night", "canonical": "#2D1B69" }
     },
     "typographyMeta": {
-      "fontSystem": "Two-font system: Libre Franklin (full structural hierarchy, display through captions) + DM Serif Display (emotional brand moments only — emergency, pulled-over, sign-out, arrival, roadside thank-you, report confirmation).",
+      "fontSystem": "Two-font system: Libre Franklin (full structural hierarchy, display through captions) + DM Serif Display (emotional brand moments only — emergency, unfamiliar-area lifeline, sign-out, arrival, roadside thank-you, report confirmation).",
       "display": { "displayName": "Large Title / Emphasized", "fontFamily": "Libre Franklin Bold", "purpose": "Largest heading register, full-screen structural moments. iOS HIG largeTitle." },
       "brandDisplay": { "displayName": "Brand Display", "fontFamily": "DM Serif Display Regular", "purpose": "Emotional warmth moments — safety screens, farewells, confirmations. Never for navigation or settings." },
       "headline": { "displayName": "Title 1", "fontFamily": "Libre Franklin Bold / Regular", "purpose": "Primary screen titles. Its Regular twin is the in-modal held-question register." },

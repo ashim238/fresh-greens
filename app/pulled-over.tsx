@@ -1969,7 +1969,7 @@ const armedStyles = StyleSheet.create({
     // alone (regular vs emphasized) didn't read as a clear hierarchy.
     // User-flagged 2026-06-01. Amends the safety-flow entry-header
     // precedent (mirrored in /roadside, /unfamiliar, /share-location).
-    ...dynamicType(typography.title3Regular, 2),
+    ...typography.title3Regular,
     color: colors.labelTertiary,
   },
   title: {
@@ -1978,13 +1978,11 @@ const armedStyles = StyleSheet.create({
     // holds space open instead of commanding. Size (28pt) + placement
     // carry the emphasis. Consistent with /safety, /unfamiliar,
     // /share-location.
-    ...dynamicType(typography.title1Regular, 2),
+    ...typography.title1Regular,
     color: colors.black,
   },
   answersWrapper: {
-    flexGrow: 1,
     gap: spacing.lg,
-    justifyContent: 'center',
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xs,
   },
@@ -2020,12 +2018,12 @@ const armedStyles = StyleSheet.create({
   // for decision weight — the armed answer is the highest-stakes tap
   // in the flow and the title should read as a clear, bold choice.
   answerTitle: {
-    ...dynamicType(typography.title2Emphasized, 2),
+    ...typography.title2Emphasized,
     color: colors.black,
     textAlign: 'left',
   },
   answerSubtitle: {
-    ...dynamicType(typography.subheadlineRegular, 2),
+    ...typography.subheadlineRegular,
     color: colors.labelTertiary,
     textAlign: 'left',
   },
@@ -2187,7 +2185,7 @@ const contactStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...dynamicType(typography.brandDisplay, 2),
+    ...dynamicType(typography.title1Emphasized, 2),
     color: colors.black,
   },
   subtitle: {

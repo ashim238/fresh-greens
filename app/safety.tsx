@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { ComponentType } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SvgProps } from 'react-native-svg';
 
@@ -20,7 +20,6 @@ import { DragHandle } from '../components/DragHandle';
 import { useShareSession } from '../hooks/useShareSession';
 import { useTrustedContact } from '../hooks/useTrustedContact';
 import { colors } from '../theme/colors';
-import { dynamicType } from '../theme/dynamic-type';
 import { pressedDim } from '../theme/interaction';
 import { radii } from '../theme/radii';
 import { shadows } from '../theme/shadows';
@@ -112,6 +111,8 @@ const TABS: SafetyTab[] = [
 
 export default function SafetyModal() {
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
+  const columns = fontScale > 1.4 ? 1 : 2;
   const contactState = useTrustedContact();
   const contact = contactState.ready ? contactState.contact : null;
   const shareState = useShareSession();
@@ -177,110 +178,87 @@ export default function SafetyModal() {
           <DragHandle />
         </View>
 
-        <View style={styles.header}>
-          {/*
-            56x56 wrapper around the shield icon. Matches Figma's
-            EmptyState/Content structure — icon → title → subtitle in a
-            vertical stack with gap-16.
-
-            Uses the canonical navy duotone shield from
-            `sidebtn-safety.svg` (Figma 825:3754) — the SAME SVG the
-            /en-route safety FAB renders, so the button and the modal it
-            opens match. (The /menu Safety row uses the Phosphor `Shield`
-            in black — the monochrome settings-row register, a deliberately
-            different treatment, not this colored safety-affordance glyph.)
-            Same iconography across the safety-affordance surfaces signals
-            "safety affordance" consistently per `.cursorrules` reserved-
-            color rule #6.
-          */}
-          <View style={styles.iconBox}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.header}>
             <SidebtnSafety width={32} height={32} accessible={false} />
-          </View>
-          <View style={styles.titleBlock}>
-            {/* Held-Question Rule: "What's going on?" is the user prompt
-                and belongs at title-level in Title1 Regular. The icon
-                above already carries the "safety" register — no
-                redundant "Safety" label needed above the question. */}
-            <Text style={styles.title} accessibilityRole="header">
+            <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={2}>
               What&rsquo;s going on?
             </Text>
           </View>
-        </View>
 
-        <View style={styles.body}>
-          {session && (
-            <View
-              style={styles.sessionBanner}
-              accessibilityRole="text"
-              accessibilityLabel={`${SHARE_FLOW_LABEL[session.type]} session active. Tap the tile again to manage your session.`}
-            >
-              <Text style={styles.sessionBannerTitle}>
-                {SHARE_FLOW_LABEL[session.type]} session active
-              </Text>
-              <Text style={styles.sessionBannerBody}>
-                Tap {SHARE_FLOW_LABEL[session.type]} again to manage your session.
-              </Text>
-            </View>
-          )}
-          <View style={styles.grid}>
-            {/* Two tiles per row, flex-stretched — same grid contract as
-                /report's category picker (gridRow + flex:1 tiles). */}
-            {[0, 2].map((rowStart) => (
-              <View style={styles.gridRow} key={rowStart}>
-                {TABS.slice(rowStart, rowStart + 2).map((tab) => (
-                  <Pressable
-                    key={tab.id}
-                    style={({ pressed }) => [styles.tab, pressed && pressedDim]}
-                    onPress={() => handleTabPress(tab)}
-                    accessibilityRole="button"
-                    accessibilityLabel={tab.label}
-                    accessibilityHint={tab.hint}
-                  >
-                    <View style={styles.tabIcon}>
-                      <tab.Icon width={48} height={48} />
-                    </View>
-                    <Text style={styles.tabLabel} numberOfLines={2}>
-                      {tab.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          </View>
-
-          {/*
-            Emergency / SOS (thesis claim C8) — separate lane below the
-            situational toolkit. Grouped-surface row (same register as the
-            tiles) keeps the modal in the green/gray family; the red burst
-            icon is sidebtn-sos.svg — same glyph as /en-route's SOS FAB.
-            Red 911 escalation stays inside /emergency.
-          */}
-          <View style={styles.emergencySection}>
-            <Text style={styles.emergencySectionLabel}>Need help now?</Text>
-            <Pressable
-              onPress={() => router.push('/emergency')}
-              accessibilityRole="button"
-              accessibilityLabel="Emergency. Reach a trusted contact or 911."
-              accessibilityHint="Opens emergency options to call your trusted contact or 911."
-              style={({ pressed }) => [styles.sosBar, pressed && pressedDim]}
-            >
-              <View style={styles.sosBarIcon}>
-                <SidebtnSos width={32} height={32} accessible={false} />
-              </View>
-              <View style={styles.sosBarText}>
-                <Text style={styles.sosBarTitle}>Emergency</Text>
-                <Text style={styles.sosBarSubtitle}>
-                  Reach a trusted contact or 911
+          <View style={styles.body}>
+            {session && (
+              <View
+                style={styles.sessionBanner}
+                accessibilityRole="text"
+                accessibilityLabel={`${SHARE_FLOW_LABEL[session.type]} session active. Tap the tile again to manage your session.`}
+              >
+                <Text style={styles.sessionBannerTitle}>
+                  {SHARE_FLOW_LABEL[session.type]} session active
+                </Text>
+                <Text style={styles.sessionBannerBody}>
+                  Tap {SHARE_FLOW_LABEL[session.type]} again to manage your session.
                 </Text>
               </View>
-              <CaretRight
-                size={20}
-                color={colors.labelTertiary}
-                weight="regular"
-              />
-            </Pressable>
+            )}
+            <View style={styles.grid}>
+              {Array.from({ length: Math.ceil(TABS.length / columns) }, (_, row) => (
+                <View style={styles.gridRow} key={row}>
+                  {TABS.slice(row * columns, (row + 1) * columns).map((tab) => (
+                    <Pressable
+                      key={tab.id}
+                      style={({ pressed }) => [styles.tab, pressed && pressedDim]}
+                      onPress={() => handleTabPress(tab)}
+                      accessibilityRole="button"
+                      accessibilityLabel={tab.label}
+                      accessibilityHint={tab.hint}
+                    >
+                      <View style={styles.tabIcon}>
+                        <tab.Icon width={48} height={48} />
+                      </View>
+                      <Text style={styles.tabLabel}>
+                        {tab.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+            </View>
+
+            {/*
+              Emergency / SOS (thesis claim C8) — separate lane below the
+              situational toolkit. Grouped-surface row (same register as the
+              tiles) keeps the modal in the green/gray family; the red burst
+              icon is sidebtn-sos.svg — same glyph as /en-route's SOS FAB.
+              Red 911 escalation stays inside /emergency.
+            */}
+            <View style={styles.emergencySection}>
+              <Text style={styles.emergencySectionLabel}>Need help now?</Text>
+              <Pressable
+                onPress={() => router.push('/emergency')}
+                accessibilityRole="button"
+                accessibilityLabel="Emergency. Reach a trusted contact or 911."
+                accessibilityHint="Opens emergency options to call your trusted contact or 911."
+                style={({ pressed }) => [styles.sosBar, pressed && pressedDim]}
+              >
+                <View style={styles.sosBarIcon}>
+                  <SidebtnSos width={32} height={32} accessible={false} />
+                </View>
+                <View style={styles.sosBarText}>
+                  <Text style={styles.sosBarTitle}>Emergency</Text>
+                  <Text style={styles.sosBarSubtitle}>
+                    Reach a trusted contact or 911
+                  </Text>
+                </View>
+                <CaretRight
+                  size={20}
+                  color={colors.labelTertiary}
+                  weight="regular"
+                />
+              </Pressable>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -298,17 +276,14 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    // v2 spec: px-24 py-32. Switching from v1's 16pt gutter gives the
-    // tiles + header more breathing room and matches the Figma node.
-    paddingHorizontal: spacing.lg, // 24
-    paddingTop: spacing.md, // 16 — additional top space provided by dragHandleWrapper
-    // SAF5: was 16 — asymmetric with the top edge (which nets 32pt via
-    // dragHandleWrapper's own paddingTop: 16). The v2 spec is py-32;
-    // bumping to 32 makes the bottom breathing room match the top so
-    // the tile grid doesn't read as pushed against the bottom chrome
-    // on 6.1" devices.
-    paddingBottom: spacing.xl, // 32
-    gap: spacing.lg, // 24 — v2 inter-section gap
+    paddingTop: spacing.md,
+    gap: spacing.lg,
+  },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    gap: spacing.lg,
   },
   dragHandleWrapper: {
     // pt-16 from Figma's Drag block; centers the 4pt bar horizontally.
@@ -316,38 +291,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    // EmptyState/Content from Figma: column stack, gap-16. Left-
-    // aligned like /report's picker + detail titleBlock (icon → title
-    // → subtitle) so the safety/report modals share one placement register.
-    gap: spacing.md,
-    alignItems: 'flex-start',
-    alignSelf: 'stretch',
-  },
-  iconBox: {
-    // 56x56 dedicated space for the shield. Icon anchors top-leading
-    // so the stack reads as one left edge with the title block below.
-    width: 56,
-    height: 56,
-  },
-  titleBlock: {
     gap: spacing.sm,
     alignItems: 'flex-start',
-    alignSelf: 'stretch',
   },
   title: {
-    // SAF1: Title1 Regular (not Emphasized). /safety ASKS the user a
-    // question ("What's going on?"), and per DESIGN.md Held-Question Rule the
-    // in-modal-prompt register is regular weight — a held question, not
-    // a directive (bold read as a command on a stress-state screen).
-    //
-    // Weight differs from /report's Title1 Emphasized picker title,
-    // but placement matches: left-aligned icon + title + subtitle stack.
-    ...dynamicType(typography.title1Regular),
+    // Native Text scales both glyphs and line height with Dynamic Type.
+    ...typography.title1Regular,
     color: colors.black,
     alignSelf: 'stretch',
   },
   body: {
-    flex: 1,
+    flexGrow: 1,
     gap: spacing.lg,
   },
   sessionBanner: {
@@ -359,11 +313,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sessionBannerTitle: {
-    ...dynamicType(typography.footnoteEmphasized),
+    ...typography.footnoteEmphasized,
     color: colors.black,
   },
   sessionBannerBody: {
-    ...dynamicType(typography.footnoteRegular),
+    ...typography.footnoteRegular,
     color: colors.labelSecondary,
   },
   grid: {
@@ -382,7 +336,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emergencySectionLabel: {
-    ...dynamicType(typography.footnoteRegular),
+    ...typography.footnoteRegular,
     color: colors.labelTertiary,
   },
   gridRow: {
@@ -414,7 +368,7 @@ const styles = StyleSheet.create({
     // area) are the affordance description for their tap target;
     // 15pt left them reading as captions under their illustrations
     // instead of as the primary nav element they actually are.
-    ...dynamicType(typography.bodyEmphasized),
+    ...typography.bodyEmphasized,
     color: colors.black,
     textAlign: 'center',
   },
@@ -442,12 +396,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   sosBarTitle: {
-    ...dynamicType(typography.bodyEmphasized),
+    ...typography.bodyEmphasized,
     color: colors.black,
   },
   sosBarSubtitle: {
     // subheadlineRegular (15pt) per the 2026-06-01 text-size audit.
-    ...dynamicType(typography.subheadlineRegular),
+    ...typography.subheadlineRegular,
     color: colors.labelTertiary,
   },
 });

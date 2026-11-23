@@ -144,10 +144,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    // Two-font system (.cursorrules Typography): "You're not alone." is
-    // declarative reassurance in an emotionally-charged full-screen —
-    // DM Serif Display register, same as /pulled-over's contact step.
-    // Franklin Bold here created a mismatch: same phrase, two typefaces.
+    // The unfamiliar-area lifeline is a standalone brand-display moment.
     ...dynamicType(typography.brandDisplay),
     color: colors.black,
     alignSelf: 'flex-start',

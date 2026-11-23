@@ -2,6 +2,7 @@ const { readFileSync } = jest.requireActual('fs') as {
   readFileSync(path: string, encoding: string): string;
 };
 
+const toolkitSource = readFileSync('app/safety.tsx', 'utf8');
 const pulledOverSource = readFileSync('app/pulled-over.tsx', 'utf8');
 const unfamiliarSource = readFileSync('app/unfamiliar.tsx', 'utf8');
 const shareLocationSource = readFileSync('app/share-location.tsx', 'utf8');
@@ -16,7 +17,7 @@ function styleBlock(source: string, name: string): string {
 }
 
 describe('safety flow choice layout contract', () => {
-  test('centers the armed choices inside an explicit scroll-safe region', () => {
+  test('groups both prompts with their choices using the shared spacing scale', () => {
     expect(pulledOverSource).toMatch(
       /<ScrollView[\s\S]*?style=\{armedStyles\.scroll\}[\s\S]*?contentContainerStyle=\{armedStyles\.scrollContent\}/,
     );
@@ -36,18 +37,18 @@ describe('safety flow choice layout contract', () => {
     expect(page).not.toContain('paddingBottom');
 
     const answers = styleBlock(pulledOverSource, 'answersWrapper');
-    expect(answers).toContain('flexGrow: 1');
-    expect(answers).not.toMatch(/\n\s*flex:\s*1/);
-    expect(answers).toContain("justifyContent: 'center'");
+    expect(answers).not.toMatch(/flexGrow:|justifyContent: 'center'/);
     expect(answers).toContain('paddingVertical: spacing.lg');
+    expect(styleBlock(pulledOverSource, 'titleBlock')).toContain('gap: spacing.sm');
+    expect(styleBlock(toolkitSource, 'header')).toContain('gap: spacing.sm');
+    expect(styleBlock(toolkitSource, 'content')).toContain('gap: spacing.lg');
+    expect(toolkitSource).toContain('<ScrollView contentContainerStyle={styles.content}>');
+    expect(toolkitSource).not.toContain('numberOfLines={2}');
   });
 
-  test('centers choice stacks while keeping card copy leading-aligned', () => {
+  test('keeps card copy leading-aligned and unrelated pickers centered', () => {
     expect(styleBlock(pulledOverSource, 'answersWrapper')).toContain(
       'gap: spacing.lg',
-    );
-    expect(styleBlock(pulledOverSource, 'answersWrapper')).toContain(
-      "justifyContent: 'center'",
     );
     const answerCard = styleBlock(pulledOverSource, 'answerCard');
     expect(answerCard).toContain('minHeight: safetyCardHeight');
