@@ -88,7 +88,7 @@ import { maybeWarmZoneTile } from '../lib/corridor/passive-zone-tiles';
 import { getErrorMessage } from '../lib/error-message';
 import { pathLengthMeters } from '../lib/geo';
 import { clusterPointZones, regionToRevealCluster } from '../lib/clustering';
-import { DAYLIGHT_DASH_PATTERN, NIGHT_ROUTE_STROKE_WIDTH, gradientSegments } from '../lib/daylight';
+import { DAYLIGHT_DASH_PATTERN, PATTERNED_ROUTE_WIDTH, gradientSegments } from '../lib/daylight';
 import { formatDuration } from '../lib/format';
 import {
   isPointInRegion,
@@ -534,15 +534,15 @@ export default function Home() {
   // geometry. Bumped strokeWidth slightly so the route still claims
   // the map without the border.
   // Daylight segmentation is the EXPENSIVE part (SunCalc per segment) and
-  // is selection-INDEPENDENT, so it's memoized on [routes, cloudCoverPct]
+  // is selection-INDEPENDENT, so it's memoized on the routes, cloud cover, and departure time
   // alone — switching routes must not recompute it. Every route is
   // segmented identically regardless of which is selected; selection only
   // changes color downstream (see routePolylines). This is what reconciles
   // the leak fix (every route fully segmented, stable keys) with not
   // re-running SunCalc on every chevron tap.
   const routeSegments = useMemo(
-    () => routes.map((route) => ({ route, segments: gradientSegments(route, undefined, cloudCoverPct) })),
-    [routes, cloudCoverPct],
+    () => routes.map((route) => ({ route, segments: gradientSegments(route, routeScoringDepartureTime, cloudCoverPct) })),
+    [routes, cloudCoverPct, routeScoringDepartureTime],
   );
 
   const routePolylines = useMemo(
@@ -588,7 +588,8 @@ export default function Home() {
             key={`${route.id}-hl-${idx}`}
             coordinates={segment.coordinates}
             strokeColor={isSelected ? segment.color : 'transparent'}
-            strokeWidth={segment.band === 'night' ? NIGHT_ROUTE_STROKE_WIDTH : routeColors.recommended.width}
+            strokeWidth={segment.band === 'day' ? routeColors.recommended.width : PATTERNED_ROUTE_WIDTH[segment.band]}
+            lineCap={segment.band === 'twilight' ? 'butt' : 'round'}
             // WCAG 1.4.1 non-color cue on the selected route: pair the
             // daylight color gradient with a dash pattern so day/twilight/
             // night reads through deuteranopia/tritanopia/monochromacy.

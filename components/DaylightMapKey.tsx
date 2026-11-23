@@ -18,7 +18,7 @@ import { X } from 'phosphor-react-native/src/icons/X';
 import {
   cloudDesaturate,
   DAYLIGHT_DASH_PATTERN,
-  NIGHT_ROUTE_STROKE_WIDTH,
+  PATTERNED_ROUTE_WIDTH,
   DAYLIGHT_LEGEND_ANCHORS,
 } from '../lib/daylight';
 import { colors } from '../theme/colors';
@@ -60,7 +60,7 @@ function MapKeyEntries({ cloudCoverPct, compact, firstEntryRef, onClose }: KeyCo
               <Line
                 x1="2" x2="30" y1="4" y2="4"
                 stroke={cloudDesaturate(color, cloudCoverPct)}
-                strokeWidth={band === 'night' ? NIGHT_ROUTE_STROKE_WIDTH : 4}
+                strokeWidth={band === 'day' ? 4 : PATTERNED_ROUTE_WIDTH[band]}
                 strokeDasharray={DAYLIGHT_DASH_PATTERN[band]}
                 strokeLinecap={band === 'twilight' ? 'butt' : 'round'}
               />

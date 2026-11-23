@@ -63,8 +63,8 @@ export const DAYLIGHT_DASH_PATTERN: Record<DaylightBand, number[] | undefined> =
   night: [2, 8],
 };
 
-/** A round-capped dot at the full daylight width obscures short streets at overview zoom. */
-export const NIGHT_ROUTE_STROKE_WIDTH = 3;
+/** Keep the gaps in patterned routes legible over short city blocks. */
+export const PATTERNED_ROUTE_WIDTH = { twilight: 2.5, night: 3 } as const;
 
 /** Map key swatches, ordered from daylight to darkness. */
 export const DAYLIGHT_LEGEND_ANCHORS = [

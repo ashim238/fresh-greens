@@ -131,7 +131,7 @@ import { matchRouteGeometry, routeGeometryFingerprint } from '../lib/route-ident
 import {
   ARRIVAL_LIGHT_LABELS,
   DAYLIGHT_DASH_PATTERN,
-  NIGHT_ROUTE_STROKE_WIDTH,
+  PATTERNED_ROUTE_WIDTH,
   DAYLIGHT_ROUTE_PATTERN_A11Y,
   arrivalLightAt,
   gradientSegments,
@@ -1141,11 +1141,11 @@ export default function EnRoute() {
   // controlled reliably across re-renders, so the colored stroke
   // alone is the v1 design.
   // Daylight segmentation (SunCalc per segment) is the expensive, selection-
-  // independent part — memoized on [routes, cloudCoverPct] so switching the
+  // independent part — memoized on the routes, cloud cover, and departure time so switching the
   // active route via "Compare routes" doesn't re-run it. Mirrors /home.
   const routeSegments = useMemo(
-    () => routes.map((route) => ({ route, segments: gradientSegments(route, undefined, cloudCoverPct) })),
-    [routes, cloudCoverPct],
+    () => routes.map((route) => ({ route, segments: gradientSegments(route, routeScoringDepartureTime, cloudCoverPct) })),
+    [routes, cloudCoverPct, routeScoringDepartureTime],
   );
 
   const routePolylines = useMemo(
@@ -1181,7 +1181,8 @@ export default function EnRoute() {
             key={`${route.id}-hl-${idx}`}
             coordinates={segment.coordinates}
             strokeColor={isActive ? segment.color : 'transparent'}
-            strokeWidth={segment.band === 'night' ? NIGHT_ROUTE_STROKE_WIDTH : routeColors.recommended.width}
+            strokeWidth={segment.band === 'day' ? routeColors.recommended.width : PATTERNED_ROUTE_WIDTH[segment.band]}
+            lineCap={segment.band === 'twilight' ? 'butt' : 'round'}
             // WCAG 1.4.1 non-color cue on the active route — parity with
             // /home's route-preview polyline. Solid = day, medium dashes =
             // twilight, short dashes = night, so the daylight band reads
