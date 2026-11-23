@@ -51,7 +51,7 @@ import { useRegularDestinations } from '../hooks/useRegularDestinations';
 import { isRegularLocation } from '../lib/api/regular-destinations';
 import { prepareRouteResilienceBundle } from '../lib/api/route-resilience';
 import { primaryRoadName, type Route, type RouteSource } from '../lib/api/routes';
-import type { Zone } from '../lib/api/zones';
+import type { Coordinate, Zone } from '../lib/api/zones';
 import {
   ALL_CLEAR_A11Y_LONG_TRIP,
   LONG_TRIP_COPY_METERS,
@@ -99,6 +99,7 @@ type PreferredStation = { latitude: number; longitude: number };
 
 type RoutePreviewCardProps = {
   routes: Route[];
+  requestOrigin?: Coordinate;
   recommended: Route | undefined;
   /** Controlled: Home owns selectedRouteId state; derived selectedRoute passed here. */
   selectedRoute: Route | undefined;
@@ -123,6 +124,7 @@ type RoutePreviewCardProps = {
 
 export function RoutePreviewCard({
   routes,
+  requestOrigin,
   recommended,
   selectedRoute,
   onSelectRoute,
@@ -438,6 +440,7 @@ export function RoutePreviewCard({
               destEstMinutes: String(selectedRoute.estimatedMinutes),
               destDistanceMeters: String(selectedRoute.distanceMeters),
               destRouteGeometry: routeGeometryFingerprint(selectedRoute.coordinates),
+              ...(requestOrigin ? { destRouteOrigin: `${requestOrigin.latitude},${requestOrigin.longitude}` } : {}),
               ...(arrivalLight ? { destArrivalLight: arrivalLight } : {}),
               destRouteRank: String(Math.max(0, selectedIndex)),
               ...(cloudCoverPct != null ? { destCloudCoverPct: String(cloudCoverPct) } : {}),

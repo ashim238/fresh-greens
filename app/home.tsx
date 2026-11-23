@@ -150,6 +150,7 @@ const EMPTY_ROUTES: Route[] = [];
 
 type PreviewRouteResult = {
   destinationKey: string;
+  requestOrigin?: Coordinate;
   routes: Route[];
   source: RouteSource | null;
 };
@@ -1145,6 +1146,7 @@ export default function Home() {
       if (destinationKey) {
         setRouteResult({
           destinationKey,
+          requestOrigin: center,
           routes: fetchedResult.routes,
           source: fetchedResult.source,
         });
@@ -2137,6 +2139,7 @@ export default function Home() {
               params={params}
               cloudCoverPct={cloudCoverPct}
               isCalculatingRoute={isCalculatingRoute}
+              requestOrigin={currentResult?.requestOrigin}
               routeFetchSource={routeFetchSource}
               tripZonesStatus={tripZonesStatus}
               tripZonesFetchFailed={tripZonesFetchFailed}

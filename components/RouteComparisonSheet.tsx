@@ -48,11 +48,13 @@ const CONDITION_META: Record<RouteCondition, { label: string; Icon: PhosphorIcon
  */
 export function RouteComparisonSheet({
   visible,
+  title = 'Routes',
   rows,
   onSelectRoute,
   onClose,
 }: {
   visible: boolean;
+  title?: string;
   rows: ComparisonRow[];
   onSelectRoute: (id: string) => void;
   onClose: () => void;
@@ -72,7 +74,7 @@ export function RouteComparisonSheet({
         <View style={styles.card} onStartShouldSetResponder={() => true}>
           <SafeAreaView edges={['bottom']}>
             <View style={styles.header}>
-              <Text style={styles.title}>Routes</Text>
+              <Text accessibilityRole="header" style={styles.title}>{title}</Text>
               <Pressable
                 onPress={onClose}
                 accessibilityRole="button"
@@ -153,7 +155,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: spacing.sm,
   },
-  title: { ...dynamicType(typography.title3Emphasized), color: colors.black },
+  title: { flexShrink: 1, ...dynamicType(typography.title3Emphasized), color: colors.black },
   row: {
     paddingVertical: spacing.md,
     borderBottomWidth: 1,

@@ -1,5 +1,17 @@
 import type { Coordinate } from './api/zones';
-import { sampleAlongPath } from './geo';
+import { haversineMeters, sampleAlongPath } from './geo';
+
+/** Keep the preview routing inputs stable within the live map's 30 m GPS snap range. */
+export function initialNavigationOrigin(live: Coordinate, previewOrigin?: string): Coordinate {
+  if (!previewOrigin) return live;
+  const parts = previewOrigin.split(',');
+  if (parts.length !== 2 || parts.some((part) => !part.trim())) return live;
+  const [latitude, longitude] = parts.map(Number);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+      Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return live;
+  const preview = { latitude, longitude };
+  return haversineMeters(live, preview) <= 30 ? preview : live;
+}
 
 export function stableHash(value: string): string {
   let hash = 2166136261;

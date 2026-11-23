@@ -127,7 +127,7 @@ import {
   pathLengthMeters,
 } from '../lib/geo';
 import { clusterPointZones, regionToRevealCluster } from '../lib/clustering';
-import { matchRouteGeometry, routeGeometryFingerprint } from '../lib/route-identity';
+import { initialNavigationOrigin, matchRouteGeometry, routeGeometryFingerprint } from '../lib/route-identity';
 import {
   ARRIVAL_LIGHT_LABELS,
   DAYLIGHT_DASH_PATTERN,
@@ -377,6 +377,7 @@ export default function EnRoute() {
     destCloudCoverPct?: string;
     /** Geometry identifies the selected route across provider response order changes. */
     destRouteGeometry?: string;
+    destRouteOrigin?: string;
     destRouteRank?: string;
   }>();
   // Zone overlay rendering follows /home — driven by the user's
@@ -672,7 +673,17 @@ export default function EnRoute() {
   // soon as alternatives load so new hazard evidence cannot change that choice.
   const legacyRank = requestedGeometry ? NaN : Number(params.destRouteRank);
   const legacyRoute = Number.isInteger(legacyRank) ? routes[legacyRank] : undefined;
-  const activeRoute = routes.find((route) => route.id === selectedId) ?? legacyRoute ?? recommended;
+  const [initialSelectionPending, setInitialSelectionPending] = useState(true);
+  // A changed provider response can remove the chosen path. Before the first
+  // maneuver, let the driver choose a replacement. Later live reroutes keep
+  // their ordinary recommended-route fallback.
+  const needsRouteChoice = initialSelectionPending && !!requestedGeometry &&
+    !selectedId && routes.length > 0;
+  const activeRoute = routes.find((route) => route.id === selectedId) ?? legacyRoute ??
+    (needsRouteChoice ? undefined : recommended);
+  useEffect(() => {
+    if (activeRoute) setInitialSelectionPending(false);
+  }, [activeRoute]);
   useEffect(() => {
     if (legacyRoute) setPickedGeometry(geometryById.get(legacyRoute.id) ?? null);
   }, [legacyRoute, geometryById]);
@@ -1284,6 +1295,7 @@ export default function EnRoute() {
     // Clear the prior trip before painting its replacement.
     setRawRoutes([]);
     setPickedGeometry(null);
+    setInitialSelectionPending(true);
     setRoutePending(true);
     setRouteSource('mapbox');
     setCacheAgeMs(null);
@@ -1348,7 +1360,8 @@ export default function EnRoute() {
       }
       const needsPreview = !cached;
 
-      const { routes, source, cacheAgeMs: ageMs } = await getRoutesBetween(center, destination);
+      const origin = initialNavigationOrigin(center, params.destRouteOrigin);
+      const { routes, source, cacheAgeMs: ageMs } = await getRoutesBetween(origin, destination);
       if (cancelled) return;
       setRouteScoringDepartureMs(Date.now());
       setRawRoutes(routes);
@@ -1388,7 +1401,7 @@ export default function EnRoute() {
     return () => {
       cancelled = true;
     };
-  }, [params.destLat, params.destLng]);
+  }, [params.destLat, params.destLng, params.destRouteOrigin]);
 
   // Throttled navigation corridor rolls — extend OSM ahead of GPS
   // without replaying the full preview budget each tick.
@@ -1836,6 +1849,7 @@ export default function EnRoute() {
         destLng: String(stop.longitude),
         destName: stop.name,
         destRouteGeometry: undefined,
+        destRouteOrigin: undefined,
         destRouteRank: undefined,
         destEstMinutes: undefined,
         destDistanceMeters: undefined,
@@ -2761,10 +2775,11 @@ export default function EnRoute() {
         onTogglePreferred={handleTogglePreferred}
       />
       <RouteComparisonSheet
-        visible={showComparison}
+        visible={showComparison || needsRouteChoice}
+        title={needsRouteChoice ? 'Route changed. Choose a route' : 'Routes'}
         rows={comparisonRows}
         onSelectRoute={handleSelectRoute}
-        onClose={() => setShowComparison(false)}
+        onClose={() => needsRouteChoice ? router.back() : setShowComparison(false)}
       />
 
       {/*

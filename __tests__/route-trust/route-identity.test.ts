@@ -1,4 +1,4 @@
-import { matchRouteGeometry, routeGeometryFingerprint } from '../../lib/route-identity';
+import { initialNavigationOrigin, matchRouteGeometry, routeGeometryFingerprint } from '../../lib/route-identity';
 
 const start = { latitude: 40.72, longitude: -74 };
 const end = { latitude: 40.72, longitude: -73.98 };
@@ -13,6 +13,25 @@ describe('route selection across the preview and navigation fetches', () => {
       ['osrm-route-1', routeGeometryFingerprint(north)],
     ]);
     expect(matchRouteGeometry(navigation, preview)).toBe('osrm-route-1');
+  });
+
+  test('preserves the selected alternate when the next GPS fix advances 17 m', () => {
+    const advanced = { latitude: start.latitude + 0.00015, longitude: start.longitude };
+    const turn = { latitude: start.latitude + 0.01, longitude: start.longitude };
+    const preview = routeGeometryFingerprint([start, turn, end]);
+    const requestOrigin = initialNavigationOrigin(advanced, `${start.latitude},${start.longitude}`);
+    const candidates = new Map([
+      ['recommended', routeGeometryFingerprint([requestOrigin, end])],
+      ['selected-alternate', routeGeometryFingerprint([requestOrigin, turn, end])],
+    ]);
+    expect(requestOrigin).toEqual(start);
+    expect(matchRouteGeometry(candidates, preview)).toBe('selected-alternate');
+  });
+
+  test('uses the live origin after substantial movement, on older links, and for invalid inputs', () => {
+    for (const origin of [`${end.latitude},${end.longitude}`, undefined, '', ',', 'NaN,-74', '95,200']) {
+      expect(initialNavigationOrigin(start, origin)).toBe(start);
+    }
   });
 
   test('recognizes the same path with additional intermediate vertices', () => {

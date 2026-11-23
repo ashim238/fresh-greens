@@ -42,6 +42,7 @@ const alternate: Route = {
 const destinationName = 'Washington Square Park';
 const props: ComponentProps<typeof RoutePreviewCard> = {
   routes: [route], selectedRoute: route, recommended: route, enabledZones: [],
+  requestOrigin: { latitude: 40.701, longitude: -74.001 },
   params: { destName: destinationName, destLat: String(destination.latitude), destLng: String(destination.longitude) },
   onSelectRoute: jest.fn(), cloudCoverPct: 0, isCalculatingRoute: false, routeFetchSource: 'osrm',
   tripZonesStatus: 'ready', tripZonesFetchFailed: false, tripZonesCorridorComplete: true,
@@ -86,7 +87,7 @@ test('cycling routes updates the displayed road and arrival light before Go star
   await fireEvent.press(screen.getByRole('button', { name: 'Start navigation' }));
   expect(mockPrepare).toHaveBeenCalledWith(expect.objectContaining({ route: alternate }));
   expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({
-    params: expect.objectContaining({ destRouteRank: '1', destArrivalLight: 'After dark' }),
+    params: expect.objectContaining({ destRouteRank: '1', destRouteOrigin: '40.701,-74.001', destArrivalLight: 'After dark' }),
   }));
 });
 
